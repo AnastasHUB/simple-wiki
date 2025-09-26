@@ -1,18 +1,18 @@
 (function(){
   const toggleBtn = document.getElementById('sidebarToggle');
-  const overlay = document.getElementById('drawerOverlay');
+  const overlayHit = document.getElementById('overlayHit');   // zone cliquable à droite
   const links = document.querySelectorAll('#vnav a');
 
-  function openDrawer(){ document.documentElement.classList.add('drawer-open'); }
-  function closeDrawer(){ document.documentElement.classList.remove('drawer-open'); }
+  const openDrawer  = () => document.documentElement.classList.add('drawer-open');
+  const closeDrawer = () => document.documentElement.classList.remove('drawer-open');
 
   if (toggleBtn){
-    toggleBtn.addEventListener('click', function(e){
+    toggleBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      if (document.documentElement.classList.contains('drawer-open')) closeDrawer();
-      else openDrawer();
+      document.documentElement.classList.contains('drawer-open') ? closeDrawer() : openDrawer();
     });
   }
-  overlay && overlay.addEventListener('click', closeDrawer);
+
+  overlayHit && overlayHit.addEventListener('click', closeDrawer);
   links.forEach(a => a.addEventListener('click', closeDrawer));
 })();

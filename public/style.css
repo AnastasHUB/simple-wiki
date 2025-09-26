@@ -26,7 +26,9 @@ html, body{ overflow-x: hidden; }
   backdrop-filter:saturate(140%) blur(8px);
   height: var(--topbar-h);
 }
-.btn.icon.only{ min-width:44px; padding:0 .75rem; display:none; }
+.btn.icon.only{
+  min-width:36px; padding:0 .5rem; font-size:18px; line-height:1; display:none;
+}
 @media (max-width:820px){ .btn.icon.only{ display:inline-flex; } }
 .searchbar{display:flex; gap:10px; flex:1; min-width:200px}
 .searchbar input[type=text]{
@@ -44,8 +46,7 @@ html, body{ overflow-x: hidden; }
   display:inline-flex; align-items:center; justify-content:center; gap:6px;
   min-height:40px; padding:0 .9rem;
   border-radius:10px; border:1px solid var(--border);
-  background:#2a3042; color:var(--text);
-  line-height:1; font-weight:500; cursor:pointer;
+  background:#2a3042; color:#fff; line-height:1; font-weight:500; cursor:pointer;
 }
 .btn:hover{ filter:brightness(1.06) }
 .btn.success{ background:linear-gradient(180deg,#7df5b3,var(--success)); color:#0a1712; border:0; }
@@ -57,24 +58,26 @@ html, body{ overflow-x: hidden; }
 .shell{
   display:flex; width:100%;
   min-height:calc(100vh - var(--topbar-h));
+  /* en desktop on bascule sur padding-left via patch plus bas */
   margin-left:var(--sidebar-w);
   padding-top:10px;
 }
 .sidebar{
   position:fixed; left:0; top:var(--topbar-h);
-  width:var(--sidebar-w); height:calc(100vh - var(--topbar-h));
+  width:var(--sidebar-w);
+  height:calc(100vh - var(--topbar-h));
   overflow-y:auto;
   background:linear-gradient(180deg,var(--surface),#151827);
   border-right:1px solid var(--border);
   padding:18px 14px;
   transition:transform .25s ease;
-  z-index:2500;
-  pointer-events:auto;
-  transform: translateX(-100%);     /* fermé par défaut en mobile */
-  will-change: transform;
+  z-index:2500; pointer-events:auto; transform:none; will-change: transform;
 }
 .brand{display:flex; align-items:center; gap:.6rem; margin-bottom:12px}
-.brand img{height:34px; width:auto; border-radius:8px}
+.sidebar .brand img{
+  height:40px !important; width:auto !important; max-width:180px !important;
+  object-fit:contain !important; display:block !important; border-radius:6px !important;
+}
 .brand-name{font-weight:800}
 
 /* Sidebar nav */
@@ -96,15 +99,21 @@ html, body{ overflow-x: hidden; }
 .content > * + *{ margin-top:32px }
 
 /* === CARDS & LISTES === */
-.article-grid{ display:flex; flex-direction:column; gap:20px }
+.article-grid{ display:flex; flex-direction:column; gap:16px; max-width:100%; min-width:0; }
 .card{
-  width:100%; padding:18px; border-radius:14px;
+  display:block !important;
+  width:100% !important; max-width:100% !important; min-width:0 !important;
+  padding:16px; border-radius:14px;
   background:var(--card); border:1px solid var(--border);
-  line-height:1.8; max-width:100%;
+  line-height:1.8;
+  overflow:hidden !important;
+  overflow-wrap:anywhere !important; word-break:break-word !important;
 }
 .card h3{ font-size:1.2rem; margin:0 0 8px }
 .card p{ font-size:1rem; margin:0 0 12px }
-.card .actions{ display:flex; gap:12px; flex-wrap:wrap }
+.card .actions, .page-header .actions{ display:flex; flex-wrap:wrap; gap:10px; }
+.card .actions .btn, .page-header .actions .btn{ min-width:0; }
+.card *{ min-width:0 !important; }
 
 /* Tags */
 .tags-row{ display:flex; flex-wrap:wrap; gap:10px; margin:10px 0 12px }
@@ -119,7 +128,7 @@ label{ display:block; margin:.65rem 0 .35rem; color: var(--muted) }
 textarea, input[type=text], input[type=password], input[type=url], input[type=email], select{
   width:100%; padding:.75rem 1rem;
   border:1px solid var(--border); border-radius:12px;
-  background:#121521; color:#e7eaf0;
+  background:#121521; color:#e7eaf0; max-width:100%;
 }
 textarea:focus, input:focus, select:focus{
   outline:none; border-color:var(--primary);
@@ -128,7 +137,7 @@ textarea:focus, input:focus, select:focus{
 form .actions{ margin-top:14px; gap:12px }
 
 /* === PAGE ARTICLE === */
-.page-header{ margin-bottom:24px; display:flex; justify-content:space-between; align-items:flex-start; gap:16px }
+.page-header{ margin-bottom:24px; display:flex; flex-wrap:wrap; align-items:flex-start; gap:12px }
 .page-title{ margin:0; font-size:1.7rem; line-height:1.2 }
 .page-header .meta{ color:var(--muted); display:flex; gap:10px; flex-wrap:wrap }
 .prose{ margin-bottom:24px; line-height:1.9 }
@@ -151,7 +160,9 @@ form .actions{ margin-top:14px; gap:12px }
 .data-table tbody tr:hover{ background:#151a26 }
 .data-table tbody tr:last-child td{ border-bottom: none; }
 
-img, pre, code, .prose, .card, .tags-row{ max-width:100%; overflow-x:auto; word-break:break-word; }
+img, video, iframe{ max-width:100% !important; height:auto !important; display:block !important; }
+pre{ overflow:auto !important; white-space:pre-wrap !important; }
+code{ word-break:break-word !important; }
 
 /* === FOOTER === */
 .site-footer{
@@ -162,34 +173,60 @@ img, pre, code, .prose, .card, .tags-row{ max-width:100%; overflow-x:auto; word-
   color:var(--muted);
 }
 
-/* === Drawer & Overlay (mobile) — overlay décalé à droite de la sidebar === */
+/* === Overlay === */
 .drawer-overlay{
-  position:fixed;
-  top:var(--topbar-h); bottom:0; right:0;
-  left: var(--sidebar-w);                /* ne couvre jamais la sidebar */
+  position:fixed; top:var(--topbar-h); right:0; bottom:0; left:0;
+  z-index:2000; pointer-events:none;
+}
+.drawer-overlay .overlay-hit{
+  position:absolute; top:0; right:0; bottom:0; left:0;
   background:rgba(0,0,0,.45);
-  opacity:0; pointer-events:none;
-  transition:opacity .25s ease;
-  z-index:2000;                           /* < sidebar */
+  opacity:0; pointer-events:none; transition:opacity .25s ease; display:none;
 }
 
+/* === Mobile: sidebar tiroir === */
 @media (max-width:820px){
   .shell{ margin-left:0 }
-  .sidebar{
-    position:fixed; left:0; top:var(--topbar-h);
-    height:calc(100vh - var(--topbar-h));
-    transform:translateX(-100%);
-    box-shadow:8px 0 24px rgba(0,0,0,.35);
-  }
+  .sidebar{ transform:translateX(-100%); box-shadow:8px 0 24px rgba(0,0,0,.35); }
   html.drawer-open .sidebar{ transform:translateX(0) !important; }
-  html.drawer-open .drawer-overlay{
+  .drawer-overlay .overlay-hit{ display:block; }
+  html.drawer-open .drawer-overlay .overlay-hit{
+    left: var(--sidebar-w); width: calc(100vw - var(--sidebar-w));
     opacity:1; pointer-events:auto;
-    left: var(--sidebar-w);               /* zone cliquable = droite seulement */
-    width: calc(100vw - var(--sidebar-w));
   }
   .site-footer{ margin-left:0 }
-  .content{ padding:18px }
+  .content{ padding:16px }
 }
 
-/* Sécurité: aucun parent ne crée un stacking context gênant */
-.shell, .content { position: static; z-index: auto; }
+/* === FIX GLOBAL anti-débordement === */
+.shell, .content, .article-grid, .card { min-width:0 !important; max-width:100% !important; overflow-x:hidden !important; }
+.card * { min-width:0 !important; max-width:100% !important; }
+input[type=text],input[type=password],input[type=url],input[type=email],select,textarea{
+  max-width:100% !important; width:100% !important; box-sizing:border-box; overflow-x:hidden;
+}
+pre, code { max-width:100% !important; overflow-x:auto !important; white-space:pre-wrap !important; }
+
+/* === PATCH DESKTOP: anti-débordement (root cause) === */
+@media (min-width:821px){
+  html, body, .shell{ overflow-x:hidden !important; }
+  /* Réserve la place de la sidebar sans élargir la page */
+  .shell{
+    margin-left:0 !important;
+    padding-left:var(--sidebar-w) !important;
+    width:100vw !important;
+    box-sizing:border-box !important;
+  }
+  .content{
+    width:100% !important;
+    max-width:100% !important;
+  }
+  .site-footer{
+    margin-left:0 !important;
+    padding-left:var(--sidebar-w) !important;
+    box-sizing:border-box !important;
+  }
+  /* Tables et médias ne forcent pas l’élargissement */
+  .table-wrap{ max-width:100% !important; overflow-x:auto !important; }
+  .data-table{ width:100% !important; max-width:100% !important; table-layout:fixed !important; min-width:0 !important; }
+  .data-table th, .data-table td{ white-space:nowrap; text-overflow:ellipsis; overflow:hidden; }
+}

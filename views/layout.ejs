@@ -42,8 +42,10 @@
     </nav>
   </aside>
 
-  <!-- Overlay APRES sidebar -->
-  <div class="drawer-overlay" id="drawerOverlay"></div>
+  <!-- Overlay APRES sidebar, avec zone cliquable à droite uniquement -->
+  <div class="drawer-overlay" id="drawerOverlay">
+    <div class="overlay-hit" id="overlayHit"></div>
+  </div>
 
   <main class="content"><%- body %></main>
 </div>
