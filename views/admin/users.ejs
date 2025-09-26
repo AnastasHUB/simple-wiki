@@ -1,0 +1,26 @@
+<% title='Utilisateurs'; %>
+<h1>Utilisateurs (admins uniquement)</h1>
+<form method="post" class="card">
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <input type="text" name="username" placeholder="nouvel admin" required />
+    <input type="password" name="password" placeholder="mot de passe" required />
+    <button class="btn success">Ajouter</button>
+  </div>
+</form>
+<table class="data-table">
+  <thead><tr><th>ID</th><th>Nom</th><th>Admin</th><th></th></tr></thead>
+  <tbody>
+  <% users.forEach(u=>{ %>
+    <tr>
+      <td><%= u.id %></td>
+      <td><%= u.username %></td>
+      <td>Oui</td>
+      <td>
+        <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
+          <button class="btn">Supprimer</button>
+        </form>
+      </td>
+    </tr>
+  <% }) %>
+  </tbody>
+</table>

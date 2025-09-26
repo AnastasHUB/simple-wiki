@@ -1,0 +1,13 @@
+<% title = page ? 'Éditer' : 'Nouvelle page'; %>
+<h1><%= title %></h1>
+<form method="post">
+  <label>Titre</label>
+  <input type="text" name="title" value="<%= page ? page.title : '' %>" required />
+  <label>Contenu (liens [[internes]])</label>
+  <textarea name="content" rows="18" required><%= page ? page.content : '' %></textarea>
+  <label>Tags (séparés par des virgules)</label>
+  <input type="text" name="tags" value="<%= tags %>" />
+  <div class="actions">
+    <button class="btn success">Enregistrer</button>
+  </div>
+</form>

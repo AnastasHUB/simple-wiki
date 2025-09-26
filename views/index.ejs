@@ -1,0 +1,61 @@
+<% title = 'Accueil'; %>
+<h1>Derniers articles (≤ 7 jours)</h1>
+<div class="article-grid">
+  <% if (recent.length === 0) { %><div class="card">Aucun article récent.</div><% } %>
+  <% recent.forEach(p => { const tags = (p.tagsCsv||'').split(',').filter(Boolean); %>
+    <div class="card">
+      <h3><strong><%= p.title %></strong></h3>
+      <p><%= p.excerpt %>…</p>
+      <% if (tags.length) { %>
+        <div class="tags-row">
+          <% tags.forEach(t => { %><a class="tag" href="/tags/<%= t %>"><%= t %></a><% }) %>
+        </div>
+      <% } %>
+      <div class="actions">
+        <a class="btn success" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <form action="/wiki/<%= p.slug_id %>/like" method="post">
+          <% if (p.userLiked) { %>
+            <button class="btn unlike">❌ Retirer (<%= p.likes %>)</button>
+          <% } else { %>
+            <button class="btn like">👍 Like (<%= p.likes %>)</button>
+          <% } %>
+        </form>
+        <button class="btn copy" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
+      </div>
+      <small>Publié: <%= p.created_at %></small>
+    </div>
+  <% }) %>
+</div>
+
+<h2>Articles</h2>
+<div class="article-grid">
+  <% rows.forEach(p => { const tags = (p.tagsCsv||'').split(',').filter(Boolean); %>
+    <div class="card">
+      <h3><strong><%= p.title %></strong></h3>
+      <p><%= p.excerpt %>…</p>
+      <% if (tags.length) { %>
+        <div class="tags-row">
+          <% tags.forEach(t => { %><a class="tag" href="/tags/<%= t %>"><%= t %></a><% }) %>
+        </div>
+      <% } %>
+      <div class="actions">
+        <a class="btn success" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <form action="/wiki/<%= p.slug_id %>/like" method="post">
+          <% if (p.userLiked) { %>
+            <button class="btn unlike">❌ Retirer (<%= p.likes %>)</button>
+          <% } else { %>
+            <button class="btn like">👍 Like (<%= p.likes %>)</button>
+          <% } %>
+        </form>
+        <button class="btn copy" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
+      </div>
+      <small>Publié: <%= p.created_at %></small>
+    </div>
+  <% }) %>
+</div>
+
+<div class="actions">
+  <% if (page > 1) { %><a class="btn" href="/?page=<%= page-1 %>">Précédent</a><% } %>
+  <span>Page <%= page %> / <%= totalPages %></span>
+  <% if (page < totalPages) { %><a class="btn" href="/?page=<%= page+1 %>">Suivant</a><% } %>
+</div>

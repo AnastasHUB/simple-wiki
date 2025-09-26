@@ -1,0 +1,15 @@
+<% title='Paramètres'; %>
+<h1>Paramètres</h1>
+<form method="post" class="card">
+  <label>Nom du wiki</label>
+  <input type="text" name="wiki_name" value="<%= s.wiki_name %>" />
+  <label>Logo URL</label>
+  <input type="url" name="logo_url" value="<%= s.logo_url %>" />
+  <label>Discord Webhook Admin</label>
+  <input type="url" name="admin_webhook_url" value="<%= s.admin_webhook_url %>" />
+  <label>Discord Webhook Feed</label>
+  <input type="url" name="feed_webhook_url" value="<%= s.feed_webhook_url %>" />
+  <label>Pied de page</label>
+  <input type="text" name="footer_text" value="<%= s.footer_text %>" />
+  <div class="actions"><button class="btn success">Enregistrer</button></div>
+</form>

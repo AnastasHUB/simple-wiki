@@ -1,0 +1,43 @@
+<% title='Likes'; %>
+<h1>Likes par IP</h1>
+<div class="card">
+  <div class="table-tools">
+    <input id="likeFilter" type="text" placeholder="Filtrer IP ou titre…" />
+  </div>
+  <div class="table-wrap">
+  <table class="data-table" id="likesTable">
+    <thead>
+      <tr>
+        <th>IP</th>
+        <th>Article</th>
+        <th>Date</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% rows.forEach(r=>{ %>
+        <tr>
+          <td><code><%= r.ip %></code></td>
+          <td><a href="/wiki/<%= r.slug_id %>"><%= r.title %></a></td>
+          <td><%= r.created_at %></td>
+          <td>
+            <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm('Retirer ce like ?')">
+              <button class="btn unlike">❌ Retirer</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+  </div>
+</div>
+<script>
+document.getElementById('likeFilter').addEventListener('input', function(){
+  const q = this.value.toLowerCase();
+  const rows = document.querySelectorAll('#likesTable tbody tr');
+  rows.forEach(tr => {
+    const txt = tr.innerText.toLowerCase();
+    tr.style.display = txt.includes(q) ? '' : 'none';
+  });
+});
+</script>

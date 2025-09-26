@@ -1,0 +1,14 @@
+<% title = 'Connexion'; %>
+<h1>Connexion</h1>
+<% if (typeof error !== 'undefined') { %>
+  <div class="card"><%= error %></div>
+<% } %>
+<form method="post" action="/login">
+  <label>Utilisateur</label>
+  <input type="text" name="username" required />
+  <label>Mot de passe</label>
+  <input type="password" name="password" required />
+  <div class="actions">
+    <button class="btn success">Se connecter</button>
+  </div>
+</form>
