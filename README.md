@@ -1,5 +1,5 @@
-npm i 
-npm i sqlite
-npm start
+<p>npm i</p> 
+<p>npm i sqlite</p> 
+<p>npm start</p> 
 
-default admin is admin / admin
+<p>default admin is admin / admin</p> 
