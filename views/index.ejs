@@ -19,9 +19,9 @@
         <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post">
           <% if (p.userLiked) { %>
-            <button class="btn unlike">❌ Retirer (<%= p.likes %>)</button>
+            <button class="btn unlike" data-icon="💔">Retirer (<%= p.likes %>)</button>
           <% } else { %>
-            <button class="btn like">👍 Like (<%= p.likes %>)</button>
+            <button class="btn like" data-icon="💖">Like (<%= p.likes %>)</button>
           <% } %>
         </form>
         <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
@@ -59,9 +59,9 @@
         <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post">
           <% if (p.userLiked) { %>
-            <button class="btn unlike">❌ Retirer (<%= p.likes %>)</button>
+            <button class="btn unlike" data-icon="💔">Retirer (<%= p.likes %>)</button>
           <% } else { %>
-            <button class="btn like">👍 Like (<%= p.likes %>)</button>
+            <button class="btn like" data-icon="💖">Like (<%= p.likes %>)</button>
           <% } %>
         </form>
         <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
