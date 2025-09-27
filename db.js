@@ -34,6 +34,20 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
+  CREATE TABLE IF NOT EXISTS page_views(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    ip TEXT,
+    viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_page_views_page ON page_views(page_id);
+  CREATE INDEX IF NOT EXISTS idx_page_views_page_date ON page_views(page_id, viewed_at);
+  CREATE TABLE IF NOT EXISTS page_view_daily(
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    views INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY(page_id, day)
+  );
   CREATE TABLE IF NOT EXISTS tags(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL
@@ -90,6 +104,14 @@ export function randSlugId(base) {
   return `${base}-${id}`;
 }
 
-export async function incrementView(_id) {
-  /* no-op placeholder for future */
+export async function incrementView(pageId, ip = null) {
+  if (!pageId) return;
+  try {
+    await run("INSERT INTO page_views(page_id, ip) VALUES(?, ?)", [
+      pageId,
+      ip || null,
+    ]);
+  } catch (err) {
+    console.error("Unable to record page view", err);
+  }
 }

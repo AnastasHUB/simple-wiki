@@ -1,0 +1,44 @@
+<% title='Statistiques'; %>
+<h1>Statistiques de consultation</h1>
+
+<section class="card" style="margin-bottom:24px;">
+  <h2>Résumé global</h2>
+  <p>
+    <strong><%= totalViews %></strong> vue(s) enregistrée(s) sur l'ensemble du wiki.
+  </p>
+  <p style="font-size:0.9em; color:#555;">
+    Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
+  </p>
+</section>
+
+<% periods.forEach(period => { const rows = stats[period.key] || []; %>
+  <section class="card" style="margin-bottom:24px;">
+    <h2><%= period.label %></h2>
+    <% if (!rows.length) { %>
+      <p>Aucune donnée disponible pour cette période.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Article</th>
+              <th>Slug</th>
+              <th>Vues</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((row, idx) => { %>
+              <tr>
+                <td><%= idx + 1 %></td>
+                <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
+                <td><code><%= row.slug_id %></code></td>
+                <td><strong><%= row.views %></strong></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </section>
+<% }) %>
