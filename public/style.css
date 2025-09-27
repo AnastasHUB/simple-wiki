@@ -57,18 +57,6 @@ body {
   backdrop-filter: saturate(140%) blur(8px);
   height: var(--topbar-h);
 }
-.btn.icon.only {
-  min-width: 36px;
-  padding: 0 0.5rem;
-  font-size: 18px;
-  line-height: 1;
-  display: none;
-}
-@media (max-width: 820px) {
-  .btn.icon.only {
-    display: inline-flex;
-  }
-}
 .searchbar {
   display: flex;
   gap: 10px;
@@ -225,6 +213,12 @@ body {
 .btn.icon.only::after,
 .btn.icon.only::before {
   content: none;
+}
+
+@media (max-width: 820px) {
+  .btn.icon.only {
+    display: inline-flex;
+  }
 }
 
 /* === LAYOUT === */
