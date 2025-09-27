@@ -148,7 +148,15 @@ form .actions{ margin-top:14px; gap:12px }
 .prose p{ margin:.7em 0 }
 .prose ul,.prose ol{ padding-left:1.2em; margin:.7em 0 }
 .prose blockquote{ margin:.8em 0; padding:.6em 1em; border-left:3px solid var(--border); background:#111726; border-radius:8px }
-.prose img{ max-width:100%; height:auto; border-radius:8px }
+.prose img{
+  width:100%;
+  max-width: min(100%, 720px);
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius:8px;
+  display:block;
+  margin: 16px auto;
+}
 .prose code{ background:#0c0f18; border:1px solid #242a3a; padding:.1rem .35rem; border-radius:6px }
 .prose pre{ margin:.8em 0 }
 
