@@ -159,17 +159,19 @@ body {
   opacity: 0.2;
   transform: scale(1);
 }
-.btn[data-icon]::before {
-  content: attr(data-icon);
+.btn .btn-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1.15rem;
   margin-right: 0.45rem;
   filter: drop-shadow(0 4px 8px rgba(15, 17, 21, 0.3));
   transition: transform 220ms ease;
 }
-.btn[data-icon]:hover::before {
+.btn:hover .btn-icon {
   transform: translateY(-1px) scale(1.08);
 }
-.btn[data-icon]:active::before {
+.btn:active .btn-icon {
   transform: translateY(0) scale(0.94);
 }
 .btn.secondary {

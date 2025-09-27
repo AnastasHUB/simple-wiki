@@ -8,16 +8,25 @@
   <div class="html-editor-shell">
     <div class="html-editor-toolbar" id="editorToolbar">
       <span class="ql-formats">
+        <select class="ql-header" aria-label="Niveau de titre">
+          <option selected></option>
+          <option value="2">Titre moyen</option>
+          <option value="3">Sous-titre</option>
+        </select>
         <button class="ql-bold" aria-label="Gras"></button>
         <button class="ql-italic" aria-label="Italique"></button>
         <button class="ql-underline" aria-label="Souligné"></button>
+        <button class="ql-strike" aria-label="Barré"></button>
       </span>
       <span class="ql-formats">
         <button class="ql-list" value="ordered" aria-label="Liste numérotée"></button>
         <button class="ql-list" value="bullet" aria-label="Liste à puces"></button>
+        <button class="ql-blockquote" aria-label="Bloc de citation"></button>
+        <button class="ql-code-block" aria-label="Bloc de code"></button>
       </span>
       <span class="ql-formats">
         <button class="ql-link" aria-label="Insérer un lien"></button>
+        <button class="ql-image" aria-label="Insérer une image"></button>
         <button class="ql-clean" aria-label="Effacer la mise en forme"></button>
       </span>
     </div>
@@ -35,7 +44,7 @@
   <label>Tags (séparés par des virgules)</label>
   <input type="text" name="tags" value="<%= tags %>" />
   <div class="actions">
-    <button class="btn success" data-icon="💾">Enregistrer</button>
+    <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
   </div>
 </form>
 

@@ -23,8 +23,28 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   initNotifications();
+  enhanceIconButtons();
   initHtmlEditor();
 });
+
+function enhanceIconButtons() {
+  document.querySelectorAll(".btn[data-icon]").forEach((btn) => {
+    if (btn.querySelector(".btn-icon")) {
+      return;
+    }
+
+    const icon = btn.getAttribute("data-icon");
+    if (!icon) {
+      return;
+    }
+
+    const iconSpan = document.createElement("span");
+    iconSpan.className = "btn-icon";
+    iconSpan.setAttribute("aria-hidden", "true");
+    iconSpan.textContent = icon;
+    btn.prepend(iconSpan);
+  });
+}
 
 function initNotifications() {
   const layer = document.getElementById("notificationLayer");
@@ -134,6 +154,7 @@ function initHtmlEditor() {
 
   if (!window.Quill) {
     field.hidden = false;
+    field.removeAttribute("hidden");
     container.style.display = "none";
     const toolbar = toolbarSelector ? document.querySelector(toolbarSelector) : null;
     if (toolbar) {
@@ -142,7 +163,14 @@ function initHtmlEditor() {
     return;
   }
 
-  const options = { theme: "snow", modules: {} };
+  const options = {
+    theme: "snow",
+    modules: {
+      clipboard: {
+        matchVisual: false,
+      },
+    },
+  };
   if (toolbarSelector) {
     options.modules.toolbar = toolbarSelector;
   }
@@ -153,10 +181,24 @@ function initHtmlEditor() {
     quill.clipboard.dangerouslyPasteHTML(initialValue);
   }
 
+  const syncField = () => {
+    const html = quill.root.innerHTML.trim();
+    const text = quill.getText().trim();
+    if (!text) {
+      field.value = "";
+    } else {
+      field.value = html;
+    }
+  };
+
+  syncField();
+
+  quill.on("text-change", syncField);
+
   const form = field.form;
   if (form) {
     form.addEventListener("submit", () => {
-      field.value = quill.root.innerHTML.trim();
+      syncField();
     });
   }
 }
