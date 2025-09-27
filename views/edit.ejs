@@ -11,3 +11,77 @@
     <button class="btn success">Enregistrer</button>
   </div>
 </form>
+
+<% const uploadList = uploads || []; %>
+<div class="card" style="margin-top:16px">
+  <h2>Images</h2>
+  <p style="margin-top:8px">Gérez vos fichiers depuis l'onglet <strong>Admin &gt; Images</strong>, puis insérez-les avec le code <code>&lt;img src="…" alt="" /&gt;</code>.</p>
+
+  <h3 style="margin-top:16px">Images déjà envoyées</h3>
+  <div id="uploadsList" class="uploads-grid" style="display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); margin-top:12px">
+    <% uploadList.forEach(file => { %>
+      <% const displayName = file.displayName || ''; %>
+      <% const originalName = file.originalName || file.name; %>
+      <% const uuid = file.id || (file.name ? file.name.split('.')[0] : file.name); %>
+      <div class="upload-item card" data-url="<%= file.url %>" data-alt="<%= displayName %>" style="padding:12px; display:flex; flex-direction:column; gap:8px">
+        <div style="text-align:center">
+          <img src="<%= file.url %>" alt="" style="max-width:100%; max-height:120px; object-fit:contain" />
+        </div>
+        <div style="font-size:0.9em; line-height:1.4">
+          <div><strong>UUID :</strong> <code><%= uuid %></code></div>
+          <div><strong>Nom affiché :</strong> <span class="upload-display" style="color:<%= displayName ? 'inherit' : 'var(--muted)' %>"><%= displayName || '—' %></span></div>
+          <div><strong>Nom original :</strong> <span><%= originalName %></span></div>
+        </div>
+        <code class="upload-snippet"></code>
+        <button class="btn copy-upload" type="button">Copier le code</button>
+      </div>
+    <% }) %>
+  </div>
+  <% if (!uploadList.length) { %>
+    <p id="uploadsEmptyMessage" style="margin-top:12px; color:var(--muted)">Aucune image envoyée pour le moment.</p>
+  <% } %>
+</div>
+
+<script>
+  const uploadsList = document.getElementById('uploadsList');
+
+  function buildSnippet(url, alt) {
+    const img = document.createElement('img');
+    img.src = url;
+    if (alt) {
+      img.alt = alt;
+    }
+    return img.outerHTML;
+  }
+
+  function enhanceUploadItem(item) {
+    if (!item) return;
+    const url = item.dataset.url;
+    const alt = item.dataset.alt || '';
+    const snippet = buildSnippet(url, alt);
+    const code = item.querySelector('.upload-snippet');
+    if (code) {
+      code.textContent = snippet;
+    }
+    const button = item.querySelector('.copy-upload');
+    if (button) {
+      button.dataset.snippet = snippet;
+    }
+  }
+
+  if (uploadsList) {
+    uploadsList.querySelectorAll('.upload-item').forEach(enhanceUploadItem);
+  }
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('.copy-upload');
+    if (!button) return;
+    const snippet = button.dataset.snippet;
+    navigator.clipboard.writeText(snippet).then(() => {
+      button.textContent = 'Copié !';
+      setTimeout(() => {
+        button.textContent = 'Copier le code';
+      }, 1500);
+    });
+  });
+</script>
