@@ -65,7 +65,7 @@ r.use(requireAdmin);
 
 r.get("/comments", async (req, res) => {
   const pending = await all(
-    `SELECT c.id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
+    `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
@@ -73,7 +73,7 @@ r.get("/comments", async (req, res) => {
       ORDER BY c.created_at ASC`,
   );
   const recent = await all(
-    `SELECT c.id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
+    `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
@@ -88,10 +88,10 @@ r.get("/comments", async (req, res) => {
 
 r.post("/comments/:id/approve", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.status, c.ip, p.title, p.slug_id
+    `SELECT c.id, c.snowflake_id, c.status, c.ip, p.title, p.slug_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE c.id=?`,
+      WHERE c.snowflake_id=?`,
     [req.params.id],
   );
   if (!comment) {
@@ -108,17 +108,17 @@ r.post("/comments/:id/approve", async (req, res) => {
   };
   await sendAdminEvent("Commentaire approuvé", {
     page: comment,
-    extra: { ip: comment.ip, commentId: comment.id },
+    extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   res.redirect("/admin/comments");
 });
 
 r.post("/comments/:id/reject", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.status, c.ip, p.title, p.slug_id
+    `SELECT c.id, c.snowflake_id, c.status, c.ip, p.title, p.slug_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE c.id=?`,
+      WHERE c.snowflake_id=?`,
     [req.params.id],
   );
   if (!comment) {
@@ -135,17 +135,17 @@ r.post("/comments/:id/reject", async (req, res) => {
   };
   await sendAdminEvent("Commentaire rejeté", {
     page: comment,
-    extra: { ip: comment.ip, commentId: comment.id },
+    extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   res.redirect("/admin/comments");
 });
 
 r.delete("/comments/:id", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.ip, p.title, p.slug_id
+    `SELECT c.id, c.snowflake_id, c.ip, p.title, p.slug_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE c.id=?`,
+      WHERE c.snowflake_id=?`,
     [req.params.id],
   );
   if (!comment) {
@@ -162,14 +162,14 @@ r.delete("/comments/:id", async (req, res) => {
   };
   await sendAdminEvent("Commentaire supprimé", {
     page: comment,
-    extra: { ip: comment.ip, commentId: comment.id },
+    extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   res.redirect("/admin/comments");
 });
 
 r.get("/ip-bans", async (req, res) => {
   const bans = await all(
-    `SELECT id, ip, scope, value, reason, created_at, lifted_at
+    `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
        FROM ip_bans
       ORDER BY created_at DESC
       LIMIT 200`,
@@ -210,13 +210,13 @@ r.post("/ip-bans", async (req, res) => {
     scope = "action";
     value = scopeInput;
   }
-  await banIp({ ip, scope, value, reason: reason || null });
+  const banId = await banIp({ ip, scope, value, reason: reason || null });
   req.session.ipBanNotice = {
     type: "success",
     message: "Blocage enregistré.",
   };
   await sendAdminEvent("IP bannie", {
-    extra: { ip, scope, value, reason: reason || null },
+    extra: { id: banId, ip, scope, value, reason: reason || null },
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
@@ -224,7 +224,7 @@ r.post("/ip-bans", async (req, res) => {
 
 r.post("/ip-bans/:id/lift", async (req, res) => {
   const ban = await get(
-    "SELECT ip, scope, value FROM ip_bans WHERE id=?",
+    "SELECT snowflake_id, ip, scope, value FROM ip_bans WHERE snowflake_id=?",
     [req.params.id],
   );
   await liftBan(req.params.id);
@@ -233,7 +233,12 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
     message: "Blocage levé.",
   };
   await sendAdminEvent("IP débannie", {
-    extra: { id: req.params.id, ip: ban?.ip || null, scope: ban?.scope, value: ban?.value },
+    extra: {
+      id: req.params.id,
+      ip: ban?.ip || null,
+      scope: ban?.scope,
+      value: ban?.value,
+    },
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
@@ -303,6 +308,27 @@ r.get("/stats", async (_req, res) => {
      GROUP BY COALESCE(author, 'Anonyme')
      ORDER BY comments DESC
      LIMIT 15`);
+  const topCommentedPages = await all(`
+    SELECT p.title, p.slug_id, COUNT(*) AS comments
+      FROM comments c
+      JOIN pages p ON p.id = c.page_id
+     WHERE c.status='approved'
+     GROUP BY c.page_id
+     ORDER BY comments DESC, p.title ASC
+     LIMIT 15`);
+  const tagUsage = await all(`
+    SELECT t.name, COUNT(*) AS pages
+      FROM page_tags pt
+      JOIN tags t ON t.id = pt.tag_id
+     GROUP BY pt.tag_id
+     ORDER BY pages DESC, t.name ASC
+     LIMIT 20`);
+  const commentTimeline = await all(`
+    SELECT strftime('%Y-%m-%d', created_at) AS day, COUNT(*) AS comments
+      FROM comments
+     GROUP BY day
+     ORDER BY day DESC
+     LIMIT 30`);
   const activeIps = await all(`
     SELECT ip, COUNT(*) AS views
       FROM page_views
@@ -310,6 +336,9 @@ r.get("/stats", async (_req, res) => {
      GROUP BY ip
      ORDER BY views DESC
      LIMIT 25`);
+  const uniqueIps = await get(
+    "SELECT COUNT(DISTINCT ip) AS total FROM page_views WHERE ip IS NOT NULL AND ip <> ''",
+  );
   const ipViewsByPage = await all(`
     SELECT pv.ip, p.title, p.slug_id, COUNT(*) AS views
       FROM page_views pv
@@ -335,9 +364,13 @@ r.get("/stats", async (_req, res) => {
       commentByStatus,
       activeBans: banCount?.count || 0,
       events: eventCount?.count || 0,
+      uniqueIps: uniqueIps?.total || 0,
     },
     topLikedPages,
     topCommenters,
+    topCommentedPages,
+    tagUsage,
+    commentTimeline,
     activeIps,
     ipViewsByPage,
   });
@@ -372,7 +405,7 @@ r.get("/pages/export", async (_req, res) => {
       JOIN pages p ON p.id = l.page_id
      ORDER BY l.created_at ASC`);
   const comments = await all(`
-    SELECT c.id, c.page_id, p.slug_id, c.author, c.body, c.status, c.created_at, c.updated_at, c.ip
+    SELECT c.snowflake_id AS id, c.page_id, p.slug_id, c.author, c.body, c.status, c.created_at, c.updated_at, c.ip
       FROM comments c
       JOIN pages p ON p.id = c.page_id
      ORDER BY c.created_at ASC`);
@@ -384,7 +417,7 @@ r.get("/pages/export", async (_req, res) => {
   const aggregatedViews = await all(`
     SELECT page_id, day, views FROM page_view_daily ORDER BY day ASC`);
   const ipBans = await all(
-    "SELECT id, ip, scope, value, reason, created_at, lifted_at FROM ip_bans ORDER BY created_at ASC",
+    "SELECT snowflake_id AS id, ip, scope, value, reason, created_at, lifted_at FROM ip_bans ORDER BY created_at ASC",
   );
   const events = await all(
     "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at ASC",

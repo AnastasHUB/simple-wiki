@@ -15,6 +15,7 @@ import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { listUploads } from "../utils/uploads.js";
 import { getClientIp } from "../utils/ip.js";
 import { isIpBanned } from "../utils/ipBans.js";
+import { generateSnowflake } from "../utils/snowflake.js";
 
 const r = Router();
 
@@ -152,10 +153,10 @@ r.get("/wiki/:slugid", async (req, res) => {
   await incrementView(page.id, ip);
   page.views = Number(page.views || 0) + 1;
   const comments = await all(
-    `SELECT id, author, body, created_at, updated_at
-     FROM comments
-     WHERE page_id=? AND status='approved'
-     ORDER BY created_at ASC`,
+    `SELECT id AS legacy_id, snowflake_id, author, body, created_at, updated_at
+      FROM comments
+      WHERE page_id=? AND status='approved'
+      ORDER BY created_at ASC`,
     [page.id],
   );
   let commentFeedback = null;
@@ -164,7 +165,21 @@ r.get("/wiki/:slugid", async (req, res) => {
     delete req.session.commentFeedback;
   }
   const html = linkifyInternal(page.content);
-  const ownCommentTokens = req.session.commentTokens || {};
+  const tokens = req.session.commentTokens || {};
+  const ownCommentTokens = {};
+  for (const comment of comments) {
+    if (!comment.snowflake_id) continue;
+    if (tokens[comment.snowflake_id]) {
+      ownCommentTokens[comment.snowflake_id] = tokens[comment.snowflake_id];
+      continue;
+    }
+    if (comment.legacy_id && tokens[comment.legacy_id]) {
+      const token = tokens[comment.legacy_id];
+      ownCommentTokens[comment.snowflake_id] = token;
+      tokens[comment.snowflake_id] = token;
+      delete tokens[comment.legacy_id];
+    }
+  }
   res.render("page", {
     page,
     html,
@@ -237,15 +252,19 @@ r.post("/wiki/:slugid/comments", async (req, res) => {
   }
 
   const token = randomUUID();
-  const result = await run(
-    "INSERT INTO comments(page_id, author, body, ip, edit_token) VALUES(?,?,?,?,?)",
-    [page.id, author || null, body, ip || null, token],
+  const commentSnowflake = generateSnowflake();
+  const insertResult = await run(
+    "INSERT INTO comments(snowflake_id, page_id, author, body, ip, edit_token) VALUES(?,?,?,?,?,?)",
+    [commentSnowflake, page.id, author || null, body, ip || null, token],
   );
 
   if (!req.session.commentTokens) {
     req.session.commentTokens = {};
   }
-  req.session.commentTokens[result.lastID] = token;
+  req.session.commentTokens[commentSnowflake] = token;
+  if (insertResult?.lastID) {
+    req.session.commentTokens[insertResult.lastID] = token;
+  }
 
   req.session.lastCommentAt = now;
   req.session.commentFeedback = {
@@ -258,7 +277,7 @@ r.post("/wiki/:slugid/comments", async (req, res) => {
   await sendAdminEvent("Nouveau commentaire", {
     page,
     comment: {
-      id: result.lastID,
+      id: commentSnowflake,
       author: author || "Anonyme",
       preview: body.slice(0, 200),
     },
@@ -274,10 +293,10 @@ r.post("/wiki/:slugid/comments", async (req, res) => {
 
 r.get("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.author, c.body, c.status, c.edit_token, p.slug_id, p.title
-     FROM comments c
-     JOIN pages p ON p.id = c.page_id
-    WHERE c.id=? AND p.slug_id=?`,
+    `SELECT c.id AS legacy_id, c.snowflake_id, c.author, c.body, c.status, c.edit_token, p.slug_id, p.title
+      FROM comments c
+      JOIN pages p ON p.id = c.page_id
+    WHERE c.snowflake_id=? AND p.slug_id=?`,
     [req.params.commentId, req.params.slugid],
   );
   if (!comment) return res.status(404).send("Commentaire introuvable");
@@ -293,10 +312,10 @@ r.get("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
 
 r.post("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.page_id, c.author, c.body, c.status, c.edit_token, c.ip, p.slug_id, p.title
+    `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.author, c.body, c.status, c.edit_token, c.ip, p.slug_id, p.title
      FROM comments c
      JOIN pages p ON p.id = c.page_id
-    WHERE c.id=? AND p.slug_id=?`,
+    WHERE c.snowflake_id=? AND p.slug_id=?`,
     [req.params.commentId, req.params.slugid],
   );
   if (!comment) return res.status(404).send("Commentaire introuvable");
@@ -328,12 +347,12 @@ r.post("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
     `UPDATE comments
         SET author=?, body=?, status='pending', updated_at=CURRENT_TIMESTAMP
       WHERE id=?`,
-    [author || null, body, comment.id],
+    [author || null, body, comment.legacy_id],
   );
   await sendAdminEvent("Commentaire modifié", {
     page: { title: comment.title, slug_id: comment.slug_id },
     comment: {
-      id: comment.id,
+      id: comment.snowflake_id,
       author: author || "Anonyme",
       preview: body.slice(0, 200),
     },
@@ -354,10 +373,10 @@ r.post("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
 
 r.post("/wiki/:slugid/comments/:commentId/delete", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.page_id, c.edit_token, c.ip, p.slug_id, p.title
-     FROM comments c
-     JOIN pages p ON p.id = c.page_id
-    WHERE c.id=? AND p.slug_id=?`,
+    `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.edit_token, c.ip, p.slug_id, p.title
+      FROM comments c
+      JOIN pages p ON p.id = c.page_id
+    WHERE c.snowflake_id=? AND p.slug_id=?`,
     [req.params.commentId, req.params.slugid],
   );
   if (!comment) return res.status(404).send("Commentaire introuvable");
@@ -368,13 +387,13 @@ r.post("/wiki/:slugid/comments/:commentId/delete", async (req, res) => {
       },
     });
   }
-  await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  await run("DELETE FROM comments WHERE id=?", [comment.legacy_id]);
   if (req.session.commentTokens) {
-    delete req.session.commentTokens[comment.id];
+    delete req.session.commentTokens[comment.snowflake_id];
   }
   await sendAdminEvent("Commentaire supprimé par auteur", {
     page: { title: comment.title, slug_id: comment.slug_id },
-    comment: { id: comment.id },
+    comment: { id: comment.snowflake_id },
     user: req.session.user?.username || null,
     extra: {
       action: "delete",
@@ -611,7 +630,18 @@ function canManageComment(req, comment) {
   if (req.session.user?.is_admin) return true;
   const tokens = req.session.commentTokens || {};
   if (!comment?.edit_token) return false;
-  return tokens[comment.id] && tokens[comment.id] === comment.edit_token;
+  if (comment?.snowflake_id && tokens[comment.snowflake_id]) {
+    return tokens[comment.snowflake_id] === comment.edit_token;
+  }
+  if (comment?.legacy_id && tokens[comment.legacy_id]) {
+    const legacyToken = tokens[comment.legacy_id];
+    if (comment?.snowflake_id) {
+      tokens[comment.snowflake_id] = legacyToken;
+      delete tokens[comment.legacy_id];
+    }
+    return legacyToken === comment.edit_token;
+  }
+  return false;
 }
 
 export default r;

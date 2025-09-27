@@ -27,13 +27,13 @@
             <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
           <% } %>
           <div class="actions">
-            <form method="post" action="/admin/comments/<%= c.id %>/approve">
+            <form method="post" action="/admin/comments/<%= c.snowflake_id %>/approve">
               <button class="btn success" type="submit">Approuver</button>
             </form>
-            <form method="post" action="/admin/comments/<%= c.id %>/reject">
+            <form method="post" action="/admin/comments/<%= c.snowflake_id %>/reject">
               <button class="btn" type="submit">Rejeter</button>
             </form>
-            <form method="post" action="/admin/comments/<%= c.id %>" onsubmit="return confirm('Supprimer ce commentaire ?');">
+            <form method="post" action="/admin/comments/<%= c.snowflake_id %>" onsubmit="return confirm('Supprimer ce commentaire ?');">
               <input type="hidden" name="_method" value="DELETE">
               <button class="btn unlike" type="submit">Supprimer</button>
             </form>
