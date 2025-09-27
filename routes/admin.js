@@ -846,11 +846,38 @@ r.post("/likes/:id/delete", async (req, res) => {
   res.redirect("/admin/likes");
 });
 
-r.get("/events", async (_req, res) => {
-  const events = await all(
-    "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at DESC LIMIT 200",
+r.get("/events", async (req, res) => {
+  const pageSize = 50;
+  const requestedPage = Number.parseInt(req.query.page, 10);
+  let page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+  const totalRow = await get(
+    "SELECT COUNT(*) AS total FROM event_logs",
   );
-  res.render("admin/events", { events });
+  const totalEvents = Number(totalRow?.total ?? 0);
+  const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize));
+
+  if (page > totalPages) {
+    page = totalPages;
+  }
+
+  const offset = (page - 1) * pageSize;
+  const events = await all(
+    "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at DESC LIMIT ? OFFSET ?",
+    [pageSize, offset],
+  );
+
+  res.render("admin/events", {
+    events,
+    pagination: {
+      page,
+      totalPages,
+      hasPrevious: page > 1,
+      hasNext: page < totalPages,
+      previousPage: page > 1 ? page - 1 : null,
+      nextPage: page < totalPages ? page + 1 : null,
+    },
+  });
 });
 
 export default r;
