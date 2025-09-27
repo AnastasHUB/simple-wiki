@@ -20,6 +20,7 @@
     <button class="btn copy" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')">Copier le lien</button>
     <% if (user && user.is_admin) { %>
       <a class="btn" href="/edit/<%= page.slug_id %>">Éditer</a>
+      <a class="btn" href="/wiki/<%= page.slug_id %>/history">Historique</a>
       <form action="/delete/<%= page.slug_id %>" method="post" onsubmit="return confirm('Supprimer ?')">
         <input type="hidden" name="_method" value="DELETE" />
         <button class="btn">Supprimer</button>

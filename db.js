@@ -34,6 +34,15 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
+  CREATE TABLE IF NOT EXISTS page_revisions(
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    revision INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    author_id INTEGER REFERENCES users(id),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(page_id, revision)
+  );
   CREATE TABLE IF NOT EXISTS page_views(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
