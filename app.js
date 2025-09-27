@@ -6,6 +6,7 @@ import path from "path";
 import expressLayouts from "express-ejs-layouts";
 import { fileURLToPath } from "url";
 import { initDb, get, run } from "./db.js";
+import { sessionConfig } from "./utils/config.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import pagesRoutes from "./routes/pages.js";
@@ -27,13 +28,7 @@ app.use(methodOverride("_method"));
 app.use(morgan("dev"));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
-app.use(
-  session({
-    secret: "change-me",
-    resave: false,
-    saveUninitialized: false,
-  }),
-);
+app.use(session(sessionConfig));
 
 // expose user + settings to views
 app.use(async (req, res, next) => {
