@@ -60,7 +60,7 @@
         <tbody>
           <% bans.forEach(ban => { %>
             <tr>
-              <td><%= ban.id %></td>
+              <td><%= ban.snowflake_id %></td>
               <td><code><%= ban.ip %></code></td>
               <td><%= ban.scope %></td>
               <td><%= ban.value || '-' %></td>
@@ -69,7 +69,7 @@
               <td><%= ban.lifted_at ? new Date(ban.lifted_at).toLocaleString('fr-FR') : 'Actif' %></td>
               <td>
                 <% if (!ban.lifted_at) { %>
-                  <form method="post" action="/admin/ip-bans/<%= ban.id %>/lift" onsubmit="return confirm('Lever ce blocage ?');">
+                  <form method="post" action="/admin/ip-bans/<%= ban.snowflake_id %>/lift" onsubmit="return confirm('Lever ce blocage ?');">
                     <button class="btn secondary" type="submit">Lever</button>
                   </form>
                 <% } else { %>

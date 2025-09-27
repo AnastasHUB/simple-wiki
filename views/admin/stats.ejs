@@ -24,6 +24,10 @@
       <span class="label">Événements loggés</span>
       <strong><%= totalsBreakdown.events %></strong>
     </li>
+    <li>
+      <span class="label">Visiteurs uniques (IP)</span>
+      <strong><%= totalsBreakdown.uniqueIps %></strong>
+    </li>
   </ul>
   <% if (totalsBreakdown.commentByStatus && totalsBreakdown.commentByStatus.length) { %>
     <h3>Commentaires par statut</h3>
@@ -104,6 +108,33 @@
       </div>
     <% } %>
   </div>
+  <div>
+    <h2>Articles les plus commentés</h2>
+    <% if (!topCommentedPages.length) { %>
+      <p>Aucun commentaire approuvé.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Article</th>
+              <th>Commentaires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topCommentedPages.forEach((row, idx) => { %>
+              <tr>
+                <td><%= idx + 1 %></td>
+                <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
+                <td><%= row.comments %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
 </section>
 
 <section class="card" style="margin-bottom:24px;">
@@ -132,6 +163,61 @@
       </table>
     </div>
   <% } %>
+</section>
+
+<section class="card" style="margin-bottom:24px; display:grid; gap:20px;">
+  <div>
+    <h2>Tags les plus utilisés</h2>
+    <% if (!tagUsage.length) { %>
+      <p>Aucun tag enregistré.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tag</th>
+              <th>Pages</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% tagUsage.forEach((row, idx) => { %>
+              <tr>
+                <td><%= idx + 1 %></td>
+                <td><code><%= row.name %></code></td>
+                <td><%= row.pages %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+  <div>
+    <h2>Chronologie des commentaires (30 derniers jours)</h2>
+    <% if (!commentTimeline.length) { %>
+      <p>Aucune activité récente.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>Jour</th>
+              <th>Commentaires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% commentTimeline.forEach(row => { %>
+              <tr>
+                <td><%= row.day %></td>
+                <td><%= row.comments %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
 </section>
 
 <section class="card" style="margin-bottom:24px;">

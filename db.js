@@ -1,6 +1,7 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { hashPassword } from "./utils/passwords.js";
+import { generateSnowflake } from "./utils/snowflake.js";
 
 let db;
 let ftsAvailable = null;
@@ -121,6 +122,8 @@ export async function initDb() {
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");
+  await ensureSnowflake("comments");
+  await ensureSnowflake("ip_bans");
   return db;
 }
 
@@ -139,6 +142,25 @@ async function ensureColumn(table, column, definition) {
   if (!info.find((c) => c.name === column)) {
     await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+}
+
+async function ensureSnowflake(table, column = "snowflake_id") {
+  const info = await db.all(`PRAGMA table_info(${table})`);
+  if (!info.find((c) => c.name === column)) {
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} TEXT`);
+  }
+  const rows = await db.all(
+    `SELECT rowid AS rid FROM ${table} WHERE ${column} IS NULL OR ${column}=''`,
+  );
+  for (const row of rows) {
+    await db.run(`UPDATE ${table} SET ${column}=? WHERE rowid=?`, [
+      generateSnowflake(),
+      row.rid,
+    ]);
+  }
+  await db.exec(
+    `CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_${column} ON ${table}(${column})`,
+  );
 }
 
 export async function ensureDefaultAdmin() {

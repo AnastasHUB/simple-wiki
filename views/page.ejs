@@ -70,10 +70,10 @@
             <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
           </div>
           <div class="comment-body"><%= c.body %></div>
-          <% if (ownCommentTokens && ownCommentTokens[c.id]) { %>
+          <% if (ownCommentTokens && ownCommentTokens[c.snowflake_id]) { %>
             <div class="comment-actions">
-              <a class="btn secondary" href="/wiki/<%= page.slug_id %>/comments/<%= c.id %>/edit">Modifier</a>
-              <form method="post" action="/wiki/<%= page.slug_id %>/comments/<%= c.id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+              <a class="btn secondary" href="/wiki/<%= page.slug_id %>/comments/<%= c.snowflake_id %>/edit">Modifier</a>
+              <form method="post" action="/wiki/<%= page.slug_id %>/comments/<%= c.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
                 <button class="btn danger" type="submit">Supprimer</button>
               </form>
             </div>
