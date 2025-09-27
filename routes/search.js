@@ -1,14 +1,15 @@
-import { Router } from 'express';
-import { all } from '../db.js';
+import { Router } from "express";
+import { all } from "../db.js";
 
 const r = Router();
 
-r.get('/search', async (req, res) => {
-  const q = (req.query.q || '').trim();
-  if (!q) return res.redirect('/');
+r.get("/search", async (req, res) => {
+  const q = (req.query.q || "").trim();
+  if (!q) return res.redirect("/");
 
   // Recherche par titre, contenu ET tags
-  const rows = await all(`
+  const rows = await all(
+    `
     SELECT DISTINCT
       p.title,
       p.slug_id,
@@ -27,9 +28,11 @@ r.get('/search', async (req, res) => {
        OR t.name    LIKE '%'||?||'%'
     ORDER BY p.updated_at DESC, p.created_at DESC
     LIMIT 100
-  `, [q, q, q]);
+  `,
+    [q, q, q],
+  );
 
-  res.render('search', { q, rows });
+  res.render("search", { q, rows });
 });
 
 export default r;

@@ -1,27 +1,36 @@
-import fs from 'fs/promises';
-import path from 'path';
-import sharp from 'sharp';
-import { fileURLToPath } from 'url';
-import { all, get, run } from '../db.js';
+import fs from "fs/promises";
+import path from "path";
+import sharp from "sharp";
+import { fileURLToPath } from "url";
+import { all, get, run } from "../db.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-export const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
+export const uploadDir = path.join(__dirname, "..", "public", "uploads");
 
 const MAX_DIMENSION = 1920;
-const OPTIMIZE_FORMATS = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+const OPTIMIZE_FORMATS = new Set([
+  "image/jpeg",
+  "image/jpg",
+  "image/png",
+  "image/webp",
+]);
 
 export function normalizeDisplayName(value) {
-  if (typeof value !== 'string') return null;
+  if (typeof value !== "string") return null;
   const trimmed = value.trim();
   if (!trimmed) return null;
   return trimmed.slice(0, 120);
 }
 
 function determineFormatFromMime(mimeType, fallbackExtension) {
-  if (!mimeType) return (fallbackExtension || '').replace('.', '').toLowerCase();
-  return mimeType.split('/')[1]?.toLowerCase() || (fallbackExtension || '').replace('.', '').toLowerCase();
+  if (!mimeType)
+    return (fallbackExtension || "").replace(".", "").toLowerCase();
+  return (
+    mimeType.split("/")[1]?.toLowerCase() ||
+    (fallbackExtension || "").replace(".", "").toLowerCase()
+  );
 }
 
 export async function ensureUploadDir() {
@@ -33,7 +42,7 @@ export function buildFilename(id, extension) {
 }
 
 export async function optimizeUpload(filePath, mimeType, extension) {
-  const normalizedMime = (mimeType || '').toLowerCase();
+  const normalizedMime = (mimeType || "").toLowerCase();
   if (!OPTIMIZE_FORMATS.has(normalizedMime)) return null;
 
   const metadata = await sharp(filePath).metadata();
@@ -47,24 +56,32 @@ export async function optimizeUpload(filePath, mimeType, extension) {
     transformer = transformer.resize({
       width: MAX_DIMENSION,
       height: MAX_DIMENSION,
-      fit: 'inside',
-      withoutEnlargement: true
+      fit: "inside",
+      withoutEnlargement: true,
     });
     changed = true;
   }
 
   const format = determineFormatFromMime(normalizedMime, extension);
   switch (format) {
-    case 'jpeg':
-    case 'jpg':
-      transformer = transformer.jpeg({ quality: 80, mozjpeg: true, progressive: true });
+    case "jpeg":
+    case "jpg":
+      transformer = transformer.jpeg({
+        quality: 80,
+        mozjpeg: true,
+        progressive: true,
+      });
       changed = true;
       break;
-    case 'png':
-      transformer = transformer.png({ compressionLevel: 9, adaptiveFiltering: true, palette: true });
+    case "png":
+      transformer = transformer.png({
+        compressionLevel: 9,
+        adaptiveFiltering: true,
+        palette: true,
+      });
       changed = true;
       break;
-    case 'webp':
+    case "webp":
       transformer = transformer.webp({ quality: 80, effort: 5 });
       changed = true;
       break;
@@ -74,12 +91,20 @@ export async function optimizeUpload(filePath, mimeType, extension) {
 
   if (!changed) return null;
 
-  const { data, info } = await transformer.toBuffer({ resolveWithObject: true });
+  const { data, info } = await transformer.toBuffer({
+    resolveWithObject: true,
+  });
   await fs.writeFile(filePath, data);
   return info.size;
 }
 
-export async function recordUpload({ id, originalName, displayName, extension, size }) {
+export async function recordUpload({
+  id,
+  originalName,
+  displayName,
+  extension,
+  size,
+}) {
   await ensureUploadDir();
   const normalizedName = normalizeDisplayName(displayName);
   await run(
@@ -90,7 +115,7 @@ export async function recordUpload({ id, originalName, displayName, extension, s
        display_name=excluded.display_name,
        extension=excluded.extension,
        size=excluded.size`,
-    [id, originalName, normalizedName, extension, size]
+    [id, originalName, normalizedName, extension, size],
   );
 }
 
@@ -99,15 +124,20 @@ export async function listUploads() {
   const entries = [];
   const seen = new Set();
   const rows = await all(
-    'SELECT id, original_name, display_name, extension, size, created_at FROM uploads ORDER BY created_at DESC'
+    "SELECT id, original_name, display_name, extension, size, created_at FROM uploads ORDER BY created_at DESC",
   );
 
   for (const row of rows) {
-    const extension = row.extension || '';
+    const extension = row.extension || "";
     const filename = buildFilename(row.id, extension);
-    if (!filename || filename.startsWith('.') || filename === 'gitkeep' || row.original_name === '.gitkeep') {
-      if (filename === '.gitkeep' || row.original_name === '.gitkeep') {
-        await run('DELETE FROM uploads WHERE id=?', [row.id]);
+    if (
+      !filename ||
+      filename.startsWith(".") ||
+      filename === "gitkeep" ||
+      row.original_name === ".gitkeep"
+    ) {
+      if (filename === ".gitkeep" || row.original_name === ".gitkeep") {
+        await run("DELETE FROM uploads WHERE id=?", [row.id]);
       }
       continue;
     }
@@ -120,21 +150,21 @@ export async function listUploads() {
       entries.push({
         id: row.id,
         filename,
-        url: '/public/uploads/' + filename,
+        url: "/public/uploads/" + filename,
         originalName: row.original_name || filename,
-        displayName: row.display_name || '',
+        displayName: row.display_name || "",
         extension,
         size: stat.size,
         createdAt: createdAtIso,
-        mtime: stat.mtimeMs
+        mtime: stat.mtimeMs,
       });
       seen.add(filename);
       if (!row.size || row.size !== stat.size) {
-        await run('UPDATE uploads SET size=? WHERE id=?', [stat.size, row.id]);
+        await run("UPDATE uploads SET size=? WHERE id=?", [stat.size, row.id]);
       }
     } catch (err) {
-      if (err.code === 'ENOENT') {
-        await run('DELETE FROM uploads WHERE id=?', [row.id]);
+      if (err.code === "ENOENT") {
+        await run("DELETE FROM uploads WHERE id=?", [row.id]);
       } else {
         throw err;
       }
@@ -143,26 +173,26 @@ export async function listUploads() {
 
   const files = await fs.readdir(uploadDir);
   for (const name of files) {
-    if (name.startsWith('.')) continue;
+    if (name.startsWith(".")) continue;
     if (seen.has(name)) continue;
     const filePath = path.join(uploadDir, name);
     const stat = await fs.stat(filePath);
     const ext = path.extname(name).toLowerCase();
     const id = path.basename(name, ext);
     await run(
-      'INSERT OR IGNORE INTO uploads(id, original_name, display_name, extension, size) VALUES(?,?,?,?,?)',
-      [id, name, null, ext, stat.size]
+      "INSERT OR IGNORE INTO uploads(id, original_name, display_name, extension, size) VALUES(?,?,?,?,?)",
+      [id, name, null, ext, stat.size],
     );
     entries.push({
       id,
       filename: name,
-      url: '/public/uploads/' + name,
+      url: "/public/uploads/" + name,
       originalName: name,
-      displayName: '',
+      displayName: "",
       extension: ext,
       size: stat.size,
       createdAt: new Date(stat.mtimeMs).toISOString(),
-      mtime: stat.mtimeMs
+      mtime: stat.mtimeMs,
     });
     seen.add(name);
   }
@@ -173,7 +203,7 @@ export async function listUploads() {
 
 export async function removeUpload(id) {
   await ensureUploadDir();
-  const row = await get('SELECT extension FROM uploads WHERE id=?', [id]);
+  const row = await get("SELECT extension FROM uploads WHERE id=?", [id]);
   let filename = null;
   if (row && row.extension) {
     filename = buildFilename(id, row.extension);
@@ -181,7 +211,9 @@ export async function removeUpload(id) {
 
   if (!filename) {
     const files = await fs.readdir(uploadDir);
-    filename = files.find((name) => !name.startsWith('.') && name.startsWith(id));
+    filename = files.find(
+      (name) => !name.startsWith(".") && name.startsWith(id),
+    );
   }
 
   if (filename) {
@@ -189,17 +221,20 @@ export async function removeUpload(id) {
     try {
       await fs.unlink(filePath);
     } catch (err) {
-      if (err.code !== 'ENOENT') throw err;
+      if (err.code !== "ENOENT") throw err;
     }
   }
 
-  await run('DELETE FROM uploads WHERE id=?', [id]);
+  await run("DELETE FROM uploads WHERE id=?", [id]);
 }
 
 export async function updateUploadName(id, displayName) {
   const normalizedName = normalizeDisplayName(displayName);
-  const row = await get('SELECT 1 FROM uploads WHERE id=?', [id]);
+  const row = await get("SELECT 1 FROM uploads WHERE id=?", [id]);
   if (!row) return false;
-  await run('UPDATE uploads SET display_name=? WHERE id=?', [normalizedName, id]);
+  await run("UPDATE uploads SET display_name=? WHERE id=?", [
+    normalizedName,
+    id,
+  ]);
   return true;
 }
