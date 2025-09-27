@@ -867,36 +867,8 @@ r.get("/events", async (req, res) => {
     [pageSize, offset],
   );
 
-  const viewEvents = events.map((event) => {
-    const rawPayload =
-      typeof event.payload === "string" ? event.payload.trim() : "";
-    if (!rawPayload) {
-      return {
-        ...event,
-        payloadPretty: "{}",
-        payloadParseError: false,
-      };
-    }
-
-    try {
-      const parsed = JSON.parse(rawPayload);
-      return {
-        ...event,
-        payloadPretty: JSON.stringify(parsed, null, 2),
-        payloadParseError: false,
-        payloadObject: parsed,
-      };
-    } catch (error) {
-      return {
-        ...event,
-        payloadPretty: event.payload,
-        payloadParseError: true,
-      };
-    }
-  });
-
   res.render("admin/events", {
-    events: viewEvents,
+    events,
     pagination: {
       page,
       totalPages,
