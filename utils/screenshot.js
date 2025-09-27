@@ -65,6 +65,10 @@ export async function renderEventScreenshot(title, data) {
 function sanitizeContent(content) {
   if (!content) return "";
   return String(content)
+    .replace(/<\s*br\s*\/?\s*>/gi, "\n")
+    .replace(/<\s*\/p\s*>/gi, "\n\n")
+    .replace(/<\s*\/h[1-6]\s*>/gi, "\n\n")
+    .replace(/<[^>]+>/g, "")
     .replace(/```[\s\S]*?```/g, "")
     .replace(/!\[[^\]]*\]\([^\)]+\)/g, "")
     .replace(/\[([^\]]+)\]\([^\)]+\)/g, "$1")
