@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randSlugId } from "../db.js";
 import { slugify } from "../utils/linkify.js";
+import { hashPassword } from "../utils/passwords.js";
 import {
   uploadDir,
   ensureUploadDir,
@@ -362,9 +363,10 @@ r.get("/users", async (_req, res) => {
 r.post("/users", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.redirect("/admin/users");
+  const hashed = await hashPassword(password);
   await run("INSERT INTO users(username,password,is_admin) VALUES(?,?,1)", [
     username,
-    password,
+    hashed,
   ]);
   res.redirect("/admin/users");
 });

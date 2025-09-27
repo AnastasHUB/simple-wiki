@@ -1,5 +1,6 @@
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
+import { hashPassword } from "./utils/passwords.js";
 
 let db;
 export async function initDb() {
@@ -75,11 +76,12 @@ export async function ensureDefaultAdmin() {
   await initDb();
   const admin = await db.get("SELECT 1 FROM users WHERE username=?", ["admin"]);
   if (!admin) {
+    const hashed = await hashPassword("admin");
     await db.run(
       "INSERT INTO users(username,password,is_admin) VALUES(?,?,1)",
-      ["admin", "admin"],
+      ["admin", hashed],
     );
-    console.log("Default admin created: admin / admin");
+    console.log("Default admin created: admin / (mot de passe haché)");
   }
 }
 
