@@ -48,7 +48,7 @@
 <section class="card comments" id="comments">
   <h2 style="margin-top:0">Commentaires</h2>
   <% if (commentFeedback && commentFeedback.success) { %>
-    <div class="notice success">Merci ! Votre commentaire a été enregistré et sera publié après validation.</div>
+    <div class="notice success"><%= commentFeedback.message || "Merci ! Votre commentaire a été enregistré et sera publié après validation." %></div>
   <% } %>
   <% if (commentFeedback && commentFeedback.errors && commentFeedback.errors.length) { %>
     <div class="notice error">
@@ -70,6 +70,14 @@
             <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
           </div>
           <div class="comment-body"><%= c.body %></div>
+          <% if (ownCommentTokens && ownCommentTokens[c.id]) { %>
+            <div class="comment-actions">
+              <a class="btn secondary" href="/wiki/<%= page.slug_id %>/comments/<%= c.id %>/edit">Modifier</a>
+              <form method="post" action="/wiki/<%= page.slug_id %>/comments/<%= c.id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+                <button class="btn danger" type="submit">Supprimer</button>
+              </form>
+            </div>
+          <% } %>
         </li>
       <% }) %>
     </ul>

@@ -1,0 +1,42 @@
+<% title = 'Événements'; %>
+<h1>Journal des événements</h1>
+
+<section class="card">
+  <h2>Derniers événements</h2>
+  <% if (!events.length) { %>
+    <p>Aucun événement enregistré.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Canal</th>
+            <th>Utilisateur</th>
+            <th>IP</th>
+            <th>Date</th>
+            <th>Détails</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% events.forEach(ev => { %>
+            <tr>
+              <td><%= ev.id %></td>
+              <td><strong><%= ev.type %></strong></td>
+              <td><code><%= ev.channel %></code></td>
+              <td><%= ev.username || '-' %></td>
+              <td><%= ev.ip || '-' %></td>
+              <td><%= new Date(ev.created_at).toLocaleString('fr-FR') %></td>
+              <td style="max-width:320px;">
+                <pre style="white-space:pre-wrap; word-break:break-word; font-size:0.8em; background:rgba(15,23,42,0.7); padding:8px; border-radius:8px;">
+<%= ev.payload || '{}' %>
+                </pre>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>

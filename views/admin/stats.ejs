@@ -3,12 +3,165 @@
 
 <section class="card" style="margin-bottom:24px;">
   <h2>Résumé global</h2>
-  <p>
-    <strong><%= totalViews %></strong> vue(s) enregistrée(s) sur l'ensemble du wiki.
-  </p>
-  <p style="font-size:0.9em; color:#555;">
+  <ul class="stat-grid">
+    <li>
+      <span class="label">Vues cumulées</span>
+      <strong><%= totalViews %></strong>
+    </li>
+    <li>
+      <span class="label">Likes</span>
+      <strong><%= totalsBreakdown.likes %></strong>
+    </li>
+    <li>
+      <span class="label">Commentaires</span>
+      <strong><%= totalsBreakdown.comments %></strong>
+    </li>
+    <li>
+      <span class="label">Blocages actifs</span>
+      <strong><%= totalsBreakdown.activeBans %></strong>
+    </li>
+    <li>
+      <span class="label">Événements loggés</span>
+      <strong><%= totalsBreakdown.events %></strong>
+    </li>
+  </ul>
+  <% if (totalsBreakdown.commentByStatus && totalsBreakdown.commentByStatus.length) { %>
+    <h3>Commentaires par statut</h3>
+    <div class="table-wrap">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>Statut</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% totalsBreakdown.commentByStatus.forEach(row => { %>
+            <tr>
+              <td><%= row.status %></td>
+              <td><%= row.count %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <p style="font-size:0.9em; color:#555; margin-top:16px;">
     Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
   </p>
+</section>
+
+<section class="card" style="margin-bottom:24px; display:grid; gap:20px;">
+  <div>
+    <h2>Pages les plus aimées</h2>
+    <% if (!topLikedPages.length) { %>
+      <p>Aucun like enregistré.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Article</th>
+              <th>Likes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topLikedPages.forEach((row, idx) => { %>
+              <tr>
+                <td><%= idx + 1 %></td>
+                <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
+                <td><%= row.likes %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+  <div>
+    <h2>Auteurs de commentaires</h2>
+    <% if (!topCommenters.length) { %>
+      <p>Aucun commentaire enregistré.</p>
+    <% } else { %>
+      <div class="table-wrap">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>Auteur</th>
+              <th>Commentaires</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% topCommenters.forEach(row => { %>
+              <tr>
+                <td><%= row.author %></td>
+                <td><%= row.comments %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<section class="card" style="margin-bottom:24px;">
+  <h2>IPs les plus actives</h2>
+  <% if (!activeIps.length) { %>
+    <p>Aucune IP enregistrée.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>IP</th>
+            <th>Vues</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% activeIps.forEach((row, idx) => { %>
+            <tr>
+              <td><%= idx + 1 %></td>
+              <td><code><%= row.ip %></code></td>
+              <td><%= row.views %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="card" style="margin-bottom:24px;">
+  <h2>Vues par IP et article</h2>
+  <% if (!ipViewsByPage.length) { %>
+    <p>Aucune donnée disponible.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>Article</th>
+            <th>Slug</th>
+            <th>Vues</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% ipViewsByPage.forEach(row => { %>
+            <tr>
+              <td><code><%= row.ip %></code></td>
+              <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
+              <td><code><%= row.slug_id %></code></td>
+              <td><%= row.views %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
 </section>
 
 <% periods.forEach(period => { const rows = stats[period.key] || []; %>

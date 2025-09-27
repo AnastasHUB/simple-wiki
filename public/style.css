@@ -109,6 +109,16 @@ body {
 .btn:hover {
   filter: brightness(1.06);
 }
+.btn.secondary {
+  background: #e2e8f0;
+  color: #1e293b;
+  border-color: #cbd5f5;
+}
+.btn.danger {
+  background: linear-gradient(180deg, #f87171, #dc2626);
+  color: #fff;
+  border: 0;
+}
 .btn.success {
   background: linear-gradient(180deg, #7df5b3, var(--success));
   color: #0a1712;
@@ -414,6 +424,11 @@ form .actions {
   border-bottom: none;
 }
 
+.data-table.compact th,
+.data-table.compact td {
+  padding: 8px 10px;
+}
+
 /* === COMMENTAIRES === */
 .notice {
   padding: 12px 16px;
@@ -479,8 +494,50 @@ form .actions {
   flex-direction: column;
 }
 
+.comment-form .actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
 .comment-form textarea {
   min-height: 140px;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.comment-actions form {
+  margin: 0;
+}
+
+.stat-grid {
+  list-style: none;
+  margin: 16px 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 16px;
+}
+
+.stat-grid li {
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.stat-grid .label {
+  font-size: 0.85em;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .comment-form .honeypot {

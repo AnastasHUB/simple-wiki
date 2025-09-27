@@ -1,0 +1,85 @@
+<% title = 'Blocages IP'; %>
+<h1>Blocages IP</h1>
+
+<section class="card" style="margin-bottom:24px;">
+  <h2>Ajouter un blocage</h2>
+  <% if (notice) { %>
+    <div class="notice <%= notice.type === 'error' ? 'error' : 'success' %>">
+      <%= notice.message %>
+    </div>
+  <% } %>
+  <form method="post" action="/admin/ip-bans" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px;">
+    <div>
+      <label for="ip">Adresse IP</label>
+      <input id="ip" type="text" name="ip" required>
+    </div>
+    <div>
+      <label for="scope">Portée</label>
+      <select id="scope" name="scope" required>
+        <option value="global">Wiki entier</option>
+        <option value="view">Blocage des vues</option>
+        <option value="comment">Commentaires</option>
+        <option value="like">Likes</option>
+        <option value="tag">Tag spécifique</option>
+      </select>
+    </div>
+    <div>
+      <label for="tag">Tag (si applicable)</label>
+      <input id="tag" type="text" name="tag" placeholder="ex: spoiler">
+    </div>
+    <div style="grid-column: 1 / -1;">
+      <label for="reason">Motif</label>
+      <input id="reason" type="text" name="reason" placeholder="Optionnel">
+    </div>
+    <div style="grid-column: 1 / -1;">
+      <button class="btn" type="submit">Enregistrer</button>
+    </div>
+  </form>
+  <p style="font-size:0.85em; color:#94a3b8; margin-top:12px;">Pour un blocage limité à une action, choisissez la portée correspondante. Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.</p>
+</section>
+
+<section class="card">
+  <h2>Blocages actifs et historiques</h2>
+  <% if (!bans.length) { %>
+    <p>Aucun blocage enregistré.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>IP</th>
+            <th>Type</th>
+            <th>Valeur</th>
+            <th>Motif</th>
+            <th>Créé</th>
+            <th>Levée</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% bans.forEach(ban => { %>
+            <tr>
+              <td><%= ban.id %></td>
+              <td><code><%= ban.ip %></code></td>
+              <td><%= ban.scope %></td>
+              <td><%= ban.value || '-' %></td>
+              <td><%= ban.reason || '-' %></td>
+              <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= ban.lifted_at ? new Date(ban.lifted_at).toLocaleString('fr-FR') : 'Actif' %></td>
+              <td>
+                <% if (!ban.lifted_at) { %>
+                  <form method="post" action="/admin/ip-bans/<%= ban.id %>/lift" onsubmit="return confirm('Lever ce blocage ?');">
+                    <button class="btn secondary" type="submit">Lever</button>
+                  </form>
+                <% } else { %>
+                  <span style="color:#94a3b8;">Terminé</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
