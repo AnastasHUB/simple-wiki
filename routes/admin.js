@@ -6,6 +6,7 @@ import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randSlugId } from "../db.js";
 import { slugify } from "../utils/linkify.js";
+import { sendAdminEvent } from "../utils/webhook.js";
 import { hashPassword } from "../utils/passwords.js";
 import {
   uploadDir,
@@ -59,6 +60,101 @@ const jsonUpload = multer({
 const r = Router();
 
 r.use(requireAdmin);
+
+r.get("/comments", async (req, res) => {
+  const pending = await all(
+    `SELECT c.id, c.author, c.body, c.created_at, c.status,
+            p.title AS page_title, p.slug_id AS page_slug
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE c.status='pending'
+      ORDER BY c.created_at ASC`,
+  );
+  const recent = await all(
+    `SELECT c.id, c.author, c.body, c.created_at, c.status,
+            p.title AS page_title, p.slug_id AS page_slug
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE c.status<>'pending'
+      ORDER BY c.created_at DESC
+      LIMIT 30`,
+  );
+  const notice = req.session.commentModeration || null;
+  delete req.session.commentModeration;
+  res.render("admin/comments", { pending, recent, notice });
+});
+
+r.post("/comments/:id/approve", async (req, res) => {
+  const comment = await get(
+    `SELECT c.id, c.status, p.title, p.slug_id
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE c.id=?`,
+    [req.params.id],
+  );
+  if (!comment) {
+    req.session.commentModeration = {
+      type: "error",
+      message: "Commentaire introuvable.",
+    };
+    return res.redirect("/admin/comments");
+  }
+  await run("UPDATE comments SET status='approved' WHERE id=?", [comment.id]);
+  req.session.commentModeration = {
+    type: "success",
+    message: "Commentaire approuvé.",
+  };
+  await sendAdminEvent("Commentaire approuvé", { page: comment });
+  res.redirect("/admin/comments");
+});
+
+r.post("/comments/:id/reject", async (req, res) => {
+  const comment = await get(
+    `SELECT c.id, c.status, p.title, p.slug_id
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE c.id=?`,
+    [req.params.id],
+  );
+  if (!comment) {
+    req.session.commentModeration = {
+      type: "error",
+      message: "Commentaire introuvable.",
+    };
+    return res.redirect("/admin/comments");
+  }
+  await run("UPDATE comments SET status='rejected' WHERE id=?", [comment.id]);
+  req.session.commentModeration = {
+    type: "success",
+    message: "Commentaire rejeté.",
+  };
+  await sendAdminEvent("Commentaire rejeté", { page: comment });
+  res.redirect("/admin/comments");
+});
+
+r.delete("/comments/:id", async (req, res) => {
+  const comment = await get(
+    `SELECT c.id, p.title, p.slug_id
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE c.id=?`,
+    [req.params.id],
+  );
+  if (!comment) {
+    req.session.commentModeration = {
+      type: "error",
+      message: "Commentaire introuvable.",
+    };
+    return res.redirect("/admin/comments");
+  }
+  await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  req.session.commentModeration = {
+    type: "success",
+    message: "Commentaire supprimé.",
+  };
+  await sendAdminEvent("Commentaire supprimé", { page: comment });
+  res.redirect("/admin/comments");
+});
 
 r.get("/pages", async (req, res) => {
   const countRow = await get("SELECT COUNT(*) AS c FROM pages");

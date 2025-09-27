@@ -73,6 +73,17 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(page_id, ip)
   );
+  CREATE TABLE IF NOT EXISTS comments(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    author TEXT,
+    body TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK(status IN ('pending','approved','rejected'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_comments_page_status
+    ON comments(page_id, status);
   CREATE TABLE IF NOT EXISTS uploads(
     id TEXT PRIMARY KEY,
     original_name TEXT NOT NULL,

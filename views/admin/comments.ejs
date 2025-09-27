@@ -1,0 +1,63 @@
+<h1>Modération des commentaires</h1>
+
+<% if (notice) { %>
+  <div class="card" style="padding:16px; margin-bottom:20px; border:1px solid <%= notice.type === 'error' ? '#f87171' : '#4ade80' %>; background:<%= notice.type === 'error' ? 'rgba(248,113,113,0.15)' : 'rgba(74,222,128,0.12)' %>; border-radius:12px;">
+    <strong><%= notice.message %></strong>
+  </div>
+<% } %>
+
+<section class="card" style="margin-bottom:24px;">
+  <h2 style="margin-top:0;">En attente de validation (<%= pending.length %>)</h2>
+  <% if (!pending.length) { %>
+    <p>Aucun commentaire en attente.</p>
+  <% } else { %>
+    <ul class="admin-comment-list">
+      <% pending.forEach(c => { %>
+        <li>
+          <header>
+            <div>
+              <strong><%= c.author || 'Anonyme' %></strong>
+              <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
+            </div>
+            <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener">Voir la page</a>
+          </header>
+          <p><%= c.body %></p>
+          <div class="actions">
+            <form method="post" action="/admin/comments/<%= c.id %>/approve">
+              <button class="btn success" type="submit">Approuver</button>
+            </form>
+            <form method="post" action="/admin/comments/<%= c.id %>/reject">
+              <button class="btn" type="submit">Rejeter</button>
+            </form>
+            <form method="post" action="/admin/comments/<%= c.id %>" onsubmit="return confirm('Supprimer ce commentaire ?');">
+              <input type="hidden" name="_method" value="DELETE">
+              <button class="btn unlike" type="submit">Supprimer</button>
+            </form>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0;">Historique récent</h2>
+  <% if (!recent.length) { %>
+    <p>Aucun commentaire modéré pour le moment.</p>
+  <% } else { %>
+    <ul class="admin-comment-list compact">
+      <% recent.forEach(c => { %>
+        <li>
+          <header>
+            <div>
+              <strong><%= c.author || 'Anonyme' %></strong>
+              <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %> · <span class="status <%= c.status %>"><%= c.status %></span></span>
+            </div>
+            <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener">Voir la page</a>
+          </header>
+          <p><%= c.body %></p>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
