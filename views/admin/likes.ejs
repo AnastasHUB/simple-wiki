@@ -22,7 +22,7 @@
           <td><%= r.created_at %></td>
           <td>
             <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm('Retirer ce like ?')">
-              <button class="btn unlike">❌ Retirer</button>
+              <button class="btn unlike" data-icon="🧹">Retirer</button>
             </form>
           </td>
         </tr>

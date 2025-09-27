@@ -21,11 +21,11 @@
       <textarea id="comment-body" name="body" rows="6" maxlength="2000" required><%= comment.body || '' %></textarea>
     </div>
     <div class="actions">
-      <button class="btn" type="submit">Enregistrer</button>
-      <a class="btn secondary" href="/wiki/<%= pageSlug %>#comments">Annuler</a>
+      <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+      <a class="btn secondary" data-icon="↩️" href="/wiki/<%= pageSlug %>#comments">Annuler</a>
     </div>
   </form>
   <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ? Cette action est définitive.');">
-    <button class="btn danger" type="submit">Supprimer ce commentaire</button>
+    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer ce commentaire</button>
   </form>
 </section>

@@ -39,8 +39,8 @@
       <% } %>
 
       <div class="actions">
-        <a class="btn success" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
-        <button class="btn copy"
+        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <button class="btn copy" data-icon="🔗"
           onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">
           Copier le lien
         </button>

@@ -32,7 +32,7 @@
       <input id="reason" type="text" name="reason" placeholder="Optionnel">
     </div>
     <div style="grid-column: 1 / -1;">
-      <button class="btn" type="submit">Enregistrer</button>
+      <button class="btn success" data-icon="🛡️" type="submit">Enregistrer</button>
     </div>
   </form>
   <p style="font-size:0.85em; color:#94a3b8; margin-top:12px;">Pour un blocage limité à une action, choisissez la portée correspondante. Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.</p>
@@ -70,7 +70,7 @@
               <td>
                 <% if (!ban.lifted_at) { %>
                   <form method="post" action="/admin/ip-bans/<%= ban.snowflake_id %>/lift" onsubmit="return confirm('Lever ce blocage ?');">
-                    <button class="btn secondary" type="submit">Lever</button>
+                    <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
                   </form>
                 <% } else { %>
                   <span style="color:#94a3b8;">Terminé</span>

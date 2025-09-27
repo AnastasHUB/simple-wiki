@@ -16,7 +16,7 @@
         </div>
       <% } %>
       <div class="actions">
-        <a class="btn success" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post">
           <% if (p.userLiked) { %>
             <button class="btn unlike">❌ Retirer (<%= p.likes %>)</button>
@@ -24,7 +24,7 @@
             <button class="btn like">👍 Like (<%= p.likes %>)</button>
           <% } %>
         </form>
-        <button class="btn copy" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
+        <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
       </div>
       <small>Publié: <%= p.created_at %></small>
     </div>
@@ -56,7 +56,7 @@
         </div>
       <% } %>
       <div class="actions">
-        <a class="btn success" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post">
           <% if (p.userLiked) { %>
             <button class="btn unlike">❌ Retirer (<%= p.likes %>)</button>
@@ -64,7 +64,7 @@
             <button class="btn like">👍 Like (<%= p.likes %>)</button>
           <% } %>
         </form>
-        <button class="btn copy" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
+        <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
       </div>
       <small>Publié: <%= p.created_at %></small>
     </div>
@@ -72,7 +72,7 @@
 </div>
 
 <div class="actions">
-  <% if (page > 1) { %><a class="btn" href="/?page=<%= page-1 %>&size=<%= size %>">Précédent</a><% } %>
+  <% if (page > 1) { %><a class="btn" data-icon="⬅️" href="/?page=<%= page-1 %>&size=<%= size %>">Précédent</a><% } %>
   <span>Page <%= page %> / <%= totalPages %></span>
-  <% if (page < totalPages) { %><a class="btn" href="/?page=<%= page+1 %>&size=<%= size %>">Suivant</a><% } %>
+  <% if (page < totalPages) { %><a class="btn" data-icon="➡️" href="/?page=<%= page+1 %>&size=<%= size %>">Suivant</a><% } %>
 </div>
