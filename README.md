@@ -1,5 +1,4 @@
 <p>npm i</p>
-<p>npm i sqlite</p>
 <p>npm run db:init</p>
 <p>npm start</p>
 
