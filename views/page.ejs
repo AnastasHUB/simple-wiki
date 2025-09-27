@@ -12,9 +12,9 @@
   <div class="actions">
     <form action="/wiki/<%= page.slug_id %>/like" method="post">
       <% if (page.userLiked) { %>
-        <button class="btn unlike">❌ Retirer le like (<%= page.likes %>)</button>
+        <button class="btn unlike" data-icon="💔">Retirer le like (<%= page.likes %>)</button>
       <% } else { %>
-        <button class="btn like">👍 Like (<%= page.likes %>)</button>
+        <button class="btn like" data-icon="💖">Like (<%= page.likes %>)</button>
       <% } %>
     </form>
     <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')">Copier le lien</button>
