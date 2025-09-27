@@ -1,0 +1,11 @@
+<% title = 'Accès restreint'; %>
+<section class="card">
+  <h1>Accès restreint</h1>
+  <p>
+    Votre adresse IP semble avoir été bloquée pour cette action.
+  </p>
+  <% if (ban && ban.reason) { %>
+    <p><strong>Raison :</strong> <%= ban.reason %></p>
+  <% } %>
+  <p>Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur.</p>
+</section>

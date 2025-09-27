@@ -80,11 +80,34 @@ export async function initDb() {
     author TEXT,
     body TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME,
+    ip TEXT,
+    edit_token TEXT,
     status TEXT NOT NULL DEFAULT 'pending'
       CHECK(status IN ('pending','approved','rejected'))
   );
   CREATE INDEX IF NOT EXISTS idx_comments_page_status
     ON comments(page_id, status);
+  CREATE TABLE IF NOT EXISTS ip_bans(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    ip TEXT NOT NULL,
+    scope TEXT NOT NULL CHECK(scope IN ('global','action','tag')),
+    value TEXT,
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    lifted_at DATETIME
+  );
+  CREATE INDEX IF NOT EXISTS idx_ip_bans_active
+    ON ip_bans(ip, scope, value, lifted_at);
+  CREATE TABLE IF NOT EXISTS event_logs(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel TEXT NOT NULL CHECK(channel IN ('admin','feed')),
+    type TEXT NOT NULL,
+    payload TEXT,
+    ip TEXT,
+    username TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS uploads(
     id TEXT PRIMARY KEY,
     original_name TEXT NOT NULL,
@@ -95,6 +118,9 @@ export async function initDb() {
   );
   `);
   await ensureFts();
+  await ensureColumn("comments", "ip", "TEXT");
+  await ensureColumn("comments", "updated_at", "DATETIME");
+  await ensureColumn("comments", "edit_token", "TEXT");
   return db;
 }
 
@@ -106,6 +132,13 @@ export async function all(sql, params = []) {
 }
 export async function run(sql, params = []) {
   return db.run(sql, params);
+}
+
+async function ensureColumn(table, column, definition) {
+  const info = await db.all(`PRAGMA table_info(${table})`);
+  if (!info.find((c) => c.name === column)) {
+    await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 export async function ensureDefaultAdmin() {
@@ -213,5 +246,23 @@ export async function removePageFts(id) {
     await db.run("DELETE FROM pages_fts WHERE rowid=?", [id]);
   } catch (err) {
     console.warn("Unable to delete page from FTS index", err);
+  }
+}
+
+export async function logEvent({
+  channel,
+  type,
+  payload = null,
+  ip = null,
+  username = null,
+}) {
+  if (!channel || !type) return;
+  try {
+    await run(
+      "INSERT INTO event_logs(channel, type, payload, ip, username) VALUES(?,?,?,?,?)",
+      [channel, type, payload ? JSON.stringify(payload) : null, ip, username],
+    );
+  } catch (err) {
+    console.warn("Unable to log event", err?.message || err);
   }
 }

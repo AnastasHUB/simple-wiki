@@ -1,0 +1,31 @@
+<% title = 'Modifier commentaire'; %>
+<section class="card">
+  <h1>Modifier votre commentaire</h1>
+  <% if (typeof errors !== 'undefined' && errors.length) { %>
+    <div class="notice error">
+      <p>Impossible d'enregistrer les modifications :</p>
+      <ul>
+        <% errors.forEach(err => { %>
+          <li><%= err %></li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+  <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.id %>/edit" class="comment-form">
+    <div class="field">
+      <label for="comment-author">Nom ou pseudo</label>
+      <input id="comment-author" type="text" name="author" maxlength="80" value="<%= comment.author || '' %>">
+    </div>
+    <div class="field">
+      <label for="comment-body">Message</label>
+      <textarea id="comment-body" name="body" rows="6" maxlength="2000" required><%= comment.body || '' %></textarea>
+    </div>
+    <div class="actions">
+      <button class="btn" type="submit">Enregistrer</button>
+      <a class="btn secondary" href="/wiki/<%= pageSlug %>#comments">Annuler</a>
+    </div>
+  </form>
+  <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ? Cette action est définitive.');">
+    <button class="btn danger" type="submit">Supprimer ce commentaire</button>
+  </form>
+</section>

@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { randomUUID } from "crypto";
 import {
   get,
   run,
@@ -12,16 +13,28 @@ import { requireAdmin } from "../middleware/auth.js";
 import { slugify, linkifyInternal } from "../utils/linkify.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { listUploads } from "../utils/uploads.js";
+import { getClientIp } from "../utils/ip.js";
+import { isIpBanned } from "../utils/ipBans.js";
 
 const r = Router();
+
+r.use(async (req, res, next) => {
+  req.clientIp = getClientIp(req);
+  if (req.clientIp) {
+    const ban = await isIpBanned(req.clientIp, { action: "view" });
+    if (ban && ban.scope === "global") {
+      return res.status(403).render("banned", { ban });
+    }
+  }
+  next();
+});
 
 const viewCountSelect =
   "COALESCE((SELECT SUM(views) FROM page_view_daily WHERE page_id=p.id),0) + COALESCE((SELECT COUNT(*) FROM page_views WHERE page_id=p.id),0)";
 
 // Home
 r.get("/", async (req, res) => {
-  const ip =
-    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
+  const ip = req.clientIp;
   const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   const recent = await all(
@@ -117,8 +130,7 @@ r.post("/new", requireAdmin, async (req, res) => {
 
 // Read
 r.get("/wiki/:slugid", async (req, res) => {
-  const ip =
-    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
+  const ip = req.clientIp;
   const page = await get(
     `SELECT p.*,
     (SELECT COUNT(*) FROM likes WHERE page_id=p.id) AS likes,
@@ -128,14 +140,19 @@ r.get("/wiki/:slugid", async (req, res) => {
     [ip, req.params.slugid],
   );
   if (!page) return res.status(404).send("Page introuvable");
-  await incrementView(page.id, ip);
-  page.views = Number(page.views || 0) + 1;
   const tlist = await all(
     "SELECT name FROM tags t JOIN page_tags pt ON t.id=pt.tag_id WHERE pt.page_id=? ORDER BY name",
     [page.id],
   );
+  const tagNames = tlist.map((t) => t.name);
+  const tagBan = await isIpBanned(ip, { action: "view", tags: tagNames });
+  if (tagBan) {
+    return res.status(403).render("banned", { ban: tagBan });
+  }
+  await incrementView(page.id, ip);
+  page.views = Number(page.views || 0) + 1;
   const comments = await all(
-    `SELECT id, author, body, created_at
+    `SELECT id, author, body, created_at, updated_at
      FROM comments
      WHERE page_id=? AND status='approved'
      ORDER BY created_at ASC`,
@@ -147,12 +164,14 @@ r.get("/wiki/:slugid", async (req, res) => {
     delete req.session.commentFeedback;
   }
   const html = linkifyInternal(page.content);
+  const ownCommentTokens = req.session.commentTokens || {};
   res.render("page", {
     page,
     html,
     tags: tlist.map((t) => t.name),
     comments,
     commentFeedback,
+    ownCommentTokens,
   });
 });
 
@@ -163,6 +182,24 @@ r.post("/wiki/:slugid/comments", async (req, res) => {
     req.params.slugid,
   ]);
   if (!page) return res.status(404).send("Page introuvable");
+  const ip = req.clientIp;
+  const tags = await all(
+    "SELECT name FROM tags t JOIN page_tags pt ON pt.tag_id=t.id WHERE pt.page_id=?",
+    [page.id],
+  );
+  const ban = await isIpBanned(ip, {
+    action: "comment",
+    tags: tags.map((t) => t.name),
+  });
+  if (ban) {
+    req.session.commentFeedback = {
+      slug: page.slug_id,
+      errors: [
+        "Vous n'êtes pas autorisé à publier des commentaires sur cet article.",
+      ],
+    };
+    return res.redirect(`/wiki/${page.slug_id}#comments`);
+  }
 
   const author = (req.body.author || "").trim().slice(0, 80);
   const body = (req.body.body || "").trim();
@@ -199,37 +236,178 @@ r.post("/wiki/:slugid/comments", async (req, res) => {
     return res.redirect(`/wiki/${page.slug_id}#comments`);
   }
 
-  await run(
-    "INSERT INTO comments(page_id, author, body) VALUES(?,?,?)",
-    [page.id, author || null, body],
+  const token = randomUUID();
+  const result = await run(
+    "INSERT INTO comments(page_id, author, body, ip, edit_token) VALUES(?,?,?,?,?)",
+    [page.id, author || null, body, ip || null, token],
   );
+
+  if (!req.session.commentTokens) {
+    req.session.commentTokens = {};
+  }
+  req.session.commentTokens[result.lastID] = token;
 
   req.session.lastCommentAt = now;
   req.session.commentFeedback = {
     slug: page.slug_id,
     success: true,
+    message:
+      "Merci ! Votre commentaire a été enregistré et sera publié après validation.",
   };
 
   await sendAdminEvent("Nouveau commentaire", {
     page,
     comment: {
+      id: result.lastID,
       author: author || "Anonyme",
       preview: body.slice(0, 200),
+    },
+    user: req.session.user?.username || null,
+    extra: {
+      ip,
+      status: "pending",
     },
   });
 
   res.redirect(`/wiki/${page.slug_id}#comments`);
 });
 
+r.get("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
+  const comment = await get(
+    `SELECT c.id, c.author, c.body, c.status, c.edit_token, p.slug_id, p.title
+     FROM comments c
+     JOIN pages p ON p.id = c.page_id
+    WHERE c.id=? AND p.slug_id=?`,
+    [req.params.commentId, req.params.slugid],
+  );
+  if (!comment) return res.status(404).send("Commentaire introuvable");
+  if (!canManageComment(req, comment)) {
+    return res.status(403).render("banned", {
+      ban: {
+        reason: "Vous n'avez pas la permission de modifier ce commentaire.",
+      },
+    });
+  }
+  res.render("comment_edit", { comment, pageSlug: req.params.slugid });
+});
+
+r.post("/wiki/:slugid/comments/:commentId/edit", async (req, res) => {
+  const comment = await get(
+    `SELECT c.id, c.page_id, c.author, c.body, c.status, c.edit_token, c.ip, p.slug_id, p.title
+     FROM comments c
+     JOIN pages p ON p.id = c.page_id
+    WHERE c.id=? AND p.slug_id=?`,
+    [req.params.commentId, req.params.slugid],
+  );
+  if (!comment) return res.status(404).send("Commentaire introuvable");
+  if (!canManageComment(req, comment)) {
+    return res.status(403).render("banned", {
+      ban: {
+        reason: "Vous n'avez pas la permission de modifier ce commentaire.",
+      },
+    });
+  }
+  const author = (req.body.author || "").trim().slice(0, 80);
+  const body = (req.body.body || "").trim();
+  const errors = [];
+  if (!body) {
+    errors.push("Le message est requis.");
+  } else if (body.length < 10) {
+    errors.push("Le message doit contenir au moins 10 caractères.");
+  } else if (body.length > 2000) {
+    errors.push("Le message est trop long (2000 caractères max).");
+  }
+  if (errors.length) {
+    return res.render("comment_edit", {
+      comment: { ...comment, author, body },
+      errors,
+      pageSlug: req.params.slugid,
+    });
+  }
+  await run(
+    `UPDATE comments
+        SET author=?, body=?, status='pending', updated_at=CURRENT_TIMESTAMP
+      WHERE id=?`,
+    [author || null, body, comment.id],
+  );
+  await sendAdminEvent("Commentaire modifié", {
+    page: { title: comment.title, slug_id: comment.slug_id },
+    comment: {
+      id: comment.id,
+      author: author || "Anonyme",
+      preview: body.slice(0, 200),
+    },
+    user: req.session.user?.username || null,
+    extra: {
+      status: "pending",
+      action: "edit",
+      ip: comment.ip || null,
+    },
+  });
+  req.session.commentFeedback = {
+    slug: comment.slug_id,
+    success: true,
+    message: "Votre commentaire a été mis à jour et sera revu par un modérateur.",
+  };
+  res.redirect(`/wiki/${comment.slug_id}#comments`);
+});
+
+r.post("/wiki/:slugid/comments/:commentId/delete", async (req, res) => {
+  const comment = await get(
+    `SELECT c.id, c.page_id, c.edit_token, c.ip, p.slug_id, p.title
+     FROM comments c
+     JOIN pages p ON p.id = c.page_id
+    WHERE c.id=? AND p.slug_id=?`,
+    [req.params.commentId, req.params.slugid],
+  );
+  if (!comment) return res.status(404).send("Commentaire introuvable");
+  if (!canManageComment(req, comment)) {
+    return res.status(403).render("banned", {
+      ban: {
+        reason: "Vous n'avez pas la permission de supprimer ce commentaire.",
+      },
+    });
+  }
+  await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  if (req.session.commentTokens) {
+    delete req.session.commentTokens[comment.id];
+  }
+  await sendAdminEvent("Commentaire supprimé par auteur", {
+    page: { title: comment.title, slug_id: comment.slug_id },
+    comment: { id: comment.id },
+    user: req.session.user?.username || null,
+    extra: {
+      action: "delete",
+      ip: comment.ip || null,
+    },
+  });
+  req.session.commentFeedback = {
+    slug: comment.slug_id,
+    success: true,
+    message: "Votre commentaire a été supprimé.",
+  };
+  res.redirect(`/wiki/${comment.slug_id}#comments`);
+});
+
 // Like toggle
 r.post("/wiki/:slugid/like", async (req, res) => {
-  const ip =
-    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
+  const ip = req.clientIp;
   const page = await get(
     "SELECT id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
     [req.params.slugid],
   );
   if (!page) return res.status(404).send("Page introuvable");
+  const tags = await all(
+    "SELECT name FROM tags t JOIN page_tags pt ON pt.tag_id=t.id WHERE pt.page_id=?",
+    [page.id],
+  );
+  const ban = await isIpBanned(ip, {
+    action: "like",
+    tags: tags.map((t) => t.name),
+  });
+  if (ban) {
+    return res.status(403).render("banned", { ban });
+  }
   const exists = await get("SELECT 1 FROM likes WHERE page_id=? AND ip=?", [
     page.id,
     ip,
@@ -332,8 +510,15 @@ r.post("/delete/:slugid", requireAdmin, async (req, res) => {
 
 // Tag listing with like state
 r.get("/tags/:name", async (req, res) => {
-  const ip =
-    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() || req.ip;
+  const ip = req.clientIp;
+  const tagName = req.params.name.toLowerCase();
+  const tagBan = await isIpBanned(ip, {
+    action: "view",
+    tags: [tagName],
+  });
+  if (tagBan) {
+    return res.status(403).render("banned", { ban: tagBan });
+  }
   const pages = await all(
     `
     SELECT p.id, p.title, p.slug_id, substr(p.content,1,1200) AS excerpt, p.created_at,
@@ -420,6 +605,13 @@ async function recordRevision(pageId, title, content, authorId = null) {
     [pageId, next, title, content, authorId],
   );
   return next;
+}
+
+function canManageComment(req, comment) {
+  if (req.session.user?.is_admin) return true;
+  const tokens = req.session.commentTokens || {};
+  if (!comment?.edit_token) return false;
+  return tokens[comment.id] && tokens[comment.id] === comment.edit_token;
 }
 
 export default r;

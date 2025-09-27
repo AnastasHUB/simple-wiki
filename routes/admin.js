@@ -18,6 +18,7 @@ import {
   optimizeUpload,
   normalizeDisplayName,
 } from "../utils/uploads.js";
+import { banIp, liftBan } from "../utils/ipBans.js";
 
 await ensureUploadDir();
 
@@ -63,7 +64,7 @@ r.use(requireAdmin);
 
 r.get("/comments", async (req, res) => {
   const pending = await all(
-    `SELECT c.id, c.author, c.body, c.created_at, c.status,
+    `SELECT c.id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
@@ -71,7 +72,7 @@ r.get("/comments", async (req, res) => {
       ORDER BY c.created_at ASC`,
   );
   const recent = await all(
-    `SELECT c.id, c.author, c.body, c.created_at, c.status,
+    `SELECT c.id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
@@ -86,7 +87,7 @@ r.get("/comments", async (req, res) => {
 
 r.post("/comments/:id/approve", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.status, p.title, p.slug_id
+    `SELECT c.id, c.status, c.ip, p.title, p.slug_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
       WHERE c.id=?`,
@@ -104,13 +105,16 @@ r.post("/comments/:id/approve", async (req, res) => {
     type: "success",
     message: "Commentaire approuvé.",
   };
-  await sendAdminEvent("Commentaire approuvé", { page: comment });
+  await sendAdminEvent("Commentaire approuvé", {
+    page: comment,
+    extra: { ip: comment.ip, commentId: comment.id },
+  });
   res.redirect("/admin/comments");
 });
 
 r.post("/comments/:id/reject", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, c.status, p.title, p.slug_id
+    `SELECT c.id, c.status, c.ip, p.title, p.slug_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
       WHERE c.id=?`,
@@ -128,13 +132,16 @@ r.post("/comments/:id/reject", async (req, res) => {
     type: "success",
     message: "Commentaire rejeté.",
   };
-  await sendAdminEvent("Commentaire rejeté", { page: comment });
+  await sendAdminEvent("Commentaire rejeté", {
+    page: comment,
+    extra: { ip: comment.ip, commentId: comment.id },
+  });
   res.redirect("/admin/comments");
 });
 
 r.delete("/comments/:id", async (req, res) => {
   const comment = await get(
-    `SELECT c.id, p.title, p.slug_id
+    `SELECT c.id, c.ip, p.title, p.slug_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
       WHERE c.id=?`,
@@ -152,8 +159,83 @@ r.delete("/comments/:id", async (req, res) => {
     type: "success",
     message: "Commentaire supprimé.",
   };
-  await sendAdminEvent("Commentaire supprimé", { page: comment });
+  await sendAdminEvent("Commentaire supprimé", {
+    page: comment,
+    extra: { ip: comment.ip, commentId: comment.id },
+  });
   res.redirect("/admin/comments");
+});
+
+r.get("/ip-bans", async (req, res) => {
+  const bans = await all(
+    `SELECT id, ip, scope, value, reason, created_at, lifted_at
+       FROM ip_bans
+      ORDER BY created_at DESC
+      LIMIT 200`,
+  );
+  const notice = req.session.ipBanNotice || null;
+  delete req.session.ipBanNotice;
+  res.render("admin/ip_bans", {
+    bans,
+    notice,
+  });
+});
+
+r.post("/ip-bans", async (req, res) => {
+  const ip = (req.body.ip || "").trim();
+  const scopeInput = (req.body.scope || "").trim();
+  const reason = (req.body.reason || "").trim();
+  const tagValue = (req.body.tag || "").trim().toLowerCase();
+  if (!ip || !scopeInput) {
+    req.session.ipBanNotice = {
+      type: "error",
+      message: "Adresse IP et portée requis.",
+    };
+    return res.redirect("/admin/ip-bans");
+  }
+  let scope = "global";
+  let value = null;
+  if (scopeInput === "tag") {
+    scope = "tag";
+    value = tagValue;
+    if (!value) {
+      req.session.ipBanNotice = {
+        type: "error",
+        message: "Veuillez préciser le tag à restreindre.",
+      };
+      return res.redirect("/admin/ip-bans");
+    }
+  } else if (scopeInput !== "global") {
+    scope = "action";
+    value = scopeInput;
+  }
+  await banIp({ ip, scope, value, reason: reason || null });
+  req.session.ipBanNotice = {
+    type: "success",
+    message: "Blocage enregistré.",
+  };
+  await sendAdminEvent("IP bannie", {
+    extra: { ip, scope, value, reason: reason || null },
+    user: req.session.user?.username || null,
+  });
+  res.redirect("/admin/ip-bans");
+});
+
+r.post("/ip-bans/:id/lift", async (req, res) => {
+  const ban = await get(
+    "SELECT ip, scope, value FROM ip_bans WHERE id=?",
+    [req.params.id],
+  );
+  await liftBan(req.params.id);
+  req.session.ipBanNotice = {
+    type: "success",
+    message: "Blocage levé.",
+  };
+  await sendAdminEvent("IP débannie", {
+    extra: { id: req.params.id, ip: ban?.ip || null, scope: ban?.scope, value: ban?.value },
+    user: req.session.user?.username || null,
+  });
+  res.redirect("/admin/ip-bans");
 });
 
 r.get("/pages", async (req, res) => {
@@ -203,10 +285,60 @@ r.get("/stats", async (_req, res) => {
       + COALESCE((SELECT COUNT(*) FROM page_views),0) AS totalViews`,
   );
 
+  const likeTotals = await get("SELECT COUNT(*) AS totalLikes FROM likes");
+  const commentByStatus = await all(
+    "SELECT status, COUNT(*) AS count FROM comments GROUP BY status",
+  );
+  const topLikedPages = await all(`
+    SELECT p.title, p.slug_id, COUNT(*) AS likes
+      FROM likes l
+      JOIN pages p ON p.id = l.page_id
+     GROUP BY l.page_id
+     ORDER BY likes DESC, p.title ASC
+     LIMIT 15`);
+  const topCommenters = await all(`
+    SELECT COALESCE(author, 'Anonyme') AS author, COUNT(*) AS comments
+      FROM comments
+     GROUP BY COALESCE(author, 'Anonyme')
+     ORDER BY comments DESC
+     LIMIT 15`);
+  const activeIps = await all(`
+    SELECT ip, COUNT(*) AS views
+      FROM page_views
+     WHERE ip IS NOT NULL AND ip <> ''
+     GROUP BY ip
+     ORDER BY views DESC
+     LIMIT 25`);
+  const ipViewsByPage = await all(`
+    SELECT pv.ip, p.title, p.slug_id, COUNT(*) AS views
+      FROM page_views pv
+      JOIN pages p ON p.id = pv.page_id
+     WHERE pv.ip IS NOT NULL AND pv.ip <> ''
+     GROUP BY pv.ip, pv.page_id
+     ORDER BY views DESC
+     LIMIT 50`);
+  const banCount = await get(
+    "SELECT COUNT(*) AS count FROM ip_bans WHERE lifted_at IS NULL",
+  );
+  const eventCount = await get(
+    "SELECT COUNT(*) AS count FROM event_logs",
+  );
+
   res.render("admin/stats", {
     periods,
     stats,
     totalViews: totals?.totalViews || 0,
+    totalsBreakdown: {
+      likes: likeTotals?.totalLikes || 0,
+      comments: commentByStatus.reduce((sum, row) => sum + (row?.count || 0), 0),
+      commentByStatus,
+      activeBans: banCount?.count || 0,
+      events: eventCount?.count || 0,
+    },
+    topLikedPages,
+    topCommenters,
+    activeIps,
+    ipViewsByPage,
   });
 });
 
@@ -233,6 +365,29 @@ r.get("/pages/export", async (_req, res) => {
           .filter(Boolean)
       : [],
   }));
+  const likes = await all(`
+    SELECT l.id, l.page_id, p.slug_id, l.ip, l.created_at
+      FROM likes l
+      JOIN pages p ON p.id = l.page_id
+     ORDER BY l.created_at ASC`);
+  const comments = await all(`
+    SELECT c.id, c.page_id, p.slug_id, c.author, c.body, c.status, c.created_at, c.updated_at, c.ip
+      FROM comments c
+      JOIN pages p ON p.id = c.page_id
+     ORDER BY c.created_at ASC`);
+  const viewEvents = await all(`
+    SELECT pv.page_id, p.slug_id, pv.ip, pv.viewed_at
+      FROM page_views pv
+      JOIN pages p ON p.id = pv.page_id
+     ORDER BY pv.viewed_at ASC`);
+  const aggregatedViews = await all(`
+    SELECT page_id, day, views FROM page_view_daily ORDER BY day ASC`);
+  const ipBans = await all(
+    "SELECT id, ip, scope, value, reason, created_at, lifted_at FROM ip_bans ORDER BY created_at ASC",
+  );
+  const events = await all(
+    "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at ASC",
+  );
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   const date = new Date().toISOString().split("T")[0];
   res.setHeader(
@@ -243,6 +398,14 @@ r.get("/pages/export", async (_req, res) => {
     exported_at: new Date().toISOString(),
     count: pages.length,
     pages,
+    likes,
+    comments,
+    views: {
+      events: viewEvents,
+      daily: aggregatedViews,
+    },
+    ip_bans: ipBans,
+    events,
   };
   res.send(JSON.stringify(payload, null, 2));
 });
@@ -517,6 +680,13 @@ r.get("/likes", async (_req, res) => {
 r.post("/likes/:id/delete", async (req, res) => {
   await run("DELETE FROM likes WHERE id=?", [req.params.id]);
   res.redirect("/admin/likes");
+});
+
+r.get("/events", async (_req, res) => {
+  const events = await all(
+    "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at DESC LIMIT 200",
+  );
+  res.render("admin/events", { events });
 });
 
 export default r;
