@@ -43,3 +43,57 @@
     </div>
   </div>
 <% } %>
+
+<% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
+<section class="card comments" id="comments">
+  <h2 style="margin-top:0">Commentaires</h2>
+  <% if (commentFeedback && commentFeedback.success) { %>
+    <div class="notice success">Merci ! Votre commentaire a été enregistré et sera publié après validation.</div>
+  <% } %>
+  <% if (commentFeedback && commentFeedback.errors && commentFeedback.errors.length) { %>
+    <div class="notice error">
+      <p style="margin-top:0;">Impossible d'enregistrer le commentaire :</p>
+      <ul>
+        <% commentFeedback.errors.forEach(err => { %>
+          <li><%= err %></li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
+  <% if (comments && comments.length) { %>
+    <ul class="comment-list">
+      <% comments.forEach(c => { %>
+        <li class="comment">
+          <div class="comment-meta">
+            <strong><%= c.author || 'Anonyme' %></strong>
+            <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
+          </div>
+          <div class="comment-body"><%= c.body %></div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p class="comment-empty">Aucun commentaire pour le moment.</p>
+  <% } %>
+
+  <form class="comment-form" method="post" action="/wiki/<%= page.slug_id %>/comments">
+    <div class="field">
+      <label for="comment-author">Nom ou pseudo (facultatif)</label>
+      <input id="comment-author" type="text" name="author" maxlength="80" value="<%= commentValues.author || '' %>">
+    </div>
+    <div class="field">
+      <label for="comment-body">Votre message <span style="color:#f87171;">*</span></label>
+      <textarea id="comment-body" name="body" rows="5" maxlength="2000" required><%= commentValues.body || '' %></textarea>
+    </div>
+    <div class="field">
+      <label for="comment-captcha">Question anti-spam : 3 + 4 = ? <span style="color:#f87171;">*</span></label>
+      <input id="comment-captcha" type="text" name="captcha" inputmode="numeric" pattern="[0-9]*" required>
+    </div>
+    <div class="field honeypot">
+      <label for="comment-website">Ne pas remplir</label>
+      <input id="comment-website" type="text" name="website" tabindex="-1" autocomplete="off">
+    </div>
+    <button class="btn" type="submit">Envoyer mon commentaire</button>
+  </form>
+</section>

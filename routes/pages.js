@@ -119,8 +119,91 @@ r.get("/wiki/:slugid", async (req, res) => {
     "SELECT name FROM tags t JOIN page_tags pt ON t.id=pt.tag_id WHERE pt.page_id=? ORDER BY name",
     [page.id],
   );
+  const comments = await all(
+    `SELECT id, author, body, created_at
+     FROM comments
+     WHERE page_id=? AND status='approved'
+     ORDER BY created_at ASC`,
+    [page.id],
+  );
+  let commentFeedback = null;
+  if (req.session.commentFeedback?.slug === page.slug_id) {
+    commentFeedback = req.session.commentFeedback;
+    delete req.session.commentFeedback;
+  }
   const html = linkifyInternal(page.content);
-  res.render("page", { page, html, tags: tlist.map((t) => t.name) });
+  res.render("page", {
+    page,
+    html,
+    tags: tlist.map((t) => t.name),
+    comments,
+    commentFeedback,
+  });
+});
+
+const COMMENT_COOLDOWN_MS = 60 * 1000;
+
+r.post("/wiki/:slugid/comments", async (req, res) => {
+  const page = await get("SELECT id, title, slug_id FROM pages WHERE slug_id=?", [
+    req.params.slugid,
+  ]);
+  if (!page) return res.status(404).send("Page introuvable");
+
+  const author = (req.body.author || "").trim().slice(0, 80);
+  const body = (req.body.body || "").trim();
+  const captcha = (req.body.captcha || "").trim();
+  const honeypot = (req.body.website || "").trim();
+  const errors = [];
+
+  if (honeypot) {
+    errors.push("Soumission invalide.");
+  }
+  if (!body) {
+    errors.push("Le message est requis.");
+  } else if (body.length < 10) {
+    errors.push("Le message doit contenir au moins 10 caractères.");
+  } else if (body.length > 2000) {
+    errors.push("Le message est trop long (2000 caractères max).");
+  }
+  if (captcha !== "7") {
+    errors.push("Merci de répondre correctement à la question anti-spam (3 + 4).");
+  }
+
+  const now = Date.now();
+  if (req.session.lastCommentAt && now - req.session.lastCommentAt < COMMENT_COOLDOWN_MS) {
+    const wait = Math.ceil((COMMENT_COOLDOWN_MS - (now - req.session.lastCommentAt)) / 1000);
+    errors.push(`Merci de patienter ${wait} seconde(s) avant de publier un nouveau commentaire.`);
+  }
+
+  if (errors.length) {
+    req.session.commentFeedback = {
+      slug: page.slug_id,
+      errors,
+      values: { author, body },
+    };
+    return res.redirect(`/wiki/${page.slug_id}#comments`);
+  }
+
+  await run(
+    "INSERT INTO comments(page_id, author, body) VALUES(?,?,?)",
+    [page.id, author || null, body],
+  );
+
+  req.session.lastCommentAt = now;
+  req.session.commentFeedback = {
+    slug: page.slug_id,
+    success: true,
+  };
+
+  await sendAdminEvent("Nouveau commentaire", {
+    page,
+    comment: {
+      author: author || "Anonyme",
+      preview: body.slice(0, 200),
+    },
+  });
+
+  res.redirect(`/wiki/${page.slug_id}#comments`);
 });
 
 // Like toggle
