@@ -12,6 +12,17 @@ export const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
 const MAX_DIMENSION = 1920;
 const OPTIMIZE_FORMATS = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 
+export function normalizeDisplayName(value) {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, 120);
+}
+
 function determineFormatFromMime(mimeType, fallbackExtension) {
   if (!mimeType) {
     return (fallbackExtension || '').replace('.', '').toLowerCase();
@@ -79,6 +90,7 @@ export async function optimizeUpload(filePath, mimeType, extension) {
 
 export async function recordUpload({ id, originalName, displayName, extension, size }) {
   await ensureUploadDir();
+  const normalizedName = normalizeDisplayName(displayName);
   await run(
     `INSERT INTO uploads(id, original_name, display_name, extension, size)
      VALUES(?,?,?,?,?)
@@ -87,7 +99,7 @@ export async function recordUpload({ id, originalName, displayName, extension, s
        display_name=excluded.display_name,
        extension=excluded.extension,
        size=excluded.size`,
-    [id, originalName, displayName, extension, size]
+    [id, originalName, normalizedName, extension, size]
   );
 }
 
@@ -102,7 +114,15 @@ export async function listUploads() {
   for (const row of rows) {
     const extension = row.extension || '';
     const filename = buildFilename(row.id, extension);
-    if (!filename || filename.startsWith('.')) {
+    if (
+      !filename ||
+      filename.startsWith('.') ||
+      filename === 'gitkeep' ||
+      row.original_name === '.gitkeep'
+    ) {
+      if (filename === '.gitkeep' || row.original_name === '.gitkeep') {
+        await run('DELETE FROM uploads WHERE id=?', [row.id]);
+      }
       continue;
     }
     const filePath = path.join(uploadDir, filename);
@@ -193,10 +213,11 @@ export async function removeUpload(id) {
 }
 
 export async function updateUploadName(id, displayName) {
+  const normalizedName = normalizeDisplayName(displayName);
   const row = await get('SELECT 1 FROM uploads WHERE id=?', [id]);
   if (!row) {
     return false;
   }
-  await run('UPDATE uploads SET display_name=? WHERE id=?', [displayName, id]);
+  await run('UPDATE uploads SET display_name=? WHERE id=?', [normalizedName, id]);
   return true;
 }

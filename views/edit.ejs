@@ -23,7 +23,7 @@
       <% const displayName = file.displayName || ''; %>
       <% const originalName = file.originalName || file.name; %>
       <% const uuid = file.id || (file.name ? file.name.split('.')[0] : file.name); %>
-      <div class="upload-item card" data-url="<%= file.url %>" data-alt="<%= displayName %>" style="padding:12px; display:flex; flex-direction:column; gap:8px">
+      <div class="upload-item card" data-url="<%= file.url %>" data-alt="<%= displayName %>" data-original-name="<%= originalName %>" style="padding:12px; display:flex; flex-direction:column; gap:8px">
         <div style="text-align:center">
           <img src="<%= file.url %>" alt="" style="max-width:100%; max-height:120px; object-fit:contain" />
         </div>
@@ -48,16 +48,16 @@
   function buildSnippet(url, alt) {
     const img = document.createElement('img');
     img.src = url;
-    if (alt) {
-      img.alt = alt;
-    }
+    img.alt = alt || '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
     return img.outerHTML;
   }
 
   function enhanceUploadItem(item) {
     if (!item) return;
     const url = item.dataset.url;
-    const alt = item.dataset.alt || '';
+    const alt = item.dataset.alt || item.dataset.originalName || '';
     const snippet = buildSnippet(url, alt);
     const code = item.querySelector('.upload-snippet');
     if (code) {

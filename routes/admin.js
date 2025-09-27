@@ -12,7 +12,8 @@ import {
   listUploads,
   removeUpload,
   updateUploadName,
-  optimizeUpload
+  optimizeUpload,
+  normalizeDisplayName
 } from '../utils/uploads.js';
 
 await ensureUploadDir();
@@ -154,16 +155,5 @@ r.post('/likes/:id/delete', async (req,res)=>{
   await run('DELETE FROM likes WHERE id=?', [req.params.id]);
   res.redirect('/admin/likes');
 });
-
-function normalizeDisplayName(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
-  return trimmed.slice(0, 120);
-}
 
 export default r;
