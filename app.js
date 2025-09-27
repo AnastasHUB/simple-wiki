@@ -5,12 +5,13 @@ import morgan from "morgan";
 import path from "path";
 import expressLayouts from "express-ejs-layouts";
 import { fileURLToPath } from "url";
-import { initDb, get, run } from "./db.js";
+import { initDb } from "./db.js";
 import { sessionConfig } from "./utils/config.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
+import { getSiteSettings } from "./utils/settingsService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,14 +33,16 @@ app.use(session(sessionConfig));
 
 // expose user + settings to views
 app.use(async (req, res, next) => {
-  res.locals.user = req.session.user || null;
-  const settings = await get(
-    "SELECT wiki_name AS wikiName, logo_url AS logoUrl, admin_webhook_url AS adminWebhook, feed_webhook_url AS feedWebhook, footer_text AS footerText FROM settings LIMIT 1",
-  );
-  res.locals.wikiName = settings?.wikiName || "Wiki";
-  res.locals.logoUrl = settings?.logoUrl || "";
-  res.locals.footerText = settings?.footerText || "";
-  next();
+  try {
+    res.locals.user = req.session.user || null;
+    const settings = await getSiteSettings();
+    res.locals.wikiName = settings.wikiName;
+    res.locals.logoUrl = settings.logoUrl;
+    res.locals.footerText = settings.footerText;
+    next();
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.get("/rss.xml", async (req, res) => {

@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <title>Simple Wiki · Documentation</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      :root {
+        color-scheme: light dark;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        line-height: 1.6;
+      }
+      body {
+        margin: 0 auto;
+        padding: 3rem 1.5rem 4rem;
+        max-width: 960px;
+        background: radial-gradient(circle at top, #f5f9ff, #ffffff 45%);
+      }
+      header {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        margin-bottom: 2.5rem;
+        text-align: center;
+      }
+      h1 {
+        font-size: clamp(2rem, 5vw, 3rem);
+        margin: 0;
+      }
+      h2 {
+        margin-top: 2.5rem;
+        border-bottom: 2px solid #4676d7;
+        padding-bottom: 0.4rem;
+      }
+      code {
+        background: rgba(71, 118, 215, 0.12);
+        border-radius: 4px;
+        padding: 0.15rem 0.35rem;
+        font-size: 0.95em;
+      }
+      pre {
+        background: rgba(40, 44, 52, 0.9);
+        color: #f8f8f2;
+        border-radius: 6px;
+        padding: 1rem;
+        overflow-x: auto;
+      }
+      .grid {
+        display: grid;
+        gap: 1.5rem;
+      }
+      @media (min-width: 900px) {
+        .grid.two {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 8px;
+        padding: 1.5rem;
+        box-shadow: 0 12px 34px rgba(40, 74, 120, 0.12);
+        backdrop-filter: blur(6px);
+      }
+      footer {
+        margin-top: 3rem;
+        font-size: 0.875rem;
+        text-align: center;
+        color: #4b5563;
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>Simple Wiki · Documentation développeur</h1>
+      <p>
+        Ce document présente l’architecture de l’application, la structure de la
+        base de données et les points d’extension principaux pour adapter Simple
+        Wiki à vos besoins.
+      </p>
+    </header>
+
+    <section>
+      <h2>Architecture applicative</h2>
+      <div class="grid two">
+        <article class="card">
+          <h3>Serveur Express</h3>
+          <p>
+            <code>app.js</code> initialise Express, les middlewares (sessions,
+            logs, <code>method-override</code>) et monte les routes
+            fonctionnelles. Le moteur de templates utilisé est EJS avec des
+            layouts partagés.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Système de sessions</h3>
+          <p>
+            La configuration des sessions provient de
+            <code>utils/config.js</code>. Les valeurs sensibles sont chargées via
+            des variables d’environnement ou un fichier de secrets pour éviter
+            toute fuite dans le dépôt Git.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Gestion des paramètres</h3>
+          <p>
+            Le module <code>utils/settingsService.js</code> centralise la lecture
+            et la mise à jour des paramètres du wiki. Il offre un cache mémoire
+            à durée limitée pour limiter la charge sur SQLite et expose des
+            helpers adaptés aux formulaires d’administration.
+          </p>
+        </article>
+        <article class="card">
+          <h3>Intégrations externes</h3>
+          <p>
+            <code>utils/webhook.js</code> expédie des notifications Discord
+            (canaux « admin » et « feed ») et journalise chaque événement dans la
+            table <code>event_logs</code>. Les descriptions longues sont
+            tronquées pour respecter les limites de l’API.
+          </p>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Schéma de la base de données</h2>
+      <p>
+        Toutes les données sont stockées dans SQLite. Le script
+        <code>db.js</code> crée les tables à la volée et active les contraintes
+        d’intégrité. Voici les entités principales :
+      </p>
+      <ul>
+        <li><strong>users</strong> : comptes administrateurs et contributeurs.</li>
+        <li>
+          <strong>pages</strong> : contenu principal du wiki avec
+          <code>slug_id</code> unique et historique dans
+          <code>page_revisions</code>.
+        </li>
+        <li>
+          <strong>comments</strong> : commentaires publics, modérés via un statut
+          <code>pending</code>/<code>approved</code>/<code>rejected</code>.
+        </li>
+        <li>
+          <strong>settings</strong> : paramètres globaux (nom, logo, webhooks,
+          pied de page) gérés par l’interface admin.
+        </li>
+        <li>
+          <strong>uploads</strong> : fichiers déposés via l’interface
+          d’administration et servis en statique.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Flux principaux</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Cycle de vie d’une page</h3>
+          <ol>
+            <li>Création via <code>POST /new</code> (admin requis).</li>
+            <li>Insertion du contenu et des tags en base.</li>
+            <li>Enregistrement d’une révision et indexation FTS.</li>
+            <li>Notification envoyée via webhook « feed ».</li>
+            <li>Consultation publique sur <code>/wiki/:slug</code> avec suivi des vues.</li>
+          </ol>
+        </article>
+        <article class="card">
+          <h3>Commentaires publics</h3>
+          <ol>
+            <li>Saisie avec validation (captcha basique et honeypot).</li>
+            <li>Enregistrement avec un token d’édition transmis en session.</li>
+            <li>Modération depuis <code>/admin/comments</code>.</li>
+            <li>Mises à jour journalisées et envoyées au webhook « admin ».</li>
+          </ol>
+        </article>
+      </div>
+    </section>
+
+    <section>
+      <h2>Points d’extension</h2>
+      <ul>
+        <li>
+          Ajoutez de nouveaux champs au modèle <code>settings</code> en utilisant
+          <code>ensureColumn</code> dans <code>db.js</code> puis exposez-les via
+          <code>settingsService</code> pour bénéficier du cache.
+        </li>
+        <li>
+          Pour intégrer une authentification externe, remplacez les méthodes dans
+          <code>routes/auth.js</code> en conservant la structure des sessions.
+        </li>
+        <li>
+          Les webhooks peuvent être étendus en ajoutant un nouveau canal et en le
+          branchant dans <code>utils/webhook.js</code>.
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Bonnes pratiques</h2>
+      <ul>
+        <li>Activez HTTPS pour sécuriser les cookies de session.</li>
+        <li>
+          Utilisez <code>SESSION_SECRETS</code> pour préparer une rotation des
+          secrets sans interruption de service.
+        </li>
+        <li>
+          Exécutez régulièrement <code>npm run views:aggregate</code> afin de
+          garder la table des vues compacte.
+        </li>
+        <li>
+          Surveillez la table <code>event_logs</code> pour alimenter un SIEM ou un
+          dashboard interne.
+        </li>
+      </ul>
+    </section>
+
+    <footer>
+      &copy; <span id="year"></span> Simple Wiki · Fait avec 💙 pour la communauté.
+    </footer>
+    <script>
+      document.getElementById("year").textContent = new Date().getFullYear();
+    </script>
+  </body>
+</html>

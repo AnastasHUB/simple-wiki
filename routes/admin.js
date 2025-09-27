@@ -20,6 +20,10 @@ import {
 } from "../utils/uploads.js";
 import { banIp, liftBan } from "../utils/ipBans.js";
 import { getClientIp } from "../utils/ip.js";
+import {
+  getSiteSettingsForForm,
+  updateSiteSettingsFromForm,
+} from "../utils/settingsService.js";
 
 await ensureUploadDir();
 
@@ -266,9 +270,24 @@ r.get("/pages", async (req, res) => {
 
 r.get("/stats", async (_req, res) => {
   const periods = [
-    { key: "day", label: "24 dernières heures", durationMs: 24 * 60 * 60 * 1000, limit: 10 },
-    { key: "week", label: "7 derniers jours", durationMs: 7 * 24 * 60 * 60 * 1000, limit: 15 },
-    { key: "month", label: "30 derniers jours", durationMs: 30 * 24 * 60 * 60 * 1000, limit: 15 },
+    {
+      key: "day",
+      label: "24 dernières heures",
+      durationMs: 24 * 60 * 60 * 1000,
+      limit: 10,
+    },
+    {
+      key: "week",
+      label: "7 derniers jours",
+      durationMs: 7 * 24 * 60 * 60 * 1000,
+      limit: 15,
+    },
+    {
+      key: "month",
+      label: "30 derniers jours",
+      durationMs: 30 * 24 * 60 * 60 * 1000,
+      limit: 15,
+    },
     { key: "all", label: "Depuis toujours", durationMs: null, limit: 20 },
   ];
 
@@ -281,7 +300,11 @@ r.get("/stats", async (_req, res) => {
       fromIso = from.toISOString();
       fromDay = fromIso.slice(0, 10);
     }
-    const { query, params } = buildViewLeaderboardQuery(fromIso, fromDay, period.limit);
+    const { query, params } = buildViewLeaderboardQuery(
+      fromIso,
+      fromDay,
+      period.limit,
+    );
     stats[period.key] = await all(query, params);
   }
 
@@ -350,9 +373,7 @@ r.get("/stats", async (_req, res) => {
   const banCount = await get(
     "SELECT COUNT(*) AS count FROM ip_bans WHERE lifted_at IS NULL",
   );
-  const eventCount = await get(
-    "SELECT COUNT(*) AS count FROM event_logs",
-  );
+  const eventCount = await get("SELECT COUNT(*) AS count FROM event_logs");
 
   res.render("admin/stats", {
     periods,
@@ -360,7 +381,10 @@ r.get("/stats", async (_req, res) => {
     totalViews: totals?.totalViews || 0,
     totalsBreakdown: {
       likes: likeTotals?.totalLikes || 0,
-      comments: commentByStatus.reduce((sum, row) => sum + (row?.count || 0), 0),
+      comments: commentByStatus.reduce(
+        (sum, row) => sum + (row?.count || 0),
+        0,
+      ),
       commentByStatus,
       activeBans: banCount?.count || 0,
       events: eventCount?.count || 0,
@@ -724,21 +748,11 @@ r.post("/uploads/:id/delete", async (req, res) => {
 
 // settings
 r.get("/settings", async (_req, res) => {
-  const s = await get("SELECT * FROM settings WHERE id=1");
+  const s = await getSiteSettingsForForm();
   res.render("admin/settings", { s });
 });
 r.post("/settings", async (req, res) => {
-  const {
-    wiki_name,
-    logo_url,
-    admin_webhook_url,
-    feed_webhook_url,
-    footer_text,
-  } = req.body;
-  await run(
-    "UPDATE settings SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=? WHERE id=1",
-    [wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text],
-  );
+  const updated = await updateSiteSettingsFromForm(req.body);
   const ip = getClientIp(req);
   await sendAdminEvent(
     "Paramètres mis à jour",
@@ -746,11 +760,11 @@ r.post("/settings", async (req, res) => {
       user: req.session.user?.username || null,
       extra: {
         ip,
-        wiki_name,
-        logo_url,
-        footer_text,
-        adminWebhookConfigured: !!admin_webhook_url,
-        feedWebhookConfigured: !!feed_webhook_url,
+        wikiName: updated.wikiName,
+        logoUrl: updated.logoUrl,
+        footerText: updated.footerText,
+        adminWebhookConfigured: !!updated.adminWebhook,
+        feedWebhookConfigured: !!updated.feedWebhook,
       },
     },
     { includeScreenshot: false },
@@ -769,10 +783,10 @@ r.post("/users", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.redirect("/admin/users");
   const hashed = await hashPassword(password);
-  const result = await run("INSERT INTO users(username,password,is_admin) VALUES(?,?,1)", [
-    username,
-    hashed,
-  ]);
+  const result = await run(
+    "INSERT INTO users(username,password,is_admin) VALUES(?,?,1)",
+    [username, hashed],
+  );
   const ip = getClientIp(req);
   await sendAdminEvent(
     "Utilisateur créé",
@@ -789,10 +803,9 @@ r.post("/users", async (req, res) => {
   res.redirect("/admin/users");
 });
 r.post("/users/:id/delete", async (req, res) => {
-  const target = await get(
-    "SELECT id, username FROM users WHERE id=?",
-    [req.params.id],
-  );
+  const target = await get("SELECT id, username FROM users WHERE id=?", [
+    req.params.id,
+  ]);
   await run("DELETE FROM users WHERE id=?", [req.params.id]);
   const ip = getClientIp(req);
   await sendAdminEvent(
@@ -832,9 +845,7 @@ r.post("/likes/:id/delete", async (req, res) => {
     "Like supprimé par admin",
     {
       user: req.session.user?.username || null,
-      page: like
-        ? { title: like.title, slug_id: like.slug_id }
-        : undefined,
+      page: like ? { title: like.title, slug_id: like.slug_id } : undefined,
       extra: {
         ip,
         likeId: req.params.id,
@@ -849,11 +860,10 @@ r.post("/likes/:id/delete", async (req, res) => {
 r.get("/events", async (req, res) => {
   const pageSize = 50;
   const requestedPage = Number.parseInt(req.query.page, 10);
-  let page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+  let page =
+    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  const totalRow = await get(
-    "SELECT COUNT(*) AS total FROM event_logs",
-  );
+  const totalRow = await get("SELECT COUNT(*) AS total FROM event_logs");
   const totalEvents = Number(totalRow?.total ?? 0);
   const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize));
 
