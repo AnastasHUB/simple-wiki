@@ -40,26 +40,30 @@
             <td>
               <img src="<%= upload.url %>" alt="" style="max-width:140px; max-height:90px; object-fit:contain; border-radius:8px" />
             </td>
-            <td style="line-height:1.4">
-              <div><strong>UUID :</strong> <code><%= upload.id %></code></div>
-              <div><strong>Nom original :</strong> <%= upload.originalName %></div>
-              <div><strong>Nom affiché :</strong> <%= displayName || '—' %></div>
-              <div><strong>Taille :</strong> <%= sizeLabel %></div>
-              <div><strong>Ajouté :</strong> <%= createdAt %></div>
-            </td>
-            <td>
-              <form method="post" action="/admin/uploads/<%= upload.id %>/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
-                <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
-                <button class="btn" type="submit">Enregistrer</button>
-              </form>
-            </td>
-            <td>
+          <td style="line-height:1.4">
+            <div><strong>UUID :</strong> <code><%= upload.id %></code></div>
+            <div><strong>Nom original :</strong> <%= upload.originalName %></div>
+            <div><strong>Nom affiché :</strong> <%= displayName || '—' %></div>
+            <div><strong>Taille :</strong> <%= sizeLabel %></div>
+            <div><strong>Ajouté :</strong> <%= createdAt %></div>
+          </td>
+          <td>
+            <form method="post" action="/admin/uploads/<%= upload.id %>/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
+              <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
+              <button class="btn" type="submit">Enregistrer</button>
+            </form>
+          </td>
+          <td>
+            <% const altText = displayName || upload.originalName || ''; %>
+            <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>" style="display:flex; flex-direction:column; gap:8px">
+              <button class="btn copy-upload" type="button">Copier le code</button>
               <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
                 <button class="btn unlike" type="submit">Supprimer</button>
               </form>
-            </td>
-          </tr>
-        <% }) %>
+            </div>
+          </td>
+        </tr>
+      <% }) %>
       </tbody>
     </table>
   </div>
@@ -71,6 +75,25 @@
   const uploadForm = document.getElementById('uploadForm');
   const uploadMessage = document.getElementById('uploadMessage');
   const uploadsTable = document.getElementById('uploadsTable');
+  const uploadActionsSelector = '.upload-actions';
+
+  function buildSnippet(url, alt) {
+    const img = document.createElement('img');
+    img.src = url || '';
+    if (alt) img.alt = alt;
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    return img.outerHTML;
+  }
+
+  function prepareCopyActions(container) {
+    if (!container) return;
+    const url = container.dataset.url || '';
+    const alt = container.dataset.alt || '';
+    const snippet = buildSnippet(url, alt);
+    const button = container.querySelector('.copy-upload');
+    if (button) button.dataset.snippet = snippet;
+  }
 
   function escapeHtml(value) {
     return (value ?? '').toString().replace(/[&<>"']/g, (char) => {
@@ -139,13 +162,31 @@
         </form>
       </td>
       <td>
-        <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
-          <button class="btn unlike" type="submit">Supprimer</button>
-        </form>
+        <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}" style="display:flex; flex-direction:column; gap:8px">
+          <button class="btn copy-upload" type="button">Copier le code</button>
+          <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
+            <button class="btn unlike" type="submit">Supprimer</button>
+          </form>
+        </div>
       </td>
     `;
     tbody.prepend(tr);
+    prepareCopyActions(tr.querySelector(uploadActionsSelector));
   }
+
+  document.querySelectorAll(uploadActionsSelector).forEach(prepareCopyActions);
+
+  document.addEventListener('click', (event) => {
+    const button = event.target.closest('.copy-upload');
+    if (!button) return;
+    const snippet = button.dataset.snippet || '';
+    if (!snippet) return;
+    navigator.clipboard.writeText(snippet).then(() => {
+      const originalText = button.textContent;
+      button.textContent = 'Copié !';
+      setTimeout(() => { button.textContent = originalText || 'Copier le code'; }, 1500);
+    });
+  });
 
   if (uploadForm) {
     uploadForm.addEventListener('submit', async (event) => {
