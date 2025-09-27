@@ -15,13 +15,7 @@
 <% const uploadList = uploads || []; %>
 <div class="card" style="margin-top:16px">
   <h2>Images</h2>
-  <p style="margin-top:8px">Envoyez une image puis insérez-la dans votre article avec le code <code>&lt;img src="…" alt="" /&gt;</code>.</p>
-  <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" style="margin-top:12px">
-    <input type="file" name="image" id="imageInput" accept="image/*" required />
-    <input type="text" name="displayName" id="displayNameInput" placeholder="Nom personnalisé (optionnel)" style="margin-top:8px" maxlength="120" />
-    <button class="btn" type="submit">Uploader</button>
-  </form>
-  <div id="uploadMessage" style="margin-top:12px"></div>
+  <p style="margin-top:8px">Gérez vos fichiers depuis l'onglet <strong>Admin &gt; Images</strong>, puis insérez-les avec le code <code>&lt;img src="…" alt="" /&gt;</code>.</p>
 
   <h3 style="margin-top:16px">Images déjà envoyées</h3>
   <div id="uploadsList" class="uploads-grid" style="display:grid; gap:12px; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); margin-top:12px">
@@ -29,7 +23,7 @@
       <% const displayName = file.displayName || ''; %>
       <% const originalName = file.originalName || file.name; %>
       <% const uuid = file.id || (file.name ? file.name.split('.')[0] : file.name); %>
-      <div class="upload-item card" data-url="<%= file.url %>" data-alt="<%= displayName %>" style="padding:12px; display:flex; flex-direction:column; gap:8px">
+      <div class="upload-item card" data-url="<%= file.url %>" data-alt="<%= displayName %>" data-original-name="<%= originalName %>" style="padding:12px; display:flex; flex-direction:column; gap:8px">
         <div style="text-align:center">
           <img src="<%= file.url %>" alt="" style="max-width:100%; max-height:120px; object-fit:contain" />
         </div>
@@ -49,174 +43,30 @@
 </div>
 
 <script>
-  const uploadForm = document.getElementById('uploadForm');
-  const imageInput = document.getElementById('imageInput');
-  const displayNameInput = document.getElementById('displayNameInput');
-  const uploadMessage = document.getElementById('uploadMessage');
   const uploadsList = document.getElementById('uploadsList');
-
-  function setMessage(content, type = 'info') {
-    uploadMessage.textContent = '';
-    if (!content) return;
-    const box = document.createElement('div');
-    box.textContent = content;
-    box.style.marginTop = '8px';
-    box.style.padding = '8px 12px';
-    box.style.borderRadius = '6px';
-    if (type === 'error') {
-      box.style.backgroundColor = '#ffe5e5';
-      box.style.color = '#a60000';
-    } else {
-      box.style.backgroundColor = '#e5f6ff';
-      box.style.color = '#005a8c';
-    }
-    uploadMessage.appendChild(box);
-  }
 
   function buildSnippet(url, alt) {
     const img = document.createElement('img');
     img.src = url;
-    if (alt) {
-      img.alt = alt;
-    }
+    img.alt = alt || '';
+    img.loading = 'lazy';
+    img.decoding = 'async';
     return img.outerHTML;
   }
 
   function enhanceUploadItem(item) {
     if (!item) return;
     const url = item.dataset.url;
-    const alt = item.dataset.alt || '';
+    const alt = item.dataset.alt || item.dataset.originalName || '';
     const snippet = buildSnippet(url, alt);
     const code = item.querySelector('.upload-snippet');
-    if (code) {
-      code.textContent = snippet;
-    }
+    if (code) code.textContent = snippet;
     const button = item.querySelector('.copy-upload');
-    if (button) {
-      button.dataset.snippet = snippet;
-    }
-  }
-
-  function createUploadItem(data) {
-    const wrapper = document.createElement('div');
-    wrapper.className = 'upload-item card';
-    wrapper.style.padding = '12px';
-    wrapper.style.display = 'flex';
-    wrapper.style.flexDirection = 'column';
-    wrapper.style.gap = '8px';
-    wrapper.dataset.url = data.url;
-    wrapper.dataset.alt = data.displayName || '';
-
-    const preview = document.createElement('div');
-    preview.style.textAlign = 'center';
-    const img = document.createElement('img');
-    img.src = data.url;
-    img.alt = data.displayName || data.originalName || '';
-    img.style.maxWidth = '100%';
-    img.style.maxHeight = '120px';
-    img.style.objectFit = 'contain';
-    preview.appendChild(img);
-    wrapper.appendChild(preview);
-
-    const info = document.createElement('div');
-    info.style.fontSize = '0.9em';
-    info.style.lineHeight = '1.4';
-
-    const uuidLine = document.createElement('div');
-    const uuidLabel = document.createElement('strong');
-    uuidLabel.textContent = 'UUID : ';
-    uuidLine.appendChild(uuidLabel);
-    const uuidCode = document.createElement('code');
-    uuidCode.textContent = data.id;
-    uuidLine.appendChild(uuidCode);
-    info.appendChild(uuidLine);
-
-    const displayLine = document.createElement('div');
-    const displayLabel = document.createElement('strong');
-    displayLabel.textContent = 'Nom affiché : ';
-    displayLine.appendChild(displayLabel);
-    const displaySpan = document.createElement('span');
-    if (data.displayName) {
-      displaySpan.textContent = data.displayName;
-    } else {
-      displaySpan.textContent = '—';
-      displaySpan.style.color = 'var(--muted)';
-    }
-    displayLine.appendChild(displaySpan);
-    info.appendChild(displayLine);
-
-    const originalLine = document.createElement('div');
-    const originalLabel = document.createElement('strong');
-    originalLabel.textContent = 'Nom original : ';
-    originalLine.appendChild(originalLabel);
-    const originalSpan = document.createElement('span');
-    originalSpan.textContent = data.originalName || data.name || '';
-    originalLine.appendChild(originalSpan);
-    info.appendChild(originalLine);
-
-    wrapper.appendChild(info);
-
-    const code = document.createElement('code');
-    code.className = 'upload-snippet';
-    wrapper.appendChild(code);
-
-    const button = document.createElement('button');
-    button.className = 'btn copy-upload';
-    button.type = 'button';
-    button.textContent = 'Copier le code';
-    wrapper.appendChild(button);
-
-    return wrapper;
+    if (button) button.dataset.snippet = snippet;
   }
 
   if (uploadsList) {
     uploadsList.querySelectorAll('.upload-item').forEach(enhanceUploadItem);
-  }
-
-  if (uploadForm) {
-    uploadForm.addEventListener('submit', async (event) => {
-      event.preventDefault();
-      if (!imageInput.files.length) {
-        setMessage('Choisissez un fichier avant d\'uploader.', 'error');
-        return;
-      }
-      const button = uploadForm.querySelector('button[type="submit"]');
-      button.disabled = true;
-      setMessage('Upload en cours…');
-      const formData = new FormData(uploadForm);
-      if (displayNameInput && displayNameInput.value) {
-        formData.set('displayName', displayNameInput.value.trim());
-      }
-      try {
-        const res = await fetch(uploadForm.action, { method: 'POST', body: formData });
-        const data = await res.json();
-        if (data.ok && data.url) {
-          const snippet = buildSnippet(data.url, data.displayName || '');
-          setMessage(`Image envoyée ! Code à insérer : ${snippet}`);
-          if (uploadsList) {
-            const wrapper = createUploadItem({
-              url: data.url,
-              id: data.id,
-              displayName: data.displayName || '',
-              originalName: data.originalName || ''
-            });
-            const emptyMessage = document.getElementById('uploadsEmptyMessage');
-            if (emptyMessage) {
-              emptyMessage.remove();
-            }
-            uploadsList.prepend(wrapper);
-            enhanceUploadItem(wrapper);
-          }
-        } else {
-          throw new Error(data.message || 'Erreur inconnue');
-        }
-      } catch (err) {
-        setMessage(err.message || 'Erreur lors de l\'upload.', 'error');
-      } finally {
-        button.disabled = false;
-        uploadForm.reset();
-      }
-    });
   }
 
   document.addEventListener('click', (event) => {
@@ -225,9 +75,7 @@
     const snippet = button.dataset.snippet;
     navigator.clipboard.writeText(snippet).then(() => {
       button.textContent = 'Copié !';
-      setTimeout(() => {
-        button.textContent = 'Copier le code';
-      }, 1500);
+      setTimeout(() => { button.textContent = 'Copier le code'; }, 1500);
     });
   });
 </script>

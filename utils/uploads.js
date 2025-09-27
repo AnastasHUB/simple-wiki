@@ -1,5 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
+import sharp from 'sharp';
 import { fileURLToPath } from 'url';
 import { all, get, run } from '../db.js';
 
@@ -7,6 +8,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const uploadDir = path.join(__dirname, '..', 'public', 'uploads');
+
+const MAX_DIMENSION = 1920;
+const OPTIMIZE_FORMATS = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
+
+export function normalizeDisplayName(value) {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  return trimmed.slice(0, 120);
+}
+
+function determineFormatFromMime(mimeType, fallbackExtension) {
+  if (!mimeType) return (fallbackExtension || '').replace('.', '').toLowerCase();
+  return mimeType.split('/')[1]?.toLowerCase() || (fallbackExtension || '').replace('.', '').toLowerCase();
+}
 
 export async function ensureUploadDir() {
   await fs.mkdir(uploadDir, { recursive: true });
@@ -16,8 +32,56 @@ export function buildFilename(id, extension) {
   return `${id}${extension}`;
 }
 
+export async function optimizeUpload(filePath, mimeType, extension) {
+  const normalizedMime = (mimeType || '').toLowerCase();
+  if (!OPTIMIZE_FORMATS.has(normalizedMime)) return null;
+
+  const metadata = await sharp(filePath).metadata();
+  const width = metadata.width || 0;
+  const height = metadata.height || 0;
+
+  let transformer = sharp(filePath).rotate();
+  let changed = false;
+
+  if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+    transformer = transformer.resize({
+      width: MAX_DIMENSION,
+      height: MAX_DIMENSION,
+      fit: 'inside',
+      withoutEnlargement: true
+    });
+    changed = true;
+  }
+
+  const format = determineFormatFromMime(normalizedMime, extension);
+  switch (format) {
+    case 'jpeg':
+    case 'jpg':
+      transformer = transformer.jpeg({ quality: 80, mozjpeg: true, progressive: true });
+      changed = true;
+      break;
+    case 'png':
+      transformer = transformer.png({ compressionLevel: 9, adaptiveFiltering: true, palette: true });
+      changed = true;
+      break;
+    case 'webp':
+      transformer = transformer.webp({ quality: 80, effort: 5 });
+      changed = true;
+      break;
+    default:
+      return null;
+  }
+
+  if (!changed) return null;
+
+  const { data, info } = await transformer.toBuffer({ resolveWithObject: true });
+  await fs.writeFile(filePath, data);
+  return info.size;
+}
+
 export async function recordUpload({ id, originalName, displayName, extension, size }) {
   await ensureUploadDir();
+  const normalizedName = normalizeDisplayName(displayName);
   await run(
     `INSERT INTO uploads(id, original_name, display_name, extension, size)
      VALUES(?,?,?,?,?)
@@ -26,7 +90,7 @@ export async function recordUpload({ id, originalName, displayName, extension, s
        display_name=excluded.display_name,
        extension=excluded.extension,
        size=excluded.size`,
-    [id, originalName, displayName, extension, size]
+    [id, originalName, normalizedName, extension, size]
   );
 }
 
@@ -41,7 +105,10 @@ export async function listUploads() {
   for (const row of rows) {
     const extension = row.extension || '';
     const filename = buildFilename(row.id, extension);
-    if (!filename || filename.startsWith('.')) {
+    if (!filename || filename.startsWith('.') || filename === 'gitkeep' || row.original_name === '.gitkeep') {
+      if (filename === '.gitkeep' || row.original_name === '.gitkeep') {
+        await run('DELETE FROM uploads WHERE id=?', [row.id]);
+      }
       continue;
     }
     const filePath = path.join(uploadDir, filename);
@@ -122,9 +189,7 @@ export async function removeUpload(id) {
     try {
       await fs.unlink(filePath);
     } catch (err) {
-      if (err.code !== 'ENOENT') {
-        throw err;
-      }
+      if (err.code !== 'ENOENT') throw err;
     }
   }
 
@@ -132,10 +197,9 @@ export async function removeUpload(id) {
 }
 
 export async function updateUploadName(id, displayName) {
+  const normalizedName = normalizeDisplayName(displayName);
   const row = await get('SELECT 1 FROM uploads WHERE id=?', [id]);
-  if (!row) {
-    return false;
-  }
-  await run('UPDATE uploads SET display_name=? WHERE id=?', [displayName, id]);
+  if (!row) return false;
+  await run('UPDATE uploads SET display_name=? WHERE id=?', [normalizedName, id]);
   return true;
 }

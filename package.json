@@ -17,6 +17,7 @@
     "method-override": "^3.0.0",
     "morgan": "^1.10.0",
     "node-fetch": "^3.3.2",
+    "sharp": "^0.33.2",
     "sqlite": "^5.1.1",
     "sqlite3": "^5.1.7",
     "uuid": "^9.0.1"

@@ -1,12 +1,28 @@
 <% title='Images'; %>
 <h1>Gestion des images</h1>
 <div class="card" style="margin-bottom:16px">
-  <p>Chaque image reçoit un identifiant unique (UUID). Vous pouvez supprimer les fichiers inutiles ou définir un nom personnalisé sans changer cet identifiant. Laissez le champ vide pour effacer un nom personnalisé.</p>
+  <h2>Ajouter une image</h2>
+  <p style="margin-top:8px">
+    Chaque image reçoit un identifiant unique (UUID). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
+    Vous pouvez définir un nom personnalisé sans changer l’UUID. Laissez le champ vide pour effacer le nom personnalisé.
+  </p>
+  <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:12px">
+    <div style="flex:1 1 220px">
+      <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="Image" />
+    </div>
+    <div style="flex:1 1 220px">
+      <input type="text" id="displayNameInput" name="displayName" placeholder="Nom personnalisé (optionnel)" maxlength="120" aria-label="Nom personnalisé (optionnel)" />
+    </div>
+    <div style="align-self:flex-end">
+      <button class="btn" type="submit">Uploader</button>
+    </div>
+  </form>
+  <div id="uploadMessage" style="margin-top:12px"></div>
 </div>
 
 <% if (uploads.length) { %>
   <div class="table-wrap">
-    <table class="data-table">
+    <table class="data-table" id="uploadsTable">
       <thead>
         <tr>
           <th>Aperçu</th>
@@ -50,3 +66,113 @@
 <% } else { %>
   <p class="card" style="color:var(--muted)">Aucune image disponible pour le moment.</p>
 <% } %>
+
+<script>
+  const uploadForm = document.getElementById('uploadForm');
+  const uploadMessage = document.getElementById('uploadMessage');
+  const uploadsTable = document.getElementById('uploadsTable');
+
+  function escapeHtml(value) {
+    return (value ?? '').toString().replace(/[&<>"']/g, (char) => {
+      switch (char) {
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return char;
+      }
+    });
+  }
+
+  function setMessage(text, type = 'info') {
+    uploadMessage.innerHTML = '';
+    if (!text) return;
+    const box = document.createElement('div');
+    box.textContent = text;
+    box.style.padding = '8px 12px';
+    box.style.borderRadius = '6px';
+    if (type === 'error') {
+      box.style.backgroundColor = '#ffe5e5';
+      box.style.color = '#a60000';
+    } else if (type === 'success') {
+      box.style.backgroundColor = '#e6ffed';
+      box.style.color = '#065f46';
+    } else {
+      box.style.backgroundColor = '#e5f6ff';
+      box.style.color = '#005a8c';
+    }
+    uploadMessage.appendChild(box);
+  }
+
+  function prependUploadRow(data) {
+    if (!uploadsTable) {
+      window.location.reload();
+      return;
+    }
+    const tbody = uploadsTable.querySelector('tbody');
+    if (!tbody) {
+      window.location.reload();
+      return;
+    }
+
+    const tr = document.createElement('tr');
+    const displayName = data.displayName || '';
+    const originalName = data.originalName || data.name || '';
+    const safeUrl = escapeHtml(data.url);
+    const safeId = escapeHtml(data.id);
+    tr.innerHTML = `
+      <td>
+        <img src="${safeUrl}" alt="" style="max-width:140px; max-height:90px; object-fit:contain; border-radius:8px" />
+      </td>
+      <td style="line-height:1.4">
+        <div><strong>UUID :</strong> <code>${safeId}</code></div>
+        <div><strong>Nom original :</strong> ${escapeHtml(originalName)}</div>
+        <div><strong>Nom affiché :</strong> ${displayName ? escapeHtml(displayName) : '—'}</div>
+        <div><strong>Taille :</strong> ${Math.max(1, Math.round((data.size || 0) / 1024))} Ko</div>
+        <div><strong>Ajouté :</strong> ${new Date().toLocaleString('fr-FR')}</div>
+      </td>
+      <td>
+        <form method="post" action="/admin/uploads/${safeId}/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
+          <input type="text" name="displayName" value="${escapeHtml(displayName)}" maxlength="120" placeholder="Nom personnalisé" />
+          <button class="btn" type="submit">Enregistrer</button>
+        </form>
+      </td>
+      <td>
+        <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
+          <button class="btn unlike" type="submit">Supprimer</button>
+        </form>
+      </td>
+    `;
+    tbody.prepend(tr);
+  }
+
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (!uploadForm.image.files.length) {
+        setMessage('Choisissez un fichier avant d\'envoyer.', 'error');
+        return;
+      }
+      const button = uploadForm.querySelector('button[type="submit"]');
+      button.disabled = true;
+      setMessage('Optimisation et upload en cours…');
+      try {
+        const formData = new FormData(uploadForm);
+        const dn = formData.get('displayName');
+        if (dn) formData.set('displayName', dn.toString().trim());
+        const response = await fetch(uploadForm.action, { method: 'POST', body: formData });
+        const payload = await response.json();
+        if (!payload.ok) throw new Error(payload.message || 'Erreur lors de l\'upload');
+        setMessage('Image envoyée avec succès.', 'success');
+        prependUploadRow(payload);
+        uploadForm.reset();
+      } catch (err) {
+        setMessage(err.message || 'Erreur lors de l\'upload', 'error');
+      } finally {
+        const btn = uploadForm.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = false;
+      }
+    });
+  }
+</script>
