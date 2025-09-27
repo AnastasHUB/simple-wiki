@@ -47,14 +47,14 @@
       <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
       <div style="display:flex; gap:0.5rem;">
         <% if (pagination.hasPrevious) { %>
-          <a class="btn" href="?page=<%= pagination.previousPage %>">Précédent</a>
+          <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>">Précédent</a>
         <% } else { %>
-          <span class="btn" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+          <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
         <% } %>
         <% if (pagination.hasNext) { %>
-          <a class="btn" href="?page=<%= pagination.nextPage %>">Suivant</a>
+          <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>">Suivant</a>
         <% } else { %>
-          <span class="btn" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+          <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
         <% } %>
       </div>
     </div>

@@ -14,7 +14,7 @@
       <input type="text" id="displayNameInput" name="displayName" placeholder="Nom personnalisé (optionnel)" maxlength="120" aria-label="Nom personnalisé (optionnel)" />
     </div>
     <div style="align-self:flex-end">
-      <button class="btn" type="submit">Uploader</button>
+      <button class="btn success" data-icon="🚀" type="submit">Uploader</button>
     </div>
   </form>
   <div id="uploadMessage" style="margin-top:12px"></div>
@@ -50,15 +50,15 @@
           <td>
             <form method="post" action="/admin/uploads/<%= upload.id %>/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
               <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
-              <button class="btn" type="submit">Enregistrer</button>
+              <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
             </form>
           </td>
           <td>
             <% const altText = displayName || upload.originalName || ''; %>
             <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>" style="display:flex; flex-direction:column; gap:8px">
-              <button class="btn copy-upload" type="button">Copier le code</button>
+              <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
               <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
-                <button class="btn unlike" type="submit">Supprimer</button>
+                <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
               </form>
             </div>
           </td>
@@ -158,14 +158,14 @@
       <td>
         <form method="post" action="/admin/uploads/${safeId}/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
           <input type="text" name="displayName" value="${escapeHtml(displayName)}" maxlength="120" placeholder="Nom personnalisé" />
-          <button class="btn" type="submit">Enregistrer</button>
+          <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
         </form>
       </td>
       <td>
         <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}" style="display:flex; flex-direction:column; gap:8px">
-          <button class="btn copy-upload" type="button">Copier le code</button>
+          <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
           <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
-            <button class="btn unlike" type="submit">Supprimer</button>
+            <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
           </form>
         </div>
       </td>

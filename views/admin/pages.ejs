@@ -33,7 +33,7 @@
       Dernière mise à jour : <strong><%= stats.latest.title %></strong> (<code><%= stats.latest.slug_id %></code>) le <%= stats.latest.ts ? new Date(stats.latest.ts).toLocaleString('fr-FR') : '' %>.
     <% } %>
   </p>
-  <a class="btn" href="/admin/pages/export">📦 Télécharger l'export JSON</a>
+  <a class="btn" data-icon="📦" href="/admin/pages/export">Télécharger l'export JSON</a>
 </section>
 
 <section class="card" style="margin-top:24px;">
@@ -41,6 +41,6 @@
   <p>Sélectionnez un fichier JSON précédemment exporté pour recréer ou mettre à jour des articles. Les articles existants sont reconnus par leur <code>slug_id</code> et seront mis à jour. Les tags sont remplacés par ceux fournis dans le fichier.</p>
   <form method="post" action="/admin/pages/import" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:12px; max-width:420px;">
     <input type="file" name="archive" accept="application/json" required />
-    <button class="btn" type="submit">⬆️ Importer le fichier</button>
+    <button class="btn" data-icon="📥" type="submit">Importer le fichier</button>
   </form>
 </section>

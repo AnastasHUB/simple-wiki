@@ -11,14 +11,14 @@
   <button class="btn icon only" id="sidebarToggle" aria-label="Menu">☰</button>
   <form method="get" action="/search" class="searchbar">
     <input type="text" name="q" placeholder="Rechercher…">
-    <button class="btn search">Rechercher</button>
+    <button class="btn search" data-icon="🔍">Rechercher</button>
   </form>
   <div class="auth">
     <% if (user) { %>
       <div class="who">Connecté: <strong><%= user.username %></strong></div>
-      <form action="/logout" method="post"><button class="btn">Déconnexion</button></form>
+      <form action="/logout" method="post"><button class="btn" data-icon="🔓">Déconnexion</button></form>
     <% } else { %>
-      <a class="btn" href="/login">Connexion</a>
+      <a class="btn" data-icon="🔐" href="/login">Connexion</a>
     <% } %>
   </div>
 </header>

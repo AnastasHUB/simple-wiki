@@ -25,7 +25,7 @@
             <td><%= rev.title %></td>
             <td><%= rev.author || 'Inconnu' %></td>
             <td><%= rev.created_at %></td>
-            <td><a class="btn" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a></td>
+            <td><a class="btn" data-icon="📝" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a></td>
           </tr>
         <% }) %>
       </tbody>
@@ -34,5 +34,5 @@
 </div>
 
 <div class="card">
-  <a class="btn" href="/wiki/<%= page.slug_id %>">← Retour à la page</a>
+  <a class="btn" data-icon="↩️" href="/wiki/<%= page.slug_id %>">Retour à la page</a>
 </div>

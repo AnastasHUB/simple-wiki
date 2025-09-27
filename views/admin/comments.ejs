@@ -28,14 +28,14 @@
           <% } %>
           <div class="actions">
             <form method="post" action="/admin/comments/<%= c.snowflake_id %>/approve">
-              <button class="btn success" type="submit">Approuver</button>
+              <button class="btn success" data-icon="✅" type="submit">Approuver</button>
             </form>
             <form method="post" action="/admin/comments/<%= c.snowflake_id %>/reject">
-              <button class="btn" type="submit">Rejeter</button>
+              <button class="btn" data-icon="🚫" type="submit">Rejeter</button>
             </form>
             <form method="post" action="/admin/comments/<%= c.snowflake_id %>" onsubmit="return confirm('Supprimer ce commentaire ?');">
               <input type="hidden" name="_method" value="DELETE">
-              <button class="btn unlike" type="submit">Supprimer</button>
+              <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
             </form>
           </div>
         </li>

@@ -4,7 +4,7 @@
   <div style="display:flex;gap:10px;flex-wrap:wrap">
     <input type="text" name="username" placeholder="nouvel admin" required />
     <input type="password" name="password" placeholder="mot de passe" required />
-    <button class="btn success">Ajouter</button>
+    <button class="btn success" data-icon="➕">Ajouter</button>
   </div>
 </form>
 <table class="data-table">
@@ -17,7 +17,7 @@
       <td>Oui</td>
       <td>
         <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
-          <button class="btn">Supprimer</button>
+          <button class="btn danger" data-icon="🗑️">Supprimer</button>
         </form>
       </td>
     </tr>
