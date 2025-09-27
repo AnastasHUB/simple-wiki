@@ -17,6 +17,7 @@ import { getClientIp } from "../utils/ip.js";
 import { isIpBanned } from "../utils/ipBans.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
+import { pushNotification } from "../utils/notifications.js";
 import {
   fetchRecentPages,
   fetchPaginatedPages,
@@ -140,6 +141,10 @@ r.post(
       },
       { articleContent: content },
     );
+    pushNotification(req, {
+      type: "success",
+      message: `"${title}" a été créé avec succès !`,
+    });
     res.redirect("/wiki/" + slug_id);
   }),
 );
@@ -417,12 +422,22 @@ r.post(
         page,
         extra: { ip },
       });
+      pushNotification(req, {
+        type: "info",
+        message: "Article retiré de vos favoris.",
+        timeout: 2500,
+      });
     } else {
       await run("INSERT INTO likes(page_id, ip) VALUES(?,?)", [page.id, ip]);
       await sendAdminEvent("Like added", {
         user: req.session.user?.username,
         page,
         extra: { ip },
+      });
+      pushNotification(req, {
+        type: "success",
+        message: "Article ajouté à vos favoris.",
+        timeout: 3000,
       });
     }
     const back = req.get("referer") || "/wiki/" + page.slug_id;
@@ -479,6 +494,10 @@ r.post(
       page: { title, slug_id: req.params.slugid, slug_base: base },
       extra: { tags },
     });
+    pushNotification(req, {
+      type: "success",
+      message: `"${title}" a été mis à jour !`,
+    });
     res.redirect("/wiki/" + req.params.slugid);
   }),
 );
@@ -499,6 +518,12 @@ r.delete(
       user: req.session.user?.username,
       page,
     });
+    pushNotification(req, {
+      type: "info",
+      message: page?.title
+        ? `"${page.title}" a été supprimé.`
+        : "La page a été supprimée.",
+    });
     res.redirect("/");
   }),
 );
@@ -518,6 +543,12 @@ r.post(
     await sendAdminEvent("Page deleted", {
       user: req.session.user?.username,
       page,
+    });
+    pushNotification(req, {
+      type: "info",
+      message: page?.title
+        ? `"${page.title}" a été supprimé.`
+        : "La page a été supprimée.",
     });
     res.redirect("/");
   }),

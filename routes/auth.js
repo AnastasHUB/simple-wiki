@@ -3,6 +3,7 @@ import { get, run } from "../db.js";
 import { hashPassword, isBcryptHash, verifyPassword } from "../utils/passwords.js";
 import { sendAdminEvent } from "../utils/webhook.js";
 import { getClientIp } from "../utils/ip.js";
+import { pushNotification } from "../utils/notifications.js";
 
 const r = Router();
 
@@ -56,6 +57,10 @@ r.post("/login", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "success",
+    message: `Bon retour parmi nous, ${u.username} !`,
+  });
   res.redirect("/");
 });
 r.post("/logout", async (req, res) => {
