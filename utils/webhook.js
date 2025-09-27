@@ -1,19 +1,25 @@
 import fetch, { FormData } from "node-fetch";
 import { Blob } from "buffer";
-import { get, logEvent } from "../db.js";
+import { logEvent } from "../db.js";
 import { buildArticleMarkdownDescription } from "./articleFormatter.js";
+import { getSiteSettings } from "./settingsService.js";
 
 function buildFields(data) {
   if (!data) return [];
   return Object.entries(data)
-    .filter(([, value]) => value !== undefined && value !== null && value !== "")
+    .filter(
+      ([, value]) => value !== undefined && value !== null && value !== "",
+    )
     .map(([name, value]) => {
       let formatted;
       if (typeof value === "string") {
         formatted = value.length > 1024 ? value.slice(0, 1021) + "…" : value;
       } else {
         const json = JSON.stringify(value, null, 2);
-        formatted = "```json\n" + (json.length > 1000 ? json.slice(0, 997) + "…" : json) + "\n```";
+        formatted =
+          "```json\n" +
+          (json.length > 1000 ? json.slice(0, 997) + "…" : json) +
+          "\n```";
       }
       return { name, value: formatted };
     });
@@ -26,7 +32,9 @@ async function dispatch(url, payload, attachments = []) {
       const form = new FormData();
       form.append("payload_json", JSON.stringify(payload));
       attachments.forEach((file, idx) => {
-        const blob = new Blob([file.buffer], { type: file.contentType || "application/octet-stream" });
+        const blob = new Blob([file.buffer], {
+          type: file.contentType || "application/octet-stream",
+        });
         form.append(`files[${idx}]`, blob, file.filename);
       });
       await fetch(url, { method: "POST", body: form });
@@ -43,19 +51,21 @@ async function dispatch(url, payload, attachments = []) {
 }
 
 async function sendEvent(channel, title, data = {}, options = {}) {
-  const settings = await get("SELECT admin_webhook_url, feed_webhook_url FROM settings WHERE id=1");
-  const url = channel === "admin" ? settings?.admin_webhook_url : settings?.feed_webhook_url;
+  const settings = await getSiteSettings();
+  const url =
+    channel === "admin" ? settings.adminWebhook : settings.feedWebhook;
   const meta = { ...(data?.extra || {}) };
   for (const [key, value] of Object.entries(data || {})) {
-    if (["page", "comment", "user", "description", "extra"].includes(key)) continue;
+    if (["page", "comment", "user", "description", "extra"].includes(key))
+      continue;
     meta[key] = value;
   }
   const description =
     typeof data?.description === "string" && data.description.trim().length
       ? data.description.trim()
       : channel === "feed" && data?.page?.title
-      ? `**${data.page.title}**`
-      : data?.description || "";
+        ? `**${data.page.title}**`
+        : data?.description || "";
 
   const payload = {
     embeds: [
@@ -74,7 +84,9 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     ],
   };
 
-  const attachments = Array.isArray(options.attachments) ? options.attachments : [];
+  const attachments = Array.isArray(options.attachments)
+    ? options.attachments
+    : [];
   if (options.embedImage) {
     payload.embeds[0].image = { url: `attachment://${options.embedImage}` };
   }
@@ -95,7 +107,8 @@ export async function sendAdminEvent(title, data = {}, options = {}) {
 
 export async function sendFeedEvent(title, data = {}, options = {}) {
   if (title === "Nouvel article") {
-    const { articleContent, includeArticleScreenshot, ...restOptions } = options;
+    const { articleContent, includeArticleScreenshot, ...restOptions } =
+      options;
     const content = articleContent ?? data?.page?.content;
     const description = buildArticleMarkdownDescription({
       title: data?.page?.title,
