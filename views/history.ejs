@@ -1,0 +1,38 @@
+<% title = `Historique · ${page.title}`; %>
+<div class="card">
+  <h1>Historique de « <%= page.title %> »</h1>
+  <p>Slug : <code><%= page.slug_id %></code></p>
+</div>
+
+<div class="card">
+  <% if (!revisions.length) { %>
+    <p>Aucune révision enregistrée pour cette page.</p>
+  <% } else { %>
+    <table class="table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Titre</th>
+          <th>Auteur</th>
+          <th>Créée le</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% revisions.forEach((rev) => { %>
+          <tr>
+            <td><%= rev.revision %></td>
+            <td><%= rev.title %></td>
+            <td><%= rev.author || 'Inconnu' %></td>
+            <td><%= rev.created_at %></td>
+            <td><a class="btn" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a></td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  <% } %>
+</div>
+
+<div class="card">
+  <a class="btn" href="/wiki/<%= page.slug_id %>">← Retour à la page</a>
+</div>

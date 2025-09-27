@@ -85,6 +85,7 @@ r.post("/new", requireAdmin, async (req, res) => {
     [base, slug_id, title, content],
   );
   await upsertTags(result.lastID, tags);
+  await recordRevision(result.lastID, title, content, req.session.user?.id || null);
   await sendAdminEvent("Page created", {
     user: req.session.user?.username,
     page: { title, slug_id, slug_base: base },
@@ -177,6 +178,7 @@ r.post("/edit/:slugid", requireAdmin, async (req, res) => {
     req.params.slugid,
   ]);
   if (!p) return res.status(404).send("Page introuvable");
+  await recordRevision(p.id, p.title, p.content, req.session.user?.id || null);
   const base = slugify(title);
   await run(
     "UPDATE pages SET title=?, content=?, slug_base=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
@@ -184,6 +186,7 @@ r.post("/edit/:slugid", requireAdmin, async (req, res) => {
   );
   await run("DELETE FROM page_tags WHERE page_id=?", [p.id]);
   await upsertTags(p.id, tags);
+  await recordRevision(p.id, title, content, req.session.user?.id || null);
   await sendAdminEvent("Page updated", {
     user: req.session.user?.username,
     page: { title, slug_id: req.params.slugid, slug_base: base },
@@ -238,6 +241,42 @@ r.get("/tags/:name", async (req, res) => {
   res.render("tags", { tag: req.params.name, pages });
 });
 
+// Revisions
+r.get("/wiki/:slugid/history", requireAdmin, async (req, res) => {
+  const page = await get("SELECT id, title, slug_id FROM pages WHERE slug_id=?", [
+    req.params.slugid,
+  ]);
+  if (!page) return res.status(404).send("Page introuvable");
+  const revisions = await all(
+    `SELECT pr.revision, pr.title, pr.created_at, u.username AS author
+     FROM page_revisions pr
+     LEFT JOIN users u ON u.id = pr.author_id
+     WHERE pr.page_id=?
+     ORDER BY pr.revision DESC`,
+    [page.id],
+  );
+  res.render("history", { page, revisions });
+});
+
+r.get("/wiki/:slugid/revisions/:revisionId", requireAdmin, async (req, res) => {
+  const page = await get("SELECT * FROM pages WHERE slug_id=?", [
+    req.params.slugid,
+  ]);
+  if (!page) return res.status(404).send("Page introuvable");
+  const revNumber = parseInt(req.params.revisionId, 10);
+  if (Number.isNaN(revNumber)) return res.status(400).send("Révision invalide");
+  const revision = await get(
+    `SELECT pr.*, u.username AS author
+     FROM page_revisions pr
+     LEFT JOIN users u ON u.id = pr.author_id
+     WHERE pr.page_id=? AND pr.revision=?`,
+    [page.id, revNumber],
+  );
+  if (!revision) return res.status(404).send("Révision introuvable");
+  const html = linkifyInternal(revision.content);
+  res.render("revision", { page, revision, html });
+});
+
 async function upsertTags(pageId, csv = "") {
   const names = csv
     .split(",")
@@ -252,6 +291,19 @@ async function upsertTags(pageId, csv = "") {
       tag.id,
     ]);
   }
+}
+
+async function recordRevision(pageId, title, content, authorId = null) {
+  const row = await get(
+    "SELECT COALESCE(MAX(revision), 0) + 1 AS next FROM page_revisions WHERE page_id=?",
+    [pageId],
+  );
+  const next = row?.next || 1;
+  await run(
+    "INSERT INTO page_revisions(page_id, revision, title, content, author_id) VALUES(?,?,?,?,?)",
+    [pageId, next, title, content, authorId],
+  );
+  return next;
 }
 
 export default r;

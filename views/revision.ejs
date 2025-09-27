@@ -1,0 +1,16 @@
+<% title = `Révision ${revision.revision} · ${page.title}`; %>
+<div class="card">
+  <h1>Révision #<%= revision.revision %> de « <%= page.title %> »</h1>
+  <p><strong>Titre enregistré :</strong> <%= revision.title %></p>
+  <p><strong>Auteur :</strong> <%= revision.author || 'Inconnu' %></p>
+  <p><strong>Horodatage :</strong> <%= revision.created_at %></p>
+</div>
+
+<div class="card prose">
+  <div><%- html %></div>
+</div>
+
+<div class="card">
+  <a class="btn" href="/wiki/<%= page.slug_id %>/history">← Retour à l'historique</a>
+  <a class="btn" href="/wiki/<%= page.slug_id %>">Voir la page actuelle</a>
+</div>
