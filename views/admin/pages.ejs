@@ -1,0 +1,46 @@
+<h1>Gestion des articles</h1>
+
+<% if (importResult) { %>
+  <div class="card" style="padding:16px; margin-bottom:16px; background:#f4f6ff; border:1px solid #c7d2fe; border-radius:8px;">
+    <% if (importResult.errors && importResult.errors.length) { %>
+      <h2 style="margin-top:0;">Résultat de l'import</h2>
+      <p><strong><%= importResult.errors.length %></strong> erreur(s) détectée(s). Les entrées correspondantes ont été ignorées.</p>
+      <ul>
+        <% importResult.errors.slice(0, 10).forEach(err => { %>
+          <li><%= err %></li>
+        <% }) %>
+      </ul>
+      <% if (importResult.errors.length > 10) { %>
+        <p>… et <%= importResult.errors.length - 10 %> erreur(s) supplémentaire(s).</p>
+      <% } %>
+    <% } else { %>
+      <h2 style="margin-top:0;">Import terminé avec succès</h2>
+    <% } %>
+    <p>
+      <strong><%= importResult.created || 0 %></strong> article(s) créé(s),
+      <strong><%= importResult.updated || 0 %></strong> article(s) mis à jour,
+      <strong><%= importResult.skipped || 0 %></strong> article(s) ignoré(s).
+    </p>
+  </div>
+<% } %>
+
+<section class="card">
+  <h2>Exporter le wiki</h2>
+  <p>Récupérez l'ensemble des articles au format JSON pour effectuer une sauvegarde ou migrer le contenu.</p>
+  <p>
+    <strong><%= stats.count %></strong> article(s) actuellement publiés.
+    <% if (stats.latest) { %>
+      Dernière mise à jour : <strong><%= stats.latest.title %></strong> (<code><%= stats.latest.slug_id %></code>) le <%= stats.latest.ts ? new Date(stats.latest.ts).toLocaleString('fr-FR') : '' %>.
+    <% } %>
+  </p>
+  <a class="btn" href="/admin/pages/export">📦 Télécharger l'export JSON</a>
+</section>
+
+<section class="card" style="margin-top:24px;">
+  <h2>Importer des articles</h2>
+  <p>Sélectionnez un fichier JSON précédemment exporté pour recréer ou mettre à jour des articles. Les articles existants sont reconnus par leur <code>slug_id</code> et seront mis à jour. Les tags sont remplacés par ceux fournis dans le fichier.</p>
+  <form method="post" action="/admin/pages/import" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:12px; max-width:420px;">
+    <input type="file" name="archive" accept="application/json" required />
+    <button class="btn" type="submit">⬆️ Importer le fichier</button>
+  </form>
+</section>
