@@ -3,6 +3,7 @@ import { get, run, all, randSlugId, incrementView } from '../db.js';
 import { requireAdmin } from '../middleware/auth.js';
 import { slugify, linkifyInternal } from '../utils/linkify.js';
 import { sendAdminEvent, sendFeedEvent } from '../utils/webhook.js';
+import { listUploads } from '../utils/uploads.js';
 
 const r = Router();
 
@@ -45,7 +46,10 @@ r.get('/lookup/:base', async (req, res) => {
 });
 
 // Create
-r.get('/new', requireAdmin, (req, res) => res.render('edit', { page: null, tags: '' }));
+r.get('/new', requireAdmin, async (req, res) => {
+  const uploads = await listUploads();
+  res.render('edit', { page: null, tags: '', uploads });
+});
 r.post('/new', requireAdmin, async (req, res) => {
   const { title, content, tags } = req.body;
   const base = slugify(title);
@@ -93,7 +97,8 @@ r.get('/edit/:slugid', requireAdmin, async (req, res) => {
   const p = await get('SELECT * FROM pages WHERE slug_id=?', [req.params.slugid]);
   if (!p) return res.status(404).send('Page introuvable');
   const tlist = await all('SELECT name FROM tags t JOIN page_tags pt ON t.id=pt.tag_id WHERE pt.page_id=?', [p.id]);
-  res.render('edit', { page: p, tags: tlist.map(t => t.name).join(', ') });
+  const uploads = await listUploads();
+  res.render('edit', { page: p, tags: tlist.map(t => t.name).join(', '), uploads });
 });
 r.post('/edit/:slugid', requireAdmin, async (req, res) => {
   const { title, content, tags } = req.body;

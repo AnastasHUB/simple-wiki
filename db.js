@@ -49,6 +49,14 @@ export async function initDb(){
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(page_id, ip)
   );
+  CREATE TABLE IF NOT EXISTS uploads(
+    id TEXT PRIMARY KEY,
+    original_name TEXT NOT NULL,
+    display_name TEXT,
+    extension TEXT NOT NULL,
+    size INTEGER,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   `);
   return db;
 }
