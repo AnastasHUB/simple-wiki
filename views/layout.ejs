@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title><%= typeof title!== 'undefined' ? title + ' · ' : '' %><%= wikiName %></title>
   <link rel="stylesheet" href="/public/style.css" />
+  <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css" />
 </head>
 <body>
 <header class="topbar">
@@ -53,11 +54,14 @@
     <div class="overlay-hit" id="overlayHit"></div>
   </div>
 
+  <div class="notification-layer" id="notificationLayer"></div>
   <main class="content"><%- body %></main>
 </div>
 
 <footer class="site-footer"><small><%- footerText %></small></footer>
 
+<script type="application/json" id="initial-notifications"><%- JSON.stringify(notifications || []).replace(/</g, '\\u003c') %></script>
+<script defer src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script defer src="/public/app.js"></script>
 </body>
 </html>

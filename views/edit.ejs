@@ -4,7 +4,34 @@
   <label>Titre</label>
   <input type="text" name="title" value="<%= page ? page.title : '' %>" required />
   <label>Contenu (liens [[internes]])</label>
-  <textarea name="content" rows="18" required><%= page ? page.content : '' %></textarea>
+  <textarea name="content" id="contentField" rows="18" required hidden><%- page ? page.content : '' %></textarea>
+  <div class="html-editor-shell">
+    <div class="html-editor-toolbar" id="editorToolbar">
+      <span class="ql-formats">
+        <button class="ql-bold" aria-label="Gras"></button>
+        <button class="ql-italic" aria-label="Italique"></button>
+        <button class="ql-underline" aria-label="Souligné"></button>
+      </span>
+      <span class="ql-formats">
+        <button class="ql-list" value="ordered" aria-label="Liste numérotée"></button>
+        <button class="ql-list" value="bullet" aria-label="Liste à puces"></button>
+      </span>
+      <span class="ql-formats">
+        <button class="ql-link" aria-label="Insérer un lien"></button>
+        <button class="ql-clean" aria-label="Effacer la mise en forme"></button>
+      </span>
+    </div>
+    <div
+      class="html-editor"
+      data-html-editor
+      data-target="#contentField"
+      data-toolbar="#editorToolbar"
+      aria-label="Éditeur de contenu"
+    ></div>
+  </div>
+  <p class="editor-hint">
+    Astuce : utilisez <code>[[Titre de page]]</code> pour créer des liens internes rapides.
+  </p>
   <label>Tags (séparés par des virgules)</label>
   <input type="text" name="tags" value="<%= tags %>" />
   <div class="actions">
