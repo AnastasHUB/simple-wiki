@@ -19,6 +19,7 @@ import {
   normalizeDisplayName,
 } from "../utils/uploads.js";
 import { banIp, liftBan } from "../utils/ipBans.js";
+import { getClientIp } from "../utils/ip.js";
 
 await ensureUploadDir();
 
@@ -415,6 +416,7 @@ r.post(
   jsonUpload.single("archive"),
   async (req, res, next) => {
     try {
+      const ip = getClientIp(req);
       if (!req.file) {
         req.session.importResult = { errors: ["Aucun fichier importé."] };
         return res.redirect("/admin/pages");
@@ -529,6 +531,21 @@ r.post(
       }
 
       req.session.importResult = summary;
+      await sendAdminEvent(
+        "Import de pages",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            total: pages.length,
+            created: summary.created,
+            updated: summary.updated,
+            skipped: summary.skipped,
+            errors: summary.errors.slice(0, 5),
+          },
+        },
+        { includeScreenshot: false },
+      );
       res.redirect("/admin/pages");
     } catch (err) {
       next(err);
@@ -545,6 +562,7 @@ function sanitizeDate(value) {
 
 r.post("/uploads", upload.single("image"), async (req, res, next) => {
   try {
+    const ip = getClientIp(req);
     if (!req.file) {
       return res.status(400).json({ ok: false, message: "Aucun fichier reçu" });
     }
@@ -587,6 +605,20 @@ r.post("/uploads", upload.single("image"), async (req, res, next) => {
       extension: ext,
       size: finalSize,
     });
+    await sendAdminEvent(
+      "Fichier importé",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          uploadId: id,
+          originalName: req.file.originalname,
+          size: finalSize,
+          mime: req.file.mimetype,
+        },
+      },
+      { includeScreenshot: false },
+    );
     res.json({
       ok: true,
       url: "/public/uploads/" + req.file.filename,
@@ -618,11 +650,42 @@ r.get("/uploads", async (_req, res) => {
 r.post("/uploads/:id/name", async (req, res) => {
   const displayName = normalizeDisplayName(req.body?.displayName);
   await updateUploadName(req.params.id, displayName);
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Upload renommé",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        uploadId: req.params.id,
+        displayName,
+      },
+    },
+    { includeScreenshot: false },
+  );
   res.redirect("/admin/uploads");
 });
 
 r.post("/uploads/:id/delete", async (req, res) => {
+  const upload = await get(
+    "SELECT id, original_name, display_name FROM uploads WHERE id=?",
+    [req.params.id],
+  );
   await removeUpload(req.params.id);
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Upload supprimé",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        uploadId: req.params.id,
+        originalName: upload?.original_name || null,
+        displayName: upload?.display_name || null,
+      },
+    },
+    { includeScreenshot: false },
+  );
   res.redirect("/admin/uploads");
 });
 
@@ -643,6 +706,22 @@ r.post("/settings", async (req, res) => {
     "UPDATE settings SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=? WHERE id=1",
     [wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text],
   );
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Paramètres mis à jour",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        wiki_name,
+        logo_url,
+        footer_text,
+        adminWebhookConfigured: !!admin_webhook_url,
+        feedWebhookConfigured: !!feed_webhook_url,
+      },
+    },
+    { includeScreenshot: false },
+  );
   res.redirect("/admin/settings");
 });
 
@@ -657,14 +736,44 @@ r.post("/users", async (req, res) => {
   const { username, password } = req.body;
   if (!username || !password) return res.redirect("/admin/users");
   const hashed = await hashPassword(password);
-  await run("INSERT INTO users(username,password,is_admin) VALUES(?,?,1)", [
+  const result = await run("INSERT INTO users(username,password,is_admin) VALUES(?,?,1)", [
     username,
     hashed,
   ]);
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Utilisateur créé",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        newUser: username,
+        userId: result?.lastID || null,
+      },
+    },
+    { includeScreenshot: false },
+  );
   res.redirect("/admin/users");
 });
 r.post("/users/:id/delete", async (req, res) => {
+  const target = await get(
+    "SELECT id, username FROM users WHERE id=?",
+    [req.params.id],
+  );
   await run("DELETE FROM users WHERE id=?", [req.params.id]);
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Utilisateur supprimé",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: req.params.id,
+        targetUsername: target?.username || null,
+      },
+    },
+    { includeScreenshot: false },
+  );
   res.redirect("/admin/users");
 });
 
@@ -678,7 +787,29 @@ r.get("/likes", async (_req, res) => {
   res.render("admin/likes", { rows });
 });
 r.post("/likes/:id/delete", async (req, res) => {
+  const like = await get(
+    `SELECT l.id, l.ip, p.title, p.slug_id
+     FROM likes l JOIN pages p ON p.id = l.page_id
+     WHERE l.id=?`,
+    [req.params.id],
+  );
   await run("DELETE FROM likes WHERE id=?", [req.params.id]);
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Like supprimé par admin",
+    {
+      user: req.session.user?.username || null,
+      page: like
+        ? { title: like.title, slug_id: like.slug_id }
+        : undefined,
+      extra: {
+        ip,
+        likeId: req.params.id,
+        likeIp: like?.ip || null,
+      },
+    },
+    { includeScreenshot: false },
+  );
   res.redirect("/admin/likes");
 });
 
