@@ -1,12 +1,12 @@
-import sqlite3 from 'sqlite3';
-import { open } from 'sqlite';
+import sqlite3 from "sqlite3";
+import { open } from "sqlite";
 
 let db;
-export async function initDb(){
-  if(db){
+export async function initDb() {
+  if (db) {
     return db;
   }
-  db = await open({ filename: './data.sqlite', driver: sqlite3.Database });
+  db = await open({ filename: "./data.sqlite", driver: sqlite3.Database });
   await db.exec(`
   PRAGMA foreign_keys=ON;
   CREATE TABLE IF NOT EXISTS users(
@@ -61,22 +61,33 @@ export async function initDb(){
   return db;
 }
 
-export async function get(sql, params=[]){ return db.get(sql, params); }
-export async function all(sql, params=[]){ return db.all(sql, params); }
-export async function run(sql, params=[]){ return db.run(sql, params); }
+export async function get(sql, params = []) {
+  return db.get(sql, params);
+}
+export async function all(sql, params = []) {
+  return db.all(sql, params);
+}
+export async function run(sql, params = []) {
+  return db.run(sql, params);
+}
 
-export async function ensureDefaultAdmin(){
+export async function ensureDefaultAdmin() {
   await initDb();
-  const admin = await db.get('SELECT 1 FROM users WHERE username=?', ['admin']);
-  if(!admin){
-    await db.run('INSERT INTO users(username,password,is_admin) VALUES(?,?,1)', ['admin','admin']);
-    console.log('Default admin created: admin / admin');
+  const admin = await db.get("SELECT 1 FROM users WHERE username=?", ["admin"]);
+  if (!admin) {
+    await db.run(
+      "INSERT INTO users(username,password,is_admin) VALUES(?,?,1)",
+      ["admin", "admin"],
+    );
+    console.log("Default admin created: admin / admin");
   }
 }
 
-export function randSlugId(base){
-  const id = Math.random().toString(36).slice(2,8);
+export function randSlugId(base) {
+  const id = Math.random().toString(36).slice(2, 8);
   return `${base}-${id}`;
 }
 
-export async function incrementView(_id){ /* no-op placeholder for future */ }
+export async function incrementView(_id) {
+  /* no-op placeholder for future */
+}
