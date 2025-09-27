@@ -1,7 +1,7 @@
 import fetch, { FormData } from "node-fetch";
 import { Blob } from "buffer";
 import { get, logEvent } from "../db.js";
-import { renderArticleScreenshot } from "./screenshot.js";
+import { buildArticleMarkdownDescription } from "./articleFormatter.js";
 
 function buildFields(data) {
   if (!data) return [];
@@ -50,16 +50,20 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     if (["page", "comment", "user", "description", "extra"].includes(key)) continue;
     meta[key] = value;
   }
+  const description =
+    typeof data?.description === "string" && data.description.trim().length
+      ? data.description.trim()
+      : channel === "feed" && data?.page?.title
+      ? `**${data.page.title}**`
+      : data?.description || "";
+
   const payload = {
     embeds: [
       {
         title,
         timestamp: new Date().toISOString(),
         color: channel === "admin" ? 0x5865f2 : 0x57f287,
-        description:
-          data?.page?.title && channel === "feed"
-            ? `**${data.page.title}**`
-            : data?.description || "",
+        description,
         fields: buildFields({
           Page: data.page,
           Commentaire: data.comment,
@@ -90,30 +94,22 @@ export async function sendAdminEvent(title, data = {}, options = {}) {
 }
 
 export async function sendFeedEvent(title, data = {}, options = {}) {
-  if (title === "Nouvel article" && options.includeArticleScreenshot !== false) {
-    const { articleContent, ...restOptions } = options;
+  if (title === "Nouvel article") {
+    const { articleContent, includeArticleScreenshot, ...restOptions } = options;
     const content = articleContent ?? data?.page?.content;
-    const screenshot = await renderArticleScreenshot({
+    const description = buildArticleMarkdownDescription({
       title: data?.page?.title,
       content,
       author: data?.author,
       tags: data?.tags,
       url: data?.url,
     });
-    if (screenshot) {
-      const filename = `article-${Date.now()}.png`;
-      options = {
-        ...restOptions,
-        attachments: [...(restOptions.attachments || []), { buffer: screenshot, filename, contentType: "image/png" }],
-        embedImage: restOptions.embedImage || filename,
-      };
-    } else {
-      options = restOptions;
-    }
-  } else {
-    const { articleContent, ...restOptions } = options;
-    options = restOptions;
+
+    const payloadData = { ...data, description };
+    await sendEvent("feed", title, payloadData, restOptions);
+    return;
   }
 
-  await sendEvent("feed", title, data, options);
+  const { articleContent, includeArticleScreenshot, ...restOptions } = options;
+  await sendEvent("feed", title, data, restOptions);
 }
