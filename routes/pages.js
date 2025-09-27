@@ -20,8 +20,15 @@ r.get('/', async (req, res) => {
     FROM pages p WHERE p.created_at >= ? ORDER BY p.created_at DESC LIMIT 3
   `, [ip, weekAgo]);
 
-  const size = 50;
-  const page = Math.max(1, parseInt(req.query.page||'1', 10));
+  const allowedSizes = [5, 10, 50, 100, 500];
+  const requestedSize = parseInt(req.query.size || '50', 10);
+  const size = allowedSizes.includes(requestedSize) ? requestedSize : 50;
+  const countRow = await get('SELECT COUNT(*) c FROM pages');
+  const total = countRow.c;
+  const totalPages = Math.max(1, Math.ceil(total/size));
+  let page = parseInt(req.query.page || '1', 10);
+  if (Number.isNaN(page) || page < 1) page = 1;
+  if (page > totalPages) page = totalPages;
   const offset = (page-1)*size;
   const rows = await all(`
     SELECT p.id, p.title, p.slug_id, substr(p.content,1,1200) AS excerpt, p.created_at,
@@ -31,11 +38,7 @@ r.get('/', async (req, res) => {
     FROM pages p ORDER BY p.created_at DESC LIMIT ? OFFSET ?
   `, [ip, size, offset]);
 
-  const countRow = await get('SELECT COUNT(*) c FROM pages');
-  const total = countRow.c;
-  const totalPages = Math.max(1, Math.ceil(total/size));
-
-  res.render('index', { recent, rows, total, page, totalPages, size });
+  res.render('index', { recent, rows, total, page, totalPages, size, sizeOptions: allowedSizes });
 });
 
 // Lookup by base

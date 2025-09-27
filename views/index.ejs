@@ -32,6 +32,15 @@
 </div>
 
 <h2>Articles</h2>
+<form class="page-size" method="get" action="/">
+  <input type="hidden" name="page" value="1">
+  <label for="size">Articles par page :</label>
+  <select id="size" name="size" onchange="this.form.submit()">
+    <% sizeOptions.forEach(option => { %>
+      <option value="<%= option %>" <%= option === size ? 'selected' : '' %>><%= option %></option>
+    <% }) %>
+  </select>
+</form>
 <div class="article-grid">
   <% rows.forEach(p => { const tags = (p.tagsCsv||'').split(',').filter(Boolean); %>
     <div class="card">
@@ -63,7 +72,7 @@
 </div>
 
 <div class="actions">
-  <% if (page > 1) { %><a class="btn" href="/?page=<%= page-1 %>">Précédent</a><% } %>
+  <% if (page > 1) { %><a class="btn" href="/?page=<%= page-1 %>&size=<%= size %>">Précédent</a><% } %>
   <span>Page <%= page %> / <%= totalPages %></span>
-  <% if (page < totalPages) { %><a class="btn" href="/?page=<%= page+1 %>">Suivant</a><% } %>
+  <% if (page < totalPages) { %><a class="btn" href="/?page=<%= page+1 %>&size=<%= size %>">Suivant</a><% } %>
 </div>
