@@ -38,5 +38,20 @@
         </tbody>
       </table>
     </div>
+    <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.5rem; margin-top:1rem;">
+      <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
+      <div style="display:flex; gap:0.5rem;">
+        <% if (pagination.hasPrevious) { %>
+          <a class="btn" href="?page=<%= pagination.previousPage %>">Précédent</a>
+        <% } else { %>
+          <span class="btn" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+        <% } %>
+        <% if (pagination.hasNext) { %>
+          <a class="btn" href="?page=<%= pagination.nextPage %>">Suivant</a>
+        <% } else { %>
+          <span class="btn" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+        <% } %>
+      </div>
+    </div>
   <% } %>
 </section>
