@@ -3,6 +3,9 @@ import { open } from 'sqlite';
 
 let db;
 export async function initDb(){
+  if(db){
+    return db;
+  }
   db = await open({ filename: './data.sqlite', driver: sqlite3.Database });
   await db.exec(`
   PRAGMA foreign_keys=ON;
@@ -47,17 +50,21 @@ export async function initDb(){
     UNIQUE(page_id, ip)
   );
   `);
-  // default admin
+  return db;
+}
+
+export async function get(sql, params=[]){ return db.get(sql, params); }
+export async function all(sql, params=[]){ return db.all(sql, params); }
+export async function run(sql, params=[]){ return db.run(sql, params); }
+
+export async function ensureDefaultAdmin(){
+  await initDb();
   const admin = await db.get('SELECT 1 FROM users WHERE username=?', ['admin']);
   if(!admin){
     await db.run('INSERT INTO users(username,password,is_admin) VALUES(?,?,1)', ['admin','admin']);
     console.log('Default admin created: admin / admin');
   }
 }
-
-export async function get(sql, params=[]){ return db.get(sql, params); }
-export async function all(sql, params=[]){ return db.all(sql, params); }
-export async function run(sql, params=[]){ return db.run(sql, params); }
 
 export function randSlugId(base){
   const id = Math.random().toString(36).slice(2,8);
