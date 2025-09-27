@@ -1,20 +1,33 @@
 <% title = 'Recherche'; %>
 <h1>Résultats pour « <%= q %> »</h1>
 
+<% if (mode !== 'fts') { %>
+  <p><em>Recherche basique utilisée car l’index plein texte <% if (!ftsAvailable) { %>n’est pas disponible<% } else { %>n’a pas pu être utilisé pour cette requête<% } %>.</em></p>
+<% } %>
+
 <div class="article-grid">
   <% if (!rows.length) { %>
     <div class="card">Aucun résultat.</div>
   <% } %>
 
-  <% rows.forEach(p => { 
+  <% rows.forEach(p => {
        const tags = (p.tagsCsv || '').split(',').filter(Boolean);
+       const showScore = mode === 'fts' && Number.isFinite(p.score);
   %>
     <div class="card">
       <h3><strong><%= p.title %></strong></h3>
-      <% if (p.excerpt) { %>
+      <% if (p.snippet) { %>
+        <div class="excerpt">
+          <div class="excerpt-body"><%- p.snippet %></div>
+        </div>
+      <% } else if (p.excerpt) { %>
         <div class="excerpt">
           <div class="excerpt-body"><%- p.excerpt %></div>
         </div>
+      <% } %>
+
+      <% if (showScore) { %>
+        <div class="meta">Score BM25 : <%= p.score.toFixed(2) %></div>
       <% } %>
 
       <% if (tags.length) { %>

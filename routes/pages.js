@@ -1,5 +1,13 @@
 import { Router } from "express";
-import { get, run, all, randSlugId, incrementView } from "../db.js";
+import {
+  get,
+  run,
+  all,
+  randSlugId,
+  incrementView,
+  savePageFts,
+  removePageFts,
+} from "../db.js";
 import { requireAdmin } from "../middleware/auth.js";
 import { slugify, linkifyInternal } from "../utils/linkify.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
@@ -84,8 +92,15 @@ r.post("/new", requireAdmin, async (req, res) => {
     "INSERT INTO pages(slug_base, slug_id, title, content) VALUES(?,?,?,?)",
     [base, slug_id, title, content],
   );
-  await upsertTags(result.lastID, tags);
+  const tagNames = await upsertTags(result.lastID, tags);
   await recordRevision(result.lastID, title, content, req.session.user?.id || null);
+  await savePageFts({
+    id: result.lastID,
+    title,
+    content,
+    slug_id,
+    tags: tagNames.join(" "),
+  });
   await sendAdminEvent("Page created", {
     user: req.session.user?.username,
     page: { title, slug_id, slug_base: base },
@@ -268,8 +283,15 @@ r.post("/edit/:slugid", requireAdmin, async (req, res) => {
     [title, content, base, req.params.slugid],
   );
   await run("DELETE FROM page_tags WHERE page_id=?", [p.id]);
-  await upsertTags(p.id, tags);
+  const tagNames = await upsertTags(p.id, tags);
   await recordRevision(p.id, title, content, req.session.user?.id || null);
+  await savePageFts({
+    id: p.id,
+    title,
+    content,
+    slug_id: p.slug_id,
+    tags: tagNames.join(" "),
+  });
   await sendAdminEvent("Page updated", {
     user: req.session.user?.username,
     page: { title, slug_id: req.params.slugid, slug_base: base },
@@ -279,10 +301,13 @@ r.post("/edit/:slugid", requireAdmin, async (req, res) => {
 });
 r.delete("/delete/:slugid", requireAdmin, async (req, res) => {
   const p = await get(
-    "SELECT title, slug_id, slug_base FROM pages WHERE slug_id=?",
+    "SELECT id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
     [req.params.slugid],
   );
   await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);
+  if (p?.id) {
+    await removePageFts(p.id);
+  }
   await sendAdminEvent("Page deleted", {
     user: req.session.user?.username,
     page: p,
@@ -291,10 +316,13 @@ r.delete("/delete/:slugid", requireAdmin, async (req, res) => {
 });
 r.post("/delete/:slugid", requireAdmin, async (req, res) => {
   const p = await get(
-    "SELECT title, slug_id, slug_base FROM pages WHERE slug_id=?",
+    "SELECT id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
     [req.params.slugid],
   );
   await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);
+  if (p?.id) {
+    await removePageFts(p.id);
+  }
   await sendAdminEvent("Page deleted", {
     user: req.session.user?.username,
     page: p,
@@ -361,11 +389,15 @@ r.get("/wiki/:slugid/revisions/:revisionId", requireAdmin, async (req, res) => {
 });
 
 async function upsertTags(pageId, csv = "") {
-  const names = csv
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean)
-    .map((s) => s.toLowerCase());
+  const names = Array.from(
+    new Set(
+      csv
+        .split(",")
+        .map((s) => s.trim())
+        .filter(Boolean)
+        .map((s) => s.toLowerCase()),
+    ),
+  );
   for (const n of names) {
     await run("INSERT OR IGNORE INTO tags(name) VALUES(?)", [n]);
     const tag = await get("SELECT id FROM tags WHERE name=?", [n]);
@@ -374,6 +406,7 @@ async function upsertTags(pageId, csv = "") {
       tag.id,
     ]);
   }
+  return names;
 }
 
 async function recordRevision(pageId, title, content, authorId = null) {
