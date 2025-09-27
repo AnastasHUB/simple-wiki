@@ -13,20 +13,14 @@ const MAX_DIMENSION = 1920;
 const OPTIMIZE_FORMATS = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 
 export function normalizeDisplayName(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
+  if (typeof value !== 'string') return null;
   const trimmed = value.trim();
-  if (!trimmed) {
-    return null;
-  }
+  if (!trimmed) return null;
   return trimmed.slice(0, 120);
 }
 
 function determineFormatFromMime(mimeType, fallbackExtension) {
-  if (!mimeType) {
-    return (fallbackExtension || '').replace('.', '').toLowerCase();
-  }
+  if (!mimeType) return (fallbackExtension || '').replace('.', '').toLowerCase();
   return mimeType.split('/')[1]?.toLowerCase() || (fallbackExtension || '').replace('.', '').toLowerCase();
 }
 
@@ -40,13 +34,12 @@ export function buildFilename(id, extension) {
 
 export async function optimizeUpload(filePath, mimeType, extension) {
   const normalizedMime = (mimeType || '').toLowerCase();
-  if (!OPTIMIZE_FORMATS.has(normalizedMime)) {
-    return null;
-  }
+  if (!OPTIMIZE_FORMATS.has(normalizedMime)) return null;
 
   const metadata = await sharp(filePath).metadata();
   const width = metadata.width || 0;
   const height = metadata.height || 0;
+
   let transformer = sharp(filePath).rotate();
   let changed = false;
 
@@ -79,9 +72,7 @@ export async function optimizeUpload(filePath, mimeType, extension) {
       return null;
   }
 
-  if (!changed) {
-    return null;
-  }
+  if (!changed) return null;
 
   const { data, info } = await transformer.toBuffer({ resolveWithObject: true });
   await fs.writeFile(filePath, data);
@@ -114,12 +105,7 @@ export async function listUploads() {
   for (const row of rows) {
     const extension = row.extension || '';
     const filename = buildFilename(row.id, extension);
-    if (
-      !filename ||
-      filename.startsWith('.') ||
-      filename === 'gitkeep' ||
-      row.original_name === '.gitkeep'
-    ) {
+    if (!filename || filename.startsWith('.') || filename === 'gitkeep' || row.original_name === '.gitkeep') {
       if (filename === '.gitkeep' || row.original_name === '.gitkeep') {
         await run('DELETE FROM uploads WHERE id=?', [row.id]);
       }
@@ -203,9 +189,7 @@ export async function removeUpload(id) {
     try {
       await fs.unlink(filePath);
     } catch (err) {
-      if (err.code !== 'ENOENT') {
-        throw err;
-      }
+      if (err.code !== 'ENOENT') throw err;
     }
   }
 
@@ -215,9 +199,7 @@ export async function removeUpload(id) {
 export async function updateUploadName(id, displayName) {
   const normalizedName = normalizeDisplayName(displayName);
   const row = await get('SELECT 1 FROM uploads WHERE id=?', [id]);
-  if (!row) {
-    return false;
-  }
+  if (!row) return false;
   await run('UPDATE uploads SET display_name=? WHERE id=?', [normalizedName, id]);
   return true;
 }

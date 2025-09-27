@@ -2,7 +2,10 @@
 <h1>Gestion des images</h1>
 <div class="card" style="margin-bottom:16px">
   <h2>Ajouter une image</h2>
-  <p style="margin-top:8px">Les fichiers volumineux sont automatiquement redimensionnés et optimisés. Un UUID est attribué pour éviter les doublons&nbsp;; vous pouvez ensuite modifier le nom affiché sans changer cet identifiant.</p>
+  <p style="margin-top:8px">
+    Chaque image reçoit un identifiant unique (UUID). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
+    Vous pouvez définir un nom personnalisé sans changer l’UUID. Laissez le champ vide pour effacer le nom personnalisé.
+  </p>
   <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:12px">
     <div style="flex:1 1 220px">
       <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="Image" />
@@ -72,18 +75,12 @@
   function escapeHtml(value) {
     return (value ?? '').toString().replace(/[&<>"']/g, (char) => {
       switch (char) {
-        case '&':
-          return '&amp;';
-        case '<':
-          return '&lt;';
-        case '>':
-          return '&gt;';
-        case '"':
-          return '&quot;';
-        case '\'':
-          return '&#39;';
-        default:
-          return char;
+        case '&': return '&amp;';
+        case '<': return '&lt;';
+        case '>': return '&gt;';
+        case '"': return '&quot;';
+        case "'": return '&#39;';
+        default: return char;
       }
     });
   }
@@ -98,6 +95,9 @@
     if (type === 'error') {
       box.style.backgroundColor = '#ffe5e5';
       box.style.color = '#a60000';
+    } else if (type === 'success') {
+      box.style.backgroundColor = '#e6ffed';
+      box.style.color = '#065f46';
     } else {
       box.style.backgroundColor = '#e5f6ff';
       box.style.color = '#005a8c';
@@ -159,22 +159,19 @@
       setMessage('Optimisation et upload en cours…');
       try {
         const formData = new FormData(uploadForm);
-        if (formData.get('displayName')) {
-          formData.set('displayName', formData.get('displayName').toString().trim());
-        }
+        const dn = formData.get('displayName');
+        if (dn) formData.set('displayName', dn.toString().trim());
         const response = await fetch(uploadForm.action, { method: 'POST', body: formData });
         const payload = await response.json();
-        if (!payload.ok) {
-          throw new Error(payload.message || 'Erreur lors de l\'upload');
-        }
-        setMessage('Image envoyée avec succès !', 'success');
+        if (!payload.ok) throw new Error(payload.message || 'Erreur lors de l\'upload');
+        setMessage('Image envoyée avec succès.', 'success');
         prependUploadRow(payload);
         uploadForm.reset();
       } catch (err) {
         setMessage(err.message || 'Erreur lors de l\'upload', 'error');
       } finally {
-        const button = uploadForm.querySelector('button[type="submit"]');
-        if (button) button.disabled = false;
+        const btn = uploadForm.querySelector('button[type="submit"]');
+        if (btn) btn.disabled = false;
       }
     });
   }

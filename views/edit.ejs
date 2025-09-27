@@ -60,13 +60,9 @@
     const alt = item.dataset.alt || item.dataset.originalName || '';
     const snippet = buildSnippet(url, alt);
     const code = item.querySelector('.upload-snippet');
-    if (code) {
-      code.textContent = snippet;
-    }
+    if (code) code.textContent = snippet;
     const button = item.querySelector('.copy-upload');
-    if (button) {
-      button.dataset.snippet = snippet;
-    }
+    if (button) button.dataset.snippet = snippet;
   }
 
   if (uploadsList) {
@@ -79,9 +75,7 @@
     const snippet = button.dataset.snippet;
     navigator.clipboard.writeText(snippet).then(() => {
       button.textContent = 'Copié !';
-      setTimeout(() => {
-        button.textContent = 'Copier le code';
-      }, 1500);
+      setTimeout(() => { button.textContent = 'Copier le code'; }, 1500);
     });
   });
 </script>
