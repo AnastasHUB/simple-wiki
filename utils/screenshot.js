@@ -11,24 +11,12 @@ function escapeXml(str) {
 
 function formatBody(data) {
   const parts = [];
-  if (data?.page?.title) {
-    parts.push(`Article: ${data.page.title}`);
-  }
-  if (data?.page?.slug_id) {
-    parts.push(`Slug: ${data.page.slug_id}`);
-  }
-  if (data?.comment?.preview) {
-    parts.push(`Commentaire: ${data.comment.preview}`);
-  }
-  if (data?.extra?.ip) {
-    parts.push(`IP: ${data.extra.ip}`);
-  }
-  if (data?.user) {
-    parts.push(`Utilisateur: ${data.user}`);
-  }
-  if (!parts.length && data) {
-    parts.push(JSON.stringify(data, null, 2));
-  }
+  if (data?.page?.title) parts.push(`Article: ${data.page.title}`);
+  if (data?.page?.slug_id) parts.push(`Slug: ${data.page.slug_id}`);
+  if (data?.comment?.preview) parts.push(`Commentaire: ${data.comment.preview}`);
+  if (data?.extra?.ip) parts.push(`IP: ${data.extra.ip}`);
+  if (data?.user) parts.push(`Utilisateur: ${data.user}`);
+  if (!parts.length && data) parts.push(JSON.stringify(data, null, 2));
   return parts.join("\n");
 }
 
@@ -46,9 +34,7 @@ export async function renderEventScreenshot(title, data) {
           </linearGradient>
         </defs>
         <rect width="100%" height="100%" fill="url(#bg)" />
-        <text x="60" y="140" fill="#38bdf8" font-size="60" font-weight="700">${escapeXml(
-          title,
-        )}</text>
+        <text x="60" y="140" fill="#38bdf8" font-size="60" font-weight="700">${escapeXml(title)}</text>
         <foreignObject x="60" y="200" width="1080" height="360">
           <div xmlns="http://www.w3.org/1999/xhtml" style="font-size:30px;color:#e2e8f0;font-family:'Segoe UI',sans-serif;white-space:pre-line;">
             ${escapeXml(body)}
@@ -96,6 +82,7 @@ const CONTENT_SANITIZE_OPTIONS = {
 
 function sanitizeContent(content) {
   if (!content) return "";
+  // Version retenue: on conserve le HTML autorisé et on neutralise le reste.
   return sanitizeHtml(String(content), CONTENT_SANITIZE_OPTIONS).trim();
 }
 
