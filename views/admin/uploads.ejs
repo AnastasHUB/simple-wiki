@@ -1,0 +1,52 @@
+<% title='Images'; %>
+<h1>Gestion des images</h1>
+<div class="card" style="margin-bottom:16px">
+  <p>Chaque image reçoit un identifiant unique (UUID). Vous pouvez supprimer les fichiers inutiles ou définir un nom personnalisé sans changer cet identifiant. Laissez le champ vide pour effacer un nom personnalisé.</p>
+</div>
+
+<% if (uploads.length) { %>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Aperçu</th>
+          <th>Détails</th>
+          <th>Nom personnalisé</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% uploads.forEach(upload => { %>
+          <% const displayName = upload.displayName || ''; %>
+          <% const createdAt = upload.createdAt ? new Date(upload.createdAt).toLocaleString('fr-FR') : '—'; %>
+          <% const sizeLabel = upload.size ? Math.max(1, Math.round(upload.size / 1024)) + ' Ko' : '—'; %>
+          <tr>
+            <td>
+              <img src="<%= upload.url %>" alt="" style="max-width:140px; max-height:90px; object-fit:contain; border-radius:8px" />
+            </td>
+            <td style="line-height:1.4">
+              <div><strong>UUID :</strong> <code><%= upload.id %></code></div>
+              <div><strong>Nom original :</strong> <%= upload.originalName %></div>
+              <div><strong>Nom affiché :</strong> <%= displayName || '—' %></div>
+              <div><strong>Taille :</strong> <%= sizeLabel %></div>
+              <div><strong>Ajouté :</strong> <%= createdAt %></div>
+            </td>
+            <td>
+              <form method="post" action="/admin/uploads/<%= upload.id %>/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
+                <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
+                <button class="btn" type="submit">Enregistrer</button>
+              </form>
+            </td>
+            <td>
+              <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
+                <button class="btn unlike" type="submit">Supprimer</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } else { %>
+  <p class="card" style="color:var(--muted)">Aucune image disponible pour le moment.</p>
+<% } %>
