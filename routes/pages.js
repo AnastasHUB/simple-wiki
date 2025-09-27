@@ -130,12 +130,16 @@ r.post(
       page: { title, slug_id, slug_base: base },
       extra: { tags },
     });
-    await sendFeedEvent("Nouvel article", {
-      page: { title, slug_id },
-      author: req.session.user?.username,
-      url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
-      tags,
-    });
+    await sendFeedEvent(
+      "Nouvel article",
+      {
+        page: { title, slug_id },
+        author: req.session.user?.username,
+        url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
+        tags,
+      },
+      { articleContent: content },
+    );
     res.redirect("/wiki/" + slug_id);
   }),
 );

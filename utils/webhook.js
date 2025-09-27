@@ -1,7 +1,7 @@
 import fetch, { FormData } from "node-fetch";
 import { Blob } from "buffer";
 import { get, logEvent } from "../db.js";
-import { renderEventScreenshot } from "./screenshot.js";
+import { renderArticleScreenshot } from "./screenshot.js";
 
 function buildFields(data) {
   if (!data) return [];
@@ -70,14 +70,9 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     ],
   };
 
-  const attachments = [];
-  if (options.includeScreenshot !== false) {
-    const buffer = await renderEventScreenshot(title, data);
-    if (buffer) {
-      const filename = `event-${Date.now()}.png`;
-      attachments.push({ buffer, filename, contentType: "image/png" });
-      payload.embeds[0].image = { url: `attachment://${filename}` };
-    }
+  const attachments = Array.isArray(options.attachments) ? options.attachments : [];
+  if (options.embedImage) {
+    payload.embeds[0].image = { url: `attachment://${options.embedImage}` };
   }
 
   await logEvent({
@@ -95,5 +90,30 @@ export async function sendAdminEvent(title, data = {}, options = {}) {
 }
 
 export async function sendFeedEvent(title, data = {}, options = {}) {
+  if (title === "Nouvel article" && options.includeArticleScreenshot !== false) {
+    const { articleContent, ...restOptions } = options;
+    const content = articleContent ?? data?.page?.content;
+    const screenshot = await renderArticleScreenshot({
+      title: data?.page?.title,
+      content,
+      author: data?.author,
+      tags: data?.tags,
+      url: data?.url,
+    });
+    if (screenshot) {
+      const filename = `article-${Date.now()}.png`;
+      options = {
+        ...restOptions,
+        attachments: [...(restOptions.attachments || []), { buffer: screenshot, filename, contentType: "image/png" }],
+        embedImage: restOptions.embedImage || filename,
+      };
+    } else {
+      options = restOptions;
+    }
+  } else {
+    const { articleContent, ...restOptions } = options;
+    options = restOptions;
+  }
+
   await sendEvent("feed", title, data, options);
 }
