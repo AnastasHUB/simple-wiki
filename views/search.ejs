@@ -11,7 +11,11 @@
   %>
     <div class="card">
       <h3><strong><%= p.title %></strong></h3>
-      <p><%= p.excerpt %>…</p>
+      <% if (p.excerpt) { %>
+        <div class="excerpt">
+          <div class="excerpt-body"><%- p.excerpt %></div>
+        </div>
+      <% } %>
 
       <% if (tags.length) { %>
         <div class="tags-row">
