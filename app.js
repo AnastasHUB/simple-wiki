@@ -83,6 +83,16 @@ app.use("/", authRoutes);
 app.use("/admin", adminRoutes);
 app.use("/", searchRoutes);
 
+app.use((err, req, res, next) => {
+  console.error(err);
+  if (res.headersSent) {
+    return next(err);
+  }
+  res.status(500).render("error", {
+    message: "Une erreur inattendue est survenue.",
+  });
+});
+
 app.use((req, res) => res.status(404).render("page404"));
 
 const port = process.env.PORT || 3000;
