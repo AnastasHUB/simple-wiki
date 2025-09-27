@@ -7,6 +7,9 @@ import { listUploads } from "../utils/uploads.js";
 
 const r = Router();
 
+const viewCountSelect =
+  "COALESCE((SELECT SUM(views) FROM page_view_daily WHERE page_id=p.id),0) + COALESCE((SELECT COUNT(*) FROM page_views WHERE page_id=p.id),0)";
+
 // Home
 r.get("/", async (req, res) => {
   const ip =
@@ -18,7 +21,8 @@ r.get("/", async (req, res) => {
     SELECT p.id, p.title, p.slug_id, substr(p.content,1,900) AS excerpt, p.created_at,
       (SELECT GROUP_CONCAT(t.name, ',') FROM tags t JOIN page_tags pt ON pt.tag_id=t.id WHERE pt.page_id=p.id) AS tagsCsv,
       (SELECT COUNT(*) FROM likes WHERE page_id=p.id) AS likes,
-      (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked
+      (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked,
+      ${viewCountSelect} AS views
     FROM pages p WHERE p.created_at >= ? ORDER BY p.created_at DESC LIMIT 3
   `,
     [ip, weekAgo],
@@ -39,7 +43,8 @@ r.get("/", async (req, res) => {
     SELECT p.id, p.title, p.slug_id, substr(p.content,1,1200) AS excerpt, p.created_at,
       (SELECT GROUP_CONCAT(t.name, ',') FROM tags t JOIN page_tags pt ON pt.tag_id=t.id WHERE pt.page_id=p.id) AS tagsCsv,
       (SELECT COUNT(*) FROM likes WHERE page_id=p.id) AS likes,
-      (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked
+      (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked,
+      ${viewCountSelect} AS views
     FROM pages p ORDER BY p.created_at DESC LIMIT ? OFFSET ?
   `,
     [ip, size, offset],
@@ -101,12 +106,14 @@ r.get("/wiki/:slugid", async (req, res) => {
   const page = await get(
     `SELECT p.*,
     (SELECT COUNT(*) FROM likes WHERE page_id=p.id) AS likes,
-    (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked
+    (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked,
+    ${viewCountSelect} AS views
     FROM pages p WHERE slug_id=?`,
     [ip, req.params.slugid],
   );
   if (!page) return res.status(404).send("Page introuvable");
-  await incrementView(page.id);
+  await incrementView(page.id, ip);
+  page.views = Number(page.views || 0) + 1;
   const tlist = await all(
     "SELECT name FROM tags t JOIN page_tags pt ON t.id=pt.tag_id WHERE pt.page_id=? ORDER BY name",
     [page.id],
@@ -218,7 +225,8 @@ r.get("/tags/:name", async (req, res) => {
     SELECT p.id, p.title, p.slug_id, substr(p.content,1,1200) AS excerpt, p.created_at,
            (SELECT GROUP_CONCAT(t2.name, ',') FROM tags t2 JOIN page_tags pt2 ON pt2.tag_id=t2.id WHERE pt2.page_id=p.id) AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id=p.id) AS likes,
-           (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked
+           (SELECT COUNT(*) FROM likes WHERE page_id=p.id AND ip=?) AS userLiked,
+           ${viewCountSelect} AS views
       FROM pages p
       JOIN page_tags pt ON p.id=pt.page_id
       JOIN tags t ON t.id=pt.tag_id

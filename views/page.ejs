@@ -5,6 +5,7 @@
     <div class="meta">
       <span>Créé: <%= page.created_at %></span>
       <% if (page.updated_at) { %><span>• Modifié: <%= page.updated_at %></span><% } %>
+      <span>• Vues: <strong><%= page.views %></strong></span>
       <span>• Likes: <strong><%= page.likes %></strong></span>
     </div>
   </div>

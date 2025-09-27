@@ -80,6 +80,40 @@ r.get("/pages", async (req, res) => {
   });
 });
 
+r.get("/stats", async (_req, res) => {
+  const periods = [
+    { key: "day", label: "24 dernières heures", durationMs: 24 * 60 * 60 * 1000, limit: 10 },
+    { key: "week", label: "7 derniers jours", durationMs: 7 * 24 * 60 * 60 * 1000, limit: 15 },
+    { key: "month", label: "30 derniers jours", durationMs: 30 * 24 * 60 * 60 * 1000, limit: 15 },
+    { key: "all", label: "Depuis toujours", durationMs: null, limit: 20 },
+  ];
+
+  const stats = {};
+  for (const period of periods) {
+    let fromIso = null;
+    let fromDay = null;
+    if (period.durationMs) {
+      const from = new Date(Date.now() - period.durationMs);
+      fromIso = from.toISOString();
+      fromDay = fromIso.slice(0, 10);
+    }
+    const { query, params } = buildViewLeaderboardQuery(fromIso, fromDay, period.limit);
+    stats[period.key] = await all(query, params);
+  }
+
+  const totals = await get(
+    `SELECT
+      COALESCE((SELECT SUM(views) FROM page_view_daily),0)
+      + COALESCE((SELECT COUNT(*) FROM page_views),0) AS totalViews`,
+  );
+
+  res.render("admin/stats", {
+    periods,
+    stats,
+    totalViews: totals?.totalViews || 0,
+  });
+});
+
 r.get("/pages/export", async (_req, res) => {
   const rows = await all(`
     SELECT p.slug_base, p.slug_id, p.title, p.content, p.created_at, p.updated_at,
@@ -390,3 +424,26 @@ r.post("/likes/:id/delete", async (req, res) => {
 });
 
 export default r;
+
+function buildViewLeaderboardQuery(fromIso, fromDay, limit) {
+  const rawWhere = fromIso ? "WHERE viewed_at >= ?" : "";
+  const aggregatedWhere = fromDay ? "WHERE day >= ?" : "";
+  const params = [];
+  if (fromIso) params.push(fromIso);
+  if (fromDay) params.push(fromDay);
+  params.push(limit);
+  const query = `
+    WITH combined AS (
+      SELECT page_id, COUNT(*) AS views FROM page_views ${rawWhere} GROUP BY page_id
+      UNION ALL
+      SELECT page_id, SUM(views) AS views FROM page_view_daily ${aggregatedWhere} GROUP BY page_id
+    )
+    SELECT p.id, p.title, p.slug_id, SUM(combined.views) AS views
+    FROM combined
+    JOIN pages p ON p.id = combined.page_id
+    GROUP BY combined.page_id
+    ORDER BY views DESC, p.title ASC
+    LIMIT ?
+  `;
+  return { query, params };
+}
