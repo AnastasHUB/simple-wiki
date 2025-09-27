@@ -3,6 +3,7 @@ import { open } from "sqlite";
 import { hashPassword } from "./utils/passwords.js";
 
 let db;
+let ftsAvailable = null;
 export async function initDb() {
   if (db) {
     return db;
@@ -93,6 +94,7 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   `);
+  await ensureFts();
   return db;
 }
 
@@ -133,5 +135,83 @@ export async function incrementView(pageId, ip = null) {
     ]);
   } catch (err) {
     console.error("Unable to record page view", err);
+  }
+}
+
+async function ensureFts() {
+  if (ftsAvailable !== null) {
+    return;
+  }
+  try {
+    await db.exec(`
+      CREATE VIRTUAL TABLE IF NOT EXISTS pages_fts USING fts5(
+        title,
+        content,
+        tags,
+        slug_id UNINDEXED
+      );
+    `);
+    ftsAvailable = true;
+    await rebuildPagesFts();
+  } catch (err) {
+    ftsAvailable = false;
+    console.warn("FTS index disabled (fts5 unavailable?)", err.message);
+  }
+}
+
+async function rebuildPagesFts() {
+  if (!ftsAvailable) return;
+  try {
+    const pages = await db.all(`
+      SELECT p.id, p.title, p.content, p.slug_id,
+             COALESCE((
+               SELECT GROUP_CONCAT(t.name, ' ')
+               FROM tags t
+               JOIN page_tags pt ON pt.tag_id = t.id
+               WHERE pt.page_id = p.id
+             ), '') AS tags
+      FROM pages p
+    `);
+    await db.exec("DELETE FROM pages_fts;");
+    for (const page of pages) {
+      await db.run(
+        "INSERT INTO pages_fts(rowid, title, content, tags, slug_id) VALUES(?,?,?,?,?)",
+        [page.id, page.title, page.content, page.tags || "", page.slug_id],
+      );
+    }
+  } catch (err) {
+    console.warn("Unable to rebuild FTS index", err);
+  }
+}
+
+export function isFtsAvailable() {
+  return !!ftsAvailable;
+}
+
+export async function savePageFts({
+  id,
+  title,
+  content,
+  slug_id,
+  tags = "",
+}) {
+  if (!ftsAvailable || !id) return;
+  try {
+    await db.run("DELETE FROM pages_fts WHERE rowid=?", [id]);
+    await db.run(
+      "INSERT INTO pages_fts(rowid, title, content, tags, slug_id) VALUES(?,?,?,?,?)",
+      [id, title || "", content || "", tags || "", slug_id || null],
+    );
+  } catch (err) {
+    console.warn("Unable to upsert page in FTS index", err);
+  }
+}
+
+export async function removePageFts(id) {
+  if (!ftsAvailable || !id) return;
+  try {
+    await db.run("DELETE FROM pages_fts WHERE rowid=?", [id]);
+  } catch (err) {
+    console.warn("Unable to delete page from FTS index", err);
   }
 }
