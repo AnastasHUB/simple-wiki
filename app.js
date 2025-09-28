@@ -25,7 +25,9 @@ app.set("views", path.join(__dirname, "views"));
 app.use(expressLayouts);
 app.set("layout", "layout");
 
-app.use(express.urlencoded({ extended: true }));
+// Allow larger rich-text form submissions (e.g. with embedded images).
+const urlencodedBodyLimit = process.env.URLENCODED_BODY_LIMIT || "10mb";
+app.use(express.urlencoded({ extended: true, limit: urlencodedBodyLimit }));
 app.use(methodOverride("_method"));
 app.use(morgan("dev"));
 app.use("/public", express.static(path.join(__dirname, "public")));
