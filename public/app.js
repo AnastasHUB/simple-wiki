@@ -176,6 +176,98 @@ function initHtmlEditor() {
   }
 
   const quill = new window.Quill(container, options);
+  const uploadEndpoint =
+    container.getAttribute("data-upload-endpoint") || "/admin/uploads";
+  let imageInput = null;
+  let pendingRange = null;
+
+  const setUploading = (value) => {
+    if (value) {
+      container.setAttribute("data-uploading-image", "true");
+    } else {
+      container.removeAttribute("data-uploading-image");
+    }
+  };
+
+  const notify = (type, message) => {
+    if (!message) return;
+    const layer = document.getElementById("notificationLayer");
+    if (layer && typeof spawnNotification === "function") {
+      spawnNotification(layer, { type, message });
+    } else if (type === "error") {
+      window.alert(message);
+    }
+  };
+
+  const uploadImageFile = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      if (file.name) {
+        const baseName = file.name.replace(/\.[^.]+$/, "");
+        if (baseName) {
+          formData.append("displayName", baseName);
+        }
+      }
+      const response = await fetch(uploadEndpoint, {
+        method: "POST",
+        body: formData,
+        credentials: "same-origin",
+      });
+      let data = null;
+      try {
+        data = await response.json();
+      } catch (_) {
+        data = null;
+      }
+      if (!response.ok || !data?.ok || !data.url) {
+        const message = data?.message || data?.error;
+        throw new Error(
+          message || "Erreur lors du téléversement de l'image.",
+        );
+      }
+      const range =
+        pendingRange ||
+        quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+      quill.insertEmbed(range.index, "image", data.url, "user");
+      quill.setSelection(range.index + 1, 0);
+      notify("success", "Image importée avec succès.");
+    } catch (err) {
+      console.error("Image upload failed", err);
+      const message = err?.message || "Impossible d'importer l'image.";
+      notify("error", message);
+    } finally {
+      pendingRange = null;
+      setUploading(false);
+    }
+  };
+
+  const openImagePicker = () => {
+    if (!imageInput) {
+      imageInput = document.createElement("input");
+      imageInput.type = "file";
+      imageInput.accept = "image/png,image/jpeg,image/webp,image/gif";
+      imageInput.style.display = "none";
+      imageInput.addEventListener("change", () => {
+        const file = imageInput?.files?.[0] || null;
+        imageInput.value = "";
+        uploadImageFile(file);
+      });
+      document.body.appendChild(imageInput);
+    }
+    imageInput.click();
+  };
+
+  const toolbar = quill.getModule("toolbar");
+  if (toolbar) {
+    toolbar.addHandler("image", () => {
+      pendingRange = quill.getSelection(true);
+      openImagePicker();
+    });
+  }
+
   const initialValue = field.value || "";
   if (initialValue) {
     quill.clipboard.dangerouslyPasteHTML(initialValue);
