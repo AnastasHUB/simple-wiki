@@ -1,11 +1,5 @@
 <h1>Modération des commentaires</h1>
 
-<% if (notice) { %>
-  <div class="card" style="padding:16px; margin-bottom:20px; border:1px solid <%= notice.type === 'error' ? '#f87171' : '#4ade80' %>; background:<%= notice.type === 'error' ? 'rgba(248,113,113,0.15)' : 'rgba(74,222,128,0.12)' %>; border-radius:12px;">
-    <strong><%= notice.message %></strong>
-  </div>
-<% } %>
-
 <section class="card" style="margin-bottom:24px;">
   <h2 style="margin-top:0;">En attente de validation (<%= pending.length %>)</h2>
   <% if (!pending.length) { %>
@@ -63,6 +57,11 @@
           <% if (c.updated_at) { %>
             <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
           <% } %>
+          <div class="actions">
+            <form method="post" action="/admin/comments/<%= c.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+              <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
+            </form>
+          </div>
         </li>
       <% }) %>
     </ul>

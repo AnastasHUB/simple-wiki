@@ -24,6 +24,7 @@ import {
   getSiteSettingsForForm,
   updateSiteSettingsFromForm,
 } from "../utils/settingsService.js";
+import { pushNotification } from "../utils/notifications.js";
 
 await ensureUploadDir();
 
@@ -85,9 +86,7 @@ r.get("/comments", async (req, res) => {
       ORDER BY c.created_at DESC
       LIMIT 30`,
   );
-  const notice = req.session.commentModeration || null;
-  delete req.session.commentModeration;
-  res.render("admin/comments", { pending, recent, notice });
+  res.render("admin/comments", { pending, recent });
 });
 
 r.post("/comments/:id/approve", async (req, res) => {
@@ -99,17 +98,17 @@ r.post("/comments/:id/approve", async (req, res) => {
     [req.params.id],
   );
   if (!comment) {
-    req.session.commentModeration = {
+    pushNotification(req, {
       type: "error",
       message: "Commentaire introuvable.",
-    };
+    });
     return res.redirect("/admin/comments");
   }
   await run("UPDATE comments SET status='approved' WHERE id=?", [comment.id]);
-  req.session.commentModeration = {
+  pushNotification(req, {
     type: "success",
     message: "Commentaire approuvé.",
-  };
+  });
   await sendAdminEvent("Commentaire approuvé", {
     page: comment,
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
@@ -126,17 +125,17 @@ r.post("/comments/:id/reject", async (req, res) => {
     [req.params.id],
   );
   if (!comment) {
-    req.session.commentModeration = {
+    pushNotification(req, {
       type: "error",
       message: "Commentaire introuvable.",
-    };
+    });
     return res.redirect("/admin/comments");
   }
   await run("UPDATE comments SET status='rejected' WHERE id=?", [comment.id]);
-  req.session.commentModeration = {
-    type: "success",
+  pushNotification(req, {
+    type: "info",
     message: "Commentaire rejeté.",
-  };
+  });
   await sendAdminEvent("Commentaire rejeté", {
     page: comment,
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
@@ -153,17 +152,17 @@ async function handleCommentDeletion(req, res) {
     [req.params.id],
   );
   if (!comment) {
-    req.session.commentModeration = {
+    pushNotification(req, {
       type: "error",
       message: "Commentaire introuvable.",
-    };
+    });
     return res.redirect("/admin/comments");
   }
   await run("DELETE FROM comments WHERE id=?", [comment.id]);
-  req.session.commentModeration = {
+  pushNotification(req, {
     type: "success",
     message: "Commentaire supprimé.",
-  };
+  });
   await sendAdminEvent("Commentaire supprimé", {
     page: comment,
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
@@ -181,11 +180,8 @@ r.get("/ip-bans", async (req, res) => {
       ORDER BY created_at DESC
       LIMIT 200`,
   );
-  const notice = req.session.ipBanNotice || null;
-  delete req.session.ipBanNotice;
   res.render("admin/ip_bans", {
     bans,
-    notice,
   });
 });
 
@@ -195,10 +191,10 @@ r.post("/ip-bans", async (req, res) => {
   const reason = (req.body.reason || "").trim();
   const tagValue = (req.body.tag || "").trim().toLowerCase();
   if (!ip || !scopeInput) {
-    req.session.ipBanNotice = {
+    pushNotification(req, {
       type: "error",
       message: "Adresse IP et portée requis.",
-    };
+    });
     return res.redirect("/admin/ip-bans");
   }
   let scope = "global";
@@ -207,10 +203,10 @@ r.post("/ip-bans", async (req, res) => {
     scope = "tag";
     value = tagValue;
     if (!value) {
-      req.session.ipBanNotice = {
+      pushNotification(req, {
         type: "error",
         message: "Veuillez préciser le tag à restreindre.",
-      };
+      });
       return res.redirect("/admin/ip-bans");
     }
   } else if (scopeInput !== "global") {
@@ -218,10 +214,10 @@ r.post("/ip-bans", async (req, res) => {
     value = scopeInput;
   }
   const banId = await banIp({ ip, scope, value, reason: reason || null });
-  req.session.ipBanNotice = {
+  pushNotification(req, {
     type: "success",
     message: "Blocage enregistré.",
-  };
+  });
   await sendAdminEvent("IP bannie", {
     extra: { id: banId, ip, scope, value, reason: reason || null },
     user: req.session.user?.username || null,
@@ -235,10 +231,10 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
     [req.params.id],
   );
   await liftBan(req.params.id);
-  req.session.ipBanNotice = {
+  pushNotification(req, {
     type: "success",
     message: "Blocage levé.",
-  };
+  });
   await sendAdminEvent("IP débannie", {
     extra: {
       id: req.params.id,
@@ -479,6 +475,10 @@ r.post(
       const ip = getClientIp(req);
       if (!req.file) {
         req.session.importResult = { errors: ["Aucun fichier importé."] };
+        pushNotification(req, {
+          type: "error",
+          message: "Aucun fichier importé.",
+        });
         return res.redirect("/admin/pages");
       }
 
@@ -489,6 +489,10 @@ r.post(
         req.session.importResult = {
           errors: ["Le fichier JSON est invalide: " + (err?.message || err)],
         };
+        pushNotification(req, {
+          type: "error",
+          message: "Le fichier JSON est invalide.",
+        });
         return res.redirect("/admin/pages");
       }
 
@@ -497,6 +501,10 @@ r.post(
         req.session.importResult = {
           errors: ['Structure inattendue: un tableau "pages" est requis.'],
         };
+        pushNotification(req, {
+          type: "error",
+          message: "Structure JSON inattendue : tableau \"pages\" requis.",
+        });
         return res.redirect("/admin/pages");
       }
 
@@ -591,6 +599,16 @@ r.post(
       }
 
       req.session.importResult = summary;
+      const importSummaryMessage =
+        `Import terminé : ${summary.created} créé(s), ${summary.updated} mis à jour, ${summary.skipped} ignoré(s).` +
+        (summary.errors.length
+          ? ` ${summary.errors.length} erreur(s) à consulter.`
+          : "");
+      pushNotification(req, {
+        type: summary.errors.length ? "info" : "success",
+        message: importSummaryMessage,
+        timeout: 7000,
+      });
       await sendAdminEvent(
         "Import de pages",
         {
@@ -723,6 +741,10 @@ r.post("/uploads/:id/name", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "success",
+    message: "Nom du fichier mis à jour.",
+  });
   res.redirect("/admin/uploads");
 });
 
@@ -746,6 +768,10 @@ r.post("/uploads/:id/delete", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "success",
+    message: "Fichier supprimé.",
+  });
   res.redirect("/admin/uploads");
 });
 
@@ -772,6 +798,10 @@ r.post("/settings", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "success",
+    message: "Paramètres enregistrés.",
+  });
   res.redirect("/admin/settings");
 });
 
@@ -784,7 +814,13 @@ r.get("/users", async (_req, res) => {
 });
 r.post("/users", async (req, res) => {
   const { username, password } = req.body;
-  if (!username || !password) return res.redirect("/admin/users");
+  if (!username || !password) {
+    pushNotification(req, {
+      type: "error",
+      message: "Nom d'utilisateur et mot de passe requis.",
+    });
+    return res.redirect("/admin/users");
+  }
   const hashed = await hashPassword(password);
   const result = await run(
     "INSERT INTO users(username,password,is_admin) VALUES(?,?,1)",
@@ -803,6 +839,10 @@ r.post("/users", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "success",
+    message: `Utilisateur ${username} créé.`,
+  });
   res.redirect("/admin/users");
 });
 r.post("/users/:id/delete", async (req, res) => {
@@ -823,6 +863,12 @@ r.post("/users/:id/delete", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "info",
+    message: target?.username
+      ? `Utilisateur ${target.username} supprimé.`
+      : "Utilisateur supprimé.",
+  });
   res.redirect("/admin/users");
 });
 
@@ -857,6 +903,10 @@ r.post("/likes/:id/delete", async (req, res) => {
     },
     { includeScreenshot: false },
   );
+  pushNotification(req, {
+    type: "info",
+    message: "Like supprimé.",
+  });
   res.redirect("/admin/likes");
 });
 

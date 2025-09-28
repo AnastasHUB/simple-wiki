@@ -201,10 +201,17 @@ r.post(
     if (ban) {
       req.session.commentFeedback = {
         slug: page.slug_id,
-        errors: [
-          "Vous n'êtes pas autorisé à publier des commentaires sur cet article.",
-        ],
+        values: {
+          author: (req.body.author || "").trim().slice(0, 80),
+          body: (req.body.body || "").trim(),
+        },
       };
+      pushNotification(req, {
+        type: "error",
+        message:
+          "Vous n'êtes pas autorisé à publier des commentaires sur cet article.",
+        timeout: 6000,
+      });
       return res.redirect(`/wiki/${page.slug_id}#comments`);
     }
 
@@ -220,9 +227,15 @@ r.post(
     if (validation.errors.length) {
       req.session.commentFeedback = {
         slug: page.slug_id,
-        errors: validation.errors,
         values: { author: validation.author, body: validation.body },
       };
+      for (const error of validation.errors) {
+        pushNotification(req, {
+          type: "error",
+          message: error,
+          timeout: 6000,
+        });
+      }
       return res.redirect(`/wiki/${page.slug_id}#comments`);
     }
 
@@ -247,12 +260,13 @@ r.post(
     }
 
     req.session.lastCommentAt = validation.now;
-    req.session.commentFeedback = {
-      slug: page.slug_id,
-      success: true,
+    delete req.session.commentFeedback;
+    pushNotification(req, {
+      type: "success",
       message:
         "Merci ! Votre commentaire a été enregistré et sera publié après validation.",
-    };
+      timeout: 6000,
+    });
 
     await sendAdminEvent("Nouveau commentaire", {
       page,
@@ -316,10 +330,16 @@ r.post(
     const author = (req.body.author || "").trim().slice(0, 80);
     const bodyValidation = validateCommentBody(req.body.body);
     if (bodyValidation.errors.length) {
+      const inlineNotifications = bodyValidation.errors.map((message) => ({
+        id: randomUUID(),
+        type: "error",
+        message,
+        timeout: 6000,
+      }));
       return res.render("comment_edit", {
         comment: { ...comment, author, body: bodyValidation.body },
-        errors: bodyValidation.errors,
         pageSlug: req.params.slugid,
+        notifications: inlineNotifications,
       });
     }
 
@@ -343,11 +363,13 @@ r.post(
         ip: comment.ip || null,
       },
     });
-    req.session.commentFeedback = {
-      slug: comment.slug_id,
-      success: true,
-      message: "Votre commentaire a été mis à jour et sera revu par un modérateur.",
-    };
+    delete req.session.commentFeedback;
+    pushNotification(req, {
+      type: "success",
+      message:
+        "Votre commentaire a été mis à jour et sera revu par un modérateur.",
+      timeout: 6000,
+    });
     res.redirect(`/wiki/${comment.slug_id}#comments`);
   }),
 );
@@ -383,11 +405,12 @@ r.post(
         ip: comment.ip || null,
       },
     });
-    req.session.commentFeedback = {
-      slug: comment.slug_id,
-      success: true,
+    delete req.session.commentFeedback;
+    pushNotification(req, {
+      type: "success",
       message: "Votre commentaire a été supprimé.",
-    };
+      timeout: 5000,
+    });
     res.redirect(`/wiki/${comment.slug_id}#comments`);
   }),
 );
@@ -693,7 +716,10 @@ function consumeCommentFeedback(req, slugId) {
     return null;
   }
   delete req.session.commentFeedback;
-  return feedback;
+  return {
+    slug: feedback.slug,
+    values: feedback.values || {},
+  };
 }
 
 export default r;
