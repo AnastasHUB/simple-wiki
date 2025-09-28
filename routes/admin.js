@@ -174,14 +174,24 @@ r.delete("/comments/:id", handleCommentDeletion);
 r.post("/comments/:id/delete", handleCommentDeletion);
 
 r.get("/ip-bans", async (req, res) => {
-  const bans = await all(
-    `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
-       FROM ip_bans
-      ORDER BY created_at DESC
-      LIMIT 200`,
-  );
+  const [activeBans, liftedBans] = await Promise.all([
+    all(
+      `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
+         FROM ip_bans
+        WHERE lifted_at IS NULL
+        ORDER BY created_at DESC`,
+    ),
+    all(
+      `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
+         FROM ip_bans
+        WHERE lifted_at IS NOT NULL
+        ORDER BY lifted_at DESC
+        LIMIT 200`,
+    ),
+  ]);
   res.render("admin/ip_bans", {
-    bans,
+    activeBans,
+    liftedBans,
   });
 });
 
