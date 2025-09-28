@@ -33,8 +33,7 @@
             <form method="post" action="/admin/comments/<%= c.snowflake_id %>/reject">
               <button class="btn" data-icon="🚫" type="submit">Rejeter</button>
             </form>
-            <form method="post" action="/admin/comments/<%= c.snowflake_id %>" onsubmit="return confirm('Supprimer ce commentaire ?');">
-              <input type="hidden" name="_method" value="DELETE">
+            <form method="post" action="/admin/comments/<%= c.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
               <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
             </form>
           </div>

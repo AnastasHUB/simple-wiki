@@ -144,7 +144,7 @@ r.post("/comments/:id/reject", async (req, res) => {
   res.redirect("/admin/comments");
 });
 
-r.delete("/comments/:id", async (req, res) => {
+async function handleCommentDeletion(req, res) {
   const comment = await get(
     `SELECT c.id, c.snowflake_id, c.ip, p.title, p.slug_id
        FROM comments c
@@ -169,7 +169,10 @@ r.delete("/comments/:id", async (req, res) => {
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   res.redirect("/admin/comments");
-});
+}
+
+r.delete("/comments/:id", handleCommentDeletion);
+r.post("/comments/:id/delete", handleCommentDeletion);
 
 r.get("/ip-bans", async (req, res) => {
   const bans = await all(
