@@ -533,11 +533,14 @@ form .actions {
 .data-table th,
 .data-table td {
   white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow: hidden;
-  max-width: 320px;
   padding: 12px 14px;
   border-bottom: 1px solid #242a36;
+}
+
+.data-table th code,
+.data-table td code {
+  white-space: nowrap;
+  overflow: visible;
 }
 .data-table thead th {
   position: sticky;
@@ -872,8 +875,6 @@ code {
   .data-table th,
   .data-table td {
     white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
   }
 }
 

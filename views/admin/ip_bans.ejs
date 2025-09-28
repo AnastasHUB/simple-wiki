@@ -3,11 +3,6 @@
 
 <section class="card" style="margin-bottom:24px;">
   <h2>Ajouter un blocage</h2>
-  <% if (notice) { %>
-    <div class="notice <%= notice.type === 'error' ? 'error' : 'success' %>">
-      <%= notice.message %>
-    </div>
-  <% } %>
   <form method="post" action="/admin/ip-bans" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px;">
     <div>
       <label for="ip">Adresse IP</label>

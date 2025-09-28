@@ -47,20 +47,6 @@
 <% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
 <section class="card comments" id="comments">
   <h2 style="margin-top:0">Commentaires</h2>
-  <% if (commentFeedback && commentFeedback.success) { %>
-    <div class="notice success"><%= commentFeedback.message || "Merci ! Votre commentaire a été enregistré et sera publié après validation." %></div>
-  <% } %>
-  <% if (commentFeedback && commentFeedback.errors && commentFeedback.errors.length) { %>
-    <div class="notice error">
-      <p style="margin-top:0;">Impossible d'enregistrer le commentaire :</p>
-      <ul>
-        <% commentFeedback.errors.forEach(err => { %>
-          <li><%= err %></li>
-        <% }) %>
-      </ul>
-    </div>
-  <% } %>
-
   <% if (comments && comments.length) { %>
     <ul class="comment-list">
       <% comments.forEach(c => { %>

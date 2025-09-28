@@ -1,16 +1,6 @@
 <% title = 'Modifier commentaire'; %>
 <section class="card">
   <h1>Modifier votre commentaire</h1>
-  <% if (typeof errors !== 'undefined' && errors.length) { %>
-    <div class="notice error">
-      <p>Impossible d'enregistrer les modifications :</p>
-      <ul>
-        <% errors.forEach(err => { %>
-          <li><%= err %></li>
-        <% }) %>
-      </ul>
-    </div>
-  <% } %>
   <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/edit" class="comment-form">
     <div class="field">
       <label for="comment-author">Nom ou pseudo</label>
