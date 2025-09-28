@@ -302,10 +302,40 @@ function initHtmlEditor() {
 
   const quill = new window.Quill(container, options);
 
-  const refreshCodeHighlighting = () => {
+  const scrollingContainer = quill.scrollingContainer || quill.root.parentElement;
+  const silentSource = window.Quill?.sources?.SILENT || "api";
+  let highlightTimeoutId = null;
+
+  const runCodeHighlighting = () => {
+    highlightTimeoutId = null;
     const syntax = quill.getModule("syntax");
-    if (syntax && typeof syntax.highlight === "function") {
-      syntax.highlight();
+    if (!syntax || typeof syntax.highlight !== "function") {
+      return;
+    }
+
+    const selection = quill.getSelection();
+    const savedScrollTop = scrollingContainer ? scrollingContainer.scrollTop : null;
+
+    syntax.highlight();
+
+    if (selection) {
+      quill.setSelection(selection, silentSource);
+    }
+    if (savedScrollTop != null && scrollingContainer) {
+      scrollingContainer.scrollTop = savedScrollTop;
+    }
+  };
+
+  const refreshCodeHighlighting = ({ immediate = false } = {}) => {
+    if (highlightTimeoutId) {
+      window.clearTimeout(highlightTimeoutId);
+      highlightTimeoutId = null;
+    }
+
+    if (immediate) {
+      runCodeHighlighting();
+    } else {
+      highlightTimeoutId = window.setTimeout(runCodeHighlighting, 200);
     }
   };
 
@@ -331,7 +361,7 @@ function initHtmlEditor() {
     } else {
       quill.format("code-block", true);
     }
-    refreshCodeHighlighting();
+    refreshCodeHighlighting({ immediate: true });
   };
   const uploadEndpoint =
     container.getAttribute("data-upload-endpoint") || "/admin/uploads";
@@ -436,7 +466,7 @@ function initHtmlEditor() {
         applyLanguageToSelection(chosenLanguage);
       } else {
         quill.format("code-block", false);
-        refreshCodeHighlighting();
+        refreshCodeHighlighting({ immediate: true });
       }
       requestAnimationFrame(() => {
         syncLanguageSelect();
@@ -457,7 +487,7 @@ function initHtmlEditor() {
   const initialValue = field.value || "";
   if (initialValue) {
     quill.clipboard.dangerouslyPasteHTML(initialValue);
-    refreshCodeHighlighting();
+    refreshCodeHighlighting({ immediate: true });
   }
 
   const syncField = () => {
@@ -472,11 +502,11 @@ function initHtmlEditor() {
 
   syncField();
   syncLanguageSelect();
-  refreshCodeHighlighting();
+  refreshCodeHighlighting({ immediate: true });
 
-  quill.on("text-change", () => {
+  quill.on("text-change", (_delta, _oldDelta, source) => {
     syncField();
-    refreshCodeHighlighting();
+    refreshCodeHighlighting({ immediate: source !== "user" });
     syncLanguageSelect();
   });
 

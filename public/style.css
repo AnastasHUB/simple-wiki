@@ -1082,6 +1082,17 @@ code {
   appearance: none;
 }
 
+.html-editor-toolbar .ql-code-language option {
+  color: var(--text);
+  background: #111625;
+}
+
+.html-editor-toolbar .ql-code-language option:checked,
+.html-editor-toolbar .ql-code-language option[selected] {
+  color: #f8fafc;
+  background: #253362;
+}
+
 .html-editor-toolbar .ql-code-language:focus {
   outline: none;
   border-color: var(--accent);
