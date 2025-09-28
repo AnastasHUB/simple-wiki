@@ -1065,6 +1065,65 @@ code {
   margin-bottom: 0.75em;
 }
 
+.html-editor-toolbar .ql-code-language {
+  min-width: 160px;
+  margin-left: 6px;
+  padding: 0.35rem 0.6rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: rgba(13, 18, 32, 0.95);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    background 160ms ease;
+  appearance: none;
+}
+
+.html-editor-toolbar .ql-code-language:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(79, 109, 251, 0.25);
+  background: rgba(17, 25, 46, 0.98);
+}
+
+.html-editor .ql-editor pre.ql-syntax {
+  margin: 0 0 1.1em;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(88, 101, 242, 0.28);
+  background: #0d111c;
+  color: #e8ecf8;
+  font-family:
+    ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  overflow-x: auto;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.html-editor .ql-editor pre.ql-syntax.hljs {
+  background: #0d111c;
+}
+
+.html-editor .ql-editor pre.ql-syntax::-webkit-scrollbar {
+  height: 8px;
+}
+
+.html-editor .ql-editor pre.ql-syntax::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 999px;
+}
+
 .editor-hint {
   margin-top: 8px;
   color: var(--muted);

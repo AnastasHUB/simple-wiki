@@ -1,4 +1,5 @@
 let quillDividerRegistered = false;
+let quillCodeBlockRegistered = false;
 
 (function () {
   const toggleBtn = document.getElementById("sidebarToggle");
@@ -146,6 +147,87 @@ function getNotificationTitle(type) {
   }
 }
 
+function registerQuillCodeBlock(quillGlobal) {
+  if (quillCodeBlockRegistered || !quillGlobal) {
+    return;
+  }
+
+  try {
+    const syntaxModule = quillGlobal.import("modules/syntax");
+    if (!syntaxModule || !syntaxModule.CodeBlock) {
+      return;
+    }
+
+    const BaseCodeBlock = syntaxModule.CodeBlock;
+
+    class CodeBlockWithLanguage extends BaseCodeBlock {
+      static create(value) {
+        const node = super.create(value);
+        CodeBlockWithLanguage.applyLanguage(node, value);
+        node.classList.add("hljs");
+        return node;
+      }
+
+      static applyLanguage(node, value) {
+        if (typeof value === "string" && value) {
+          node.setAttribute("data-language", value);
+        } else {
+          node.removeAttribute("data-language");
+        }
+      }
+
+      static formats(domNode) {
+        const language = domNode.getAttribute("data-language");
+        return language || true;
+      }
+
+      format(name, value) {
+        if (name === this.statics.blotName) {
+          this.constructor.applyLanguage(this.domNode, value);
+        }
+        super.format(name, value);
+      }
+
+      highlight(highlight) {
+        const text = this.domNode.textContent;
+        if (this.cachedText === text) {
+          return;
+        }
+
+        let html = null;
+        const language = this.domNode.getAttribute("data-language");
+        if (language && window.hljs && window.hljs.getLanguage(language)) {
+          try {
+            html = window.hljs.highlight(text, {
+              language,
+              ignoreIllegals: true,
+            }).value;
+          } catch (error) {
+            console.warn("Échec de la coloration du code", error);
+          }
+        }
+
+        if (html == null && typeof highlight === "function") {
+          html = highlight(text);
+        }
+
+        if (html != null) {
+          this.domNode.innerHTML = html;
+          this.domNode.normalize();
+          this.attach();
+        }
+        this.cachedText = text;
+        this.domNode.classList.add("hljs");
+      }
+    }
+
+    quillGlobal.register(CodeBlockWithLanguage, true);
+    quillCodeBlockRegistered = true;
+  } catch (error) {
+    console.warn("Impossible de personnaliser les blocs de code Quill", error);
+  }
+}
+
 function initHtmlEditor() {
   const container = document.querySelector("[data-html-editor]");
   if (!container) return;
@@ -153,20 +235,41 @@ function initHtmlEditor() {
   const targetSelector = container.getAttribute("data-target");
   const toolbarSelector = container.getAttribute("data-toolbar");
   const field = targetSelector ? document.querySelector(targetSelector) : null;
+  const toolbarElement = toolbarSelector
+    ? document.querySelector(toolbarSelector)
+    : null;
   if (!field) return;
 
   if (!window.Quill) {
     field.hidden = false;
     field.removeAttribute("hidden");
     container.style.display = "none";
-    const toolbar = toolbarSelector ? document.querySelector(toolbarSelector) : null;
-    if (toolbar) {
-      toolbar.style.display = "none";
+    if (toolbarElement) {
+      toolbarElement.style.display = "none";
     }
     return;
   }
 
   registerQuillDivider(window.Quill);
+  registerQuillCodeBlock(window.Quill);
+
+  const codeLanguageSelect = toolbarElement
+    ? toolbarElement.querySelector(".ql-code-language")
+    : null;
+
+  const supportedCodeLanguages = codeLanguageSelect
+    ? Array.from(codeLanguageSelect.options)
+        .map((option) => option.value.trim())
+        .filter((value) => value.length > 0)
+    : [];
+
+  if (window.hljs) {
+    const hljsConfig = { ignoreUnescapedHTML: true };
+    if (supportedCodeLanguages.length > 0) {
+      hljsConfig.languages = supportedCodeLanguages;
+    }
+    window.hljs.configure(hljsConfig);
+  }
 
   const options = {
     theme: "snow",
@@ -186,11 +289,50 @@ function initHtmlEditor() {
   }
   if (window.hljs) {
     options.modules.syntax = {
-      highlight: (text) => window.hljs.highlightAuto(text).value,
+      highlight: (text) => {
+        try {
+          return window.hljs.highlightAuto(text).value;
+        } catch (error) {
+          console.warn("Échec de la coloration automatique du code", error);
+          return text;
+        }
+      },
     };
   }
 
   const quill = new window.Quill(container, options);
+
+  const refreshCodeHighlighting = () => {
+    const syntax = quill.getModule("syntax");
+    if (syntax && typeof syntax.highlight === "function") {
+      syntax.highlight();
+    }
+  };
+
+  const getSelectionLanguage = () => {
+    const range = quill.getSelection();
+    if (!range) return "";
+    const formats = quill.getFormat(range);
+    const current = formats?.["code-block"];
+    return typeof current === "string" ? current : "";
+  };
+
+  const syncLanguageSelect = () => {
+    if (!codeLanguageSelect) return;
+    const current = getSelectionLanguage();
+    codeLanguageSelect.value = current || "";
+  };
+
+  const applyLanguageToSelection = (language) => {
+    const range = quill.getSelection(true);
+    if (!range) return;
+    if (language) {
+      quill.format("code-block", language);
+    } else {
+      quill.format("code-block", true);
+    }
+    refreshCodeHighlighting();
+  };
   const uploadEndpoint =
     container.getAttribute("data-upload-endpoint") || "/admin/uploads";
   let imageInput = null;
@@ -288,11 +430,34 @@ function initHtmlEditor() {
       quill.insertText(range.index + 1, "\n", "user");
       quill.setSelection(range.index + 2, 0, "user");
     });
+    toolbar.addHandler("code-block", (value) => {
+      if (value) {
+        const chosenLanguage = codeLanguageSelect?.value || "";
+        applyLanguageToSelection(chosenLanguage);
+      } else {
+        quill.format("code-block", false);
+        refreshCodeHighlighting();
+      }
+      requestAnimationFrame(() => {
+        syncLanguageSelect();
+      });
+    });
+  }
+
+  if (codeLanguageSelect) {
+    codeLanguageSelect.addEventListener("change", (event) => {
+      applyLanguageToSelection(event.target.value || "");
+      requestAnimationFrame(() => {
+        syncLanguageSelect();
+        quill.focus();
+      });
+    });
   }
 
   const initialValue = field.value || "";
   if (initialValue) {
     quill.clipboard.dangerouslyPasteHTML(initialValue);
+    refreshCodeHighlighting();
   }
 
   const syncField = () => {
@@ -306,8 +471,18 @@ function initHtmlEditor() {
   };
 
   syncField();
+  syncLanguageSelect();
+  refreshCodeHighlighting();
 
-  quill.on("text-change", syncField);
+  quill.on("text-change", () => {
+    syncField();
+    refreshCodeHighlighting();
+    syncLanguageSelect();
+  });
+
+  quill.on("selection-change", () => {
+    syncLanguageSelect();
+  });
 
   const form = field.form;
   if (form) {
@@ -330,6 +505,10 @@ function registerQuillDivider(quillGlobal) {
 
 function initCodeHighlighting() {
   if (!window.hljs) return;
+
+  if (typeof window.hljs.configure === "function") {
+    window.hljs.configure({ ignoreUnescapedHTML: true });
+  }
 
   const highlightPre = (pre) => {
     if (!pre || pre.dataset.highlighted === "true") return;
