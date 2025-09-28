@@ -1,26 +1,29 @@
 <h1>Gestion des articles</h1>
 
-<% if (importResult) { %>
+<% const hasImportErrors = importResult && importResult.errors && importResult.errors.length; %>
+<% if (hasImportErrors) { %>
   <div class="card" style="padding:16px; margin-bottom:16px; background:#f4f6ff; border:1px solid #c7d2fe; border-radius:8px;">
-    <% if (importResult.errors && importResult.errors.length) { %>
-      <h2 style="margin-top:0;">Résultat de l'import</h2>
-      <p><strong><%= importResult.errors.length %></strong> erreur(s) détectée(s). Les entrées correspondantes ont été ignorées.</p>
-      <ul>
-        <% importResult.errors.slice(0, 10).forEach(err => { %>
-          <li><%= err %></li>
-        <% }) %>
-      </ul>
-      <% if (importResult.errors.length > 10) { %>
-        <p>… et <%= importResult.errors.length - 10 %> erreur(s) supplémentaire(s).</p>
-      <% } %>
-    <% } else { %>
-      <h2 style="margin-top:0; color:#111827;">Import terminé avec succès</h2>
+    <h2 style="margin-top:0;">Résultat de l'import</h2>
+    <p><strong><%= importResult.errors.length %></strong> erreur(s) détectée(s). Les entrées correspondantes ont été ignorées.</p>
+    <ul>
+      <% importResult.errors.slice(0, 10).forEach(err => { %>
+        <li><%= err %></li>
+      <% }) %>
+    </ul>
+    <% if (importResult.errors.length > 10) { %>
+      <p>… et <%= importResult.errors.length - 10 %> erreur(s) supplémentaire(s).</p>
     <% } %>
-    <p>
-      <strong><%= importResult.created || 0 %></strong> article(s) créé(s),
-      <strong><%= importResult.updated || 0 %></strong> article(s) mis à jour,
-      <strong><%= importResult.skipped || 0 %></strong> article(s) ignoré(s).
-    </p>
+    <% if (
+      typeof importResult.created !== "undefined" ||
+      typeof importResult.updated !== "undefined" ||
+      typeof importResult.skipped !== "undefined"
+    ) { %>
+      <p>
+        <strong><%= importResult.created || 0 %></strong> article(s) créé(s),
+        <strong><%= importResult.updated || 0 %></strong> article(s) mis à jour,
+        <strong><%= importResult.skipped || 0 %></strong> article(s) ignoré(s).
+      </p>
+    <% } %>
   </div>
 <% } %>
 
