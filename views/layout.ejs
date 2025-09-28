@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title><%= typeof title!== 'undefined' ? title + ' · ' : '' %><%= wikiName %></title>
+  <title>
+    <%= typeof title !== 'undefined' ? title + ' · ' : '' %><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>
+  </title>
   <link rel="stylesheet" href="/public/style.css" />
   <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css" />
 </head>
@@ -29,7 +31,7 @@
   <aside class="sidebar" id="sidebar">
     <div class="brand">
       <% if (logoUrl) { %><img src="<%= logoUrl %>" alt="logo"><% } %>
-      <div class="brand-name"><%= wikiName %></div>
+      <div class="brand-name"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></div>
     </div>
     <nav class="vnav" id="vnav">
       <a href="/">🏠 Accueil</a>
