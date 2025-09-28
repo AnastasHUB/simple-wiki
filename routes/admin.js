@@ -598,12 +598,16 @@ r.post(
         }
       }
 
-      req.session.importResult = summary;
-      const importSummaryMessage =
-        `Import terminé : ${summary.created} créé(s), ${summary.updated} mis à jour, ${summary.skipped} ignoré(s).` +
-        (summary.errors.length
-          ? ` ${summary.errors.length} erreur(s) à consulter.`
-          : "");
+      if (summary.errors.length) {
+        req.session.importResult = summary;
+      } else {
+        delete req.session.importResult;
+      }
+      const baseSummaryMessage =
+        `${summary.created} article(s) créé(s), ${summary.updated} article(s) mis à jour, ${summary.skipped} article(s) ignoré(s).`;
+      const importSummaryMessage = summary.errors.length
+        ? `Import terminé : ${baseSummaryMessage} ${summary.errors.length} erreur(s) à consulter.`
+        : `Import terminé avec succès : ${baseSummaryMessage}`;
       pushNotification(req, {
         type: summary.errors.length ? "info" : "success",
         message: importSummaryMessage,
