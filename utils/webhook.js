@@ -4,25 +4,69 @@ import { logEvent } from "../db.js";
 import { buildArticleMarkdownDescription } from "./articleFormatter.js";
 import { getSiteSettings } from "./settingsService.js";
 
+function formatFieldValue(value) {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  if (Array.isArray(value)) {
+    const items = value
+      .map((item) => formatFieldValue(item))
+      .filter(Boolean);
+    return items.join(", ");
+  }
+  if (typeof value === "object") {
+    return Object.entries(value)
+      .map(([key, val]) => {
+        const formatted = formatFieldValue(val);
+        return formatted ? `• **${key}** : ${formatted}` : "";
+      })
+      .filter(Boolean)
+      .join("\n");
+  }
+  return String(value);
+}
+
 function buildFields(data) {
   if (!data) return [];
   return Object.entries(data)
-    .filter(
-      ([, value]) => value !== undefined && value !== null && value !== "",
-    )
     .map(([name, value]) => {
-      let formatted;
-      if (typeof value === "string") {
-        formatted = value.length > 1024 ? value.slice(0, 1021) + "…" : value;
-      } else {
-        const json = JSON.stringify(value, null, 2);
-        formatted =
-          "```json\n" +
-          (json.length > 1000 ? json.slice(0, 997) + "…" : json) +
-          "\n```";
-      }
-      return { name, value: formatted };
-    });
+      const formatted = formatFieldValue(value);
+      if (!formatted) return null;
+      const trimmed =
+        formatted.length > 1024 ? formatted.slice(0, 1021).trimEnd() + "…" : formatted;
+      return { name, value: trimmed };
+    })
+    .filter(Boolean);
+}
+
+function formatMetaLines(meta) {
+  if (!meta) return [];
+  return Object.entries(meta)
+    .map(([key, value]) => {
+      const formatted = formatFieldValue(value);
+      if (!formatted) return null;
+      return formatted.includes("\n")
+        ? `**${key} :**\n${formatted}`
+        : `**${key} :** ${formatted}`;
+    })
+    .filter(Boolean);
+}
+
+function formatPageSummary(page, url) {
+  if (!page) return "";
+  const lines = [];
+  if (page.title) {
+    lines.push(`**Titre :** ${page.title}`);
+  }
+  const link = url || (page.slug_id ? `/wiki/${page.slug_id}` : "");
+  if (link) {
+    lines.push(`**Lien :** ${link}`);
+  } else if (page.slug_id) {
+    lines.push(`**Identifiant :** ${page.slug_id}`);
+  }
+  return lines.join("\n");
 }
 
 async function dispatch(url, payload, attachments = []) {
@@ -60,12 +104,30 @@ async function sendEvent(channel, title, data = {}, options = {}) {
       continue;
     meta[key] = value;
   }
-  const description =
+
+  const descriptionSeed =
     typeof data?.description === "string" && data.description.trim().length
       ? data.description.trim()
       : channel === "feed" && data?.page?.title
         ? `**${data.page.title}**`
         : data?.description || "";
+
+  const sections = [];
+  if (descriptionSeed) {
+    sections.push(descriptionSeed);
+  }
+
+  const pageSummary = formatPageSummary(data?.page, data?.url);
+  if (pageSummary) {
+    sections.push(pageSummary);
+  }
+
+  const metaLines = formatMetaLines(meta);
+  if (metaLines.length) {
+    sections.push(metaLines.join("\n"));
+  }
+
+  const description = sections.filter(Boolean).join("\n\n");
 
   const payload = {
     embeds: [
@@ -75,10 +137,8 @@ async function sendEvent(channel, title, data = {}, options = {}) {
         color: channel === "admin" ? 0x5865f2 : 0x57f287,
         description,
         fields: buildFields({
-          Page: data.page,
           Commentaire: data.comment,
           Utilisateur: data.user,
-          Meta: meta,
         }),
       },
     ],

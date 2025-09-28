@@ -389,6 +389,32 @@ body {
 .excerpt-body > :last-child {
   margin-bottom: 0;
 }
+.excerpt pre {
+  background: #0c0f18;
+  border: 1px solid #242a3a;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  overflow-x: auto;
+  font-family: "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0 0 1rem;
+}
+.excerpt pre:last-child {
+  margin-bottom: 0;
+}
+.excerpt code {
+  background: #0c0f18;
+  border: 1px solid #242a3a;
+  padding: 0.1rem 0.35rem;
+  border-radius: 6px;
+  font-family: "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+}
+.excerpt pre code {
+  background: none;
+  border: none;
+  padding: 0;
+}
 .card .actions,
 .page-header .actions {
   display: flex;
@@ -512,9 +538,23 @@ form .actions {
   border: 1px solid #242a3a;
   padding: 0.1rem 0.35rem;
   border-radius: 6px;
+  font-family: "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 .prose pre {
   margin: 0.8em 0;
+  background: #0c0f18;
+  border: 1px solid #242a3a;
+  border-radius: 10px;
+  padding: 1rem 1.2rem;
+  overflow-x: auto;
+  font-family: "Fira Code", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 0.95rem;
+  line-height: 1.6;
+}
+.prose pre code {
+  background: none;
+  border: none;
+  padding: 0;
 }
 
 /* === TABLES === */

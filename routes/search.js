@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { all, isFtsAvailable } from "../db.js";
+import { buildPreviewHtml } from "../utils/htmlPreview.js";
 
 const r = Router();
 
@@ -81,7 +82,13 @@ r.get("/search", async (req, res) => {
     rows = fallbackRows.map((row) => ({ ...row, snippet: null, score: null }));
   }
 
-  res.render("search", { q, rows, mode, ftsAvailable: ftsPossible });
+  const decoratedRows = rows.map((row) => ({
+    ...row,
+    excerpt: buildPreviewHtml(row.excerpt),
+    snippet: row.snippet ? buildPreviewHtml(row.snippet) : null,
+  }));
+
+  res.render("search", { q, rows: decoratedRows, mode, ftsAvailable: ftsPossible });
 });
 
 export default r;

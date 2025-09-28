@@ -1,5 +1,6 @@
 import TurndownService from "turndown";
 import sanitizeHtml from "sanitize-html";
+import { linkifyInternal } from "./linkify.js";
 
 const turndown = new TurndownService({
   headingStyle: "atx",
@@ -28,6 +29,8 @@ const CONTENT_SANITIZE_OPTIONS = {
     "div",
     "span",
     "blockquote",
+    "mark",
+    "hr",
   ]),
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
@@ -75,7 +78,8 @@ function trimForEmbed(text) {
 }
 
 export function buildArticleMarkdownDescription({ title, content, author, tags, url }) {
-  const sanitizedContent = sanitizeContent(content);
+  const normalizedContent = content ? linkifyInternal(String(content)) : "";
+  const sanitizedContent = sanitizeContent(normalizedContent);
   const markdownBody = sanitizedContent ? turndown.turndown(sanitizedContent) : "";
   const fallback = "L'article est prêt à être découvert !";
 

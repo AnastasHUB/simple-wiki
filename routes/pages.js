@@ -31,6 +31,7 @@ import {
   validateCommentSubmission,
   validateCommentBody,
 } from "../utils/commentValidation.js";
+import { buildPreviewHtml } from "../utils/htmlPreview.js";
 
 const r = Router();
 
@@ -68,10 +69,17 @@ r.get(
     if (page > totalPages) page = totalPages;
     const offset = (page - 1) * size;
 
-    const [recent, rows] = await Promise.all([
+    const mapPreview = (row) => ({
+      ...row,
+      excerpt: buildPreviewHtml(row.excerpt),
+    });
+
+    const [recentRaw, rowsRaw] = await Promise.all([
       fetchRecentPages({ ip, since: weekAgo, limit: 3 }),
       fetchPaginatedPages({ ip, limit: size, offset }),
     ]);
+    const recent = recentRaw.map(mapPreview);
+    const rows = rowsRaw.map(mapPreview);
 
     res.render("index", {
       recent,
@@ -589,7 +597,11 @@ r.get(
     if (tagBan) {
       return res.status(403).render("banned", { ban: tagBan });
     }
-    const pages = await fetchPagesByTag({ tagName: req.params.name, ip });
+    const pagesRaw = await fetchPagesByTag({ tagName: req.params.name, ip });
+    const pages = pagesRaw.map((page) => ({
+      ...page,
+      excerpt: buildPreviewHtml(page.excerpt),
+    }));
     res.render("tags", { tag: req.params.name, pages });
   }),
 );
