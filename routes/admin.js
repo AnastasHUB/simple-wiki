@@ -26,6 +26,9 @@ import {
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
 
+const PAGE_SIZE_OPTIONS = [5, 10, 50, 100, 500];
+const DEFAULT_PAGE_SIZE = 10;
+
 await ensureUploadDir();
 
 const storage = multer.diskStorage({
@@ -895,13 +898,23 @@ r.post("/users/:id/delete", async (req, res) => {
 });
 
 // likes table improved
-r.get("/likes", async (_req, res) => {
-  const rows = await all(`
+r.get("/likes", async (req, res) => {
+  const totalRow = await get("SELECT COUNT(*) AS total FROM likes");
+  const totalLikes = Number(totalRow?.total ?? 0);
+  const pagination = buildPagination(req, totalLikes);
+  const offset = (pagination.page - 1) * pagination.perPage;
+
+  const rows = await all(
+    `
     SELECT l.id, l.ip, l.created_at, p.title, p.slug_id
     FROM likes l JOIN pages p ON p.id=l.page_id
-    ORDER BY l.created_at DESC LIMIT 500
-  `);
-  res.render("admin/likes", { rows });
+    ORDER BY l.created_at DESC
+    LIMIT ? OFFSET ?
+  `,
+    [pagination.perPage, offset],
+  );
+
+  res.render("admin/likes", { rows, pagination });
 });
 r.post("/likes/:id/delete", async (req, res) => {
   const like = await get(
@@ -932,36 +945,48 @@ r.post("/likes/:id/delete", async (req, res) => {
   res.redirect("/admin/likes");
 });
 
-r.get("/events", async (req, res) => {
-  const pageSize = 50;
+function buildPagination(req, totalItems) {
   const requestedPage = Number.parseInt(req.query.page, 10);
   let page =
     Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  const totalRow = await get("SELECT COUNT(*) AS total FROM event_logs");
-  const totalEvents = Number(totalRow?.total ?? 0);
-  const totalPages = Math.max(1, Math.ceil(totalEvents / pageSize));
+  const requestedPerPage = Number.parseInt(req.query.perPage, 10);
+  const perPage = PAGE_SIZE_OPTIONS.includes(requestedPerPage)
+    ? requestedPerPage
+    : DEFAULT_PAGE_SIZE;
+
+  const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
 
   if (page > totalPages) {
     page = totalPages;
   }
 
-  const offset = (page - 1) * pageSize;
+  return {
+    page,
+    perPage,
+    totalItems,
+    totalPages,
+    hasPrevious: page > 1,
+    hasNext: page < totalPages,
+    previousPage: page > 1 ? page - 1 : null,
+    nextPage: page < totalPages ? page + 1 : null,
+    perPageOptions: PAGE_SIZE_OPTIONS,
+  };
+}
+
+r.get("/events", async (req, res) => {
+  const totalRow = await get("SELECT COUNT(*) AS total FROM event_logs");
+  const totalEvents = Number(totalRow?.total ?? 0);
+  const pagination = buildPagination(req, totalEvents);
+  const offset = (pagination.page - 1) * pagination.perPage;
   const events = await all(
     "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at DESC LIMIT ? OFFSET ?",
-    [pageSize, offset],
+    [pagination.perPage, offset],
   );
 
   res.render("admin/events", {
     events,
-    pagination: {
-      page,
-      totalPages,
-      hasPrevious: page > 1,
-      hasNext: page < totalPages,
-      previousPage: page > 1 ? page - 1 : null,
-      nextPage: page < totalPages ? page + 1 : null,
-    },
+    pagination,
   });
 });
 
