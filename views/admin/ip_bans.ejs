@@ -34,9 +34,49 @@
 </section>
 
 <section class="card">
-  <h2>Blocages actifs et historiques</h2>
-  <% if (!bans.length) { %>
-    <p>Aucun blocage enregistré.</p>
+  <h2>Blocages actifs</h2>
+  <% if (!activeBans.length) { %>
+    <p>Aucun blocage actif.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>IP</th>
+            <th>Type</th>
+            <th>Valeur</th>
+            <th>Motif</th>
+            <th>Créé</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% activeBans.forEach(ban => { %>
+            <tr>
+              <td><%= ban.snowflake_id %></td>
+              <td><code><%= ban.ip %></code></td>
+              <td><%= ban.scope %></td>
+              <td><%= ban.value || '-' %></td>
+              <td><%= ban.reason || '-' %></td>
+              <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
+              <td>
+                <form method="post" action="/admin/ip-bans/<%= ban.snowflake_id %>/lift" onsubmit="return confirm('Lever ce blocage ?');">
+                  <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>Blocages levés</h2>
+  <% if (!liftedBans.length) { %>
+    <p>Aucun blocage levé enregistré.</p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
@@ -49,11 +89,10 @@
             <th>Motif</th>
             <th>Créé</th>
             <th>Levée</th>
-            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
-          <% bans.forEach(ban => { %>
+          <% liftedBans.forEach(ban => { %>
             <tr>
               <td><%= ban.snowflake_id %></td>
               <td><code><%= ban.ip %></code></td>
@@ -61,16 +100,7 @@
               <td><%= ban.value || '-' %></td>
               <td><%= ban.reason || '-' %></td>
               <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
-              <td><%= ban.lifted_at ? new Date(ban.lifted_at).toLocaleString('fr-FR') : 'Actif' %></td>
-              <td>
-                <% if (!ban.lifted_at) { %>
-                  <form method="post" action="/admin/ip-bans/<%= ban.snowflake_id %>/lift" onsubmit="return confirm('Lever ce blocage ?');">
-                    <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
-                  </form>
-                <% } else { %>
-                  <span style="color:#94a3b8;">Terminé</span>
-                <% } %>
-              </td>
+              <td><%= new Date(ban.lifted_at).toLocaleString('fr-FR') %></td>
             </tr>
           <% }) %>
         </tbody>
