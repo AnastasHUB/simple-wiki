@@ -4,31 +4,59 @@
   <div class="table-tools">
     <input id="likeFilter" type="text" placeholder="Filtrer IP ou titre…" />
   </div>
-  <div class="table-wrap">
-  <table class="data-table" id="likesTable">
-    <thead>
-      <tr>
-        <th>IP</th>
-        <th>Article</th>
-        <th>Date</th>
-        <th>Action</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% rows.forEach(r=>{ %>
-        <tr>
-          <td><code><%= r.ip %></code></td>
-          <td><a href="/wiki/<%= r.slug_id %>"><%= r.title %></a></td>
-          <td><%= r.created_at %></td>
-          <td>
-            <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm('Retirer ce like ?')">
-              <button class="btn unlike" data-icon="🧹">Retirer</button>
-            </form>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
+  <% if (!rows.length) { %>
+    <p>Aucun like enregistré.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table" id="likesTable">
+        <thead>
+          <tr>
+            <th>IP</th>
+            <th>Article</th>
+            <th>Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rows.forEach(r=>{ %>
+            <tr>
+              <td><code><%= r.ip %></code></td>
+              <td><a href="/wiki/<%= r.slug_id %>"><%= r.title %></a></td>
+              <td><%= r.created_at %></td>
+              <td>
+                <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm('Retirer ce like ?')">
+                  <button class="btn unlike" data-icon="🧹">Retirer</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+  <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
+    <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
+      <label for="likes-per-page" style="white-space:nowrap;">Éléments par page</label>
+      <select id="likes-per-page" name="perPage" onchange="this.form.submit()">
+        <% pagination.perPageOptions.forEach(option => { %>
+          <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
+        <% }) %>
+      </select>
+      <input type="hidden" name="page" value="1">
+    </form>
+    <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
+    <div style="display:flex; gap:0.5rem;">
+      <% if (pagination.hasPrevious) { %>
+        <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
+      <% } else { %>
+        <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+      <% } %>
+      <% if (pagination.hasNext) { %>
+        <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
+      <% } else { %>
+        <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+      <% } %>
+    </div>
   </div>
 </div>
 <script>
