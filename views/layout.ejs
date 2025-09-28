@@ -62,7 +62,7 @@
   <main class="content"><%- body %></main>
 </div>
 
-<footer class="site-footer"><small><%- footerText %></small></footer>
+<footer class="site-footer"><small><%- typeof footerText !== 'undefined' ? footerText : '' %></small></footer>
 
 <script type="application/json" id="initial-notifications"><%- JSON.stringify(notifications || []).replace(/</g, '\\u003c') %></script>
 <script defer src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
