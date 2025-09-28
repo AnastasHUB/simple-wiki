@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css" />
 </head>
 <body>
+<% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
 <header class="topbar">
   <button class="btn icon only" id="sidebarToggle" aria-label="Menu">☰</button>
   <form method="get" action="/search" class="searchbar">
@@ -17,8 +18,8 @@
     <button class="btn search" data-icon="🔍">Rechercher</button>
   </form>
   <div class="auth">
-    <% if (user) { %>
-      <div class="who">Connecté: <strong><%= user.username %></strong></div>
+    <% if (currentUser) { %>
+      <div class="who">Connecté: <strong><%= currentUser.username %></strong></div>
       <form action="/logout" method="post"><button class="btn" data-icon="🔓">Déconnexion</button></form>
     <% } else { %>
       <a class="btn" data-icon="🔐" href="/login">Connexion</a>
@@ -36,7 +37,7 @@
     <nav class="vnav" id="vnav">
       <a href="/">🏠 Accueil</a>
       <a href="/rss.xml">📰 Flux RSS</a>
-      <% if (user && user.is_admin) { %>
+      <% if (currentUser && currentUser.is_admin) { %>
         <a href="/new">➕ Nouvelle page</a>
         <a href="/admin/pages">📄 Articles</a>
         <a href="/admin/stats">📈 Statistiques</a>
