@@ -713,9 +713,17 @@ r.post("/uploads", upload.single("image"), async (req, res, next) => {
 
 r.use((err, req, res, next) => {
   if (req.path === "/uploads" && req.method === "POST") {
-    return res
-      .status(400)
-      .json({ ok: false, message: err.message || "Erreur lors de l'upload" });
+    let message = "Erreur lors de l'upload";
+    if (err instanceof multer.MulterError) {
+      if (err.code === "LIMIT_FILE_SIZE") {
+        message = "Fichier trop volumineux (maximum 5 Mo).";
+      } else {
+        message = err.message || message;
+      }
+    } else if (err && typeof err.message === "string" && err.message.trim()) {
+      message = err.message;
+    }
+    return res.status(400).json({ ok: false, message });
   }
   next(err);
 });

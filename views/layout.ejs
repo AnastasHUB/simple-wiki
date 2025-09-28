@@ -31,7 +31,8 @@
   <!-- Sidebar AVANT overlay -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <% if (logoUrl) { %><img src="<%= logoUrl %>" alt="logo"><% } %>
+      <% const hasLogo = typeof logoUrl !== 'undefined' && logoUrl; %>
+      <% if (hasLogo) { %><img src="<%= logoUrl %>" alt="logo"><% } %>
       <div class="brand-name"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></div>
     </div>
     <nav class="vnav" id="vnav">
