@@ -2,8 +2,13 @@
 <h1>Statistiques de consultation</h1>
 
 <section class="card mb-xl">
-  <h2>Résumé global</h2>
-  <ul class="stat-grid">
+  <div class="card-header">
+    <div class="card-title-group">
+      <h2>Résumé global</h2>
+      <p class="text-muted">Vision d'ensemble des indicateurs clés.</p>
+    </div>
+  </div>
+  <ul class="stat-grid stats-summary-grid">
     <li>
       <span class="label">Vues cumulées</span>
       <strong><%= totalViews %></strong>
@@ -17,6 +22,11 @@
       <strong><%= totalsBreakdown.comments %></strong>
     </li>
     <li>
+      <span class="label">Moyenne quotidienne (commentaires)</span>
+      <strong><%= commentTimelineAverage %></strong>
+      <span class="stat-sub">Calculée sur <%= commentTimeline.length %> jour<%= commentTimeline.length > 1 ? 's' : '' %>.</span>
+    </li>
+    <li>
       <span class="label">Blocages actifs</span>
       <strong><%= totalsBreakdown.activeBans %></strong>
     </li>
@@ -28,41 +38,77 @@
       <span class="label">Visiteurs uniques (IP)</span>
       <strong><%= totalsBreakdown.uniqueIps %></strong>
     </li>
+    <li>
+      <span class="label">Vues tracées (IP)</span>
+      <strong><%= activeIpViewsTotal %></strong>
+      <span class="stat-sub">Somme des consultations associées à une IP.</span>
+    </li>
   </ul>
   <% if (totalsBreakdown.commentByStatus && totalsBreakdown.commentByStatus.length) { %>
-    <h3>Commentaires par statut</h3>
-    <div class="table-wrap">
-      <table class="data-table compact">
-        <thead>
-          <tr>
-            <th>Statut</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% totalsBreakdown.commentByStatus.forEach(row => { %>
+    <div class="stats-subcard">
+      <h3>Commentaires par statut</h3>
+      <div class="table-wrap">
+        <table class="data-table compact stats-table">
+          <thead>
             <tr>
-              <td><%= row.status %></td>
-              <td><%= row.count %></td>
+              <th>Statut</th>
+              <th>Total</th>
             </tr>
-          <% }) %>
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            <% totalsBreakdown.commentByStatus.forEach(row => { %>
+              <tr>
+                <td><%= row.status %></td>
+                <td><%= row.count %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
     </div>
   <% } %>
-  <p class="note-text">
-    Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
-  </p>
 </section>
 
-<section class="card mb-xl grid gap-lg">
+<section class="card mb-xl">
+  <div class="card-header">
+    <div class="card-title-group">
+      <h2>Performance récente</h2>
+      <p class="text-muted">Classement des pages les plus consultées selon la période.</p>
+    </div>
+  </div>
+  <div class="period-grid">
+    <% periodSummaries.forEach(summary => { %>
+      <article class="period-card">
+        <header class="period-card-header">
+          <h3><%= summary.label %></h3>
+          <span class="period-total"><strong><%= summary.totalViews %></strong> vues</span>
+        </header>
+        <% if (!summary.entries.length) { %>
+          <p class="text-muted">Aucune donnée disponible pour cette période.</p>
+        <% } else { %>
+          <ol class="period-list">
+            <% summary.entries.forEach((row, idx) => { %>
+              <li>
+                <span class="period-rank"><%= idx + 1 %>.</span>
+                <span class="period-page"><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></span>
+                <span class="period-views"><%= row.views %> vues</span>
+              </li>
+            <% }) %>
+          </ol>
+        <% } %>
+      </article>
+    <% }) %>
+  </div>
+</section>
+
+<section class="card mb-xl grid stats-panel">
   <div>
     <h2>Pages les plus aimées</h2>
     <% if (!topLikedPages.length) { %>
       <p>Aucun like enregistré.</p>
     <% } else { %>
       <div class="table-wrap">
-        <table class="data-table compact">
+        <table class="data-table compact stats-table">
           <thead>
             <tr>
               <th>#</th>
@@ -90,7 +136,7 @@
       <p>Aucun commentaire enregistré.</p>
     <% } else { %>
       <div class="table-wrap">
-        <table class="data-table compact">
+        <table class="data-table compact stats-table">
           <thead>
             <tr>
               <th>Auteur</th>
@@ -110,13 +156,13 @@
       <%- include('./paginationControls', { pagination: topCommentersPagination }) %>
     <% } %>
   </div>
-  <div>
+  <div class="grid-span-full">
     <h2>Articles les plus commentés</h2>
     <% if (!topCommentedPages.length) { %>
       <p>Aucun commentaire approuvé.</p>
     <% } else { %>
       <div class="table-wrap">
-        <table class="data-table compact">
+        <table class="data-table compact stats-table">
           <thead>
             <tr>
               <th>#</th>
@@ -141,150 +187,131 @@
 </section>
 
 <section class="card mb-xl">
-  <h2>IPs les plus actives</h2>
-  <% if (!activeIps.length) { %>
-    <p>Aucune IP enregistrée.</p>
+  <div class="card-header">
+    <div class="card-title-group">
+      <h2>Activité des commentaires</h2>
+      <p class="text-muted">Historique quotidien des publications approuvées.</p>
+    </div>
+    <span class="stats-chip">Total période : <strong><%= commentTimelineTotal %></strong> commentaires</span>
+  </div>
+  <% if (!commentTimeline.length) { %>
+    <p>Aucun commentaire publié sur la période sélectionnée.</p>
   <% } else { %>
     <div class="table-wrap">
-      <table class="data-table compact">
+      <table class="data-table compact stats-table">
         <thead>
           <tr>
-            <th>#</th>
-            <th>IP</th>
-            <th>Vues</th>
+            <th>Jour</th>
+            <th>Commentaires</th>
           </tr>
         </thead>
         <tbody>
-          <% activeIps.forEach((row, idx) => { %>
+          <% commentTimeline.forEach(row => { %>
             <tr>
-              <td><%= idx + 1 %></td>
-              <td><code><%= row.ip %></code></td>
-              <td><%= row.views %></td>
+              <td><%= row.day %></td>
+              <td><%= row.comments %></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
     </div>
-    <%- include('./paginationControls', { pagination: activeIpsPagination }) %>
+    <%- include('./paginationControls', { pagination: commentTimelinePagination }) %>
   <% } %>
 </section>
 
-<section class="card mb-xl grid gap-lg">
+<section class="card mb-xl grid stats-panel">
   <div>
-    <h2>Tags les plus utilisés</h2>
-    <% if (!tagUsage.length) { %>
-      <p>Aucun tag enregistré.</p>
+    <h2>IPs les plus actives</h2>
+    <% if (!activeIps.length) { %>
+      <p>Aucune IP enregistrée.</p>
     <% } else { %>
       <div class="table-wrap">
-        <table class="data-table compact">
+        <table class="data-table compact stats-table">
           <thead>
             <tr>
               <th>#</th>
-              <th>Tag</th>
-              <th>Pages</th>
+              <th>IP</th>
+              <th>Vues</th>
             </tr>
           </thead>
           <tbody>
-            <% tagUsage.forEach((row, idx) => { %>
+            <% activeIps.forEach((row, idx) => { %>
               <tr>
                 <td><%= idx + 1 %></td>
-                <td><code><%= row.name %></code></td>
-                <td><%= row.pages %></td>
+                <td><code><%= row.ip %></code></td>
+                <td><%= row.views %></td>
               </tr>
             <% }) %>
           </tbody>
         </table>
       </div>
-      <%- include('./paginationControls', { pagination: tagUsagePagination }) %>
+      <%- include('./paginationControls', { pagination: activeIpsPagination }) %>
     <% } %>
   </div>
   <div>
-    <h2>Chronologie des commentaires (30 derniers jours)</h2>
-    <% if (!commentTimeline.length) { %>
-      <p>Aucune activité récente.</p>
+    <h2>Pages consultées par IP</h2>
+    <% if (!ipViewsByPage.length) { %>
+      <p>Aucune donnée disponible.</p>
     <% } else { %>
       <div class="table-wrap">
-        <table class="data-table compact">
+        <table class="data-table compact stats-table">
           <thead>
             <tr>
-              <th>Jour</th>
-              <th>Commentaires</th>
+              <th>IP</th>
+              <th>Article</th>
+              <th>Vues</th>
             </tr>
           </thead>
           <tbody>
-            <% commentTimeline.forEach(row => { %>
+            <% ipViewsByPage.forEach(row => { %>
               <tr>
-                <td><%= row.day %></td>
-                <td><%= row.comments %></td>
+                <td><code><%= row.ip %></code></td>
+                <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
+                <td><%= row.views %></td>
               </tr>
             <% }) %>
           </tbody>
         </table>
       </div>
-      <%- include('./paginationControls', { pagination: commentTimelinePagination }) %>
+      <%- include('./paginationControls', { pagination: ipViewsPagination }) %>
     <% } %>
   </div>
 </section>
 
 <section class="card mb-xl">
-  <h2>Vues par IP et article</h2>
-  <% if (!ipViewsByPage.length) { %>
-    <p>Aucune donnée disponible.</p>
+  <div class="card-header">
+    <div class="card-title-group">
+      <h2>Tags les plus utilisés</h2>
+      <p class="text-muted">Aperçu des thématiques les plus présentes.</p>
+    </div>
+  </div>
+  <% if (!tagUsage.length) { %>
+    <p>Aucun tag enregistré.</p>
   <% } else { %>
     <div class="table-wrap">
-      <table class="data-table compact">
+      <table class="data-table compact stats-table">
         <thead>
           <tr>
-            <th>IP</th>
-            <th>Article</th>
-            <th>Slug</th>
-            <th>Vues</th>
+            <th>#</th>
+            <th>Tag</th>
+            <th>Pages</th>
           </tr>
         </thead>
         <tbody>
-          <% ipViewsByPage.forEach(row => { %>
+          <% tagUsage.forEach((row, idx) => { %>
             <tr>
-              <td><code><%= row.ip %></code></td>
-              <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
-              <td><code><%= row.slug_id %></code></td>
-              <td><%= row.views %></td>
+              <td><%= idx + 1 %></td>
+              <td><code><%= row.name %></code></td>
+              <td><%= row.pages %></td>
             </tr>
           <% }) %>
         </tbody>
       </table>
     </div>
-    <%- include('./paginationControls', { pagination: ipViewsPagination }) %>
+    <%- include('./paginationControls', { pagination: tagUsagePagination }) %>
   <% } %>
 </section>
 
-<% periods.forEach(period => { const rows = stats[period.key] || []; %>
-  <section class="card mb-xl">
-    <h2><%= period.label %></h2>
-    <% if (!rows.length) { %>
-      <p>Aucune donnée disponible pour cette période.</p>
-    <% } else { %>
-      <div class="table-wrap">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Article</th>
-              <th>Slug</th>
-              <th>Vues</th>
-            </tr>
-          </thead>
-          <tbody>
-            <% rows.forEach((row, idx) => { %>
-              <tr>
-                <td><%= idx + 1 %></td>
-                <td><a href="/wiki/<%= row.slug_id %>"><%= row.title %></a></td>
-                <td><code><%= row.slug_id %></code></td>
-                <td><strong><%= row.views %></strong></td>
-              </tr>
-            <% }) %>
-          </tbody>
-        </table>
-      </div>
-    <% } %>
-  </section>
-<% }) %>
+<p class="note-text">
+  Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessus pour analyser les périodes spécifiques.
+</p>

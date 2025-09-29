@@ -57,10 +57,31 @@
 <% const adminPreferredName = commentUser && commentUser.is_admin
   ? (commentUser.display_name || commentUser.username)
   : null; %>
+<% const viewerPrefs = typeof viewerPreferences !== 'undefined' && viewerPreferences
+  ? viewerPreferences
+  : null; %>
+<% const viewerDefaultAuthor = viewerPrefs && (viewerPrefs.commentAuthor || viewerPrefs.displayName)
+  ? (viewerPrefs.commentAuthor || viewerPrefs.displayName)
+  : ''; %>
 <% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
-<% const commentAuthorValue = adminPreferredName || commentValues.author || ''; %>
+<% const commentAuthorValue = adminPreferredName || commentValues.author || viewerDefaultAuthor || ''; %>
 <section class="card comments" id="comments">
-  <h2 class="mt-0">Commentaires</h2>
+  <header class="comment-header">
+    <div class="comment-header-title">
+      <h2 class="mt-0">Commentaires</h2>
+      <% const commentSort = commentSortPreference === 'oldest' ? 'oldest' : 'newest'; %>
+      <% if (commentPagination.totalItems > 0) { %>
+        <p class="comment-order-hint text-muted">
+          Commentaires affichés du <strong><%= commentSort === 'newest' ? 'plus récent au plus ancien' : 'plus ancien au plus récent' %></strong>
+          <% if (viewerProfileHash) { %>
+            — <a href="/profiles/ip/<%= viewerProfileHash %>">Modifier ma préférence</a>
+          <% } %>
+        </p>
+      <% } else { %>
+        <p class="text-muted">Soyez la première personne à réagir à cet article.</p>
+      <% } %>
+    </div>
+  </header>
   <% if (comments && comments.length) { %>
     <ul class="comment-list">
       <% comments.forEach(c => { %>

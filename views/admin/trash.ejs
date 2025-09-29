@@ -10,7 +10,7 @@
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
         placeholder="Titre, slug, auteur…"
-        class="flex-basis-220"
+        class="flex-basis-180"
       />
     </label>
     <input type="hidden" name="page" value="1" />
@@ -23,7 +23,17 @@
 </form>
 
 <section class="card">
-  <h2 class="mt-0">Pages supprimées</h2>
+  <div class="card-header">
+    <div class="card-title-group">
+      <h2 class="mt-0">Pages supprimées</h2>
+      <p class="text-muted">Gérez définitivement les contenus retirés du wiki.</p>
+    </div>
+    <% if (trashedPages.length) { %>
+      <form method="post" action="/admin/trash/empty" onsubmit="return confirm('Vider entièrement la corbeille ? Cette action est irréversible.');">
+        <button class="btn danger" data-icon="🧹" type="submit">Vider la corbeille</button>
+      </form>
+    <% } %>
+  </div>
   <% if (!trashedPages.length) { %>
     <p>Aucun élément dans la corbeille pour le moment.</p>
   <% } else { %>
@@ -66,9 +76,14 @@
                 <% } %>
               </td>
               <td>
-                <form method="post" action="/admin/trash/<%= page.snowflake_id %>/restore" onsubmit="return confirm('Restaurer cette page ?');">
-                  <button class="btn success" data-icon="♻️" type="submit">Restaurer</button>
-                </form>
+                <div class="trash-actions">
+                  <form method="post" action="/admin/trash/<%= page.snowflake_id %>/restore" onsubmit="return confirm('Restaurer cette page ?');">
+                    <button class="btn success" data-icon="♻️" type="submit">Restaurer</button>
+                  </form>
+                  <form method="post" action="/admin/trash/<%= page.snowflake_id %>/delete" onsubmit="return confirm('Supprimer définitivement cette page ?');">
+                    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                  </form>
+                </div>
               </td>
             </tr>
           <% }) %>

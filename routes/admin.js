@@ -1435,6 +1435,31 @@ r.get("/stats", async (req, res) => {
   );
   const eventCount = await get("SELECT COUNT(*) AS count FROM event_logs");
 
+  const periodSummaries = periods.map((period) => {
+    const entries = Array.isArray(stats[period.key]) ? stats[period.key] : [];
+    const totalViewsForPeriod = entries.reduce(
+      (sum, row) => sum + Number(row?.views || 0),
+      0,
+    );
+    return {
+      key: period.key,
+      label: period.label,
+      totalViews: totalViewsForPeriod,
+      entries: entries.slice(0, 5),
+    };
+  });
+  const commentTimelineTotal = commentTimeline.reduce(
+    (sum, row) => sum + Number(row?.comments || 0),
+    0,
+  );
+  const commentTimelineAverage = commentTimeline.length
+    ? Math.round(commentTimelineTotal / commentTimeline.length)
+    : 0;
+  const activeIpViewsTotal = activeIps.reduce(
+    (sum, row) => sum + Number(row?.views || 0),
+    0,
+  );
+
   res.render("admin/stats", {
     periods,
     stats,
@@ -1460,10 +1485,14 @@ r.get("/stats", async (req, res) => {
     tagUsagePagination,
     commentTimeline,
     commentTimelinePagination,
+    commentTimelineTotal,
+    commentTimelineAverage,
     activeIps,
     activeIpsPagination,
+    activeIpViewsTotal,
     ipViewsByPage,
     ipViewsPagination,
+    periodSummaries,
   });
 });
 
@@ -2702,28 +2731,44 @@ r.post("/users", async (req, res) => {
     });
     return res.redirect("/admin/users");
   }
-  const hashed = await hashPassword(password);
-  const result = await run(
-    "INSERT INTO users(snowflake_id, username,password,is_admin) VALUES(?,?,?,1)",
-    [generateSnowflake(), username, hashed],
-  );
-  const ip = getClientIp(req);
-  await sendAdminEvent(
-    "Utilisateur créé",
-    {
-      user: req.session.user?.username || null,
-      extra: {
-        ip,
-        newUser: username,
-        userId: result?.lastID || null,
+  try {
+    const hashed = await hashPassword(password);
+    const result = await run(
+      "INSERT INTO users(snowflake_id, username,password,is_admin) VALUES(?,?,?,1)",
+      [generateSnowflake(), username, hashed],
+    );
+    const ip = getClientIp(req);
+    await sendAdminEvent(
+      "Utilisateur créé",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          newUser: username,
+          userId: result?.lastID || null,
+        },
       },
-    },
-    { includeScreenshot: false },
-  );
-  pushNotification(req, {
-    type: "success",
-    message: `Utilisateur ${username} créé.`,
-  });
+      { includeScreenshot: false },
+    );
+    pushNotification(req, {
+      type: "success",
+      message: `Utilisateur ${username} créé.`,
+    });
+  } catch (error) {
+    if (error?.code === "SQLITE_CONSTRAINT" || error?.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      pushNotification(req, {
+        type: "error",
+        message: "Ce nom d'utilisateur est déjà utilisé.",
+      });
+      return res.redirect("/admin/users");
+    }
+    console.error("Failed to create user", error);
+    pushNotification(req, {
+      type: "error",
+      message: "Création d'utilisateur impossible pour le moment.",
+    });
+    return res.redirect("/admin/users");
+  }
   res.redirect("/admin/users");
 });
 r.post("/users/:id/display-name", async (req, res) => {
@@ -3088,6 +3133,83 @@ r.post("/trash/:id/restore", async (req, res) => {
   });
 
   res.redirect(`/wiki/${trashed.slug_id}`);
+});
+
+r.post("/trash/:id/delete", async (req, res) => {
+  const trashed = await get(
+    `SELECT id, title, slug_id FROM deleted_pages WHERE snowflake_id = ?`,
+    [req.params.id],
+  );
+
+  if (!trashed) {
+    pushNotification(req, {
+      type: "error",
+      message: "Élément introuvable dans la corbeille.",
+    });
+    return res.redirect("/admin/trash");
+  }
+
+  try {
+    await run(`DELETE FROM deleted_pages WHERE id = ?`, [trashed.id]);
+    await sendAdminEvent("Page purgée", {
+      user: req.session.user?.username,
+      page: {
+        title: trashed.title || "(titre inconnu)",
+        slug_id: trashed.slug_id,
+      },
+      extra: {
+        action: "permanent-delete",
+      },
+    });
+    pushNotification(req, {
+      type: "success",
+      message: "La page a été supprimée définitivement.",
+    });
+  } catch (error) {
+    console.error("Failed to permanently delete trashed page", error);
+    pushNotification(req, {
+      type: "error",
+      message: "La suppression définitive a échoué.",
+    });
+  }
+
+  res.redirect("/admin/trash");
+});
+
+r.post("/trash/empty", async (req, res) => {
+  try {
+    const totalRow = await get(
+      "SELECT COUNT(*) AS total FROM deleted_pages",
+    );
+    const total = Number(totalRow?.total ?? 0);
+    if (!total) {
+      pushNotification(req, {
+        type: "info",
+        message: "La corbeille est déjà vide.",
+      });
+      return res.redirect("/admin/trash");
+    }
+
+    await run("DELETE FROM deleted_pages");
+    await sendAdminEvent("Corbeille vidée", {
+      user: req.session.user?.username,
+      extra: {
+        purged: total,
+      },
+    });
+    pushNotification(req, {
+      type: "success",
+      message: `La corbeille a été vidée (${total} élément${total > 1 ? "s" : ""}).`,
+    });
+  } catch (error) {
+    console.error("Failed to empty trash", error);
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de vider la corbeille pour le moment.",
+    });
+  }
+
+  res.redirect("/admin/trash");
 });
 
 r.get("/changelog", async (_req, res) => {

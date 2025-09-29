@@ -1,8 +1,20 @@
 <% const pageTitle = `Profil IP #${profile.shortHash}`; %>
 <% title = pageTitle; %>
+<% const preferences = profile.preferences || {}; %>
+<% const publicName = preferences.displayName || null; %>
+<% const defaultCommentName = preferences.commentAuthor || ''; %>
+<% const commentSortPref = preferences.commentSort === 'oldest' ? 'oldest' : 'newest'; %>
 <section class="card ip-profile-card">
   <header class="ip-profile-header">
-    <h1 class="mt-0">Profil IP #<%= profile.shortHash %></h1>
+    <div class="ip-profile-title-block">
+      <div>
+        <span class="ip-profile-id">Profil IP</span>
+        <h1 class="mt-0">#<%= profile.shortHash %></h1>
+      </div>
+      <% if (publicName) { %>
+        <p class="ip-profile-display-name">Nom public&nbsp;: <strong><%= publicName %></strong></p>
+      <% } %>
+    </div>
     <p class="text-muted">
       Ce profil regroupe les activités publiques associées à une adresse IP. L'adresse IP réelle est hachée afin de protéger l'anonymat des contributeurs non connectés.
     </p>
@@ -20,16 +32,47 @@
   <% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
   <% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
   <div class="<%= repClasses %>">
-  <div class="ip-profile-reputation-header">
-    <span class="<%= pillClass %>"><%= repLabel %></span>
-    <% if (rep.lastCheckedAt) { %>
-      <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
-    <% } %>
+    <div class="ip-profile-reputation-header">
+      <span class="<%= pillClass %>"><%= repLabel %></span>
+      <% if (rep.lastCheckedAt) { %>
+        <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
+      <% } %>
+    </div>
+    <p class="ip-profile-reputation-text">
+      <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
+    </p>
   </div>
-  <p class="ip-profile-reputation-text">
-    <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
-  </p>
-</div>
+
+  <% if (isOwner) { %>
+    <section class="ip-profile-section ip-profile-preferences">
+      <div class="ip-profile-section-heading">
+        <h2>Personnaliser mon profil</h2>
+        <p class="text-muted">
+          Choisissez le nom affiché publiquement, le pseudo proposé dans les formulaires de commentaire et l'ordre par défaut des discussions.
+        </p>
+      </div>
+      <form class="ip-profile-preferences-form" method="post" action="/profiles/ip/<%= profile.hash %>/preferences">
+        <div class="stack-form">
+          <label for="pref-display-name">Nom public</label>
+          <input id="pref-display-name" type="text" name="displayName" maxlength="80" value="<%= publicName || '' %>" placeholder="Ex. Chroniqueur nocturne">
+          <p class="help-text">Ce nom apparaît en tête de votre profil public.</p>
+        </div>
+        <div class="stack-form">
+          <label for="pref-comment-name">Nom proposé pour mes commentaires</label>
+          <input id="pref-comment-name" type="text" name="commentName" maxlength="80" value="<%= defaultCommentName %>" placeholder="Ex. Auteur invité">
+          <p class="help-text">Il sera pré-rempli dans le formulaire de commentaire lorsque vous rédigez un message.</p>
+        </div>
+        <div class="stack-form">
+          <label for="pref-comment-sort">Ordre d'affichage des commentaires</label>
+          <select id="pref-comment-sort" name="commentSort">
+            <option value="newest" <%= commentSortPref === 'newest' ? 'selected' : '' %>>Plus récent au plus ancien</option>
+            <option value="oldest" <%= commentSortPref === 'oldest' ? 'selected' : '' %>>Plus ancien au plus récent</option>
+          </select>
+        </div>
+        <button class="btn" data-icon="💾" type="submit">Enregistrer mes préférences</button>
+      </form>
+    </section>
+  <% } %>
 
  <% const actionSanctions = {}; %>
  <% (profile.bans || []).forEach((ban) => { %>
@@ -51,6 +94,7 @@
 
   <ul class="stat-grid ip-profile-stats">
     <li class="ip-profile-stat">
+      <span class="ip-profile-stat-icon" aria-hidden="true">👁️</span>
       <span class="label">
         Vues enregistrées
         <% if (actionSanctions.view) { %>
@@ -67,6 +111,7 @@
       <% } %>
     </li>
     <li class="ip-profile-stat">
+      <span class="ip-profile-stat-icon" aria-hidden="true">❤️</span>
       <span class="label">
         Likes
         <% if (actionSanctions.like) { %>
@@ -83,6 +128,7 @@
       <% } %>
     </li>
     <li class="ip-profile-stat">
+      <span class="ip-profile-stat-icon" aria-hidden="true">💬</span>
       <span class="label">
         Commentaires approuvés
         <% if (actionSanctions.comment) { %>
@@ -100,6 +146,7 @@
       <% } %>
     </li>
     <li class="ip-profile-stat">
+      <span class="ip-profile-stat-icon" aria-hidden="true">📝</span>
       <span class="label">
         Propositions
         <% if (actionSanctions.contribute) { %>

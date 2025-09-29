@@ -22,8 +22,11 @@ import { upsertTags, recordRevision } from "../utils/pageEditing.js";
 import { createPageSubmission } from "../utils/pageSubmissionService.js";
 import {
   getIpProfileByHash,
+  getIpProfilePreferencesByHash,
+  getRawIpProfileByHash,
   hashIp,
   touchIpProfile,
+  updateIpProfilePreferences,
 } from "../utils/ipProfiles.js";
 import {
   fetchRecentPages,
@@ -323,7 +326,13 @@ r.get(
 
     await incrementView(page.id, ip);
     page.views = Number(page.views || 0) + 1;
-    await touchIpProfile(ip);
+    const touchedProfile = await touchIpProfile(ip);
+    const viewerHash = touchedProfile?.hash || hashIp(ip);
+    const viewerPreferences = viewerHash
+      ? await getIpProfilePreferencesByHash(viewerHash)
+      : null;
+    const commentSortPreference =
+      viewerPreferences?.commentSort === "oldest" ? "oldest" : "newest";
 
     const totalComments = Number(page.comment_count || 0);
     const commentPaginationOptions = {
@@ -337,26 +346,12 @@ r.get(
       totalComments,
       commentPaginationOptions,
     );
-    if (
-      totalComments > 0 &&
-      !Object.prototype.hasOwnProperty.call(req.query, "commentsPage")
-    ) {
-      const pageNumber = commentPagination.totalPages;
-      const hasPrevious = pageNumber > 1;
-      commentPagination = {
-        ...commentPagination,
-        page: pageNumber,
-        hasPrevious,
-        hasNext: false,
-        previousPage: hasPrevious ? pageNumber - 1 : null,
-        nextPage: null,
-      };
-    }
     const commentOffset =
       (commentPagination.page - 1) * commentPagination.perPage;
     const comments = await fetchPageComments(page.id, {
       limit: commentPagination.perPage,
       offset: commentOffset,
+      order: commentSortPreference === "newest" ? "desc" : "asc",
     });
     commentPagination = decoratePagination(
       req,
@@ -378,6 +373,9 @@ r.get(
       commentPagination,
       commentFeedback,
       ownCommentTokens,
+      viewerPreferences,
+      viewerProfileHash: viewerHash,
+      commentSortPreference,
     });
   }),
 );
@@ -1138,6 +1136,65 @@ r.get(
       profile,
       isOwner: viewerHash ? viewerHash === profile.hash : false,
     });
+  }),
+);
+
+r.post(
+  "/profiles/ip/:hash/preferences",
+  asyncHandler(async (req, res) => {
+    const requestedHash = (req.params.hash || "").trim().toLowerCase();
+    if (!requestedHash) {
+      return res.status(404).render("page404");
+    }
+    const profile = await getRawIpProfileByHash(requestedHash);
+    if (!profile) {
+      return res.status(404).render("page404");
+    }
+    const viewerHash = hashIp(req.clientIp);
+    if (!viewerHash || viewerHash !== profile.hash) {
+      pushNotification(req, {
+        type: "error",
+        message: "Vous ne pouvez modifier que vos propres préférences.",
+        timeout: 6000,
+      });
+      return res.redirect(`/profiles/ip/${requestedHash}`);
+    }
+
+    const displayName = (req.body.displayName || "").trim().slice(0, 80);
+    const commentName = (req.body.commentName || "").trim().slice(0, 80);
+    const commentSort = req.body.commentSort === "oldest" ? "oldest" : "newest";
+
+    const previousDisplay = (profile.preferred_display_name || "").trim();
+    const previousComment = (profile.default_comment_author || "").trim();
+    const previousSort =
+      (profile.comment_sort_preference || "newest") === "oldest"
+        ? "oldest"
+        : "newest";
+
+    if (
+      previousDisplay === displayName &&
+      previousComment === commentName &&
+      previousSort === commentSort
+    ) {
+      pushNotification(req, {
+        type: "info",
+        message: "Aucun changement détecté dans vos préférences.",
+      });
+      return res.redirect(`/profiles/ip/${requestedHash}`);
+    }
+
+    await updateIpProfilePreferences(requestedHash, {
+      displayName,
+      commentAuthor: commentName,
+      commentSort,
+    });
+
+    pushNotification(req, {
+      type: "success",
+      message: "Vos préférences ont été mises à jour.",
+    });
+
+    res.redirect(`/profiles/ip/${requestedHash}`);
   }),
 );
 

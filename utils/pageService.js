@@ -94,8 +94,9 @@ export async function fetchPageTags(pageId) {
 }
 
 export async function fetchPageComments(pageId, options = {}) {
-  const { limit, offset } = options;
+  const { limit, offset, order = "asc" } = options;
   const params = [pageId];
+  const normalizedOrder = order === "desc" ? "DESC" : "ASC";
   let query = `SELECT c.id AS legacy_id,
             c.snowflake_id,
             c.author,
@@ -109,7 +110,7 @@ export async function fetchPageComments(pageId, options = {}) {
        LEFT JOIN ip_profiles ipr ON ipr.ip = c.ip
       WHERE c.page_id = ?
         AND c.status = 'approved'
-      ORDER BY c.created_at ASC`;
+      ORDER BY c.created_at ${normalizedOrder}`;
 
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;

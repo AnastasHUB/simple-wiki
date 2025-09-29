@@ -50,6 +50,25 @@ function normalizeIp(input) {
   return input.trim();
 }
 
+function sanitizePreferenceString(value, maxLength = 80) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, Math.max(1, maxLength));
+}
+
+function normalizeCommentSort(value) {
+  if (typeof value !== "string") {
+    return "newest";
+  }
+  const normalized = value.trim().toLowerCase();
+  return normalized === "oldest" ? "oldest" : "newest";
+}
+
 function computeReputationFlags(data = {}) {
   return {
     isVpn: Boolean(data?.is_vpn),
@@ -315,7 +334,8 @@ export async function getIpProfileByHash(hash) {
     `SELECT id, ip, hash, created_at, last_seen_at,
             reputation_status, reputation_auto_status, reputation_override,
             reputation_summary, reputation_checked_at,
-            is_vpn, is_proxy, is_datacenter, is_abuser, is_tor
+            is_vpn, is_proxy, is_datacenter, is_abuser, is_tor,
+            preferred_display_name, default_comment_author, comment_sort_preference
        FROM ip_profiles
       WHERE hash = ?`,
     [normalized],
@@ -422,6 +442,11 @@ export async function getIpProfileByHash(hash) {
     shortHash: formatIpProfileLabel(profile.hash),
     createdAt: profile.created_at || null,
     lastSeenAt: profile.last_seen_at || null,
+    preferences: {
+      displayName: profile.preferred_display_name || null,
+      commentAuthor: profile.default_comment_author || null,
+      commentSort: normalizeCommentSort(profile.comment_sort_preference),
+    },
     reputation: {
       status: profile.reputation_status || "unknown",
       autoStatus: profile.reputation_auto_status || "unknown",
@@ -601,6 +626,46 @@ export async function getRawIpProfileByHash(hash) {
     `SELECT * FROM ip_profiles WHERE hash = ?`,
     [normalized],
   );
+}
+
+export async function getIpProfilePreferencesByHash(hash) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    return null;
+  }
+  const row = await get(
+    `SELECT preferred_display_name, default_comment_author, comment_sort_preference
+       FROM ip_profiles
+      WHERE hash = ?`,
+    [normalized],
+  );
+  if (!row) {
+    return null;
+  }
+  return {
+    displayName: row.preferred_display_name || null,
+    commentAuthor: row.default_comment_author || null,
+    commentSort: normalizeCommentSort(row.comment_sort_preference),
+  };
+}
+
+export async function updateIpProfilePreferences(hash, preferences = {}) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    return false;
+  }
+  const displayName = sanitizePreferenceString(preferences.displayName, 80);
+  const commentAuthor = sanitizePreferenceString(preferences.commentAuthor, 80);
+  const commentSort = normalizeCommentSort(preferences.commentSort);
+  const result = await run(
+    `UPDATE ip_profiles
+        SET preferred_display_name=?,
+            default_comment_author=?,
+            comment_sort_preference=?
+      WHERE hash=?`,
+    [displayName || null, commentAuthor || null, commentSort, normalized],
+  );
+  return Boolean(result?.changes);
 }
 
 export async function deleteIpProfileByHash(hash) {

@@ -215,6 +215,16 @@ export async function initDb() {
   );
   await ensureColumn("ip_profiles", "is_abuser", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("ip_profiles", "is_tor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("ip_profiles", "preferred_display_name", "TEXT");
+  await ensureColumn("ip_profiles", "default_comment_author", "TEXT");
+  await ensureColumn(
+    "ip_profiles",
+    "comment_sort_preference",
+    "TEXT NOT NULL DEFAULT 'newest'",
+  );
+  await db.exec(
+    "UPDATE ip_profiles SET comment_sort_preference='newest' WHERE comment_sort_preference IS NULL OR comment_sort_preference=''",
+  );
   await ensureColumn(
     "ban_appeals",
     "status",
