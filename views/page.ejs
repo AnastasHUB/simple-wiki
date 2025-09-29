@@ -58,9 +58,7 @@
   ? (commentUser.display_name || commentUser.username)
   : null; %>
 <% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
-<% const viewerPrefs = typeof viewerPreferences !== 'undefined' ? viewerPreferences : null; %>
-<% const savedDefaultAuthor = viewerPrefs && viewerPrefs.defaultAuthor ? viewerPrefs.defaultAuthor : ''; %>
-<% const commentAuthorValue = adminPreferredName || commentValues.author || savedDefaultAuthor; %>
+<% const commentAuthorValue = adminPreferredName || commentValues.author || ''; %>
 <section class="card comments" id="comments">
   <h2 class="mt-0">Commentaires</h2>
   <% if (comments && comments.length) { %>
