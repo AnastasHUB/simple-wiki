@@ -15,6 +15,11 @@
           <% tags.forEach(t => { %><a class="tag" href="/tags/<%= t %>"><%= t %></a><% }) %>
         </div>
       <% } %>
+      <div class="page-stats" aria-label="Statistiques de l’article">
+        <span title="Likes">💖 <strong><%= p.likes %></strong></span>
+        <span title="Commentaires">💬 <strong><%= p.comment_count %></strong></span>
+        <span title="Vues">👁️ <strong><%= p.views %></strong></span>
+      </div>
       <div class="actions">
         <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post">

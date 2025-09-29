@@ -389,6 +389,23 @@ body {
 .excerpt-body > :last-child {
   margin-bottom: 0;
 }
+.page-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 8px 0 12px;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.page-stats span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.page-stats span strong {
+  color: var(--text);
+  font-weight: 600;
+}
 .excerpt pre {
   background: #0c0f18;
   border: 1px solid #242a3a;
