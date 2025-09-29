@@ -254,7 +254,7 @@ function initHtmlEditor() {
   registerQuillCodeBlock(window.Quill);
 
   const codeLanguageSelect = toolbarElement
-    ? toolbarElement.querySelector(".ql-code-language")
+    ? toolbarElement.querySelector("select.ql-code-language")
     : null;
 
   const supportedCodeLanguages = codeLanguageSelect
@@ -305,6 +305,7 @@ function initHtmlEditor() {
   const scrollingContainer = quill.scrollingContainer || quill.root.parentElement;
   const silentSource = window.Quill?.sources?.SILENT || "api";
   let highlightTimeoutId = null;
+  let lastKnownSelection = null;
 
   const runCodeHighlighting = () => {
     highlightTimeoutId = null;
@@ -386,7 +387,11 @@ function initHtmlEditor() {
   };
 
   const applyLanguageToSelection = (language) => {
-    const range = quill.getSelection(true);
+    let range = quill.getSelection(true);
+    if (!range && lastKnownSelection) {
+      range = { ...lastKnownSelection };
+      quill.setSelection(range, silentSource);
+    }
     if (!range) return;
 
     const normalizedLanguage =
@@ -418,6 +423,7 @@ function initHtmlEditor() {
     });
 
     refreshCodeHighlighting({ immediate: true });
+    lastKnownSelection = { index: range.index, length: range.length || 0 };
   };
   const uploadEndpoint =
     container.getAttribute("data-upload-endpoint") || "/admin/uploads";
@@ -566,7 +572,15 @@ function initHtmlEditor() {
     syncLanguageSelect();
   });
 
-  quill.on("selection-change", () => {
+  quill.on("selection-change", (range, oldRange) => {
+    if (range) {
+      lastKnownSelection = { index: range.index, length: range.length || 0 };
+    } else if (oldRange) {
+      lastKnownSelection = {
+        index: oldRange.index,
+        length: oldRange.length || 0,
+      };
+    }
     syncLanguageSelect();
   });
 

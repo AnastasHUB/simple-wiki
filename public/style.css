@@ -1162,7 +1162,8 @@ code {
   font-size: 1rem;
 }
 
-.html-editor .ql-editor code {
+.html-editor .ql-editor code,
+.html-editor .ql-editor span.ql-code {
   background: rgba(15, 18, 32, 0.92);
   border: 1px solid rgba(88, 101, 242, 0.35);
   color: #f8fafc;
