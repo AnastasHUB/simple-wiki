@@ -1,6 +1,29 @@
 <% title = 'Blocages IP'; %>
 <h1>Blocages IP</h1>
 
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="ID, IP, motif…"
+        class="flex-basis-260"
+      />
+    </label>
+    <input type="hidden" name="activePage" value="1" />
+    <input type="hidden" name="liftedPage" value="1" />
+    <input type="hidden" name="activePerPage" value="<%= activePagination.perPage %>" />
+    <input type="hidden" name="liftedPerPage" value="<%= liftedPagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/ip-bans">Réinitialiser</a>
+    <% } %>
+  </div>
+</form>
+
 <section class="card mb-xl">
   <h2>Ajouter un blocage</h2>
   <form method="post" action="/admin/ip-bans" class="grid grid-auto">
@@ -71,32 +94,7 @@
         </tbody>
       </table>
     </div>
-    <div class="table-footer">
-      <form method="get">
-        <label for="active-per-page" class="nowrap">Éléments par page</label>
-        <select id="active-per-page" name="activePerPage" onchange="this.form.submit()">
-          <% activePagination.perPageOptions.forEach(option => { %>
-            <option value="<%= option %>" <%= option === activePagination.perPage ? 'selected' : '' %>><%= option %></option>
-          <% }) %>
-        </select>
-        <input type="hidden" name="activePage" value="1">
-        <input type="hidden" name="liftedPage" value="<%= liftedPagination.page %>">
-        <input type="hidden" name="liftedPerPage" value="<%= liftedPagination.perPage %>">
-      </form>
-      <span>Page <%= activePagination.page %> sur <%= activePagination.totalPages %></span>
-      <div class="pager">
-        <% if (activePagination.hasPrevious) { %>
-          <a class="btn" data-icon="⬅️" href="?activePage=<%= activePagination.previousPage %>&activePerPage=<%= activePagination.perPage %>&liftedPage=<%= liftedPagination.page %>&liftedPerPage=<%= liftedPagination.perPage %>">Précédent</a>
-        <% } else { %>
-          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
-        <% } %>
-        <% if (activePagination.hasNext) { %>
-          <a class="btn" data-icon="➡️" href="?activePage=<%= activePagination.nextPage %>&activePerPage=<%= activePagination.perPage %>&liftedPage=<%= liftedPagination.page %>&liftedPerPage=<%= liftedPagination.perPage %>">Suivant</a>
-        <% } else { %>
-          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
-        <% } %>
-      </div>
-    </div>
+    <%- include('./paginationControls', { pagination: activePagination }) %>
   <% } %>
 </section>
 
@@ -133,31 +131,6 @@
         </tbody>
       </table>
     </div>
-    <div class="table-footer">
-      <form method="get">
-        <label for="lifted-per-page" class="nowrap">Éléments par page</label>
-        <select id="lifted-per-page" name="liftedPerPage" onchange="this.form.submit()">
-          <% liftedPagination.perPageOptions.forEach(option => { %>
-            <option value="<%= option %>" <%= option === liftedPagination.perPage ? 'selected' : '' %>><%= option %></option>
-          <% }) %>
-        </select>
-        <input type="hidden" name="liftedPage" value="1">
-        <input type="hidden" name="activePage" value="<%= activePagination.page %>">
-        <input type="hidden" name="activePerPage" value="<%= activePagination.perPage %>">
-      </form>
-      <span>Page <%= liftedPagination.page %> sur <%= liftedPagination.totalPages %></span>
-      <div class="pager">
-        <% if (liftedPagination.hasPrevious) { %>
-          <a class="btn" data-icon="⬅️" href="?liftedPage=<%= liftedPagination.previousPage %>&liftedPerPage=<%= liftedPagination.perPage %>&activePage=<%= activePagination.page %>&activePerPage=<%= activePagination.perPage %>">Précédent</a>
-        <% } else { %>
-          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
-        <% } %>
-        <% if (liftedPagination.hasNext) { %>
-          <a class="btn" data-icon="➡️" href="?liftedPage=<%= liftedPagination.nextPage %>&liftedPerPage=<%= liftedPagination.perPage %>&activePage=<%= activePagination.page %>&activePerPage=<%= activePagination.perPage %>">Suivant</a>
-        <% } else { %>
-          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
-        <% } %>
-      </div>
-    </div>
+    <%- include('./paginationControls', { pagination: liftedPagination }) %>
   <% } %>
 </section>

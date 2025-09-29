@@ -1,5 +1,28 @@
 <h1>Modération des commentaires</h1>
 
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="ID, IP, auteur, page…"
+        class="flex-basis-260"
+      />
+    </label>
+    <input type="hidden" name="pendingPage" value="1" />
+    <input type="hidden" name="recentPage" value="1" />
+    <input type="hidden" name="pendingPerPage" value="<%= pendingPagination.perPage %>" />
+    <input type="hidden" name="recentPerPage" value="<%= recentPagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/comments">Réinitialiser</a>
+    <% } %>
+  </div>
+</form>
+
 <section class="card mb-xl">
   <h2 class="mt-0">En attente de validation (<%= pendingPagination.totalItems %>)</h2>
   <% if (!pending.length) { %>
@@ -34,32 +57,7 @@
         </li>
       <% }) %>
     </ul>
-    <div class="table-footer">
-      <form method="get">
-        <label for="pending-per-page" class="nowrap">Éléments par page</label>
-        <select id="pending-per-page" name="pendingPerPage" onchange="this.form.submit()">
-          <% pendingPagination.perPageOptions.forEach(option => { %>
-            <option value="<%= option %>" <%= option === pendingPagination.perPage ? 'selected' : '' %>><%= option %></option>
-          <% }) %>
-        </select>
-        <input type="hidden" name="pendingPage" value="1">
-        <input type="hidden" name="recentPage" value="<%= recentPagination.page %>">
-        <input type="hidden" name="recentPerPage" value="<%= recentPagination.perPage %>">
-      </form>
-      <span>Page <%= pendingPagination.page %> sur <%= pendingPagination.totalPages %></span>
-      <div class="pager">
-        <% if (pendingPagination.hasPrevious) { %>
-          <a class="btn" data-icon="⬅️" href="?pendingPage=<%= pendingPagination.previousPage %>&pendingPerPage=<%= pendingPagination.perPage %>&recentPage=<%= recentPagination.page %>&recentPerPage=<%= recentPagination.perPage %>">Précédent</a>
-        <% } else { %>
-          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
-        <% } %>
-        <% if (pendingPagination.hasNext) { %>
-          <a class="btn" data-icon="➡️" href="?pendingPage=<%= pendingPagination.nextPage %>&pendingPerPage=<%= pendingPagination.perPage %>&recentPage=<%= recentPagination.page %>&recentPerPage=<%= recentPagination.perPage %>">Suivant</a>
-        <% } else { %>
-          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
-        <% } %>
-      </div>
-    </div>
+    <%- include('./paginationControls', { pagination: pendingPagination }) %>
   <% } %>
 </section>
 
@@ -91,31 +89,6 @@
         </li>
       <% }) %>
     </ul>
-    <div class="table-footer">
-      <form method="get">
-        <label for="recent-per-page" class="nowrap">Éléments par page</label>
-        <select id="recent-per-page" name="recentPerPage" onchange="this.form.submit()">
-          <% recentPagination.perPageOptions.forEach(option => { %>
-            <option value="<%= option %>" <%= option === recentPagination.perPage ? 'selected' : '' %>><%= option %></option>
-          <% }) %>
-        </select>
-        <input type="hidden" name="recentPage" value="1">
-        <input type="hidden" name="pendingPage" value="<%= pendingPagination.page %>">
-        <input type="hidden" name="pendingPerPage" value="<%= pendingPagination.perPage %>">
-      </form>
-      <span>Page <%= recentPagination.page %> sur <%= recentPagination.totalPages %></span>
-      <div class="pager">
-        <% if (recentPagination.hasPrevious) { %>
-          <a class="btn" data-icon="⬅️" href="?recentPage=<%= recentPagination.previousPage %>&recentPerPage=<%= recentPagination.perPage %>&pendingPage=<%= pendingPagination.page %>&pendingPerPage=<%= pendingPagination.perPage %>">Précédent</a>
-        <% } else { %>
-          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
-        <% } %>
-        <% if (recentPagination.hasNext) { %>
-          <a class="btn" data-icon="➡️" href="?recentPage=<%= recentPagination.nextPage %>&recentPerPage=<%= recentPagination.perPage %>&pendingPage=<%= pendingPagination.page %>&pendingPerPage=<%= pendingPagination.perPage %>">Suivant</a>
-        <% } else { %>
-          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
-        <% } %>
-      </div>
-    </div>
+    <%- include('./paginationControls', { pagination: recentPagination }) %>
   <% } %>
 </section>

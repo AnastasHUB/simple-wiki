@@ -1,5 +1,25 @@
 <% title='Utilisateurs'; %>
 <h1>Utilisateurs (admins uniquement)</h1>
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="ID, nom, pseudo…"
+        class="flex-basis-260"
+      />
+    </label>
+    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/users">Réinitialiser</a>
+    <% } %>
+  </div>
+</form>
 <form method="post" class="card">
   <div class="flex flex-wrap gap-sm">
     <input type="text" name="username" placeholder="nouvel admin" required />
@@ -43,28 +63,5 @@
       </tbody>
     </table>
   </div>
-  <div class="table-footer">
-    <form method="get">
-      <label for="users-per-page" class="nowrap">Éléments par page</label>
-      <select id="users-per-page" name="perPage" onchange="this.form.submit()">
-        <% pagination.perPageOptions.forEach(option => { %>
-          <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
-        <% }) %>
-      </select>
-      <input type="hidden" name="page" value="1">
-    </form>
-    <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
-    <div class="pager">
-      <% if (pagination.hasPrevious) { %>
-        <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
-      <% } else { %>
-        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
-      <% } %>
-      <% if (pagination.hasNext) { %>
-        <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
-      <% } else { %>
-        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
-      <% } %>
-    </div>
-  </div>
+  <%- include('./paginationControls', { pagination }) %>
 <% } %>
