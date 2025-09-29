@@ -97,6 +97,55 @@
   </div>
 </section>
 
+<%
+  const liveWindowMinutes = Math.max(
+    1,
+    Math.round((liveVisitorsWindowSeconds || 0) / 60),
+  );
+  const liveWindowLabel =
+    (liveVisitorsWindowSeconds || 0) >= 60
+      ? `${liveWindowMinutes} minute${liveWindowMinutes > 1 ? 's' : ''}`
+      : `${liveVisitorsWindowSeconds || 0} seconde${
+          (liveVisitorsWindowSeconds || 0) > 1 ? 's' : ''
+        }`;
+%>
+<section class="card stats-live-card">
+  <div class="card-header">
+    <h2 class="mt-0">Live stats</h2>
+    <p class="text-muted text-sm">
+      Basé sur l'activité des <%= liveWindowLabel %> précédentes.
+    </p>
+  </div>
+  <% if (!liveVisitors.length) { %>
+    <p>Aucun visiteur actif détecté pour le moment.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>Adresse IP</th>
+            <th>Page actuelle</th>
+            <th>Dernière activité</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% liveVisitors.forEach((visitor) => { %>
+            <tr>
+              <td><code><%= visitor.ip %></code></td>
+              <td><a href="<%= visitor.path %>"><%= visitor.path %></a></td>
+              <td>
+                <time datetime="<%= visitor.lastSeenIso %>">
+                  il y a <%= visitor.lastSeenRelative %>
+                </time>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
+
 <section class="card stats-trend-card">
   <h2>Vues quotidiennes récentes</h2>
   <% if (!viewTrends.length) { %>

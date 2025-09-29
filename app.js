@@ -15,6 +15,7 @@ import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
+import { trackLiveVisitor } from "./utils/liveStats.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,22 @@ app.use(morgan("dev"));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 app.use(session(sessionConfig));
+
+app.use((req, res, next) => {
+  const originalUrl = req.originalUrl || req.url || "/";
+  const isStatic =
+    originalUrl.startsWith("/public/") ||
+    originalUrl.startsWith("/docs/") ||
+    originalUrl.startsWith("/scripts/") ||
+    originalUrl.startsWith("/favicon");
+  if (!isStatic && req.method !== "OPTIONS") {
+    const ip = getClientIp(req);
+    if (ip) {
+      trackLiveVisitor(ip, originalUrl);
+    }
+  }
+  next();
+});
 
 // expose user + settings to views
 app.use(async (req, res, next) => {
