@@ -156,6 +156,12 @@ hr {
   min-width: 0;
 }
 
+@media (min-width: 1025px) {
+  #sidebarToggle {
+    display: none;
+  }
+}
+
 .brand-link {
   display: inline-flex;
   align-items: center;
@@ -417,14 +423,56 @@ html.drawer-open .drawer-overlay {
   line-height: 1.2;
   font-weight: 500;
   cursor: pointer;
-  transition: transform var(--transition), background var(--transition), border-color var(--transition), color var(--transition);
+  position: relative;
+  overflow: hidden;
+  transition:
+    transform 180ms ease,
+    box-shadow 220ms ease,
+    background var(--transition),
+    border-color var(--transition),
+    color var(--transition);
+  box-shadow: 0 12px 24px rgba(9, 12, 20, 0.28);
+  will-change: transform;
   text-align: center;
 }
 
 .btn:hover,
 .btn:focus {
-  transform: translateY(-1px);
+  transform: translateY(-2px) scale(1.01);
   background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 16px 32px rgba(9, 12, 20, 0.32);
+}
+
+.btn:focus-visible {
+  outline: 2px solid rgba(76, 110, 245, 0.65);
+  outline-offset: 2px;
+}
+
+.btn:active {
+  transform: scale(0.97);
+}
+
+.btn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.32), transparent 65%);
+  opacity: 0;
+  transform: scale(0.4);
+  transition: opacity 320ms ease, transform 420ms ease;
+  pointer-events: none;
+}
+
+.btn:hover::after,
+.btn:focus::after {
+  opacity: 0.18;
+  transform: scale(1);
+}
+
+.btn:active::after {
+  opacity: 0.28;
+  transform: scale(1.35);
+  transition-duration: 0ms;
 }
 
 .btn.secondary {
@@ -552,10 +600,19 @@ html.drawer-open .drawer-overlay {
   border: 1px solid rgba(255, 255, 255, 0.06);
   padding: 1.25rem 1.35rem;
   box-shadow: 0 12px 30px rgba(5, 8, 17, 0.3);
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
 }
 
 .card + .card {
   margin-top: 1.25rem;
+}
+
+.card:hover,
+.card:focus-within {
+  transform: translateY(-4px);
+  border-color: rgba(76, 110, 245, 0.28);
+  box-shadow: 0 18px 38px rgba(5, 8, 17, 0.38);
+  background: linear-gradient(180deg, rgba(33, 43, 72, 0.82), rgba(15, 21, 34, 0.95));
 }
 
 .card.card-highlight {
@@ -598,6 +655,14 @@ html.drawer-open .drawer-overlay {
   color: #dbe4ff;
   font-size: 0.8rem;
   letter-spacing: 0.02em;
+  transition: transform 200ms ease, box-shadow 220ms ease, background 200ms ease, border-color 200ms ease;
+}
+
+.tag:hover {
+  transform: translateY(-2px);
+  background: rgba(76, 110, 245, 0.32);
+  border-color: rgba(138, 180, 248, 0.65);
+  box-shadow: 0 10px 24px rgba(76, 110, 245, 0.28);
 }
 
 .page-stats {
@@ -730,34 +795,69 @@ label {
 /* === TABLES === */
 .table-wrap {
   overflow-x: auto;
-  border-radius: var(--radius-md);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(14, 18, 30, 0.82);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, rgba(18, 24, 42, 0.95), rgba(10, 13, 24, 0.92));
+  box-shadow: 0 18px 40px rgba(5, 8, 17, 0.35);
 }
 
-.table {
+.table,
+.data-table {
   width: 100%;
   border-collapse: collapse;
   min-width: 640px;
+  background: transparent;
 }
 
 .table th,
-.table td {
-  padding: 0.75rem 1rem;
+.table td,
+.data-table th,
+.data-table td {
+  padding: 0.85rem 1.1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.92rem;
+  font-size: 0.93rem;
   text-align: left;
+  transition: background 180ms ease, color 180ms ease;
 }
 
-.table th {
-  font-size: 0.8rem;
+.table thead th,
+.data-table thead th {
+  font-size: 0.78rem;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: rgba(255, 255, 255, 0.65);
+  letter-spacing: 0.08em;
+  color: rgba(219, 228, 255, 0.65);
+  background: rgba(255, 255, 255, 0.02);
 }
 
-.table tbody tr:hover {
-  background: rgba(76, 110, 245, 0.1);
+.table tbody tr,
+.data-table tbody tr {
+  transition: transform 200ms ease, background 200ms ease;
+}
+
+.table tbody tr:nth-child(even),
+.data-table tbody tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.table tbody tr:hover,
+.data-table tbody tr:hover {
+  background: rgba(76, 110, 245, 0.14);
+  transform: translateY(-1px);
+}
+
+.table tbody tr:last-child td,
+.data-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.table-title {
+  font-size: 1rem;
+}
+
+.table-meta {
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  color: rgba(219, 228, 255, 0.55);
 }
 
 .table-footer {
@@ -787,6 +887,8 @@ label {
 /* === COMMENTS === */
 .comments {
   background: rgba(18, 22, 35, 0.92);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .comment-list {
@@ -795,53 +897,98 @@ label {
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1.15rem;
 }
 
 .comment {
-  padding-bottom: 1.1rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  padding: 1.2rem 1.35rem 1.3rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(28, 36, 64, 0.82), rgba(12, 16, 28, 0.85));
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 16px 36px rgba(5, 8, 17, 0.28);
+  overflow: hidden;
+  transition: transform 220ms ease, box-shadow 220ms ease, border-color 220ms ease;
 }
 
-.comment:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+.comment::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at top left, rgba(76, 110, 245, 0.35), transparent 55%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+  pointer-events: none;
+}
+
+.comment:hover {
+  transform: translateY(-3px);
+  border-color: rgba(76, 110, 245, 0.4);
+  box-shadow: 0 20px 42px rgba(5, 8, 17, 0.38);
+}
+
+.comment:hover::before {
+  opacity: 1;
 }
 
 .comment-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.4rem 0.75rem;
-  font-size: 0.88rem;
-  color: var(--muted);
+  gap: 0.45rem 0.8rem;
+  font-size: 0.9rem;
+  color: rgba(219, 228, 255, 0.7);
 }
 
 .comment-author {
   color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 600;
 }
 
 .comment-author--admin {
   color: var(--warning);
+  position: relative;
+}
+
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .comment-author--admin {
+    background: linear-gradient(
+      90deg,
+      #ff6b6b,
+      #f7c948,
+      #4cc38a,
+      #4c6ef5,
+      #b197fc,
+      #ff6b6b
+    );
+    background-size: 220% 220%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: adminRainbow 6s linear infinite;
+  }
 }
 
 .comment-author-badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.05rem;
-  height: 1.05rem;
-  background: rgba(247, 201, 72, 0.18);
+  width: 1.1rem;
+  height: 1.1rem;
+  background: rgba(247, 201, 72, 0.22);
   border-radius: 999px;
-  margin-left: 0.35rem;
+  box-shadow: 0 4px 12px rgba(247, 201, 72, 0.35);
 }
 
 .comment-body {
-  margin-top: 0.35rem;
-  line-height: 1.55;
+  margin-top: 0.6rem;
+  line-height: 1.6;
 }
 
 .comment-actions {
-  margin-top: 0.75rem;
+  margin-top: 0.9rem;
   display: flex;
   gap: 0.5rem;
 }
@@ -855,7 +1002,19 @@ label {
 }
 
 .comment-ip-profile {
-  color: rgba(247, 201, 72, 0.85);
+  color: rgba(247, 201, 72, 0.9);
+}
+
+@keyframes adminRainbow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 /* === NOTIFICATIONS === */
@@ -1081,6 +1240,22 @@ label {
 .lead {
   font-size: 1.05rem;
   color: rgba(255, 255, 255, 0.82);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .btn::after,
+  .card,
+  .comment,
+  .tag,
+  .table tbody tr,
+  .data-table tbody tr {
+    transition: none !important;
+  }
+
+  .comment-author--admin {
+    animation: none !important;
+  }
 }
 
 @media (max-width: 540px) {

@@ -2883,6 +2883,144 @@ r.post("/likes/:id/delete", async (req, res) => {
   res.redirect("/admin/likes");
 });
 
+r.get("/trash", async (req, res) => {
+  const searchTerm = (req.query.search || "").trim();
+  const filters = [];
+  const params = [];
+  if (searchTerm) {
+    const like = `%${searchTerm}%`;
+    filters.push(
+      "(COALESCE(title,'') LIKE ? OR COALESCE(slug_id,'') LIKE ? OR COALESCE(deleted_by,'') LIKE ?)",
+    );
+    params.push(like, like, like);
+  }
+  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const totalRow = await get(
+    `SELECT COUNT(*) AS total FROM deleted_pages ${where}`,
+    params,
+  );
+  const total = Number(totalRow?.total ?? 0);
+  const basePagination = buildPagination(req, total);
+  const offset = (basePagination.page - 1) * basePagination.perPage;
+
+  const trashedRows = await all(
+    `SELECT id, snowflake_id, slug_id, slug_base, title, deleted_at, deleted_by, created_at, updated_at, tags_json
+       FROM deleted_pages
+       ${where}
+      ORDER BY deleted_at DESC
+      LIMIT ? OFFSET ?`,
+    [...params, basePagination.perPage, offset],
+  );
+
+  const trashedPages = trashedRows.map((row) => ({
+    ...row,
+    tags: parseTagsJson(row.tags_json),
+  }));
+
+  const pagination = decoratePagination(req, basePagination);
+
+  res.render("admin/trash", {
+    trashedPages,
+    pagination,
+    searchTerm,
+  });
+});
+
+r.post("/trash/:id/restore", async (req, res) => {
+  const trashed = await get(
+    `SELECT * FROM deleted_pages WHERE snowflake_id = ?`,
+    [req.params.id],
+  );
+
+  if (!trashed) {
+    pushNotification(req, {
+      type: "error",
+      message: "Élément introuvable dans la corbeille.",
+    });
+    return res.redirect("/admin/trash");
+  }
+
+  const slugConflict = await get(
+    `SELECT id FROM pages WHERE slug_id = ?`,
+    [trashed.slug_id],
+  );
+  if (slugConflict?.id) {
+    pushNotification(req, {
+      type: "error",
+      message:
+        "Impossible de restaurer la page : un article actif utilise déjà ce même identifiant.",
+    });
+    return res.redirect("/admin/trash");
+  }
+
+  const tags = parseTagsJson(trashed.tags_json);
+  const snowflake = trashed.page_snowflake_id || generateSnowflake();
+  const restoredTitle = trashed.title || "Page restaurée";
+  const restoredLabel = trashed.title ? `« ${restoredTitle} »` : "La page";
+
+  await run("BEGIN");
+  try {
+    const insert = await run(
+      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, created_at, updated_at)
+       VALUES(?,?,?,?,?,?,?)`,
+      [
+        snowflake,
+        trashed.slug_base,
+        trashed.slug_id,
+        restoredTitle,
+        trashed.content || "",
+        trashed.created_at || null,
+        trashed.updated_at || null,
+      ],
+    );
+
+    const pageId = insert?.lastID;
+    if (pageId) {
+      if (tags.length) {
+        await upsertTags(pageId, tags);
+      }
+      await savePageFts({
+        id: pageId,
+        title: restoredTitle,
+        content: trashed.content || "",
+        slug_id: trashed.slug_id,
+        tags: tags.join(" "),
+      });
+    }
+
+    await run(`DELETE FROM deleted_pages WHERE id = ?`, [trashed.id]);
+    await run("COMMIT");
+  } catch (error) {
+    await run("ROLLBACK");
+    console.error("Failed to restore page from trash", error);
+    pushNotification(req, {
+      type: "error",
+      message: "La restauration a échoué. Merci de réessayer.",
+    });
+    return res.redirect("/admin/trash");
+  }
+
+  await sendAdminEvent("Page restored", {
+    user: req.session.user?.username,
+    page: {
+      title: restoredTitle,
+      slug_id: trashed.slug_id,
+      snowflake_id: snowflake,
+    },
+    extra: {
+      restored_from: trashed.snowflake_id,
+    },
+  });
+
+  pushNotification(req, {
+    type: "success",
+    message: `${restoredLabel} a été restaurée.`,
+  });
+
+  res.redirect(`/wiki/${trashed.slug_id}`);
+});
+
 r.get("/events", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
@@ -2920,42 +3058,28 @@ r.get("/events", async (req, res) => {
   });
 });
 
-async function handleEventDeletion(req, res) {
-  const eventId = Number.parseInt(req.params.id, 10);
-  if (!Number.isInteger(eventId)) {
-    pushNotification(req, {
-      type: "error",
-      message: "Identifiant d'événement invalide.",
-    });
-    return res.redirect("/admin/events");
-  }
-
-  const event = await get(
-    `SELECT id FROM event_logs WHERE id = ?`,
-    [eventId],
-  );
-  if (!event?.id) {
-    pushNotification(req, {
-      type: "error",
-      message: "Événement introuvable.",
-    });
-    return res.redirect("/admin/events");
-  }
-
-  await run(`DELETE FROM event_logs WHERE id = ?`, [event.id]);
-
-  pushNotification(req, {
-    type: "success",
-    message: "Événement supprimé.",
-  });
-
-  res.redirect("/admin/events");
-}
-
-r.delete("/events/:id", handleEventDeletion);
-r.post("/events/:id/delete", handleEventDeletion);
-
 export default r;
+
+function parseTagsJson(value) {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return Array.from(
+      new Set(
+        parsed
+          .map((tag) => (typeof tag === "string" ? tag.trim() : ""))
+          .filter(Boolean),
+      ),
+    );
+  } catch (_error) {
+    return [];
+  }
+}
 
 function buildViewLeaderboardQuery(fromIso, fromDay, limit) {
   const rawWhere = fromIso ? "WHERE viewed_at >= ?" : "";

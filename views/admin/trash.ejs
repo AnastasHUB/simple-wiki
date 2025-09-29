@@ -1,0 +1,82 @@
+<% title = 'Corbeille'; %>
+<h1>Corbeille</h1>
+
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="Titre, slug, auteur…"
+        class="flex-basis-220"
+      />
+    </label>
+    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/trash">Réinitialiser</a>
+    <% } %>
+  </div>
+</form>
+
+<section class="card">
+  <h2 class="mt-0">Pages supprimées</h2>
+  <% if (!trashedPages.length) { %>
+    <p>Aucun élément dans la corbeille pour le moment.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Titre</th>
+            <th>Slug</th>
+            <th>Supprimée le</th>
+            <th>Supprimé par</th>
+            <th>Tags</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% trashedPages.forEach(page => { %>
+            <tr>
+              <td>
+                <div class="table-title"><strong><%= page.title || 'Sans titre' %></strong></div>
+                <div class="table-meta text-muted">
+                  Créée le <%= page.created_at ? new Date(page.created_at).toLocaleString('fr-FR') : '—' %>
+                  <% if (page.updated_at) { %>
+                    · Dernière mise à jour le <%= new Date(page.updated_at).toLocaleString('fr-FR') %>
+                  <% } %>
+                </div>
+              </td>
+              <td><code><%= page.slug_id %></code></td>
+              <td><%= page.deleted_at ? new Date(page.deleted_at).toLocaleString('fr-FR') : '—' %></td>
+              <td><%= page.deleted_by || '—' %></td>
+              <td>
+                <% if (page.tags && page.tags.length) { %>
+                  <div class="tags-row">
+                    <% page.tags.forEach(tag => { %>
+                      <span class="tag"><%= tag %></span>
+                    <% }) %>
+                  </div>
+                <% } else { %>
+                  <span class="text-muted">Aucun</span>
+                <% } %>
+              </td>
+              <td>
+                <form method="post" action="/admin/trash/<%= page.snowflake_id %>/restore" onsubmit="return confirm('Restaurer cette page ?');">
+                  <button class="btn success" data-icon="♻️" type="submit">Restaurer</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <% if (pagination.totalPages > 1) { %>
+      <%- include('./paginationControls', { pagination }) %>
+    <% } %>
+  <% } %>
+</section>

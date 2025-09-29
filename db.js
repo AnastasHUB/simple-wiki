@@ -40,6 +40,22 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
+  CREATE TABLE IF NOT EXISTS deleted_pages(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    original_page_id INTEGER,
+    page_snowflake_id TEXT,
+    slug_id TEXT NOT NULL,
+    slug_base TEXT NOT NULL,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tags_json TEXT,
+    created_at DATETIME,
+    updated_at DATETIME,
+    deleted_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    deleted_by TEXT,
+    UNIQUE(slug_id)
+  );
   CREATE TABLE IF NOT EXISTS page_revisions(
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     revision INTEGER NOT NULL,
@@ -207,6 +223,7 @@ export async function initDb() {
   await ensureSnowflake("settings");
   await ensureSnowflake("users");
   await ensureSnowflake("pages");
+  await ensureSnowflake("deleted_pages");
   await ensureSnowflake("page_revisions");
   await ensureSnowflake("page_views");
   await ensureSnowflake("page_view_daily");

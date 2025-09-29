@@ -877,57 +877,95 @@ r.post(
   }),
 );
 
-r.delete(
-  "/delete/:slugid",
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const page = await get(
-      "SELECT id, snowflake_id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
-      [req.params.slugid],
-    );
-    await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);
-    if (page?.id) {
-      await removePageFts(page.id);
-    }
-    await sendAdminEvent("Page deleted", {
-      user: req.session.user?.username,
-      page,
-    });
-    pushNotification(req, {
-      type: "info",
-      message: page?.title
-        ? `"${page.title}" a été supprimé.`
-        : "La page a été supprimée.",
-    });
-    res.redirect("/");
-  }),
-);
+async function handlePageDeletion(req, res) {
+  const page = await get(
+    `SELECT id, snowflake_id, title, content, slug_id, slug_base, created_at, updated_at
+       FROM pages
+      WHERE slug_id=?`,
+    [req.params.slugid],
+  );
 
-r.post(
-  "/delete/:slugid",
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const page = await get(
-      "SELECT id, snowflake_id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
-      [req.params.slugid],
+  if (!page) {
+    pushNotification(req, {
+      type: "error",
+      message: "Page introuvable ou déjà supprimée.",
+    });
+    return res.redirect("/");
+  }
+
+  const tags = await fetchPageTags(page.id);
+  const trashSnowflake = generateSnowflake();
+  const pageTitle = page.title || "Cette page";
+
+  await run("BEGIN");
+  try {
+    await run(
+      `INSERT INTO deleted_pages(
+         snowflake_id,
+         original_page_id,
+         page_snowflake_id,
+         slug_id,
+         slug_base,
+         title,
+         content,
+         tags_json,
+         created_at,
+         updated_at,
+         deleted_by
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+      [
+        trashSnowflake,
+        page.id,
+        page.snowflake_id,
+        page.slug_id,
+        page.slug_base,
+        page.title,
+        page.content,
+        JSON.stringify(tags || []),
+        page.created_at,
+        page.updated_at,
+        req.session.user?.username || null,
+      ],
     );
     await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);
-    if (page?.id) {
-      await removePageFts(page.id);
-    }
-    await sendAdminEvent("Page deleted", {
-      user: req.session.user?.username,
-      page,
-    });
+    await run("COMMIT");
+  } catch (error) {
+    await run("ROLLBACK");
+    console.error("Failed to move page to trash", error);
     pushNotification(req, {
-      type: "info",
-      message: page?.title
-        ? `"${page.title}" a été supprimé.`
-        : "La page a été supprimée.",
+      type: "error",
+      message: "La suppression de la page a échoué. Merci de réessayer.",
     });
-    res.redirect("/");
-  }),
-);
+    return res.redirect(`/wiki/${req.params.slugid}`);
+  }
+
+  await removePageFts(page.id);
+
+  await sendAdminEvent("Page deleted", {
+    user: req.session.user?.username,
+    page: {
+      title: page.title,
+      slug_id: page.slug_id,
+      snowflake_id: page.snowflake_id,
+    },
+    extra: {
+      trash_id: trashSnowflake,
+      tags,
+    },
+  });
+
+  pushNotification(req, {
+    type: "info",
+    message: page.title
+      ? `« ${pageTitle} » a été déplacée dans la corbeille.`
+      : "La page a été déplacée dans la corbeille.",
+  });
+
+  res.redirect("/");
+}
+
+r.delete("/delete/:slugid", requireAdmin, asyncHandler(handlePageDeletion));
+r.post("/delete/:slugid", requireAdmin, asyncHandler(handlePageDeletion));
 
 r.get(
   "/tags/:name",
