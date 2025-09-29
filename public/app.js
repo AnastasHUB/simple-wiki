@@ -27,6 +27,7 @@ let quillCodeBlockRegistered = false;
 document.addEventListener("DOMContentLoaded", () => {
   initNotifications();
   enhanceIconButtons();
+  initLikeForms();
   initHtmlEditor();
   initCodeHighlighting();
 });
@@ -123,6 +124,145 @@ function spawnNotification(layer, notif) {
   });
 
   setTimeout(remove, timeout);
+}
+
+function initLikeForms() {
+  const forms = document.querySelectorAll('form[data-like-form-for]');
+  if (!forms.length) {
+    return;
+  }
+
+  forms.forEach((form) => {
+    if (form.dataset.likeFormBound === "true") {
+      return;
+    }
+
+    form.dataset.likeFormBound = "true";
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      handleLikeSubmit(event, form);
+    });
+  });
+}
+
+async function handleLikeSubmit(event, form) {
+  const submitter = event.submitter || form.querySelector('button[type="submit"]');
+  if (submitter) {
+    submitter.disabled = true;
+    submitter.classList.add("is-loading");
+  }
+
+  try {
+    const response = await fetch(form.action, {
+      method: "POST",
+      headers: {
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      },
+      body: new FormData(form),
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const expectJson = contentType.includes("application/json");
+    const data = expectJson ? await response.json() : null;
+
+    if (!response.ok || data?.ok === false) {
+      const message = data?.message || "Impossible de mettre à jour vos favoris.";
+      throw new Error(message);
+    }
+
+    if (!data || typeof data.likes === "undefined") {
+      throw new Error("Réponse inattendue du serveur.");
+    }
+
+    updateLikeUi(data.slug || form.dataset.likeFormFor, {
+      liked: Boolean(data.liked),
+      likes: Number(data.likes),
+    });
+
+    notifyClient(data.notifications);
+  } catch (err) {
+    notifyClient([
+      {
+        type: "error",
+        message: err.message || "Une erreur est survenue.",
+        timeout: 4000,
+      },
+    ]);
+  } finally {
+    if (submitter) {
+      submitter.disabled = false;
+      submitter.classList.remove("is-loading");
+    }
+  }
+}
+
+function notifyClient(notifications) {
+  if (!Array.isArray(notifications) || notifications.length === 0) {
+    return;
+  }
+
+  const layer = document.getElementById("notificationLayer");
+  if (!layer) {
+    return;
+  }
+
+  notifications.forEach((notif, index) => {
+    setTimeout(() => {
+      spawnNotification(layer, notif);
+    }, index * 80);
+  });
+}
+
+function updateLikeUi(slug, state) {
+  if (!slug) {
+    return;
+  }
+
+  const likes = Number.isFinite(state.likes) ? state.likes : 0;
+  const liked = Boolean(state.liked);
+
+  document
+    .querySelectorAll(`[data-like-count-for="${CSS.escape(slug)}"]`)
+    .forEach((el) => {
+      el.textContent = likes;
+    });
+
+  document
+    .querySelectorAll(`form[data-like-form-for="${CSS.escape(slug)}"]`)
+    .forEach((likeForm) => {
+      likeForm.dataset.userLiked = liked ? "true" : "false";
+      const button = likeForm.querySelector('button[type="submit"]');
+      if (!button) {
+        return;
+      }
+
+      const icon = liked ? "💔" : "💖";
+      button.dataset.icon = icon;
+      button.classList.toggle("like", !liked);
+      button.classList.toggle("unlike", liked);
+
+      const labelLiked = button.dataset.labelLiked || "Retirer";
+      const labelUnliked = button.dataset.labelUnliked || "Like";
+      const label = liked ? labelLiked : labelUnliked;
+      const textContent = `${label} (${likes})`;
+
+      let textNode = Array.from(button.childNodes).find(
+        (node) => node.nodeType === Node.TEXT_NODE,
+      );
+      if (!textNode) {
+        textNode = document.createTextNode("");
+        button.appendChild(textNode);
+      }
+      textNode.textContent = textContent;
+
+      const iconSpan = button.querySelector(".btn-icon");
+      if (iconSpan) {
+        iconSpan.textContent = icon;
+      } else {
+        enhanceIconButtons();
+      }
+    });
 }
 
 function getNotificationIcon(type) {
