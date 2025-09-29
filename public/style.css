@@ -118,6 +118,18 @@ body {
 .leading-snug {
   line-height: 1.4;
 }
+.stat-sub {
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-bottom: 0.25rem;
+}
+.stat-number {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #fff;
+}
 .upload-thumb {
   max-width: 140px;
   max-height: 90px;
@@ -633,6 +645,21 @@ body {
   color: #d3d9e7;
   font-size: 0.9rem;
 }
+.tag.tag-danger {
+  background: rgba(237, 66, 69, 0.15);
+  border-color: rgba(237, 66, 69, 0.5);
+  color: #fecaca;
+}
+.tag.tag-warning {
+  background: rgba(251, 191, 36, 0.18);
+  border-color: rgba(251, 191, 36, 0.45);
+  color: #fde68a;
+}
+.tag.tag-info {
+  background: rgba(59, 130, 246, 0.18);
+  border-color: rgba(59, 130, 246, 0.45);
+  color: #bfdbfe;
+}
 .tag:hover {
   background: #1a2033;
 }
@@ -879,6 +906,21 @@ form .actions {
   color: var(--danger);
   border-color: rgba(237, 66, 69, 0.35);
   background: rgba(237, 66, 69, 0.12);
+}
+.status-pill.suspicious {
+  color: #f97316;
+  border-color: rgba(249, 115, 22, 0.45);
+  background: rgba(249, 115, 22, 0.12);
+}
+.status-pill.safe {
+  color: #34d399;
+  border-color: rgba(52, 211, 153, 0.45);
+  background: rgba(52, 211, 153, 0.12);
+}
+.status-pill.clean {
+  color: #60a5fa;
+  border-color: rgba(96, 165, 250, 0.45);
+  background: rgba(96, 165, 250, 0.12);
 }
 
 .comments .comment-list,
@@ -1188,6 +1230,29 @@ form .actions {
   color: var(--text);
 }
 
+.ip-profile-reputation {
+  margin: 0.75rem 0 0;
+  padding: 1rem 1.25rem;
+}
+
+.ip-profile-reputation-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.35rem;
+}
+
+.ip-profile-reputation-meta {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.ip-profile-reputation-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
 .ip-profile-details {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1280,6 +1345,99 @@ form .actions {
 .admin-comment-list .status.rejected {
   border-color: rgba(237, 66, 69, 0.5);
   color: #fecaca;
+}
+
+.admin-risk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.admin-risk-item {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 18px;
+  background: rgba(17, 23, 38, 0.65);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.admin-risk-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-risk-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-risk-summary {
+  margin: 0;
+  font-weight: 600;
+}
+
+.admin-risk-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-risk-meta {
+  font-size: 0.9rem;
+}
+
+.admin-risk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.admin-risk-actions form {
+  display: inline-flex;
+}
+
+.admin-risk-ip {
+  font-size: 1.05rem;
+  font-weight: 700;
+  margin-right: 0.5rem;
+}
+
+.admin-cleared-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-cleared-list li {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  padding: 14px;
+  background: rgba(12, 18, 32, 0.6);
+}
+
+.admin-cleared-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.35rem;
+}
+
+.admin-cleared-meta {
+  font-size: 0.85rem;
+  margin: 0;
 }
 
 img,

@@ -69,6 +69,12 @@
         </a>
         <a href="/admin/likes">❤️ Likes</a>
         <a href="/admin/ip-bans">🚫 Blocages IP</a>
+        <a href="/admin/ip-reputation" class="nav-link nav-link--with-badge">
+          <span>🛡️ Surveillance IP</span>
+          <% if (adminCounts.suspiciousIps) { %>
+            <span class="nav-badge" aria-label="IP suspectes"><%= adminCounts.suspiciousIps %></span>
+          <% } %>
+        </a>
         <a href="/admin/ip-profiles">🧾 Profils IP</a>
         <a href="/admin/ban-appeals">📬 Demandes de déban</a>
         <a href="/admin/events">📜 Événements</a>

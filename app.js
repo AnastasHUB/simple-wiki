@@ -48,10 +48,20 @@ app.use(async (req, res, next) => {
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
     if (res.locals.user?.is_admin) {
       try {
-        res.locals.adminActionCounts = await getAdminActionCounts();
+        const counts = await getAdminActionCounts();
+        res.locals.adminActionCounts = {
+          pendingComments: 0,
+          pendingSubmissions: 0,
+          suspiciousIps: 0,
+          ...counts,
+        };
       } catch (actionErr) {
         console.error("Unable to load admin action counts", actionErr);
-        res.locals.adminActionCounts = { pendingComments: 0, pendingSubmissions: 0 };
+        res.locals.adminActionCounts = {
+          pendingComments: 0,
+          pendingSubmissions: 0,
+          suspiciousIps: 0,
+        };
       }
     }
     next();

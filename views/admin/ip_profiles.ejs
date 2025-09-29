@@ -33,6 +33,7 @@
           <tr>
             <th>Profil</th>
             <th>Adresse IP</th>
+            <th>Surveillance</th>
             <th>Dernière activité</th>
             <th>Commentaires</th>
             <th>Propositions</th>
@@ -42,24 +43,42 @@
         </thead>
         <tbody>
           <% profiles.forEach(profile => { %>
-            <tr>
-              <td>
-                <strong>
-                  <a href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">
-                    Profil #<%= profile.shortHash %>
-                  </a>
-                </strong>
-                <br />
-                <small class="text-muted">
-                  Créé : <%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %>
-                </small>
-              </td>
-              <td><code><%= profile.ip %></code></td>
-              <td>
-                <% if (profile.lastSeenAt) { %>
-                  <time datetime="<%= profile.lastSeenAt %>"><%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %></time>
-                <% } else { %>
-                  <span class="text-muted">Jamais</span>
+          <tr>
+            <td>
+              <strong>
+                <a href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">
+                  Profil #<%= profile.shortHash %>
+                </a>
+              </strong>
+              <br />
+              <small class="text-muted">
+                Créé : <%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %>
+              </small>
+            </td>
+            <td><code><%= profile.ip %></code></td>
+            <td>
+              <% const rep = profile.reputation || {}; %>
+              <% if (rep.status === 'suspicious') { %>
+                <span class="status-pill suspicious">Suspect</span>
+              <% } else if (rep.status === 'safe') { %>
+                <span class="status-pill safe">Validée</span>
+              <% } else if (rep.status === 'clean') { %>
+                <span class="status-pill clean">Neutre</span>
+              <% } else { %>
+                <span class="status-pill pending">Inconnu</span>
+              <% } %>
+              <% if (rep.summary) { %>
+                <br /><small class="text-muted"><%= rep.summary %></small>
+              <% } %>
+              <% if (rep.lastCheckedAt) { %>
+                <br /><small class="text-muted">Vérif : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></small>
+              <% } %>
+            </td>
+            <td>
+              <% if (profile.lastSeenAt) { %>
+                <time datetime="<%= profile.lastSeenAt %>"><%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %></time>
+              <% } else { %>
+                <span class="text-muted">Jamais</span>
                 <% } %>
               </td>
               <td>

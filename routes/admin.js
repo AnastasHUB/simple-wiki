@@ -20,7 +20,18 @@ import {
   normalizeDisplayName,
 } from "../utils/uploads.js";
 import { banIp, liftBan } from "../utils/ipBans.js";
-import { countIpProfiles, fetchIpProfiles } from "../utils/ipProfiles.js";
+import {
+  countIpProfiles,
+  fetchIpProfiles,
+  listIpProfilesForReview,
+  fetchRecentlyClearedProfiles,
+  markIpProfileSafe,
+  markIpProfileBanned,
+  refreshIpReputationByHash,
+  getRawIpProfileByHash,
+  IP_REPUTATION_REFRESH_INTERVAL_MS,
+  formatIpProfileLabel,
+} from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
 import { buildPagination, decoratePagination } from "../utils/pagination.js";
 import {
@@ -405,6 +416,113 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
+});
+
+r.get("/ip-reputation", async (req, res) => {
+  const [suspicious, cleared] = await Promise.all([
+    listIpProfilesForReview({ limit: 100 }),
+    fetchRecentlyClearedProfiles({ limit: 8 }),
+  ]);
+  const refreshIntervalHours = Math.round(
+    (IP_REPUTATION_REFRESH_INTERVAL_MS / (60 * 60 * 1000)) * 10,
+  ) / 10;
+  res.render("admin/ip_reputation", {
+    suspicious,
+    cleared,
+    refreshIntervalHours,
+    providerName: "ipapi.is",
+  });
+});
+
+r.post("/ip-reputation/:hash/mark-safe", async (req, res) => {
+  const hash = (req.params.hash || "").trim();
+  const profile = await getRawIpProfileByHash(hash);
+  if (!profile?.hash) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-reputation");
+  }
+  if (profile.reputation_override === "safe") {
+    pushNotification(req, {
+      type: "success",
+      message: `Profil #${formatIpProfileLabel(profile.hash)} déjà validé`,
+    });
+    return res.redirect("/admin/ip-reputation");
+  }
+  const success = await markIpProfileSafe(hash);
+  pushNotification(req, {
+    type: success ? "success" : "error",
+    message: success
+      ? `Profil #${formatIpProfileLabel(profile.hash)} marqué comme sûr`
+      : "Impossible de marquer ce profil comme sûr.",
+  });
+  res.redirect("/admin/ip-reputation");
+});
+
+r.post("/ip-reputation/:hash/recheck", async (req, res) => {
+  const hash = (req.params.hash || "").trim();
+  const profile = await getRawIpProfileByHash(hash);
+  if (!profile?.ip) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-reputation");
+  }
+  try {
+    await refreshIpReputationByHash(hash, { force: true });
+    pushNotification(req, {
+      type: "success",
+      message: `Profil #${formatIpProfileLabel(profile.hash)} revérifié`,
+    });
+  } catch (err) {
+    console.error("Unable to refresh IP reputation", err);
+    pushNotification(req, {
+      type: "error",
+      message: "La vérification automatique a échoué.",
+    });
+  }
+  res.redirect("/admin/ip-reputation");
+});
+
+r.post("/ip-reputation/:hash/ban", async (req, res) => {
+  const hash = (req.params.hash || "").trim();
+  const profile = await getRawIpProfileByHash(hash);
+  if (!profile?.ip) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-reputation");
+  }
+  const reasonBase = profile.reputation_summary
+    ? `Suspicion VPN/Proxy : ${profile.reputation_summary}`
+    : "Suspicion d'utilisation VPN/Proxy";
+  const reason = ((req.body.reason || reasonBase) || "")
+    .toString()
+    .trim()
+    .slice(0, 500);
+  try {
+    await banIp({ ip: profile.ip, scope: "global", reason });
+    await markIpProfileBanned(hash);
+    pushNotification(req, {
+      type: "success",
+      message: `Adresse ${profile.ip} bannie (profil #${formatIpProfileLabel(profile.hash)})`,
+    });
+    await sendAdminEvent("IP bannie", {
+      extra: { ip: profile.ip, scope: "global", reason },
+      user: req.session.user?.username || null,
+    });
+  } catch (err) {
+    console.error("Unable to ban suspicious IP", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de bannir cette adresse IP.",
+    });
+  }
+  res.redirect("/admin/ip-reputation");
 });
 
 r.get("/ip-profiles", async (req, res) => {

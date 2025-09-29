@@ -1,0 +1,119 @@
+<% title = 'Surveillance IP'; %>
+<h1>Surveillance des IP à risque</h1>
+
+<p class="text-muted leading-snug">
+  Les adresses IP sont vérifiées automatiquement via le service <a href="https://ipapi.is" target="_blank" rel="noopener"><%= providerName %></a>
+  pour repérer les VPN, proxys, réseaux Tor ou hébergements abusifs. Les contrôles sont rejoués toutes les
+  <strong><%= refreshIntervalHours %>h</strong> ou manuellement depuis cet onglet.
+</p>
+
+<% if (suspicious.length) { %>
+  <div class="alert alert-error mb-md">
+    ⚠️ <strong><%= suspicious.length %> IP</strong> nécessitent une action de modération. Vous pouvez les bannir ou les marquer comme sûres après vérification.
+  </div>
+<% } else { %>
+  <div class="alert alert-success mb-md">
+    ✅ Aucune nouvelle adresse IP suspecte n'a été détectée lors de la dernière analyse automatique.
+  </div>
+<% } %>
+
+<section class="card card-highlight mb-xl">
+  <h2 class="mt-0">Résumé</h2>
+  <div class="grid grid-auto">
+    <div>
+      <p class="stat-sub">IP en attente de revue</p>
+      <p class="stat-number"><%= suspicious.length %></p>
+    </div>
+    <div>
+      <p class="stat-sub">Fournisseur de détection</p>
+      <p class="stat-number"><%= providerName %></p>
+    </div>
+    <div>
+      <p class="stat-sub">Fréquence automatique</p>
+      <p class="stat-number"><%= refreshIntervalHours %>h</p>
+    </div>
+  </div>
+</section>
+
+<section class="card mb-xl">
+  <h2 class="mt-0">IP à examiner (<%= suspicious.length %>)</h2>
+  <% if (!suspicious.length) { %>
+    <p class="text-muted">Aucune adresse IP suspecte n'est en file d'attente.</p>
+  <% } else { %>
+    <ul class="admin-risk-list">
+      <% suspicious.forEach((profile) => { %>
+        <li class="admin-risk-item">
+          <header class="admin-risk-header">
+            <div>
+              <code class="admin-risk-ip"><%= profile.ip %></code>
+              <span class="status-pill suspicious">Suspecte</span>
+              <span class="text-muted">Profil #<%= profile.shortHash %></span>
+            </div>
+            <div class="admin-risk-links">
+              <a class="btn secondary" href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">Profil public</a>
+              <a class="btn secondary" href="/admin/ip-profiles?search=<%= profile.hash %>">Voir dans la liste</a>
+            </div>
+          </header>
+          <p class="admin-risk-summary"><%= profile.summary || 'Signaux d\'activité suspects détectés.' %></p>
+          <div class="admin-risk-flags">
+            <% if (profile.flags.isVpn) { %><span class="tag tag-danger">VPN détecté</span><% } %>
+            <% if (profile.flags.isProxy) { %><span class="tag tag-warning">Proxy</span><% } %>
+            <% if (profile.flags.isTor) { %><span class="tag tag-warning">Noeud Tor</span><% } %>
+            <% if (profile.flags.isDatacenter) { %><span class="tag tag-info">Hébergement</span><% } %>
+            <% if (profile.flags.isAbuser) { %><span class="tag tag-danger">Risque d'abus</span><% } %>
+          </div>
+          <div class="admin-risk-meta text-muted">
+            <% if (profile.checkedAt) { %>
+              Dernière vérification : <%= new Date(profile.checkedAt).toLocaleString('fr-FR') %>
+            <% } else { %>
+              Dernière vérification : inconnue
+            <% } %>
+            <% if (profile.lastSeenAt) { %>
+              · Dernière activité : <%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %>
+            <% } %>
+          </div>
+          <div class="admin-risk-actions">
+            <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/ban" onsubmit="return confirm('Bannir définitivement cette adresse IP ?');">
+              <button type="submit" class="btn danger" data-icon="🚫">Bannir</button>
+            </form>
+            <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/mark-safe">
+              <button type="submit" class="btn success" data-icon="✅">Marquer comme sûr</button>
+            </form>
+            <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/recheck">
+              <button type="submit" class="btn secondary" data-icon="🔄">Revérifier</button>
+            </form>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2 class="mt-0">IP récemment validées</h2>
+  <% if (!cleared.length) { %>
+    <p class="text-muted">Aucune validation manuelle récente.</p>
+  <% } else { %>
+    <ul class="admin-cleared-list">
+      <% cleared.forEach((profile) => { %>
+        <li>
+          <div class="admin-cleared-header">
+            <code><%= profile.ip %></code>
+            <span class="status-pill safe">Sûre</span>
+            <span class="text-muted">Profil #<%= profile.shortHash %></span>
+          </div>
+          <% if (profile.summary) { %>
+            <p class="text-muted"><%= profile.summary %></p>
+          <% } %>
+          <p class="admin-cleared-meta text-muted">
+            <% if (profile.checkedAt) { %>
+              Vérifié le <%= new Date(profile.checkedAt).toLocaleString('fr-FR') %>
+            <% } else if (profile.lastSeenAt) { %>
+              Dernière activité : <%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %>
+            <% } %>
+          </p>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>

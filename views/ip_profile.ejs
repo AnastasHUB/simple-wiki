@@ -13,6 +13,24 @@
     <% } %>
   </header>
 
+  <% const rep = profile.reputation || {}; %>
+  <% const repStatus = rep.status || 'unknown'; %>
+  <% const repLabel = repStatus === 'suspicious' ? 'IP suspecte' : repStatus === 'safe' ? 'IP validée' : repStatus === 'clean' ? 'IP neutre' : 'Statut inconnu'; %>
+  <% let repClasses = 'notice ip-profile-reputation'; %>
+  <% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
+  <% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
+  <div class="<%= repClasses %>">
+    <div class="ip-profile-reputation-header">
+      <span class="<%= pillClass %>"><%= repLabel %></span>
+      <% if (rep.lastCheckedAt) { %>
+        <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
+      <% } %>
+    </div>
+    <p class="ip-profile-reputation-text">
+      <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
+    </p>
+  </div>
+
   <dl class="ip-profile-details">
     <div>
       <dt>Profil créé</dt>
