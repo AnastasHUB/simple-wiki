@@ -18,12 +18,15 @@ function normalizeEntries(entries) {
       if (!entry || typeof entry !== "object") {
         return null;
       }
+      const version =
+        typeof entry.version === "string" ? entry.version.trim() : "";
       const title = typeof entry.title === "string" ? entry.title.trim() : "";
       const description = Array.isArray(entry.details)
         ? entry.details.filter((line) => typeof line === "string" && line.trim())
         : [];
       const date = typeof entry.date === "string" ? entry.date : null;
       return {
+        version: version || null,
         title: title || "Mise à jour",
         date,
         details: description,
@@ -56,4 +59,34 @@ export async function loadChangelogEntries() {
     cachedMtimeMs = 0;
     return [];
   }
+}
+
+export async function saveChangelogEntries(entries) {
+  const normalized = normalizeEntries(entries);
+  const serialized = normalized.map((entry) => {
+    const payload = {
+      version: entry.version,
+      title: entry.title,
+      details: entry.details,
+    };
+    if (entry.date) {
+      payload.date = entry.date;
+    }
+    if (!payload.version) {
+      delete payload.version;
+    }
+    return payload;
+  });
+
+  await fs.writeFile(CHANGELOG_PATH, JSON.stringify(serialized, null, 2), "utf8");
+
+  try {
+    const stats = await fs.stat(CHANGELOG_PATH);
+    cachedMtimeMs = stats.mtimeMs;
+  } catch (_error) {
+    cachedMtimeMs = 0;
+  }
+  cachedEntries = normalized;
+
+  return cachedEntries;
 }

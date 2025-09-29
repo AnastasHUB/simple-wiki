@@ -14,7 +14,12 @@
       <% entries.forEach(entry => { %>
         <li class="changelog-entry">
           <div class="changelog-entry-header">
-            <h2><%= entry.title %></h2>
+            <div>
+              <% if (entry.version) { %>
+                <p class="changelog-entry-version">Version <span><%= entry.version %></span></p>
+              <% } %>
+              <h2 class="changelog-entry-title"><%= entry.title %></h2>
+            </div>
             <% if (entry.date) { %>
               <time datetime="<%= entry.date %>">
                 <%= new Date(entry.date).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' }) %>

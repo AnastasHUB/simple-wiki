@@ -57,6 +57,7 @@ import {
   resolveBanAppeal,
   deleteBanAppeal,
 } from "../utils/banAppeals.js";
+import { loadChangelogEntries, saveChangelogEntries } from "../utils/changelog.js";
 
 await ensureUploadDir();
 
@@ -3021,6 +3022,166 @@ r.post("/trash/:id/restore", async (req, res) => {
   res.redirect(`/wiki/${trashed.slug_id}`);
 });
 
+r.get("/changelog", async (_req, res) => {
+  const entries = await loadChangelogEntries();
+  res.render("admin/changelog", {
+    entries: formatChangelogEntriesForAdmin(entries),
+    errors: [],
+    formValues: buildChangelogFormValues(),
+  });
+});
+
+r.post("/changelog", async (req, res) => {
+  const formValues = buildChangelogFormValues({
+    version: req.body.version ?? "",
+    date: req.body.date ?? "",
+    title: req.body.title ?? "",
+    details: req.body.details ?? "",
+  });
+
+  const errors = [];
+
+  const version = formValues.version.trim();
+  if (!version) {
+    errors.push("La version est obligatoire.");
+  }
+
+  let date = formValues.date.trim();
+  if (date && !isValidIsoDate(date)) {
+    errors.push("La date doit être au format AAAA-MM-JJ.");
+  }
+  if (!date) {
+    date = new Date().toISOString().slice(0, 10);
+    formValues.date = date;
+  }
+
+  const title = formValues.title.trim();
+  const details = parseChangelogDetails(formValues.details);
+  if (!details.length) {
+    errors.push("Ajoutez au moins un élément dans les détails.");
+  }
+
+  if (errors.length) {
+    const entries = await loadChangelogEntries();
+    return res.status(400).render("admin/changelog", {
+      entries: formatChangelogEntriesForAdmin(entries),
+      errors,
+      formValues,
+    });
+  }
+
+  const entries = await loadChangelogEntries();
+  entries.push({
+    version,
+    title: title || `Version ${version}`,
+    date,
+    details,
+  });
+
+  await saveChangelogEntries(entries);
+
+  pushNotification(req, {
+    type: "success",
+    message: "La nouvelle version a été ajoutée au changelog.",
+  });
+
+  res.redirect("/admin/changelog");
+});
+
+r.post("/changelog/:index/update", async (req, res) => {
+  const index = Number.parseInt(req.params.index, 10);
+  if (Number.isNaN(index)) {
+    pushNotification(req, {
+      type: "error",
+      message: "Référence de version invalide.",
+    });
+    return res.redirect("/admin/changelog");
+  }
+
+  const entries = await loadChangelogEntries();
+  if (index < 0 || index >= entries.length) {
+    pushNotification(req, {
+      type: "error",
+      message: "Version introuvable.",
+    });
+    return res.redirect("/admin/changelog");
+  }
+
+  const version = (req.body.version || "").trim();
+  const title = (req.body.title || "").trim();
+  const details = parseChangelogDetails(req.body.details || "");
+  let date = (req.body.date || "").trim();
+
+  const errors = [];
+  if (!version) {
+    errors.push("La version est obligatoire.");
+  }
+  if (date && !isValidIsoDate(date)) {
+    errors.push("La date doit être au format AAAA-MM-JJ.");
+  }
+  if (!details.length) {
+    errors.push("Ajoutez au moins un élément dans les détails.");
+  }
+
+  if (errors.length) {
+    pushNotification(req, {
+      type: "error",
+      message: errors.join(" "),
+    });
+    return res.redirect("/admin/changelog");
+  }
+
+  if (!date) {
+    date = null;
+  }
+
+  entries[index] = {
+    version,
+    title: title || `Version ${version}`,
+    date,
+    details,
+  };
+
+  await saveChangelogEntries(entries);
+
+  pushNotification(req, {
+    type: "success",
+    message: "La version a été mise à jour.",
+  });
+
+  res.redirect("/admin/changelog");
+});
+
+r.post("/changelog/:index/delete", async (req, res) => {
+  const index = Number.parseInt(req.params.index, 10);
+  if (Number.isNaN(index)) {
+    pushNotification(req, {
+      type: "error",
+      message: "Référence de version invalide.",
+    });
+    return res.redirect("/admin/changelog");
+  }
+
+  const entries = await loadChangelogEntries();
+  if (index < 0 || index >= entries.length) {
+    pushNotification(req, {
+      type: "error",
+      message: "Version introuvable.",
+    });
+    return res.redirect("/admin/changelog");
+  }
+
+  entries.splice(index, 1);
+  await saveChangelogEntries(entries);
+
+  pushNotification(req, {
+    type: "success",
+    message: "La version a été supprimée du changelog.",
+  });
+
+  res.redirect("/admin/changelog");
+});
+
 r.get("/events", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
@@ -3059,6 +3220,56 @@ r.get("/events", async (req, res) => {
 });
 
 export default r;
+
+function formatChangelogEntriesForAdmin(entries) {
+  return entries.map((entry, index) => ({
+    index,
+    version: entry.version || "",
+    title: entry.title,
+    date: entry.date,
+    details: entry.details,
+    detailsText: Array.isArray(entry.details)
+      ? entry.details.join("\n")
+      : "",
+  }));
+}
+
+function buildChangelogFormValues(overrides = {}) {
+  const defaults = {
+    version: "",
+    date: new Date().toISOString().slice(0, 10),
+    title: "",
+    details: "",
+  };
+  return { ...defaults, ...overrides };
+}
+
+function parseChangelogDetails(raw) {
+  return String(raw || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function isValidIsoDate(value) {
+  if (typeof value !== "string") {
+    return false;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+  const parsed = Date.parse(value);
+  if (Number.isNaN(parsed)) {
+    return false;
+  }
+  const date = new Date(parsed);
+  const [year, month, day] = value.split("-").map(Number);
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() + 1 === month &&
+    date.getUTCDate() === day
+  );
+}
 
 function parseTagsJson(value) {
   if (!value) {
