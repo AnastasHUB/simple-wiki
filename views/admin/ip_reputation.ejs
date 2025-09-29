@@ -7,6 +7,25 @@
   <strong><%= refreshIntervalHours %>h</strong> ou manuellement depuis cet onglet.
 </p>
 
+<section class="card mb-xl">
+  <h2 class="mt-0">Analyser une adresse IP</h2>
+  <form method="post" action="/admin/ip-reputation/manual-check" class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form flex-basis-260">
+      <span class="text-sm text-muted">Adresse IP</span>
+      <input
+        type="text"
+        name="ip"
+        placeholder="Ex : 203.0.113.5"
+        required
+      />
+    </label>
+    <button type="submit" class="btn success" data-icon="🔍">Analyser</button>
+  </form>
+  <p class="help-text mt-sm">
+    L'adresse sera ajoutée au suivi et analysée immédiatement via le fournisseur externe.
+  </p>
+</section>
+
 <% if (suspicious.length) { %>
   <div class="alert alert-error mb-md">
     ⚠️ <strong><%= suspicious.length %> IP</strong> nécessitent une action de modération. Vous pouvez les bannir ou les marquer comme sûres après vérification.

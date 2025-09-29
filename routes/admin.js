@@ -31,6 +31,7 @@ import {
   getRawIpProfileByHash,
   IP_REPUTATION_REFRESH_INTERVAL_MS,
   formatIpProfileLabel,
+  touchIpProfile,
   deleteIpProfileByHash,
 } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
@@ -648,6 +649,45 @@ r.get("/ip-reputation", async (req, res) => {
     refreshIntervalHours,
     providerName: "ipapi.is",
   });
+});
+
+r.post("/ip-reputation/manual-check", async (req, res) => {
+  const rawIp = typeof req.body?.ip === "string" ? req.body.ip.trim() : "";
+  if (!rawIp) {
+    pushNotification(req, {
+      type: "error",
+      message: "Veuillez indiquer une adresse IP à analyser.",
+    });
+    return res.redirect("/admin/ip-reputation");
+  }
+
+  try {
+    const profile = await touchIpProfile(rawIp);
+    if (!profile?.hash) {
+      pushNotification(req, {
+        type: "error",
+        message: "Adresse IP invalide ou non prise en charge.",
+      });
+      return res.redirect("/admin/ip-reputation");
+    }
+
+    pushNotification(req, {
+      type: "success",
+      message: `Analyse lancée pour le profil #${formatIpProfileLabel(profile.hash)}.`,
+    });
+    await sendAdminEvent("Analyse IP manuelle", {
+      extra: { ip: rawIp, hash: profile.hash },
+      user: req.session.user?.username || null,
+    });
+  } catch (err) {
+    console.error("Unable to start manual IP reputation check", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de lancer l'analyse pour cette adresse IP.",
+    });
+  }
+
+  res.redirect("/admin/ip-reputation");
 });
 
 r.post("/ip-reputation/:hash/mark-safe", async (req, res) => {
