@@ -188,13 +188,7 @@ r.get("/comments", async (req, res) => {
 });
 
 r.post("/comments/:id/approve", async (req, res) => {
-  const comment = await get(
-    `SELECT c.id, c.snowflake_id, c.status, c.ip, p.title, p.slug_id
-       FROM comments c
-       JOIN pages p ON p.id = c.page_id
-      WHERE c.snowflake_id=?`,
-    [req.params.id],
-  );
+  const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
     pushNotification(req, {
       type: "error",
@@ -215,13 +209,7 @@ r.post("/comments/:id/approve", async (req, res) => {
 });
 
 r.post("/comments/:id/reject", async (req, res) => {
-  const comment = await get(
-    `SELECT c.id, c.snowflake_id, c.status, c.ip, p.title, p.slug_id
-       FROM comments c
-       JOIN pages p ON p.id = c.page_id
-      WHERE c.snowflake_id=?`,
-    [req.params.id],
-  );
+  const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
     pushNotification(req, {
       type: "error",
@@ -242,13 +230,7 @@ r.post("/comments/:id/reject", async (req, res) => {
 });
 
 async function handleCommentDeletion(req, res) {
-  const comment = await get(
-    `SELECT c.id, c.snowflake_id, c.ip, p.title, p.slug_id
-       FROM comments c
-       JOIN pages p ON p.id = c.page_id
-      WHERE c.snowflake_id=?`,
-    [req.params.id],
-  );
+  const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
     pushNotification(req, {
       type: "error",
@@ -270,6 +252,45 @@ async function handleCommentDeletion(req, res) {
 
 r.delete("/comments/:id", handleCommentDeletion);
 r.post("/comments/:id/delete", handleCommentDeletion);
+
+async function fetchModeratableComment(rawId) {
+  const identifier = typeof rawId === "string" ? rawId.trim() : "";
+  if (!identifier) {
+    return { comment: null };
+  }
+
+  let whereClause = "c.snowflake_id=?";
+  const params = [identifier];
+  const legacyCandidate = Number.parseInt(identifier, 10);
+  const legacyId =
+    /^[0-9]+$/.test(identifier) && Number.isSafeInteger(legacyCandidate)
+      ? legacyCandidate
+      : null;
+  if (legacyId !== null) {
+    whereClause = "(c.snowflake_id=? OR c.id=?)";
+    params.push(legacyId);
+  }
+
+  const comment = await get(
+    `SELECT c.id, c.snowflake_id, c.status, c.ip, p.title, p.slug_id
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE ${whereClause}
+      LIMIT 1`,
+    params,
+  );
+
+  if (comment && !comment.snowflake_id) {
+    const newSnowflake = generateSnowflake();
+    await run("UPDATE comments SET snowflake_id=? WHERE id=?", [
+      newSnowflake,
+      comment.id,
+    ]);
+    comment.snowflake_id = newSnowflake;
+  }
+
+  return { comment };
+}
 
 r.get("/ban-appeals", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
@@ -3166,9 +3187,10 @@ r.post("/trash/:id/restore", async (req, res) => {
       if (comments.length) {
         for (const comment of comments) {
           await run(
-            `INSERT INTO comments(page_id, author, body, created_at, updated_at, ip, edit_token, status, author_is_admin)
-             VALUES(?,?,?,?,?,?,?,?,?)`,
+            `INSERT INTO comments(snowflake_id, page_id, author, body, created_at, updated_at, ip, edit_token, status, author_is_admin)
+             VALUES(?,?,?,?,?,?,?,?,?,?)`,
             [
+              comment.snowflake_id,
               pageId,
               comment.author,
               comment.body,
@@ -3403,12 +3425,22 @@ function parseCommentsJson(value) {
           return null;
         }
         const body = typeof comment.body === "string" ? comment.body : "";
+        const providedSnowflake =
+          typeof comment.snowflake_id === "string"
+            ? comment.snowflake_id.trim()
+            : "";
+        const legacyId =
+          typeof comment.id === "string" || typeof comment.id === "number"
+            ? String(comment.id).trim()
+            : "";
+        const snowflakeId = providedSnowflake || legacyId;
         const status =
           typeof comment.status === "string" &&
           ["pending", "approved", "rejected"].includes(comment.status)
             ? comment.status
             : "pending";
         return {
+          snowflake_id: snowflakeId || generateSnowflake(),
           author: typeof comment.author === "string" ? comment.author : null,
           body,
           created_at:
