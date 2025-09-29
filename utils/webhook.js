@@ -54,14 +54,15 @@ function formatMetaLines(meta) {
     .filter(Boolean);
 }
 
-function formatPageSummary(page, url) {
+function formatPageSummary(page, url, options = {}) {
   if (!page) return "";
+  const { includeTitle = true, includeLink = true } = options;
   const lines = [];
-  if (page.title) {
+  if (page.title && includeTitle) {
     lines.push(`**Titre :** ${page.title}`);
   }
   const link = url || (page.slug_id ? `/wiki/${page.slug_id}` : "");
-  if (link) {
+  if (link && includeLink) {
     lines.push(`**Lien :** ${link}`);
   } else if (page.slug_id) {
     lines.push(`**Identifiant :** ${page.slug_id}`);
@@ -117,7 +118,23 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     sections.push(descriptionSeed);
   }
 
-  const pageSummary = formatPageSummary(data?.page, data?.url);
+  const normalizedDescription =
+    typeof descriptionSeed === "string" ? descriptionSeed.toLowerCase() : "";
+  const normalizedTitle =
+    typeof data?.page?.title === "string" ? data.page.title.toLowerCase() : "";
+  const descriptionContainsTitle =
+    normalizedDescription && normalizedTitle
+      ? normalizedDescription.includes(normalizedTitle)
+      : false;
+  const descriptionContainsUrl =
+    Boolean(descriptionSeed) && Boolean(data?.url)
+      ? descriptionSeed.includes(data.url)
+      : false;
+
+  const pageSummary = formatPageSummary(data?.page, data?.url, {
+    includeTitle: !descriptionContainsTitle,
+    includeLink: !descriptionContainsUrl,
+  });
   if (pageSummary) {
     sections.push(pageSummary);
   }

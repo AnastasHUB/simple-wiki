@@ -16,6 +16,30 @@ turndown.addRule("strikethrough", {
   replacement: (content) => `~~${content}~~`,
 });
 
+turndown.addRule("fencedCodeBlockWithLanguage", {
+  filter: (node) =>
+    node.nodeName === "PRE" &&
+    node.firstChild &&
+    node.firstChild.nodeName === "CODE",
+  replacement: (_content, node) => {
+    const codeNode = node.firstChild;
+    const rawClassName = codeNode.getAttribute("class") || "";
+    const languageMatch = rawClassName.match(/(?:language|lang)-([\w+#-]+)/i);
+    let language = languageMatch ? languageMatch[1].toLowerCase() : "";
+    language = language.replace(/[^a-z0-9+#-]/g, "");
+    if (language === "javascript") language = "js";
+    if (language === "typescript") language = "ts";
+    if (language === "c++") language = "cpp";
+    if (language === "c#") language = "csharp";
+
+    const codeText = codeNode.textContent || "";
+    const trimmed = codeText.replace(/^\n+/u, "").replace(/\s+$/u, "");
+    const openingFence = language ? "```" + language : "```";
+    const closingFence = "```";
+    return `\n\n${openingFence}\n${trimmed}\n${closingFence}\n\n`;
+  },
+});
+
 const CONTENT_SANITIZE_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
     "h1",
