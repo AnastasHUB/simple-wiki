@@ -2,8 +2,8 @@
 
 <% const hasImportErrors = importResult && importResult.errors && importResult.errors.length; %>
 <% if (hasImportErrors) { %>
-  <div class="card" style="padding:16px; margin-bottom:16px; background:#f4f6ff; border:1px solid #c7d2fe; border-radius:8px;">
-    <h2 style="margin-top:0;">Résultat de l'import</h2>
+  <div class="card card-highlight mb-md">
+    <h2 class="mt-0">Résultat de l'import</h2>
     <p><strong><%= importResult.errors.length %></strong> erreur(s) détectée(s). Les entrées correspondantes ont été ignorées.</p>
     <ul>
       <% importResult.errors.slice(0, 10).forEach(err => { %>
@@ -39,10 +39,10 @@
   <a class="btn" data-icon="📦" href="/admin/pages/export">Télécharger l'export JSON</a>
 </section>
 
-<section class="card" style="margin-top:24px;">
+<section class="card mt-xl">
   <h2>Importer des articles</h2>
   <p>Sélectionnez un fichier JSON précédemment exporté pour recréer ou mettre à jour des articles. Les articles existants sont reconnus par leur <code>slug_id</code> et seront mis à jour. Les tags sont remplacés par ceux fournis dans le fichier.</p>
-  <form method="post" action="/admin/pages/import" enctype="multipart/form-data" style="display:flex; flex-direction:column; gap:12px; max-width:420px;">
+  <form method="post" action="/admin/pages/import" enctype="multipart/form-data" class="flex flex-col gap-sm max-w-420">
     <input type="file" name="archive" accept="application/json" required />
     <button class="btn" data-icon="📥" type="submit">Importer le fichier</button>
   </form>

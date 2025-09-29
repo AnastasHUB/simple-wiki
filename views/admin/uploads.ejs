@@ -1,23 +1,23 @@
 <% title='Images'; %>
 <h1>Gestion des images</h1>
-<div class="card" style="margin-bottom:16px">
+<div class="card mb-md">
   <h2>Ajouter une image</h2>
-  <p style="margin-top:8px">
+  <p class="mt-xs">
     Chaque image reçoit un identifiant unique (UUID). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
     Vous pouvez définir un nom personnalisé sans changer l’UUID. Laissez le champ vide pour effacer le nom personnalisé.
   </p>
-  <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" style="display:flex; flex-wrap:wrap; gap:12px; margin-top:12px">
-    <div style="flex:1 1 220px">
+  <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" class="flex flex-wrap gap-sm mt-sm">
+    <div class="flex-basis-220">
       <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="Image" />
     </div>
-    <div style="flex:1 1 220px">
+    <div class="flex-basis-220">
       <input type="text" id="displayNameInput" name="displayName" placeholder="Nom personnalisé (optionnel)" maxlength="120" aria-label="Nom personnalisé (optionnel)" />
     </div>
-    <div style="align-self:flex-end">
+    <div class="self-end">
       <button class="btn success" data-icon="🚀" type="submit">Uploader</button>
     </div>
   </form>
-  <div id="uploadMessage" style="margin-top:12px"></div>
+  <div id="uploadMessage" class="mt-sm"></div>
 </div>
 
 <% if (uploads.length) { %>
@@ -38,9 +38,9 @@
           <% const sizeLabel = upload.size ? Math.max(1, Math.round(upload.size / 1024)) + ' Ko' : '—'; %>
           <tr>
             <td>
-              <img src="<%= upload.url %>" alt="" style="max-width:140px; max-height:90px; object-fit:contain; border-radius:8px" />
+              <img src="<%= upload.url %>" alt="" class="upload-thumb" />
             </td>
-          <td style="line-height:1.4">
+          <td class="leading-snug">
             <div><strong>UUID :</strong> <code><%= upload.id %></code></div>
             <div><strong>Nom original :</strong> <%= upload.originalName %></div>
             <div><strong>Nom affiché :</strong> <%= displayName || '—' %></div>
@@ -48,14 +48,14 @@
             <div><strong>Ajouté :</strong> <%= createdAt %></div>
           </td>
           <td>
-            <form method="post" action="/admin/uploads/<%= upload.id %>/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
+            <form method="post" action="/admin/uploads/<%= upload.id %>/name" class="stack-form">
               <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
               <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
             </form>
           </td>
           <td>
             <% const altText = displayName || upload.originalName || ''; %>
-            <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>" style="display:flex; flex-direction:column; gap:8px">
+            <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>">
               <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
               <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
                 <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
@@ -67,9 +67,9 @@
       </tbody>
     </table>
   </div>
-  <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
-    <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
-      <label for="uploads-per-page" style="white-space:nowrap;">Éléments par page</label>
+  <div class="table-footer">
+    <form method="get">
+      <label for="uploads-per-page" class="nowrap">Éléments par page</label>
       <select id="uploads-per-page" name="perPage" onchange="this.form.submit()">
         <% pagination.perPageOptions.forEach(option => { %>
           <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -78,21 +78,21 @@
       <input type="hidden" name="page" value="1">
     </form>
     <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
-    <div style="display:flex; gap:0.5rem;">
+    <div class="pager">
       <% if (pagination.hasPrevious) { %>
         <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
       <% } else { %>
-        <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
       <% } %>
       <% if (pagination.hasNext) { %>
         <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
       <% } else { %>
-        <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
       <% } %>
     </div>
   </div>
 <% } else { %>
-  <p class="card" style="color:var(--muted)">Aucune image disponible pour le moment.</p>
+  <p class="card text-muted">Aucune image disponible pour le moment.</p>
 <% } %>
 
 <script>
@@ -137,17 +137,13 @@
     if (!text) return;
     const box = document.createElement('div');
     box.textContent = text;
-    box.style.padding = '8px 12px';
-    box.style.borderRadius = '6px';
+    box.classList.add('alert');
     if (type === 'error') {
-      box.style.backgroundColor = '#ffe5e5';
-      box.style.color = '#a60000';
+      box.classList.add('alert-error');
     } else if (type === 'success') {
-      box.style.backgroundColor = '#e6ffed';
-      box.style.color = '#065f46';
+      box.classList.add('alert-success');
     } else {
-      box.style.backgroundColor = '#e5f6ff';
-      box.style.color = '#005a8c';
+      box.classList.add('alert-info');
     }
     uploadMessage.appendChild(box);
   }
@@ -170,9 +166,9 @@
     const safeId = escapeHtml(data.id);
     tr.innerHTML = `
       <td>
-        <img src="${safeUrl}" alt="" style="max-width:140px; max-height:90px; object-fit:contain; border-radius:8px" />
+        <img src="${safeUrl}" alt="" class="upload-thumb" />
       </td>
-      <td style="line-height:1.4">
+      <td class="leading-snug">
         <div><strong>UUID :</strong> <code>${safeId}</code></div>
         <div><strong>Nom original :</strong> ${escapeHtml(originalName)}</div>
         <div><strong>Nom affiché :</strong> ${displayName ? escapeHtml(displayName) : '—'}</div>
@@ -180,13 +176,13 @@
         <div><strong>Ajouté :</strong> ${new Date().toLocaleString('fr-FR')}</div>
       </td>
       <td>
-        <form method="post" action="/admin/uploads/${safeId}/name" style="display:flex; flex-direction:column; gap:8px; min-width:220px">
+        <form method="post" action="/admin/uploads/${safeId}/name" class="stack-form">
           <input type="text" name="displayName" value="${escapeHtml(displayName)}" maxlength="120" placeholder="Nom personnalisé" />
           <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
         </form>
       </td>
       <td>
-        <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}" style="display:flex; flex-direction:column; gap:8px">
+        <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}">
           <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
           <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
             <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>

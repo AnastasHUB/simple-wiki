@@ -1,9 +1,9 @@
 <% title = 'Blocages IP'; %>
 <h1>Blocages IP</h1>
 
-<section class="card" style="margin-bottom:24px;">
+<section class="card mb-xl">
   <h2>Ajouter un blocage</h2>
-  <form method="post" action="/admin/ip-bans" class="grid" style="grid-template-columns: repeat(auto-fit, minmax(220px,1fr)); gap:12px;">
+  <form method="post" action="/admin/ip-bans" class="grid grid-auto">
     <div>
       <label for="ip">Adresse IP</label>
       <input id="ip" type="text" name="ip" required>
@@ -22,15 +22,15 @@
       <label for="tag">Tag (si applicable)</label>
       <input id="tag" type="text" name="tag" placeholder="ex: spoiler">
     </div>
-    <div style="grid-column: 1 / -1;">
+    <div class="grid-span-full">
       <label for="reason">Motif</label>
       <input id="reason" type="text" name="reason" placeholder="Optionnel">
     </div>
-    <div style="grid-column: 1 / -1;">
+    <div class="grid-span-full">
       <button class="btn success" data-icon="🛡️" type="submit">Enregistrer</button>
     </div>
   </form>
-  <p style="font-size:0.85em; color:#94a3b8; margin-top:12px;">Pour un blocage limité à une action, choisissez la portée correspondante. Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.</p>
+  <p class="help-text">Pour un blocage limité à une action, choisissez la portée correspondante. Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.</p>
 </section>
 
 <section class="card">
@@ -70,9 +70,9 @@
         </tbody>
       </table>
     </div>
-    <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
-      <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
-        <label for="active-per-page" style="white-space:nowrap;">Éléments par page</label>
+    <div class="table-footer">
+      <form method="get">
+        <label for="active-per-page" class="nowrap">Éléments par page</label>
         <select id="active-per-page" name="activePerPage" onchange="this.form.submit()">
           <% activePagination.perPageOptions.forEach(option => { %>
             <option value="<%= option %>" <%= option === activePagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -83,16 +83,16 @@
         <input type="hidden" name="liftedPerPage" value="<%= liftedPagination.perPage %>">
       </form>
       <span>Page <%= activePagination.page %> sur <%= activePagination.totalPages %></span>
-      <div style="display:flex; gap:0.5rem;">
+      <div class="pager">
         <% if (activePagination.hasPrevious) { %>
           <a class="btn" data-icon="⬅️" href="?activePage=<%= activePagination.previousPage %>&activePerPage=<%= activePagination.perPage %>&liftedPage=<%= liftedPagination.page %>&liftedPerPage=<%= liftedPagination.perPage %>">Précédent</a>
         <% } else { %>
-          <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
         <% } %>
         <% if (activePagination.hasNext) { %>
           <a class="btn" data-icon="➡️" href="?activePage=<%= activePagination.nextPage %>&activePerPage=<%= activePagination.perPage %>&liftedPage=<%= liftedPagination.page %>&liftedPerPage=<%= liftedPagination.perPage %>">Suivant</a>
         <% } else { %>
-          <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
         <% } %>
       </div>
     </div>
@@ -132,9 +132,9 @@
         </tbody>
       </table>
     </div>
-    <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
-      <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
-        <label for="lifted-per-page" style="white-space:nowrap;">Éléments par page</label>
+    <div class="table-footer">
+      <form method="get">
+        <label for="lifted-per-page" class="nowrap">Éléments par page</label>
         <select id="lifted-per-page" name="liftedPerPage" onchange="this.form.submit()">
           <% liftedPagination.perPageOptions.forEach(option => { %>
             <option value="<%= option %>" <%= option === liftedPagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -145,16 +145,16 @@
         <input type="hidden" name="activePerPage" value="<%= activePagination.perPage %>">
       </form>
       <span>Page <%= liftedPagination.page %> sur <%= liftedPagination.totalPages %></span>
-      <div style="display:flex; gap:0.5rem;">
+      <div class="pager">
         <% if (liftedPagination.hasPrevious) { %>
           <a class="btn" data-icon="⬅️" href="?liftedPage=<%= liftedPagination.previousPage %>&liftedPerPage=<%= liftedPagination.perPage %>&activePage=<%= activePagination.page %>&activePerPage=<%= activePagination.perPage %>">Précédent</a>
         <% } else { %>
-          <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
         <% } %>
         <% if (liftedPagination.hasNext) { %>
           <a class="btn" data-icon="➡️" href="?liftedPage=<%= liftedPagination.nextPage %>&liftedPerPage=<%= liftedPagination.perPage %>&activePage=<%= activePagination.page %>&activePerPage=<%= activePagination.perPage %>">Suivant</a>
         <% } else { %>
-          <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
         <% } %>
       </div>
     </div>
