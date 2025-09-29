@@ -1890,26 +1890,6 @@ input[type="checkbox"] {
   font-weight: 600;
 }
 
-.ip-profile-preference-mini ul {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: grid;
-  gap: 0.45rem;
-}
-
-.ip-profile-preference-mini li {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.6rem;
-}
-
-.ip-profile-preference-mini span {
-  color: var(--muted);
-  font-size: 0.8rem;
-}
-
 .ip-profile-stat {
   position: relative;
 }
@@ -1932,13 +1912,6 @@ input[type="checkbox"] {
   padding: 0;
   display: grid;
   gap: 0.75rem;
-}
-
-.ip-profile-activity.compact li {
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  padding: 0.7rem 0.85rem;
 }
 
 .ip-profile-activity-meta {
@@ -1979,22 +1952,6 @@ input[type="checkbox"] {
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.4rem;
-}
-
-.ip-preferences-form {
-  display: grid;
-  gap: 1rem;
-}
-
-.ip-preferences-checkbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.form-help {
-  font-size: 0.8rem;
-  color: var(--muted);
 }
 
 .ip-profile-activity-grid .ip-profile-section .text-muted {

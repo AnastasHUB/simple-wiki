@@ -1,6 +1,4 @@
-<% const preferences = profile.preferences || {}; %>
-<% const customLabel = preferences.publicLabel && preferences.publicLabel.trim() ? preferences.publicLabel.trim() : null; %>
-<% const displayTitle = customLabel || `Profil IP #${profile.shortHash}`; %>
+<% const displayTitle = `Profil IP #${profile.shortHash}`; %>
 <% title = displayTitle; %>
 <% const rep = profile.reputation || {}; %>
 <% const repStatus = rep.status || 'unknown'; %>
@@ -8,12 +6,7 @@
 <% let repClasses = 'ip-profile-reputation card-subtle notice'; %>
 <% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
 <% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
-<% const pageSizeOptions = Array.isArray(preferenceOptions?.commentPageSizes) && preferenceOptions.commentPageSizes.length ? preferenceOptions.commentPageSizes : [5, 10, 20, 50]; %>
-<% const activityListClass = ['ip-profile-activity']; %>
-<% if (preferences.compactComments) { activityListClass.push('compact'); } %>
-<% const activityClassName = activityListClass.join(' '); %>
-<% const defaultAuthorLabel = preferences.defaultAuthor ? preferences.defaultAuthor : 'Non défini'; %>
-<% const commentPageSizeLabel = preferences.commentPageSize || 10; %>
+<% const activityClassName = 'ip-profile-activity'; %>
 
 <section class="card ip-profile-card">
   <header class="ip-profile-header">
@@ -29,7 +22,6 @@
         <p class="ip-profile-owner-note">
           Vous consultez votre propre profil IP. Seules les contributions publiques (commentaires approuvés, likes, vues et propositions) sont visibles ici.
         </p>
-        <a class="btn secondary btn-compact" href="#preferences" data-icon="⚙️">Modifier mes préférences</a>
       </div>
     <% } %>
   </header>
@@ -61,19 +53,6 @@
           <dd><code>#<%= profile.shortHash %></code></dd>
         </div>
       </dl>
-      <% if (isOwner) { %>
-        <div class="ip-profile-preference-mini">
-          <h3>Préférences rapides</h3>
-          <ul>
-            <li><span>Nom public</span><strong><%= customLabel || `Profil IP #${profile.shortHash}` %></strong></li>
-            <li><span>Nom par défaut</span><strong><%= defaultAuthorLabel %></strong></li>
-            <li><span>Commentaires/page</span><strong><%= commentPageSizeLabel %></strong></li>
-          </ul>
-          <% if (preferences.updatedAt) { %>
-            <p class="text-sm text-muted">Mis à jour le <%= new Date(preferences.updatedAt).toLocaleString('fr-FR') %></p>
-          <% } %>
-        </div>
-      <% } %>
     </div>
   </div>
 
@@ -184,52 +163,6 @@
           </li>
         <% }) %>
       </ul>
-    </section>
-  <% } %>
-
-  <% if (isOwner) { %>
-    <section id="preferences" class="ip-profile-section card-subtle ip-profile-preferences">
-      <h2>Mes préférences</h2>
-      <p class="text-muted">
-        Personnalisez l'apparence de votre profil et les paramètres par défaut utilisés lors de vos contributions.
-      </p>
-      <form method="post" action="/profiles/ip/<%= profile.hash %>/preferences" class="ip-preferences-form">
-        <label class="stack-form">
-          <span class="text-sm text-muted">Nom public du profil</span>
-          <input
-            type="text"
-            name="publicLabel"
-            maxlength="60"
-            value="<%= customLabel || '' %>"
-            placeholder="Profil IP personnalisé"
-          />
-          <span class="form-help">Laissez vide pour afficher « Profil IP #<%= profile.shortHash %> ».</span>
-        </label>
-        <label class="stack-form">
-          <span class="text-sm text-muted">Nom par défaut pour vos commentaires</span>
-          <input
-            type="text"
-            name="defaultAuthor"
-            maxlength="80"
-            value="<%= preferences.defaultAuthor || '' %>"
-            placeholder="Anonyme"
-          />
-        </label>
-        <label class="stack-form">
-          <span class="text-sm text-muted">Commentaires affichés par page</span>
-          <select name="commentPageSize">
-            <option value="" <%= preferences.commentPageSize ? '' : 'selected' %>>Automatique (10)</option>
-            <% pageSizeOptions.forEach((size) => { %>
-              <option value="<%= size %>" <%= preferences.commentPageSize === size ? 'selected' : '' %>><%= size %></option>
-            <% }) %>
-          </select>
-        </label>
-        <label class="checkbox ip-preferences-checkbox">
-          <input type="checkbox" name="compactComments" <%= preferences.compactComments ? 'checked' : '' %> />
-          <span>Afficher les historiques en mode compact</span>
-        </label>
-        <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
-      </form>
     </section>
   <% } %>
 

@@ -83,15 +83,6 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
-  CREATE TABLE IF NOT EXISTS ip_profile_preferences(
-    hash TEXT PRIMARY KEY,
-    public_label TEXT,
-    default_author TEXT,
-    comment_page_size INTEGER,
-    compact_comments INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME
-  );
   CREATE TABLE IF NOT EXISTS page_view_daily(
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     day TEXT NOT NULL,
