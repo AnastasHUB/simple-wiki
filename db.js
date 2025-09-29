@@ -138,6 +138,16 @@ export async function initDb() {
   );
   CREATE INDEX IF NOT EXISTS idx_ip_bans_active
     ON ip_bans(ip, scope, value, lifted_at);
+  CREATE TABLE IF NOT EXISTS ban_appeals(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    ip TEXT,
+    scope TEXT,
+    value TEXT,
+    reason TEXT,
+    message TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS event_logs(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -175,6 +185,7 @@ export async function initDb() {
   await ensureSnowflake("comments");
   await ensureSnowflake("page_submissions");
   await ensureSnowflake("ip_bans");
+  await ensureSnowflake("ban_appeals");
   await ensureSnowflake("ip_profiles");
   await ensureSnowflake("event_logs");
   await ensureSnowflake("uploads", "snowflake_id");

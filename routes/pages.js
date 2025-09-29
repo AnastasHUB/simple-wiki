@@ -14,7 +14,7 @@ import { slugify, linkifyInternal } from "../utils/linkify.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { listUploads } from "../utils/uploads.js";
 import { getClientIp } from "../utils/ip.js";
-import { isIpBanned } from "../utils/ipBans.js";
+import { getActiveBans, isIpBanned } from "../utils/ipBans.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { pushNotification } from "../utils/notifications.js";
@@ -46,6 +46,7 @@ import {
   buildPagination,
   decoratePagination,
 } from "../utils/pagination.js";
+import { createBanAppeal } from "../utils/banAppeals.js";
 
 const r = Router();
 
@@ -54,7 +55,9 @@ r.use(
     req.clientIp = getClientIp(req);
     if (req.clientIp) {
       const ban = await isIpBanned(req.clientIp, { action: "view" });
-      if (ban && ban.scope === "global") {
+      const allowAppealRoute =
+        req.path === "/ban-appeal" && req.method.toUpperCase() === "POST";
+      if (ban && ban.scope === "global" && !allowAppealRoute) {
         return res.status(403).render("banned", { ban });
       }
     }
@@ -1006,4 +1009,70 @@ function getUserDisplayName(user) {
   return null;
 }
 
+r.post(
+  "/ban-appeal",
+  asyncHandler(async (req, res) => {
+    const ip = req.clientIp || getClientIp(req);
+    const message = (req.body.message || "").trim();
+    const requestedScope = req.body.scope || null;
+    const requestedValue = req.body.value || null;
+
+    const bans = ip ? await getActiveBans(ip) : [];
+    let ban = null;
+    if (requestedScope) {
+      ban =
+        bans.find(
+          (b) =>
+            b.scope === requestedScope && (b.value || "") === (requestedValue || ""),
+        ) || null;
+    }
+    if (!ban && bans.length) {
+      [ban] = bans;
+    }
+
+    if (!message) {
+      return res.status(403).render("banned", {
+        ban,
+        appealError: "Veuillez expliquer pourquoi votre adresse devrait être débannie.",
+        appealMessage: message,
+      });
+    }
+    if (message.length > 2000) {
+      return res.status(403).render("banned", {
+        ban,
+        appealError: "Votre message est trop long (2000 caractères maximum).",
+        appealMessage: message,
+      });
+    }
+
+    const appealId = await createBanAppeal({
+      ip,
+      scope: ban?.scope || requestedScope,
+      value: ban?.value || requestedValue,
+      reason: ban?.reason || null,
+      message,
+    });
+
+    await sendAdminEvent(
+      "Demande de débannissement",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip: ip || null,
+          scope: ban?.scope || requestedScope || null,
+          value: ban?.value || requestedValue || null,
+          reason: ban?.reason || null,
+          message,
+          appeal: appealId,
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    return res.status(403).render("banned", {
+      ban,
+      appealSuccess: true,
+    });
+  }),
+);
 export default r;
