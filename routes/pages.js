@@ -427,11 +427,23 @@ r.post(
   "/wiki/:slugid/like",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
+    const wantsJson =
+      req.get("X-Requested-With") === "XMLHttpRequest" ||
+      (req.headers.accept || "").includes("application/json");
+
     const page = await get(
       "SELECT id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
       [req.params.slugid],
     );
-    if (!page) return res.status(404).send("Page introuvable");
+    if (!page) {
+      if (wantsJson) {
+        return res.status(404).json({
+          ok: false,
+          message: "Page introuvable",
+        });
+      }
+      return res.status(404).send("Page introuvable");
+    }
 
     const tagNames = await fetchPageTags(page.id);
     const ban = await isIpBanned(ip, {
@@ -439,13 +451,24 @@ r.post(
       tags: tagNames,
     });
     if (ban) {
+      if (wantsJson) {
+        return res.status(403).json({
+          ok: false,
+          message: ban?.reason
+            ? `Action interdite: ${ban.reason}`
+            : "Action interdite",
+          ban,
+        });
+      }
       return res.status(403).render("banned", { ban });
     }
 
+    const notifications = [];
     const exists = await get("SELECT 1 FROM likes WHERE page_id=? AND ip=?", [
       page.id,
       ip,
     ]);
+
     if (exists) {
       await run("DELETE FROM likes WHERE page_id=? AND ip=?", [page.id, ip]);
       await sendAdminEvent("Like removed", {
@@ -453,11 +476,14 @@ r.post(
         page,
         extra: { ip },
       });
-      pushNotification(req, {
+      notifications.push({
         type: "info",
         message: "Article retiré de vos favoris.",
         timeout: 2500,
       });
+      if (!wantsJson) {
+        pushNotification(req, notifications[notifications.length - 1]);
+      }
     } else {
       await run("INSERT INTO likes(page_id, ip) VALUES(?,?)", [page.id, ip]);
       await sendAdminEvent("Like added", {
@@ -465,12 +491,31 @@ r.post(
         page,
         extra: { ip },
       });
-      pushNotification(req, {
+      notifications.push({
         type: "success",
         message: "Article ajouté à vos favoris.",
         timeout: 3000,
       });
+      if (!wantsJson) {
+        pushNotification(req, notifications[notifications.length - 1]);
+      }
     }
+
+    const total = await get("SELECT COUNT(*) AS totalLikes FROM likes WHERE page_id=?", [
+      page.id,
+    ]);
+    const likeCount = total?.totalLikes || 0;
+
+    if (wantsJson) {
+      return res.json({
+        ok: true,
+        liked: !exists,
+        likes: likeCount,
+        slug: page.slug_id,
+        notifications,
+      });
+    }
+
     const back = req.get("referer") || "/wiki/" + page.slug_id;
     res.redirect(back);
   }),
