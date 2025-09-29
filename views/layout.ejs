@@ -42,8 +42,12 @@
     <nav class="vnav" id="vnav">
       <a href="/">🏠 Accueil</a>
       <a href="/rss.xml">📰 Flux RSS</a>
+      <% if (!currentUser || !currentUser.is_admin) { %>
+        <a href="/new">✍️ Contribuer</a>
+      <% } %>
       <% if (currentUser && currentUser.is_admin) { %>
         <a href="/new">➕ Nouvelle page</a>
+        <a href="/admin/submissions">📝 Contributions</a>
         <a href="/admin/pages">📄 Articles</a>
         <a href="/admin/stats">📈 Statistiques</a>
         <a href="/admin/users">👤 Utilisateurs</a>

@@ -1,5 +1,13 @@
 <% title = page ? 'Éditer' : 'Nouvelle page'; %>
 <h1><%= title %></h1>
+<% const isSubmission = typeof submissionMode !== 'undefined' ? submissionMode : false; %>
+<% if (isSubmission) { %>
+  <div class="card card-highlight mb-md">
+    <p class="mt-0 mb-0">
+      Votre proposition sera enregistrée avec votre adresse IP et un administrateur devra la valider avant publication.
+    </p>
+  </div>
+<% } %>
 <form method="post">
   <label>Titre</label>
   <input type="text" name="title" value="<%= page ? page.title : '' %>" required />
@@ -44,7 +52,7 @@
       data-html-editor
       data-target="#contentField"
       data-toolbar="#editorToolbar"
-      data-upload-endpoint="/admin/uploads"
+      <% if (typeof allowUploads !== 'undefined' && allowUploads) { %>data-upload-endpoint="/admin/uploads"<% } %>
       aria-label="Éditeur de contenu"
     ></div>
   </div>
@@ -54,7 +62,11 @@
   <label>Tags (séparés par des virgules)</label>
   <input type="text" name="tags" value="<%= tags %>" />
   <div class="actions">
-    <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+    <% if (isSubmission) { %>
+      <button class="btn success" data-icon="📨" type="submit">Envoyer ma proposition</button>
+    <% } else { %>
+      <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+    <% } %>
   </div>
 </form>
 
