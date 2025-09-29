@@ -29,6 +29,7 @@ export async function fetchRecentPages({
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
+           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE p.created_at >= ?
@@ -56,6 +57,7 @@ export async function fetchPaginatedPages({
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
+           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      ORDER BY p.created_at DESC
@@ -71,6 +73,7 @@ export async function fetchPageWithStats(slugId, ip) {
     SELECT p.*,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
+           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE slug_id = ?
@@ -115,6 +118,7 @@ export async function fetchPagesByTag({ tagName, ip, excerptLength = 1200 }) {
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
+           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
       JOIN page_tags pt ON p.id = pt.page_id
