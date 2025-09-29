@@ -53,12 +53,50 @@ export async function getPageSubmissionById(id) {
   );
 }
 
+function applySubmissionSearch(filters, params, search) {
+  if (!search) {
+    return;
+  }
+  const like = `%${search}%`;
+  filters.push(
+    "(ps.snowflake_id LIKE ? OR ps.ip LIKE ? OR ps.title LIKE ? OR ps.target_slug_id LIKE ? OR COALESCE(p.slug_id, '') LIKE ? OR COALESCE(p.title, '') LIKE ? OR COALESCE(ps.submitted_by, '') LIKE ?)",
+  );
+  params.push(like, like, like, like, like, like, like);
+}
+
+export async function countPageSubmissions({ status = null, search = null } = {}) {
+  const filters = [];
+  const params = [];
+
+  if (typeof status === "string" && status) {
+    filters.push("ps.status=?");
+    params.push(status);
+  } else if (Array.isArray(status) && status.length) {
+    const placeholders = status.map(() => "?").join(",");
+    filters.push(`ps.status IN (${placeholders})`);
+    params.push(...status);
+  }
+
+  applySubmissionSearch(filters, params, search);
+
+  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+  const row = await get(
+    `SELECT COUNT(*) AS total
+       FROM page_submissions ps
+       LEFT JOIN pages p ON p.id = ps.page_id
+      ${where}`,
+    params,
+  );
+  return Number(row?.total ?? 0);
+}
+
 export async function fetchPageSubmissions({
   status = null,
   limit = 50,
   offset = 0,
   orderBy = "created_at",
   direction = "DESC",
+  search = null,
 } = {}) {
   const allowedOrder = new Set([
     "created_at",
@@ -79,6 +117,8 @@ export async function fetchPageSubmissions({
     whereClauses.push(`ps.status IN (${placeholders})`);
     params.push(...status);
   }
+
+  applySubmissionSearch(whereClauses, params, search);
 
   const where = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
 

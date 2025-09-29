@@ -23,6 +23,7 @@ import { banIp, liftBan } from "../utils/ipBans.js";
 import { getClientIp } from "../utils/ip.js";
 import { buildPagination, decoratePagination } from "../utils/pagination.js";
 import {
+  countPageSubmissions,
   fetchPageSubmissions,
   getPageSubmissionById,
   mapSubmissionTags,
@@ -81,46 +82,79 @@ const r = Router();
 r.use(requireAdmin);
 
 r.get("/comments", async (req, res) => {
+  const searchTerm = (req.query.search || "").trim();
+  const like = searchTerm ? `%${searchTerm}%` : null;
+
+  const buildFilters = (statusClause) => {
+    const clauses = [statusClause];
+    const params = [];
+    if (like) {
+      clauses.push(
+        "(c.snowflake_id LIKE ? OR COALESCE(c.author,'') LIKE ? OR COALESCE(c.ip,'') LIKE ? OR COALESCE(p.slug_id,'') LIKE ? OR COALESCE(p.title,'') LIKE ?)",
+      );
+      params.push(like, like, like, like, like);
+    }
+    return { where: clauses.join(" AND "), params };
+  };
+
+  const pendingFilters = buildFilters("c.status='pending'");
   const pendingCountRow = await get(
-    "SELECT COUNT(*) AS total FROM comments WHERE status='pending'",
+    `SELECT COUNT(*) AS total
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE ${pendingFilters.where}`,
+    pendingFilters.params,
   );
-  const pendingPagination = buildPagination(
+  const pendingBase = buildPagination(
     req,
     Number(pendingCountRow?.total ?? 0),
     { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
   );
-  const pendingOffset = (pendingPagination.page - 1) * pendingPagination.perPage;
-
+  const pendingOffset = (pendingBase.page - 1) * pendingBase.perPage;
   const pending = await all(
     `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE c.status='pending'
+      WHERE ${pendingFilters.where}
       ORDER BY c.created_at ASC
       LIMIT ? OFFSET ?`,
-    [pendingPagination.perPage, pendingOffset],
+    [...pendingFilters.params, pendingBase.perPage, pendingOffset],
+  );
+  const pendingPagination = decoratePagination(
+    req,
+    pendingBase,
+    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
   );
 
+  const recentFilters = buildFilters("c.status<>'pending'");
   const recentCountRow = await get(
-    "SELECT COUNT(*) AS total FROM comments WHERE status<>'pending'",
+    `SELECT COUNT(*) AS total
+       FROM comments c
+       JOIN pages p ON p.id = c.page_id
+      WHERE ${recentFilters.where}`,
+    recentFilters.params,
   );
-  const recentPagination = buildPagination(
+  const recentBase = buildPagination(
     req,
     Number(recentCountRow?.total ?? 0),
     { pageParam: "recentPage", perPageParam: "recentPerPage" },
   );
-  const recentOffset = (recentPagination.page - 1) * recentPagination.perPage;
-
+  const recentOffset = (recentBase.page - 1) * recentBase.perPage;
   const recent = await all(
     `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE c.status<>'pending'
+      WHERE ${recentFilters.where}
       ORDER BY c.created_at DESC
       LIMIT ? OFFSET ?`,
-    [recentPagination.perPage, recentOffset],
+    [...recentFilters.params, recentBase.perPage, recentOffset],
+  );
+  const recentPagination = decoratePagination(
+    req,
+    recentBase,
+    { pageParam: "recentPage", perPageParam: "recentPerPage" },
   );
 
   res.render("admin/comments", {
@@ -128,6 +162,7 @@ r.get("/comments", async (req, res) => {
     recent,
     pendingPagination,
     recentPagination,
+    searchTerm,
   });
 });
 
@@ -216,57 +251,88 @@ r.delete("/comments/:id", handleCommentDeletion);
 r.post("/comments/:id/delete", handleCommentDeletion);
 
 r.get("/ban-appeals", async (req, res) => {
-  const total = await countBanAppeals();
-  const pagination = buildPagination(req, total);
-  const offset = (pagination.page - 1) * pagination.perPage;
+  const searchTerm = (req.query.search || "").trim();
+  const total = await countBanAppeals({ search: searchTerm || null });
+  const basePagination = buildPagination(req, total);
+  const offset = (basePagination.page - 1) * basePagination.perPage;
   const appeals = await fetchBanAppeals({
-    limit: pagination.perPage,
+    limit: basePagination.perPage,
     offset,
+    search: searchTerm || null,
   });
+  const pagination = decoratePagination(req, basePagination);
 
   res.render("admin/banAppeals", {
     appeals,
     pagination,
+    searchTerm,
   });
 });
 
 r.get("/ip-bans", async (req, res) => {
+  const searchTerm = (req.query.search || "").trim();
+  const like = searchTerm ? `%${searchTerm}%` : null;
+
+  const buildFilters = (clause) => {
+    const filters = [clause];
+    const params = [];
+    if (like) {
+      filters.push(
+        "(snowflake_id LIKE ? OR ip LIKE ? OR scope LIKE ? OR COALESCE(value,'') LIKE ? OR COALESCE(reason,'') LIKE ?)",
+      );
+      params.push(like, like, like, like, like);
+    }
+    return { where: filters.join(" AND "), params };
+  };
+
+  const activeFilters = buildFilters("lifted_at IS NULL");
   const activeCountRow = await get(
-    "SELECT COUNT(*) AS total FROM ip_bans WHERE lifted_at IS NULL",
+    `SELECT COUNT(*) AS total FROM ip_bans WHERE ${activeFilters.where}`,
+    activeFilters.params,
   );
-  const activePagination = buildPagination(
+  const activeBase = buildPagination(
     req,
     Number(activeCountRow?.total ?? 0),
     { pageParam: "activePage", perPageParam: "activePerPage" },
   );
-  const activeOffset = (activePagination.page - 1) * activePagination.perPage;
-
+  const activeOffset = (activeBase.page - 1) * activeBase.perPage;
   const activeBans = await all(
     `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
        FROM ip_bans
-      WHERE lifted_at IS NULL
+      WHERE ${activeFilters.where}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?`,
-    [activePagination.perPage, activeOffset],
+    [...activeFilters.params, activeBase.perPage, activeOffset],
+  );
+  const activePagination = decoratePagination(
+    req,
+    activeBase,
+    { pageParam: "activePage", perPageParam: "activePerPage" },
   );
 
+  const liftedFilters = buildFilters("lifted_at IS NOT NULL");
   const liftedCountRow = await get(
-    "SELECT COUNT(*) AS total FROM ip_bans WHERE lifted_at IS NOT NULL",
+    `SELECT COUNT(*) AS total FROM ip_bans WHERE ${liftedFilters.where}`,
+    liftedFilters.params,
   );
-  const liftedPagination = buildPagination(
+  const liftedBase = buildPagination(
     req,
     Number(liftedCountRow?.total ?? 0),
     { pageParam: "liftedPage", perPageParam: "liftedPerPage" },
   );
-  const liftedOffset = (liftedPagination.page - 1) * liftedPagination.perPage;
-
+  const liftedOffset = (liftedBase.page - 1) * liftedBase.perPage;
   const liftedBans = await all(
     `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
        FROM ip_bans
-      WHERE lifted_at IS NOT NULL
+      WHERE ${liftedFilters.where}
       ORDER BY lifted_at DESC
       LIMIT ? OFFSET ?`,
-    [liftedPagination.perPage, liftedOffset],
+    [...liftedFilters.params, liftedBase.perPage, liftedOffset],
+  );
+  const liftedPagination = decoratePagination(
+    req,
+    liftedBase,
+    { pageParam: "liftedPage", perPageParam: "liftedPerPage" },
   );
 
   res.render("admin/ip_bans", {
@@ -274,6 +340,7 @@ r.get("/ip-bans", async (req, res) => {
     liftedBans,
     activePagination,
     liftedPagination,
+    searchTerm,
   });
 });
 
@@ -340,12 +407,16 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
 });
 
 r.get("/submissions", async (req, res) => {
-  const pendingCountRow = await get(
-    "SELECT COUNT(*) AS total FROM page_submissions WHERE status='pending'",
-  );
+  const searchTerm = (req.query.search || "").trim();
+  const search = searchTerm || null;
+
+  const pendingTotal = await countPageSubmissions({
+    status: "pending",
+    search,
+  });
   const pendingBase = buildPagination(
     req,
-    Number(pendingCountRow?.total ?? 0),
+    pendingTotal,
     { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
   );
   const pendingOffset = (pendingBase.page - 1) * pendingBase.perPage;
@@ -355,6 +426,7 @@ r.get("/submissions", async (req, res) => {
     offset: pendingOffset,
     orderBy: "created_at",
     direction: "ASC",
+    search,
   });
   const pending = pendingRows.map((item) => ({
     ...item,
@@ -366,12 +438,13 @@ r.get("/submissions", async (req, res) => {
     { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
   );
 
-  const recentCountRow = await get(
-    "SELECT COUNT(*) AS total FROM page_submissions WHERE status<>'pending'",
-  );
+  const recentTotal = await countPageSubmissions({
+    status: ["approved", "rejected"],
+    search,
+  });
   const recentBase = buildPagination(
     req,
-    Number(recentCountRow?.total ?? 0),
+    recentTotal,
     { pageParam: "recentPage", perPageParam: "recentPerPage" },
   );
   const recentOffset = (recentBase.page - 1) * recentBase.perPage;
@@ -381,6 +454,7 @@ r.get("/submissions", async (req, res) => {
     offset: recentOffset,
     orderBy: "reviewed_at",
     direction: "DESC",
+    search,
   });
   const recent = recentRows.map((item) => ({
     ...item,
@@ -397,6 +471,7 @@ r.get("/submissions", async (req, res) => {
     recent,
     pendingPagination,
     recentPagination,
+    searchTerm,
   });
 });
 
@@ -2079,13 +2154,32 @@ r.use((err, req, res, next) => {
 });
 
 r.get("/uploads", async (req, res) => {
+  const searchTerm = (req.query.search || "").trim();
+  const normalizedSearch = searchTerm.toLowerCase();
   const uploadsList = await listUploads();
   const ordered = [...uploadsList].sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
-  const pagination = buildPagination(req, ordered.length);
-  const start = (pagination.page - 1) * pagination.perPage;
-  const uploads = ordered.slice(start, start + pagination.perPage);
+  const filtered = normalizedSearch
+    ? ordered.filter((entry) => {
+        const haystack = [
+          entry.id,
+          entry.filename,
+          entry.originalName,
+          entry.displayName,
+          entry.extension,
+        ]
+          .filter(Boolean)
+          .map((value) => String(value).toLowerCase())
+          .join(" ");
+        return haystack.includes(normalizedSearch);
+      })
+    : ordered;
 
-  res.render("admin/uploads", { uploads, pagination });
+  const basePagination = buildPagination(req, filtered.length);
+  const start = (basePagination.page - 1) * basePagination.perPage;
+  const uploads = filtered.slice(start, start + basePagination.perPage);
+  const pagination = decoratePagination(req, basePagination);
+
+  res.render("admin/uploads", { uploads, pagination, searchTerm });
 });
 
 r.post("/uploads/:id/name", async (req, res) => {
@@ -2170,15 +2264,33 @@ r.post("/settings", async (req, res) => {
 
 // users
 r.get("/users", async (req, res) => {
-  const totalRow = await get("SELECT COUNT(*) AS total FROM users");
-  const pagination = buildPagination(req, Number(totalRow?.total ?? 0));
-  const offset = (pagination.page - 1) * pagination.perPage;
+  const searchTerm = (req.query.search || "").trim();
+  const filters = [];
+  const params = [];
+  if (searchTerm) {
+    const like = `%${searchTerm}%`;
+    filters.push(
+      "(CAST(id AS TEXT) LIKE ? OR username LIKE ? OR COALESCE(display_name,'') LIKE ?)",
+    );
+    params.push(like, like, like);
+  }
+  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+  const totalRow = await get(
+    `SELECT COUNT(*) AS total FROM users ${where}`,
+    params,
+  );
+  const basePagination = buildPagination(
+    req,
+    Number(totalRow?.total ?? 0),
+  );
+  const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const users = await all(
-    "SELECT id, username, display_name, is_admin FROM users ORDER BY id LIMIT ? OFFSET ?",
-    [pagination.perPage, offset],
+    `SELECT id, username, display_name, is_admin FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
+    [...params, basePagination.perPage, offset],
   );
-  res.render("admin/users", { users, pagination });
+  const pagination = decoratePagination(req, basePagination);
+  res.render("admin/users", { users, pagination, searchTerm });
 });
 r.post("/users", async (req, res) => {
   const { username, password } = req.body;
@@ -2304,22 +2416,43 @@ r.post("/users/:id/delete", async (req, res) => {
 
 // likes table improved
 r.get("/likes", async (req, res) => {
-  const totalRow = await get("SELECT COUNT(*) AS total FROM likes");
+  const searchTerm = (req.query.search || "").trim();
+  const filters = [];
+  const params = [];
+  if (searchTerm) {
+    const like = `%${searchTerm}%`;
+    filters.push(
+      "(CAST(l.id AS TEXT) LIKE ? OR COALESCE(l.ip,'') LIKE ? OR COALESCE(p.slug_id,'') LIKE ? OR COALESCE(p.title,'') LIKE ?)",
+    );
+    params.push(like, like, like, like);
+  }
+  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const totalRow = await get(
+    `SELECT COUNT(*) AS total
+       FROM likes l
+       JOIN pages p ON p.id = l.page_id
+      ${where}`,
+    params,
+  );
   const totalLikes = Number(totalRow?.total ?? 0);
-  const pagination = buildPagination(req, totalLikes);
-  const offset = (pagination.page - 1) * pagination.perPage;
+  const basePagination = buildPagination(req, totalLikes);
+  const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const rows = await all(
     `
     SELECT l.id, l.ip, l.created_at, p.title, p.slug_id
-    FROM likes l JOIN pages p ON p.id=l.page_id
-    ORDER BY l.created_at DESC
-    LIMIT ? OFFSET ?
+      FROM likes l
+      JOIN pages p ON p.id = l.page_id
+      ${where}
+     ORDER BY l.created_at DESC
+     LIMIT ? OFFSET ?
   `,
-    [pagination.perPage, offset],
+    [...params, basePagination.perPage, offset],
   );
+  const pagination = decoratePagination(req, basePagination);
 
-  res.render("admin/likes", { rows, pagination });
+  res.render("admin/likes", { rows, pagination, searchTerm });
 });
 r.post("/likes/:id/delete", async (req, res) => {
   const like = await get(
@@ -2351,18 +2484,39 @@ r.post("/likes/:id/delete", async (req, res) => {
 });
 
 r.get("/events", async (req, res) => {
-  const totalRow = await get("SELECT COUNT(*) AS total FROM event_logs");
-  const totalEvents = Number(totalRow?.total ?? 0);
-  const pagination = buildPagination(req, totalEvents);
-  const offset = (pagination.page - 1) * pagination.perPage;
-  const events = await all(
-    "SELECT id, channel, type, payload, ip, username, created_at FROM event_logs ORDER BY created_at DESC LIMIT ? OFFSET ?",
-    [pagination.perPage, offset],
+  const searchTerm = (req.query.search || "").trim();
+  const filters = [];
+  const params = [];
+  if (searchTerm) {
+    const like = `%${searchTerm}%`;
+    filters.push(
+      "(CAST(id AS TEXT) LIKE ? OR COALESCE(channel,'') LIKE ? OR COALESCE(type,'') LIKE ? OR COALESCE(username,'') LIKE ? OR COALESCE(ip,'') LIKE ? OR COALESCE(payload,'') LIKE ?)",
+    );
+    params.push(like, like, like, like, like, like);
+  }
+  const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
+
+  const totalRow = await get(
+    `SELECT COUNT(*) AS total FROM event_logs ${where}`,
+    params,
   );
+  const totalEvents = Number(totalRow?.total ?? 0);
+  const basePagination = buildPagination(req, totalEvents);
+  const offset = (basePagination.page - 1) * basePagination.perPage;
+  const events = await all(
+    `SELECT id, channel, type, payload, ip, username, created_at
+       FROM event_logs
+       ${where}
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?`,
+    [...params, basePagination.perPage, offset],
+  );
+  const pagination = decoratePagination(req, basePagination);
 
   res.render("admin/events", {
     events,
     pagination,
+    searchTerm,
   });
 });
 

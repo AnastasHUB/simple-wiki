@@ -1,9 +1,26 @@
 <% title='Likes'; %>
 <h1>Likes par IP</h1>
-<div class="card">
-  <div class="table-tools">
-    <input id="likeFilter" type="text" placeholder="Filtrer IP ou titre…" />
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="ID, IP, article…"
+        class="flex-basis-260"
+      />
+    </label>
+    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/likes">Réinitialiser</a>
+    <% } %>
   </div>
+</form>
+<div class="card">
   <% if (!rows.length) { %>
     <p>Aucun like enregistré.</p>
   <% } else { %>
@@ -34,38 +51,5 @@
       </table>
     </div>
   <% } %>
-  <div class="table-footer">
-    <form method="get">
-      <label for="likes-per-page" class="nowrap">Éléments par page</label>
-      <select id="likes-per-page" name="perPage" onchange="this.form.submit()">
-        <% pagination.perPageOptions.forEach(option => { %>
-          <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
-        <% }) %>
-      </select>
-      <input type="hidden" name="page" value="1">
-    </form>
-    <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
-    <div class="pager">
-      <% if (pagination.hasPrevious) { %>
-        <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
-      <% } else { %>
-        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
-      <% } %>
-      <% if (pagination.hasNext) { %>
-        <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
-      <% } else { %>
-        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
-      <% } %>
-    </div>
-  </div>
+  <%- include('./paginationControls', { pagination }) %>
 </div>
-<script>
-document.getElementById('likeFilter').addEventListener('input', function(){
-  const q = this.value.toLowerCase();
-  const rows = document.querySelectorAll('#likesTable tbody tr');
-  rows.forEach(tr => {
-    const txt = tr.innerText.toLowerCase();
-    tr.style.display = txt.includes(q) ? '' : 'none';
-  });
-});
-</script>

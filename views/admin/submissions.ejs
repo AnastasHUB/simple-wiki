@@ -1,6 +1,29 @@
 <% title = 'Contributions'; %>
 <h1>Contributions des visiteurs</h1>
 
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="ID, IP, titre, page…"
+        class="flex-basis-260"
+      />
+    </label>
+    <input type="hidden" name="pendingPage" value="1" />
+    <input type="hidden" name="recentPage" value="1" />
+    <input type="hidden" name="pendingPerPage" value="<%= pendingPagination.perPage %>" />
+    <input type="hidden" name="recentPerPage" value="<%= recentPagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/submissions">Réinitialiser</a>
+    <% } %>
+  </div>
+</form>
+
 <section class="card mb-xl">
   <h2>En attente (<%= pendingPagination.totalItems %>)</h2>
   <% if (!pending.length) { %>
