@@ -103,6 +103,7 @@ export async function fetchPageComments(pageId, options = {}) {
             c.created_at,
             c.updated_at,
             c.ip AS raw_ip,
+            c.author_is_admin,
             ipr.hash AS ip_hash
        FROM comments c
        LEFT JOIN ip_profiles ipr ON ipr.ip = c.ip
@@ -128,9 +129,15 @@ export async function fetchPageComments(pageId, options = {}) {
   const rows = await all(query, params);
   return rows.map((row) => {
     const ipHash = row.ip_hash || hashIp(row.raw_ip || "");
-    const { raw_ip: _unusedIp, ip_hash: _unusedHash, ...rest } = row;
+    const {
+      raw_ip: _unusedIp,
+      ip_hash: _unusedHash,
+      author_is_admin: _unusedAuthorIsAdmin,
+      ...rest
+    } = row;
     return {
       ...rest,
+      isAdminAuthor: Boolean(row.author_is_admin),
       ipProfile: ipHash
         ? {
             hash: ipHash,

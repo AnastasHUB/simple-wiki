@@ -238,6 +238,75 @@ export async function getIpProfileByHash(hash) {
   };
 }
 
+export async function countIpProfiles({ search = null } = {}) {
+  const clauses = [];
+  const params = [];
+  const normalizedSearch = typeof search === "string" ? search.trim() : "";
+  if (normalizedSearch) {
+    const like = `%${normalizedSearch}%`;
+    clauses.push("(hash LIKE ? OR ip LIKE ?)");
+    params.push(like, like);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+  const row = await get(
+    `SELECT COUNT(*) AS total FROM ip_profiles ${where}`,
+    params,
+  );
+  return Number(row?.total ?? 0);
+}
+
+export async function fetchIpProfiles({
+  search = null,
+  limit = 50,
+  offset = 0,
+} = {}) {
+  const clauses = [];
+  const params = [];
+  const normalizedSearch = typeof search === "string" ? search.trim() : "";
+  if (normalizedSearch) {
+    const like = `%${normalizedSearch}%`;
+    clauses.push("(ipr.hash LIKE ? OR ipr.ip LIKE ?)");
+    params.push(like, like);
+  }
+  const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
+
+  const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 50;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
+
+  const rows = await all(
+    `SELECT
+        ipr.id,
+        ipr.hash,
+        ipr.ip,
+        ipr.created_at,
+        ipr.last_seen_at,
+        (SELECT COUNT(*) FROM comments WHERE ip = ipr.ip AND status='approved') AS approved_comments,
+        (SELECT COUNT(*) FROM page_submissions WHERE ip = ipr.ip) AS submissions,
+        (SELECT COUNT(*) FROM likes WHERE ip = ipr.ip) AS likes,
+        (SELECT COUNT(*) FROM page_views WHERE ip = ipr.ip) AS views
+      FROM ip_profiles ipr
+      ${where}
+      ORDER BY ipr.last_seen_at DESC
+      LIMIT ? OFFSET ?`,
+    [...params, safeLimit, safeOffset],
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    hash: row.hash,
+    shortHash: formatIpProfileLabel(row.hash),
+    ip: row.ip,
+    createdAt: row.created_at,
+    lastSeenAt: row.last_seen_at,
+    stats: {
+      approvedComments: Number(row.approved_comments || 0),
+      submissions: Number(row.submissions || 0),
+      likes: Number(row.likes || 0),
+      views: Number(row.views || 0),
+    },
+  }));
+}
+
 function buildExcerpt(text, limit = 160) {
   if (!text) {
     return "";

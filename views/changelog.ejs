@@ -1,0 +1,35 @@
+<% title = 'Changelog'; %>
+<section class="card changelog-card">
+  <header class="changelog-header">
+    <h1 class="mt-0">Journal des changements</h1>
+    <p class="text-muted">
+      Découvrez l'historique des fonctionnalités et améliorations déployées sur le wiki.
+    </p>
+  </header>
+
+  <% if (!entries || !entries.length) { %>
+    <p class="text-muted">Aucun changement n'a encore été consigné.</p>
+  <% } else { %>
+    <ol class="changelog-list">
+      <% entries.forEach(entry => { %>
+        <li class="changelog-entry">
+          <div class="changelog-entry-header">
+            <h2><%= entry.title %></h2>
+            <% if (entry.date) { %>
+              <time datetime="<%= entry.date %>">
+                <%= new Date(entry.date).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' }) %>
+              </time>
+            <% } %>
+          </div>
+          <% if (entry.details && entry.details.length) { %>
+            <ul>
+              <% entry.details.forEach(detail => { %>
+                <li><%= detail %></li>
+              <% }) %>
+            </ul>
+          <% } %>
+        </li>
+      <% }) %>
+    </ol>
+  <% } %>
+</section>
