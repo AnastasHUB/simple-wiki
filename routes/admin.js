@@ -1337,21 +1337,45 @@ r.post(
           } else {
             const explicitId = parseInteger(item.id);
             if (explicitId !== null) {
-              await run(
-                "INSERT INTO pages(id, snowflake_id, slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)",
-                [
-                  explicitId,
-                  pageSnowflake,
-                  slugBase,
-                  slugId,
-                  title,
-                  content,
-                  createdAt,
-                  updatedAt,
-                ],
+              const existingById = await get(
+                "SELECT id, created_at FROM pages WHERE id=?",
+                [explicitId],
               );
-              pageId = explicitId;
-              summary.created++;
+              if (existingById) {
+                const finalCreatedAt =
+                  sanitizeDate(item.created_at) || existingById.created_at;
+                const finalUpdatedAt = updatedAt || new Date().toISOString();
+                await run(
+                  "UPDATE pages SET slug_base=?, slug_id=?, title=?, content=?, created_at=?, updated_at=? WHERE id=?",
+                  [
+                    slugBase,
+                    slugId,
+                    title,
+                    content,
+                    finalCreatedAt,
+                    finalUpdatedAt,
+                    explicitId,
+                  ],
+                );
+                pageId = explicitId;
+                summary.updated++;
+              } else {
+                await run(
+                  "INSERT INTO pages(id, snowflake_id, slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                  [
+                    explicitId,
+                    pageSnowflake,
+                    slugBase,
+                    slugId,
+                    title,
+                    content,
+                    createdAt,
+                    updatedAt,
+                  ],
+                );
+                pageId = explicitId;
+                summary.created++;
+              }
             } else {
               const result = await run(
                 "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
