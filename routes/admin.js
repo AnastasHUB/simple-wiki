@@ -1765,27 +1765,53 @@ r.post(
           const createdAt = sanitizeDate(ban.created_at);
           const liftedAt = sanitizeDate(ban.lifted_at);
           const banId = parseInteger(ban.id);
-          await run(
-            `INSERT INTO ip_bans(id, snowflake_id, ip, scope, value, reason, created_at, lifted_at)
-             VALUES(?,?,?,?,?,?,?,?)
-             ON CONFLICT(snowflake_id) DO UPDATE SET
-               ip=excluded.ip,
-               scope=excluded.scope,
-               value=excluded.value,
-               reason=excluded.reason,
-               created_at=excluded.created_at,
-               lifted_at=excluded.lifted_at`,
-            [
-              banId,
-              snowflakeId,
-              ipValue,
-              scope,
-              typeof ban.value === "string" ? ban.value : null,
-              typeof ban.reason === "string" ? ban.reason : null,
-              createdAt,
-              liftedAt,
-            ],
-          );
+          const banValue = typeof ban.value === "string" ? ban.value : null;
+          const banReason = typeof ban.reason === "string" ? ban.reason : null;
+          if (banId !== null) {
+            await run(
+              `INSERT INTO ip_bans(id, snowflake_id, ip, scope, value, reason, created_at, lifted_at)
+               VALUES(?,?,?,?,?,?,?,?)
+               ON CONFLICT(id) DO UPDATE SET
+                 snowflake_id=excluded.snowflake_id,
+                 ip=excluded.ip,
+                 scope=excluded.scope,
+                 value=excluded.value,
+                 reason=excluded.reason,
+                 created_at=excluded.created_at,
+                 lifted_at=excluded.lifted_at`,
+              [
+                banId,
+                snowflakeId,
+                ipValue,
+                scope,
+                banValue,
+                banReason,
+                createdAt,
+                liftedAt,
+              ],
+            );
+          } else {
+            await run(
+              `INSERT INTO ip_bans(snowflake_id, ip, scope, value, reason, created_at, lifted_at)
+               VALUES(?,?,?,?,?,?,?)
+               ON CONFLICT(snowflake_id) DO UPDATE SET
+                 ip=excluded.ip,
+                 scope=excluded.scope,
+                 value=excluded.value,
+                 reason=excluded.reason,
+                 created_at=excluded.created_at,
+                 lifted_at=excluded.lifted_at`,
+              [
+                snowflakeId,
+                ipValue,
+                scope,
+                banValue,
+                banReason,
+                createdAt,
+                liftedAt,
+              ],
+            );
+          }
           summary.stats.ipBans++;
         }
 
