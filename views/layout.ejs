@@ -23,7 +23,7 @@
   </form>
   <div class="auth">
     <% if (currentUser) { %>
-      <div class="who">Connecté: <strong><%= currentUser.username %></strong></div>
+      <div class="who">Connecté: <strong><%= currentUser.display_name || currentUser.username %></strong></div>
       <form action="/logout" method="post"><button class="btn" data-icon="🔓">Déconnexion</button></form>
     <% } else { %>
       <a class="btn" data-icon="🔐" href="/login">Connexion</a>

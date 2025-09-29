@@ -46,7 +46,12 @@ r.post("/login", async (req, res) => {
     const newHash = await hashPassword(password);
     await run("UPDATE users SET password=? WHERE id=?", [newHash, u.id]);
   }
-  req.session.user = { id: u.id, username: u.username, is_admin: !!u.is_admin };
+  req.session.user = {
+    id: u.id,
+    username: u.username,
+    is_admin: !!u.is_admin,
+    display_name: u.display_name || null,
+  };
   await sendAdminEvent(
     "Connexion réussie",
     {

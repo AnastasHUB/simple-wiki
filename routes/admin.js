@@ -1008,7 +1008,7 @@ r.get("/pages/export", async (_req, res) => {
       : [],
   }));
   const users = await all(
-    `SELECT id, username, password, is_admin FROM users ORDER BY id ASC`,
+    `SELECT id, username, password, display_name, is_admin FROM users ORDER BY id ASC`,
   );
   const likes = await all(`
     SELECT l.id, l.page_id, p.slug_id, l.ip, l.created_at
@@ -1262,7 +1262,9 @@ r.post(
           summary.stats.users++;
         }
 
-        const userRows = await all(`SELECT id, username FROM users`);
+        const userRows = await all(
+          `SELECT id, username, display_name FROM users`,
+        );
         const usernameToId = new Map();
         const userIdSet = new Set();
         for (const row of userRows) {
@@ -2157,7 +2159,7 @@ r.get("/users", async (req, res) => {
   const offset = (pagination.page - 1) * pagination.perPage;
 
   const users = await all(
-    "SELECT id, username, is_admin FROM users ORDER BY id LIMIT ? OFFSET ?",
+    "SELECT id, username, display_name, is_admin FROM users ORDER BY id LIMIT ? OFFSET ?",
     [pagination.perPage, offset],
   );
   res.render("admin/users", { users, pagination });
@@ -2195,10 +2197,72 @@ r.post("/users", async (req, res) => {
   });
   res.redirect("/admin/users");
 });
-r.post("/users/:id/delete", async (req, res) => {
-  const target = await get("SELECT id, username FROM users WHERE id=?", [
-    req.params.id,
+r.post("/users/:id/display-name", async (req, res) => {
+  const target = await get(
+    "SELECT id, username, display_name FROM users WHERE id=?",
+    [req.params.id],
+  );
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+
+  const displayName = (req.body.displayName || "").trim().slice(0, 80);
+  const normalizedDisplayName = displayName || null;
+  const previousDisplayName = (target.display_name || "").trim() || null;
+
+  if (previousDisplayName === normalizedDisplayName) {
+    pushNotification(req, {
+      type: "info",
+      message: `Aucun changement pour ${target.username}.`,
+    });
+    return res.redirect("/admin/users");
+  }
+
+  await run("UPDATE users SET display_name=? WHERE id=?", [
+    normalizedDisplayName,
+    target.id,
   ]);
+
+  if (req.session.user?.id === target.id) {
+    req.session.user.display_name = normalizedDisplayName;
+  }
+
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Pseudo administrateur mis à jour",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        previousDisplayName,
+        newDisplayName: normalizedDisplayName,
+      },
+    },
+    { includeScreenshot: false },
+  );
+
+  pushNotification(req, {
+    type: "success",
+    message: normalizedDisplayName
+      ? `Pseudo mis à jour pour ${target.username} (${normalizedDisplayName}).`
+      : `Pseudo supprimé pour ${target.username}.`,
+  });
+
+  res.redirect("/admin/users");
+});
+r.post("/users/:id/delete", async (req, res) => {
+  const target = await get(
+    "SELECT id, username, display_name FROM users WHERE id=?",
+    [
+      req.params.id,
+    ],
+  );
   await run("DELETE FROM users WHERE id=?", [req.params.id]);
   const ip = getClientIp(req);
   await sendAdminEvent(
