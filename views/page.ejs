@@ -6,7 +6,7 @@
       <span>Créé: <%= page.created_at %></span>
       <% if (page.updated_at) { %><span>• Modifié: <%= page.updated_at %></span><% } %>
       <span>• Likes: <strong data-like-count-for="<%= page.slug_id %>"><%= page.likes %></strong></span>
-      <span>• Commentaires: <strong><%= comments.length %></strong></span>
+      <span>• Commentaires: <strong><%= commentPagination.totalItems %></strong></span>
       <span>• Vues: <strong><%= page.views %></strong></span>
     </div>
   </div>
@@ -75,6 +75,35 @@
     </ul>
   <% } else { %>
     <p class="comment-empty">Aucun commentaire pour le moment.</p>
+  <% } %>
+
+  <% if (commentPagination.totalPages > 1) { %>
+    <div class="table-footer comment-pagination">
+      <div class="per-page-control">
+        <label for="comments-per-page" class="nowrap">Commentaires par page</label>
+        <select
+          id="comments-per-page"
+          onchange="if (this.value) window.location.href = this.value;"
+        >
+          <% commentPagination.perPageOptionLinks.forEach(option => { %>
+            <option value="<%= option.url %>#comments" <%= option.selected ? 'selected' : '' %>><%= option.value %></option>
+          <% }) %>
+        </select>
+      </div>
+      <span>Page <%= commentPagination.page %> sur <%= commentPagination.totalPages %></span>
+      <div class="pager">
+        <% if (commentPagination.hasPrevious) { %>
+          <a class="btn" data-icon="⬅️" href="<%= commentPagination.previousUrl %>#comments">Précédent</a>
+        <% } else { %>
+          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+        <% } %>
+        <% if (commentPagination.hasNext) { %>
+          <a class="btn" data-icon="➡️" href="<%= commentPagination.nextUrl %>#comments">Suivant</a>
+        <% } else { %>
+          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+        <% } %>
+      </div>
+    </div>
   <% } %>
 
   <form class="comment-form" method="post" action="/wiki/<%= page.slug_id %>/comments">

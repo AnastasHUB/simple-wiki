@@ -81,6 +81,7 @@
           </tbody>
         </table>
       </div>
+      <%- include('admin/paginationControls', { pagination: topLikedPagination }) %>
     <% } %>
   </div>
   <div>
@@ -106,6 +107,7 @@
           </tbody>
         </table>
       </div>
+      <%- include('admin/paginationControls', { pagination: topCommentersPagination }) %>
     <% } %>
   </div>
   <div>
@@ -133,6 +135,7 @@
           </tbody>
         </table>
       </div>
+      <%- include('admin/paginationControls', { pagination: topCommentedPagination }) %>
     <% } %>
   </div>
 </section>
@@ -162,6 +165,7 @@
         </tbody>
       </table>
     </div>
+    <%- include('admin/paginationControls', { pagination: activeIpsPagination }) %>
   <% } %>
 </section>
 
@@ -191,6 +195,7 @@
           </tbody>
         </table>
       </div>
+      <%- include('admin/paginationControls', { pagination: tagUsagePagination }) %>
     <% } %>
   </div>
   <div>
@@ -216,6 +221,7 @@
           </tbody>
         </table>
       </div>
+      <%- include('admin/paginationControls', { pagination: commentTimelinePagination }) %>
     <% } %>
   </div>
 </section>
@@ -247,6 +253,7 @@
         </tbody>
       </table>
     </div>
+    <%- include('admin/paginationControls', { pagination: ipViewsPagination }) %>
   <% } %>
 </section>
 

@@ -21,11 +21,7 @@ import {
 } from "../utils/uploads.js";
 import { banIp, liftBan } from "../utils/ipBans.js";
 import { getClientIp } from "../utils/ip.js";
-import {
-  DEFAULT_PAGE_SIZE,
-  PAGE_SIZE_OPTIONS,
-  resolvePageSize,
-} from "../utils/pagination.js";
+import { buildPagination, decoratePagination } from "../utils/pagination.js";
 import {
   getSiteSettingsForForm,
   updateSiteSettingsFromForm,
@@ -389,58 +385,266 @@ r.get("/stats", async (_req, res) => {
   const commentByStatus = await all(
     "SELECT status, COUNT(*) AS count FROM comments GROUP BY status",
   );
-  const topLikedPages = await all(`
+
+  const topLikedCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT 1
+          FROM likes
+         GROUP BY page_id
+      ) sub`);
+  const topLikedOptions = {
+    pageParam: "likesPage",
+    perPageParam: "likesPerPage",
+    defaultPageSize: 15,
+    pageSizeOptions: [10, 15, 25, 50, 100],
+  };
+  let topLikedPagination = buildPagination(
+    req,
+    Number(topLikedCount?.total ?? 0),
+    topLikedOptions,
+  );
+  const topLikedOffset =
+    (topLikedPagination.page - 1) * topLikedPagination.perPage;
+  const topLikedPages = await all(
+    `
     SELECT p.title, p.slug_id, COUNT(*) AS likes
       FROM likes l
       JOIN pages p ON p.id = l.page_id
      GROUP BY l.page_id
      ORDER BY likes DESC, p.title ASC
-     LIMIT 15`);
-  const topCommenters = await all(`
+     LIMIT ? OFFSET ?
+  `,
+    [topLikedPagination.perPage, topLikedOffset],
+  );
+  topLikedPagination = decoratePagination(req, topLikedPagination, topLikedOptions);
+
+  const topCommenterCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT COALESCE(author, 'Anonyme') AS author
+          FROM comments
+         GROUP BY COALESCE(author, 'Anonyme')
+      ) sub`);
+  const topCommentersOptions = {
+    pageParam: "commentersPage",
+    perPageParam: "commentersPerPage",
+    defaultPageSize: 15,
+    pageSizeOptions: [10, 15, 25, 50, 100],
+  };
+  let topCommentersPagination = buildPagination(
+    req,
+    Number(topCommenterCount?.total ?? 0),
+    topCommentersOptions,
+  );
+  const topCommentersOffset =
+    (topCommentersPagination.page - 1) * topCommentersPagination.perPage;
+  const topCommenters = await all(
+    `
     SELECT COALESCE(author, 'Anonyme') AS author, COUNT(*) AS comments
       FROM comments
      GROUP BY COALESCE(author, 'Anonyme')
      ORDER BY comments DESC
-     LIMIT 15`);
-  const topCommentedPages = await all(`
+     LIMIT ? OFFSET ?
+  `,
+    [topCommentersPagination.perPage, topCommentersOffset],
+  );
+  topCommentersPagination = decoratePagination(
+    req,
+    topCommentersPagination,
+    topCommentersOptions,
+  );
+
+  const topCommentedCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT page_id
+          FROM comments
+         WHERE status='approved'
+         GROUP BY page_id
+      ) sub`);
+  const topCommentedOptions = {
+    pageParam: "commentedPage",
+    perPageParam: "commentedPerPage",
+    defaultPageSize: 15,
+    pageSizeOptions: [10, 15, 25, 50, 100],
+  };
+  let topCommentedPagination = buildPagination(
+    req,
+    Number(topCommentedCount?.total ?? 0),
+    topCommentedOptions,
+  );
+  const topCommentedOffset =
+    (topCommentedPagination.page - 1) * topCommentedPagination.perPage;
+  const topCommentedPages = await all(
+    `
     SELECT p.title, p.slug_id, COUNT(*) AS comments
       FROM comments c
       JOIN pages p ON p.id = c.page_id
      WHERE c.status='approved'
      GROUP BY c.page_id
      ORDER BY comments DESC, p.title ASC
-     LIMIT 15`);
-  const tagUsage = await all(`
+     LIMIT ? OFFSET ?
+  `,
+    [topCommentedPagination.perPage, topCommentedOffset],
+  );
+  topCommentedPagination = decoratePagination(
+    req,
+    topCommentedPagination,
+    topCommentedOptions,
+  );
+
+  const tagUsageCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT pt.tag_id
+          FROM page_tags pt
+         GROUP BY pt.tag_id
+      ) sub`);
+  const tagUsageOptions = {
+    pageParam: "tagsPage",
+    perPageParam: "tagsPerPage",
+    defaultPageSize: 20,
+    pageSizeOptions: [10, 20, 50, 100, 200],
+  };
+  let tagUsagePagination = buildPagination(
+    req,
+    Number(tagUsageCount?.total ?? 0),
+    tagUsageOptions,
+  );
+  const tagUsageOffset =
+    (tagUsagePagination.page - 1) * tagUsagePagination.perPage;
+  const tagUsage = await all(
+    `
     SELECT t.name, COUNT(*) AS pages
       FROM page_tags pt
       JOIN tags t ON t.id = pt.tag_id
      GROUP BY pt.tag_id
      ORDER BY pages DESC, t.name ASC
-     LIMIT 20`);
-  const commentTimeline = await all(`
+     LIMIT ? OFFSET ?
+  `,
+    [tagUsagePagination.perPage, tagUsageOffset],
+  );
+  tagUsagePagination = decoratePagination(
+    req,
+    tagUsagePagination,
+    tagUsageOptions,
+  );
+
+  const commentTimelineCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT strftime('%Y-%m-%d', created_at) AS day
+          FROM comments
+         GROUP BY strftime('%Y-%m-%d', created_at)
+      ) sub`);
+  const commentTimelineOptions = {
+    pageParam: "timelinePage",
+    perPageParam: "timelinePerPage",
+    defaultPageSize: 30,
+    pageSizeOptions: [15, 30, 60, 120],
+  };
+  let commentTimelinePagination = buildPagination(
+    req,
+    Number(commentTimelineCount?.total ?? 0),
+    commentTimelineOptions,
+  );
+  const commentTimelineOffset =
+    (commentTimelinePagination.page - 1) * commentTimelinePagination.perPage;
+  const commentTimeline = await all(
+    `
     SELECT strftime('%Y-%m-%d', created_at) AS day, COUNT(*) AS comments
       FROM comments
      GROUP BY day
      ORDER BY day DESC
-     LIMIT 30`);
-  const activeIps = await all(`
+     LIMIT ? OFFSET ?
+  `,
+    [commentTimelinePagination.perPage, commentTimelineOffset],
+  );
+  commentTimelinePagination = decoratePagination(
+    req,
+    commentTimelinePagination,
+    commentTimelineOptions,
+  );
+
+  const activeIpsCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT ip
+          FROM page_views
+         WHERE ip IS NOT NULL AND ip <> ''
+         GROUP BY ip
+      ) sub`);
+  const activeIpsOptions = {
+    pageParam: "ipsPage",
+    perPageParam: "ipsPerPage",
+    defaultPageSize: 25,
+    pageSizeOptions: [10, 25, 50, 100, 200],
+  };
+  let activeIpsPagination = buildPagination(
+    req,
+    Number(activeIpsCount?.total ?? 0),
+    activeIpsOptions,
+  );
+  const activeIpsOffset =
+    (activeIpsPagination.page - 1) * activeIpsPagination.perPage;
+  const activeIps = await all(
+    `
     SELECT ip, COUNT(*) AS views
       FROM page_views
      WHERE ip IS NOT NULL AND ip <> ''
      GROUP BY ip
      ORDER BY views DESC
-     LIMIT 25`);
+     LIMIT ? OFFSET ?
+  `,
+    [activeIpsPagination.perPage, activeIpsOffset],
+  );
+  activeIpsPagination = decoratePagination(
+    req,
+    activeIpsPagination,
+    activeIpsOptions,
+  );
   const uniqueIps = await get(
     "SELECT COUNT(DISTINCT ip) AS total FROM page_views WHERE ip IS NOT NULL AND ip <> ''",
   );
-  const ipViewsByPage = await all(`
+  const ipViewsCount = await get(`
+    SELECT COUNT(*) AS total
+      FROM (
+        SELECT pv.ip, pv.page_id
+          FROM page_views pv
+         WHERE pv.ip IS NOT NULL AND pv.ip <> ''
+         GROUP BY pv.ip, pv.page_id
+      ) sub`);
+  const ipViewsOptions = {
+    pageParam: "ipViewsPage",
+    perPageParam: "ipViewsPerPage",
+    defaultPageSize: 50,
+    pageSizeOptions: [25, 50, 100, 200, 500],
+  };
+  let ipViewsPagination = buildPagination(
+    req,
+    Number(ipViewsCount?.total ?? 0),
+    ipViewsOptions,
+  );
+  const ipViewsOffset =
+    (ipViewsPagination.page - 1) * ipViewsPagination.perPage;
+  const ipViewsByPage = await all(
+    `
     SELECT pv.ip, p.title, p.slug_id, COUNT(*) AS views
       FROM page_views pv
       JOIN pages p ON p.id = pv.page_id
      WHERE pv.ip IS NOT NULL AND pv.ip <> ''
      GROUP BY pv.ip, pv.page_id
      ORDER BY views DESC
-     LIMIT 50`);
+     LIMIT ? OFFSET ?
+  `,
+    [ipViewsPagination.perPage, ipViewsOffset],
+  );
+  ipViewsPagination = decoratePagination(
+    req,
+    ipViewsPagination,
+    ipViewsOptions,
+  );
   const banCount = await get(
     "SELECT COUNT(*) AS count FROM ip_bans WHERE lifted_at IS NULL",
   );
@@ -462,12 +666,19 @@ r.get("/stats", async (_req, res) => {
       uniqueIps: uniqueIps?.total || 0,
     },
     topLikedPages,
+    topLikedPagination,
     topCommenters,
+    topCommentersPagination,
     topCommentedPages,
+    topCommentedPagination,
     tagUsage,
+    tagUsagePagination,
     commentTimeline,
+    commentTimelinePagination,
     activeIps,
+    activeIpsPagination,
     ipViewsByPage,
+    ipViewsPagination,
   });
 });
 
@@ -1712,34 +1923,6 @@ r.post("/likes/:id/delete", async (req, res) => {
   });
   res.redirect("/admin/likes");
 });
-
-function buildPagination(req, totalItems, options = {}) {
-  const { pageParam = "page", perPageParam = "perPage" } = options;
-
-  const requestedPage = Number.parseInt(req.query[pageParam], 10);
-  let page =
-    Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
-
-  const perPage = resolvePageSize(req.query[perPageParam], DEFAULT_PAGE_SIZE);
-
-  const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
-
-  if (page > totalPages) {
-    page = totalPages;
-  }
-
-  return {
-    page,
-    perPage,
-    totalItems,
-    totalPages,
-    hasPrevious: page > 1,
-    hasNext: page < totalPages,
-    previousPage: page > 1 ? page - 1 : null,
-    nextPage: page < totalPages ? page + 1 : null,
-    perPageOptions: PAGE_SIZE_OPTIONS,
-  };
-}
 
 r.get("/events", async (req, res) => {
   const totalRow = await get("SELECT COUNT(*) AS total FROM event_logs");

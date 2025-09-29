@@ -92,9 +92,10 @@ export async function fetchPageTags(pageId) {
   return rows.map((row) => row.name);
 }
 
-export async function fetchPageComments(pageId) {
-  return all(
-    `SELECT id AS legacy_id,
+export async function fetchPageComments(pageId, options = {}) {
+  const { limit, offset } = options;
+  const params = [pageId];
+  let query = `SELECT id AS legacy_id,
             snowflake_id,
             author,
             body,
@@ -103,9 +104,24 @@ export async function fetchPageComments(pageId) {
        FROM comments
       WHERE page_id = ?
         AND status = 'approved'
-      ORDER BY created_at ASC`,
-    [pageId],
-  );
+      ORDER BY created_at ASC`;
+
+  const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;
+
+  if (safeLimit !== null) {
+    query += " LIMIT ?";
+    params.push(safeLimit);
+    if (safeOffset !== null) {
+      query += " OFFSET ?";
+      params.push(safeOffset);
+    }
+  } else if (safeOffset !== null) {
+    query += " LIMIT -1 OFFSET ?";
+    params.push(safeOffset);
+  }
+
+  return all(query, params);
 }
 
 export async function fetchPagesByTag({ tagName, ip, excerptLength = 1200 }) {

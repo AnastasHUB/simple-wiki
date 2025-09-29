@@ -36,6 +36,8 @@ import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   resolvePageSize,
+  buildPagination,
+  decoratePagination,
 } from "../utils/pagination.js";
 
 const r = Router();
@@ -203,7 +205,44 @@ r.get(
     await incrementView(page.id, ip);
     page.views = Number(page.views || 0) + 1;
 
-    const comments = await fetchPageComments(page.id);
+    const totalComments = Number(page.comment_count || 0);
+    const commentPaginationOptions = {
+      pageParam: "commentsPage",
+      perPageParam: "commentsPerPage",
+      defaultPageSize: 10,
+      pageSizeOptions: [5, 10, 20, 50],
+    };
+    let commentPagination = buildPagination(
+      req,
+      totalComments,
+      commentPaginationOptions,
+    );
+    if (
+      totalComments > 0 &&
+      !Object.prototype.hasOwnProperty.call(req.query, "commentsPage")
+    ) {
+      const pageNumber = commentPagination.totalPages;
+      const hasPrevious = pageNumber > 1;
+      commentPagination = {
+        ...commentPagination,
+        page: pageNumber,
+        hasPrevious,
+        hasNext: false,
+        previousPage: hasPrevious ? pageNumber - 1 : null,
+        nextPage: null,
+      };
+    }
+    const commentOffset =
+      (commentPagination.page - 1) * commentPagination.perPage;
+    const comments = await fetchPageComments(page.id, {
+      limit: commentPagination.perPage,
+      offset: commentOffset,
+    });
+    commentPagination = decoratePagination(
+      req,
+      commentPagination,
+      commentPaginationOptions,
+    );
     const commentFeedback = consumeCommentFeedback(req, page.slug_id);
     const ownCommentTokens = collectOwnCommentTokens(
       comments,
@@ -216,6 +255,7 @@ r.get(
       html,
       tags: tagNames,
       comments,
+      commentPagination,
       commentFeedback,
       ownCommentTokens,
     });

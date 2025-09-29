@@ -1,0 +1,32 @@
+<% if (pagination && pagination.totalPages > 1) { %>
+  <div class="table-footer">
+    <form method="get">
+      <% const fieldId = `${pagination.pageParam}-per-page`; %>
+      <label for="<%= fieldId %>" class="nowrap">Éléments par page</label>
+      <select id="<%= fieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
+        <% pagination.perPageOptions.forEach(option => { %>
+          <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
+        <% }) %>
+      </select>
+      <input type="hidden" name="<%= pagination.pageParam %>" value="1">
+      <% if (pagination.preservedQuery && pagination.preservedQuery.length) { %>
+        <% pagination.preservedQuery.forEach(pair => { %>
+          <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
+        <% }) %>
+      <% } %>
+    </form>
+    <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
+    <div class="pager">
+      <% if (pagination.hasPrevious) { %>
+        <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+      <% } else { %>
+        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+      <% } %>
+      <% if (pagination.hasNext) { %>
+        <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+      <% } else { %>
+        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+      <% } %>
+    </div>
+  </div>
+<% } %>

@@ -649,6 +649,16 @@ form .actions {
   gap: 0.5rem;
 }
 
+.comment-pagination .per-page-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.comment-pagination select {
+  min-width: 5rem;
+}
+
 /* === PAGE ARTICLE === */
 .page-header {
   margin-bottom: 24px;
