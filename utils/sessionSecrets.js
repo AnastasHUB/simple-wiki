@@ -1,10 +1,9 @@
 import fs from "fs";
+import { v4 as uuidv4 } from "uuid";
 
 const activeSecrets = [];
 let watcher;
 let debounceTimer;
-
-const DEFAULT_SECRET = "development-secret";
 
 function normalizeSecretList(list) {
   return list
@@ -38,10 +37,11 @@ function readSecretsFromEnv() {
 function ensureSecretsLoaded(values) {
   const unique = Array.from(new Set(values));
   if (unique.length === 0) {
+    const generatedSecret = uuidv4();
     console.warn(
-      "No session secret provided. Falling back to an insecure development secret.",
+      "No session secret provided. Generated a new ephemeral session secret.",
     );
-    unique.push(DEFAULT_SECRET);
+    unique.push(generatedSecret);
   }
   activeSecrets.splice(0, activeSecrets.length, ...unique);
   return activeSecrets;
