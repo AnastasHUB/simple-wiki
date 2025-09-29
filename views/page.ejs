@@ -24,13 +24,16 @@
     </form>
     <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')">Copier le lien</button>
     <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
-    <% if (currentUser && currentUser.is_admin) { %>
+    <% const isAdmin = currentUser && currentUser.is_admin; %>
+    <% if (isAdmin) { %>
       <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Éditer</a>
       <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history">Historique</a>
       <form action="/delete/<%= page.slug_id %>" method="post" onsubmit="return confirm('Supprimer ?')">
         <input type="hidden" name="_method" value="DELETE" />
         <button class="btn danger" data-icon="🗑️">Supprimer</button>
       </form>
+    <% } else { %>
+      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Suggérer une modification</a>
     <% } %>
   </div>
 </div>

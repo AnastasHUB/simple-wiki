@@ -1,0 +1,106 @@
+<% title = 'Contribution'; %>
+<h1>Contribution <code><%= submission.snowflake_id %></code></h1>
+
+<section class="card mb-xl">
+  <h2>Informations</h2>
+  <div class="grid grid-auto">
+    <div>
+      <strong>Type</strong>
+      <p><%= submission.type === 'edit' ? 'Modification' : 'Création' %></p>
+    </div>
+    <div>
+      <strong>Titre proposé</strong>
+      <p><strong><%= submission.title %></strong></p>
+    </div>
+    <div>
+      <strong>IP</strong>
+      <p><%= submission.ip || '–' %></p>
+    </div>
+    <div>
+      <strong>Proposé le</strong>
+      <p><%= new Date(submission.created_at).toLocaleString('fr-FR') %></p>
+    </div>
+    <div>
+      <strong>Statut</strong>
+      <p>
+        <% if (submission.status === 'pending') { %>
+          En attente
+        <% } else if (submission.status === 'approved') { %>
+          Approuvée
+        <% } else { %>
+          Rejetée
+        <% } %>
+      </p>
+    </div>
+    <% if (submission.reviewed_at) { %>
+      <div>
+        <strong>Décision</strong>
+        <p>
+          <%= new Date(submission.reviewed_at).toLocaleString('fr-FR') %>
+          <% if (submission.reviewer_username) { %>
+            · par <strong><%= submission.reviewer_username %></strong>
+          <% } %>
+        </p>
+      </div>
+    <% } %>
+    <% if (submission.review_note) { %>
+      <div>
+        <strong>Note</strong>
+        <p><%= submission.review_note %></p>
+      </div>
+    <% } %>
+    <div>
+      <strong>Tags proposés</strong>
+      <p>
+        <% if (proposedTags.length) { %>
+          <%= proposedTags.join(', ') %>
+        <% } else { %>
+          –
+        <% } %>
+      </p>
+    </div>
+    <% if (currentTags && currentTags.length) { %>
+      <div>
+        <strong>Tags actuels</strong>
+        <p><%= currentTags.join(', ') %></p>
+      </div>
+    <% } %>
+    <% if (submission.current_slug) { %>
+      <div>
+        <strong>Page actuelle</strong>
+        <p><a href="/wiki/<%= submission.current_slug %>"><code><%= submission.current_slug %></code></a></p>
+      </div>
+    <% } %>
+  </div>
+</section>
+
+<% if (submission.status === 'pending') { %>
+  <section class="card mb-xl">
+    <h2>Prendre une décision</h2>
+    <div class="grid grid-auto">
+      <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/approve" class="flex flex-col gap-sm">
+        <label for="approve-note">Note (optionnelle)</label>
+        <textarea id="approve-note" name="note" rows="3" placeholder="Commentaire interne"></textarea>
+        <button class="btn success" data-icon="✅" type="submit">Approuver la contribution</button>
+      </form>
+      <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/reject" class="flex flex-col gap-sm" onsubmit="return confirm('Rejeter cette contribution ?');">
+        <label for="reject-note">Motif (optionnel)</label>
+        <textarea id="reject-note" name="note" rows="3" placeholder="Motif du rejet"></textarea>
+        <button class="btn danger" data-icon="✖️" type="submit">Rejeter la contribution</button>
+      </form>
+    </div>
+  </section>
+<% } %>
+
+<section class="card mb-xl">
+  <h2>Contenu proposé</h2>
+  <div class="prose"><div><%- proposedHtml %></div></div>
+</section>
+
+<% if (currentHtml) { %>
+  <section class="card">
+    <h2>Contenu actuel</h2>
+    <div class="prose"><div><%- currentHtml %></div></div>
+  </section>
+<% } %>
+

@@ -1,0 +1,110 @@
+<% title = 'Contributions'; %>
+<h1>Contributions des visiteurs</h1>
+
+<section class="card mb-xl">
+  <h2>En attente (<%= pendingPagination.totalItems %>)</h2>
+  <% if (!pending.length) { %>
+    <p>Aucune contribution en attente de validation.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Titre</th>
+            <th>Page liée</th>
+            <th>Tags</th>
+            <th>IP</th>
+            <th>Créé</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pending.forEach(item => { %>
+            <tr>
+              <td><code><%= item.snowflake_id %></code></td>
+              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><strong><%= item.title %></strong></td>
+              <td>
+                <% if (item.current_slug) { %>
+                  <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td>
+                <% if (item.tag_list && item.tag_list.length) { %>
+                  <%= item.tag_list.join(', ') %>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td><%= item.ip || '–' %></td>
+              <td><%= new Date(item.created_at).toLocaleString('fr-FR') %></td>
+              <td>
+                <a class="btn" data-icon="🔍" href="/admin/submissions/<%= item.snowflake_id %>">Voir</a>
+                <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/approve">
+                  <button class="btn success" data-icon="✅" type="submit">Approuver</button>
+                </form>
+                <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/reject" onsubmit="return confirm('Rejeter cette contribution ?');">
+                  <button class="btn danger" data-icon="✖️" type="submit">Rejeter</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('admin/paginationControls', { pagination: pendingPagination }) %>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>Historique des décisions (<%= recentPagination.totalItems %>)</h2>
+  <% if (!recent.length) { %>
+    <p>Aucune décision enregistrée.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Titre</th>
+            <th>Statut</th>
+            <th>Validé par</th>
+            <th>Revue</th>
+            <th>Note</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% recent.forEach(item => { %>
+            <tr>
+              <td><code><%= item.snowflake_id %></code></td>
+              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td>
+                <strong><%= item.title %></strong>
+                <% if (item.result_slug_id) { %>
+                  <div><a href="/wiki/<%= item.result_slug_id %>"><code><%= item.result_slug_id %></code></a></div>
+                <% } %>
+              </td>
+              <td class="status <%= item.status %>"><%= item.status === 'approved' ? 'Approuvée' : 'Rejetée' %></td>
+              <td><%= item.reviewer_username || '–' %></td>
+              <td>
+                <% if (item.reviewed_at) { %>
+                  <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td><%= item.review_note ? item.review_note : '–' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('admin/paginationControls', { pagination: recentPagination }) %>
+  <% } %>
+</section>
+

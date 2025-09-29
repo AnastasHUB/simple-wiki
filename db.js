@@ -98,6 +98,25 @@ export async function initDb() {
   );
   CREATE INDEX IF NOT EXISTS idx_comments_page_status
     ON comments(page_id, status);
+  CREATE TABLE IF NOT EXISTS page_submissions(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    page_id INTEGER REFERENCES pages(id) ON DELETE SET NULL,
+    target_slug_id TEXT,
+    type TEXT NOT NULL CHECK(type IN ('create','edit')),
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    tags TEXT,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK(status IN ('pending','approved','rejected')),
+    ip TEXT,
+    submitted_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    reviewer_id INTEGER REFERENCES users(id),
+    review_note TEXT,
+    reviewed_at DATETIME,
+    result_slug_id TEXT
+  );
   CREATE TABLE IF NOT EXISTS ip_bans(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -144,6 +163,7 @@ export async function initDb() {
   await ensureSnowflake("page_tags");
   await ensureSnowflake("likes");
   await ensureSnowflake("comments");
+  await ensureSnowflake("page_submissions");
   await ensureSnowflake("ip_bans");
   await ensureSnowflake("event_logs");
   await ensureSnowflake("uploads", "snowflake_id");

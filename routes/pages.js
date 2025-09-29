@@ -18,6 +18,8 @@ import { isIpBanned } from "../utils/ipBans.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { pushNotification } from "../utils/notifications.js";
+import { upsertTags, recordRevision } from "../utils/pageEditing.js";
+import { createPageSubmission } from "../utils/pageSubmissionService.js";
 import {
   fetchRecentPages,
   fetchPaginatedPages,
@@ -138,18 +140,60 @@ r.get(
 
 r.get(
   "/new",
-  requireAdmin,
-  asyncHandler(async (_req, res) => {
-    const uploads = await listUploads();
-    res.render("edit", { page: null, tags: "", uploads });
+  asyncHandler(async (req, res) => {
+    const isAdmin = Boolean(req.session.user?.is_admin);
+    if (!isAdmin) {
+      const ban = await isIpBanned(req.clientIp, { action: "contribute" });
+      if (ban) {
+        return res.status(403).render("banned", { ban });
+      }
+    }
+    const uploads = isAdmin ? await listUploads() : [];
+    res.render("edit", {
+      page: null,
+      tags: "",
+      uploads,
+      submissionMode: !isAdmin,
+      allowUploads: isAdmin,
+    });
   }),
 );
 
 r.post(
   "/new",
-  requireAdmin,
   asyncHandler(async (req, res) => {
     const { title, content, tags } = req.body;
+    const isAdmin = Boolean(req.session.user?.is_admin);
+    if (!isAdmin) {
+      const ban = await isIpBanned(req.clientIp, { action: "contribute" });
+      if (ban) {
+        return res.status(403).render("banned", { ban });
+      }
+      const submissionId = await createPageSubmission({
+        type: "create",
+        title,
+        content,
+        tags,
+        ip: req.clientIp,
+        submittedBy: req.session.user?.username || null,
+      });
+      pushNotification(req, {
+        type: "success",
+        message: "Merci ! Votre proposition sera examinée par un administrateur.",
+        timeout: 6000,
+      });
+      await sendAdminEvent("Soumission de nouvelle page", {
+        page: { title },
+        user: req.session.user?.username || null,
+        extra: {
+          ip: req.clientIp || null,
+          submission: submissionId,
+          status: "pending",
+        },
+      });
+      return res.redirect("/");
+    }
+
     const base = slugify(title);
     const slug_id = randSlugId(base);
     const pageSnowflake = generateSnowflake();
@@ -606,31 +650,83 @@ r.post(
 
 r.get(
   "/edit/:slugid",
-  requireAdmin,
   asyncHandler(async (req, res) => {
     const page = await get("SELECT * FROM pages WHERE slug_id=?", [
       req.params.slugid,
     ]);
     if (!page) return res.status(404).send("Page introuvable");
     const tagNames = await fetchPageTags(page.id);
-    const uploads = await listUploads();
+    const isAdmin = Boolean(req.session.user?.is_admin);
+    if (!isAdmin) {
+      const ban = await isIpBanned(req.clientIp, {
+        action: "contribute",
+        tags: tagNames,
+      });
+      if (ban) {
+        return res.status(403).render("banned", { ban });
+      }
+    }
+    const uploads = isAdmin ? await listUploads() : [];
     res.render("edit", {
       page,
       tags: tagNames.join(", "),
       uploads,
+      submissionMode: !isAdmin,
+      allowUploads: isAdmin,
     });
   }),
 );
 
 r.post(
   "/edit/:slugid",
-  requireAdmin,
   asyncHandler(async (req, res) => {
     const { title, content, tags } = req.body;
     const page = await get("SELECT * FROM pages WHERE slug_id=?", [
       req.params.slugid,
     ]);
     if (!page) return res.status(404).send("Page introuvable");
+
+    const isAdmin = Boolean(req.session.user?.is_admin);
+    if (!isAdmin) {
+      const tagNames = await fetchPageTags(page.id);
+      const ban = await isIpBanned(req.clientIp, {
+        action: "contribute",
+        tags: tagNames,
+      });
+      if (ban) {
+        return res.status(403).render("banned", { ban });
+      }
+      const submissionId = await createPageSubmission({
+        type: "edit",
+        pageId: page.id,
+        title,
+        content,
+        tags,
+        ip: req.clientIp,
+        submittedBy: req.session.user?.username || null,
+        targetSlugId: page.slug_id,
+      });
+      pushNotification(req, {
+        type: "success",
+        message:
+          "Merci ! Votre proposition de mise à jour sera vérifiée avant publication.",
+        timeout: 6000,
+      });
+      await sendAdminEvent("Soumission de modification", {
+        page: {
+          title: page.title,
+          slug_id: page.slug_id,
+          snowflake_id: page.snowflake_id,
+        },
+        user: req.session.user?.username || null,
+        extra: {
+          ip: req.clientIp || null,
+          submission: submissionId,
+          status: "pending",
+        },
+      });
+      return res.redirect("/wiki/" + page.slug_id);
+    }
 
     await recordRevision(page.id, page.title, page.content, req.session.user?.id || null);
     const base = slugify(title);
@@ -781,44 +877,6 @@ r.get(
     res.render("revision", { page, revision, html });
   }),
 );
-
-async function upsertTags(pageId, csv = "") {
-  const names = Array.from(
-    new Set(
-      csv
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean)
-        .map((s) => s.toLowerCase()),
-    ),
-  );
-  for (const n of names) {
-    await run("INSERT OR IGNORE INTO tags(name, snowflake_id) VALUES(?,?)", [
-      n,
-      generateSnowflake(),
-    ]);
-    const tag = await get("SELECT id FROM tags WHERE name=?", [n]);
-    await run(
-      "INSERT OR IGNORE INTO page_tags(snowflake_id, page_id, tag_id) VALUES(?,?,?)",
-      [generateSnowflake(), pageId, tag.id],
-    );
-  }
-  return names;
-}
-
-async function recordRevision(pageId, title, content, authorId = null) {
-  const row = await get(
-    "SELECT COALESCE(MAX(revision), 0) + 1 AS next FROM page_revisions WHERE page_id=?",
-    [pageId],
-  );
-  const next = row?.next || 1;
-    const snowflake = generateSnowflake();
-    await run(
-      "INSERT INTO page_revisions(snowflake_id, page_id, revision, title, content, author_id) VALUES(?,?,?,?,?,?)",
-      [snowflake, pageId, next, title, content, authorId],
-    );
-  return next;
-}
 
 function canManageComment(req, comment) {
   if (req.session.user?.is_admin) return true;

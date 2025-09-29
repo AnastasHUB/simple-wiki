@@ -1,0 +1,143 @@
+import { all, get, run } from "../db.js";
+import { normalizeTagInput } from "./pageEditing.js";
+import { generateSnowflake } from "./snowflake.js";
+
+export async function createPageSubmission({
+  type,
+  pageId = null,
+  title,
+  content,
+  tags = "",
+  ip = null,
+  submittedBy = null,
+  targetSlugId = null,
+}) {
+  if (!type || !title || !content) {
+    throw new Error("Invalid submission payload");
+  }
+
+  const normalizedType = type === "edit" ? "edit" : "create";
+  const snowflake = generateSnowflake();
+  await run(
+    `INSERT INTO page_submissions(
+      snowflake_id, page_id, target_slug_id, type, title, content, tags, ip, submitted_by
+    ) VALUES(?,?,?,?,?,?,?,?,?)`,
+    [
+      snowflake,
+      pageId || null,
+      targetSlugId || null,
+      normalizedType,
+      title,
+      content,
+      typeof tags === "string" ? tags : normalizeTagInput(tags).join(", "),
+      ip || null,
+      submittedBy || null,
+    ],
+  );
+  return snowflake;
+}
+
+export async function getPageSubmissionById(id) {
+  if (!id) {
+    return null;
+  }
+
+  return get(
+    `SELECT ps.*, p.title AS current_title, p.slug_id AS current_slug,
+            r.username AS reviewer_username
+       FROM page_submissions ps
+       LEFT JOIN pages p ON p.id = ps.page_id
+       LEFT JOIN users r ON r.id = ps.reviewer_id
+      WHERE ps.snowflake_id=?`,
+    [id],
+  );
+}
+
+export async function fetchPageSubmissions({
+  status = null,
+  limit = 50,
+  offset = 0,
+  orderBy = "created_at",
+  direction = "DESC",
+} = {}) {
+  const allowedOrder = new Set([
+    "created_at",
+    "reviewed_at",
+    "title",
+    "type",
+  ]);
+  const safeOrder = allowedOrder.has(orderBy) ? orderBy : "created_at";
+  const safeDirection = direction === "ASC" ? "ASC" : "DESC";
+
+  const whereClauses = [];
+  const params = [];
+  if (typeof status === "string" && status) {
+    whereClauses.push("ps.status=?");
+    params.push(status);
+  } else if (Array.isArray(status) && status.length) {
+    const placeholders = status.map(() => "?").join(",");
+    whereClauses.push(`ps.status IN (${placeholders})`);
+    params.push(...status);
+  }
+
+  const where = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+  return all(
+    `SELECT ps.*, p.title AS current_title, p.slug_id AS current_slug,
+            r.username AS reviewer_username
+       FROM page_submissions ps
+       LEFT JOIN pages p ON p.id = ps.page_id
+       LEFT JOIN users r ON r.id = ps.reviewer_id
+       ${where}
+      ORDER BY ps.${safeOrder} ${safeDirection}
+      LIMIT ? OFFSET ?`,
+    [...params, limit, offset],
+  );
+}
+
+export async function updatePageSubmissionStatus(
+  id,
+  {
+    status,
+    reviewerId = null,
+    reviewNote = null,
+    pageId = null,
+    resultSlugId = null,
+    targetSlugId = null,
+  } = {},
+) {
+  if (!id || !status) {
+    return false;
+  }
+
+  const allowed = new Set(["approved", "rejected"]);
+  if (!allowed.has(status)) {
+    throw new Error("Invalid submission status");
+  }
+
+  const result = await run(
+    `UPDATE page_submissions
+        SET status=?, reviewer_id=?, review_note=?, reviewed_at=CURRENT_TIMESTAMP,
+            page_id=COALESCE(?, page_id), result_slug_id=COALESCE(?, result_slug_id),
+            target_slug_id=COALESCE(?, target_slug_id)
+      WHERE snowflake_id=? AND status='pending'`,
+    [
+      status,
+      reviewerId || null,
+      reviewNote || null,
+      pageId || null,
+      resultSlugId || null,
+      targetSlugId || null,
+      id,
+    ],
+  );
+  return result?.changes > 0;
+}
+
+export function mapSubmissionTags(submission) {
+  if (!submission) {
+    return [];
+  }
+  return normalizeTagInput(submission.tags || "");
+}
+

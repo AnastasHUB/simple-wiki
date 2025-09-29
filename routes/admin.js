@@ -6,8 +6,8 @@ import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randSlugId, savePageFts } from "../db.js";
 import { generateSnowflake } from "../utils/snowflake.js";
-import { slugify } from "../utils/linkify.js";
-import { sendAdminEvent } from "../utils/webhook.js";
+import { slugify, linkifyInternal } from "../utils/linkify.js";
+import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { hashPassword } from "../utils/passwords.js";
 import {
   uploadDir,
@@ -22,6 +22,14 @@ import {
 import { banIp, liftBan } from "../utils/ipBans.js";
 import { getClientIp } from "../utils/ip.js";
 import { buildPagination, decoratePagination } from "../utils/pagination.js";
+import {
+  fetchPageSubmissions,
+  getPageSubmissionById,
+  mapSubmissionTags,
+  updatePageSubmissionStatus,
+} from "../utils/pageSubmissionService.js";
+import { fetchPageTags } from "../utils/pageService.js";
+import { upsertTags, recordRevision } from "../utils/pageEditing.js";
 import {
   getSiteSettingsForForm,
   updateSiteSettingsFromForm,
@@ -313,6 +321,294 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
+});
+
+r.get("/submissions", async (req, res) => {
+  const pendingCountRow = await get(
+    "SELECT COUNT(*) AS total FROM page_submissions WHERE status='pending'",
+  );
+  const pendingBase = buildPagination(
+    req,
+    Number(pendingCountRow?.total ?? 0),
+    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
+  );
+  const pendingOffset = (pendingBase.page - 1) * pendingBase.perPage;
+  const pendingRows = await fetchPageSubmissions({
+    status: "pending",
+    limit: pendingBase.perPage,
+    offset: pendingOffset,
+    orderBy: "created_at",
+    direction: "ASC",
+  });
+  const pending = pendingRows.map((item) => ({
+    ...item,
+    tag_list: mapSubmissionTags(item),
+  }));
+  const pendingPagination = decoratePagination(
+    req,
+    pendingBase,
+    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
+  );
+
+  const recentCountRow = await get(
+    "SELECT COUNT(*) AS total FROM page_submissions WHERE status<>'pending'",
+  );
+  const recentBase = buildPagination(
+    req,
+    Number(recentCountRow?.total ?? 0),
+    { pageParam: "recentPage", perPageParam: "recentPerPage" },
+  );
+  const recentOffset = (recentBase.page - 1) * recentBase.perPage;
+  const recentRows = await fetchPageSubmissions({
+    status: ["approved", "rejected"],
+    limit: recentBase.perPage,
+    offset: recentOffset,
+    orderBy: "reviewed_at",
+    direction: "DESC",
+  });
+  const recent = recentRows.map((item) => ({
+    ...item,
+    tag_list: mapSubmissionTags(item),
+  }));
+  const recentPagination = decoratePagination(
+    req,
+    recentBase,
+    { pageParam: "recentPage", perPageParam: "recentPerPage" },
+  );
+
+  res.render("admin/submissions", {
+    pending,
+    recent,
+    pendingPagination,
+    recentPagination,
+  });
+});
+
+r.get("/submissions/:id", async (req, res) => {
+  const submission = await getPageSubmissionById(req.params.id);
+  if (!submission) {
+    pushNotification(req, {
+      type: "error",
+      message: "Contribution introuvable.",
+    });
+    return res.redirect("/admin/submissions");
+  }
+
+  let targetPage = null;
+  if (submission.page_id) {
+    targetPage = await get(
+      "SELECT id, title, content FROM pages WHERE id=?",
+      [submission.page_id],
+    );
+  }
+  if (!targetPage && submission.current_slug) {
+    targetPage = await get(
+      "SELECT id, title, content FROM pages WHERE slug_id=?",
+      [submission.current_slug],
+    );
+  }
+
+  const proposedTags = mapSubmissionTags(submission);
+  const currentTags = targetPage ? await fetchPageTags(targetPage.id) : [];
+  const proposedHtml = linkifyInternal(submission.content || "");
+  const currentHtml = targetPage ? linkifyInternal(targetPage.content || "") : null;
+
+  res.render("admin/submission_detail", {
+    submission,
+    proposedTags,
+    currentTags,
+    proposedHtml,
+    currentHtml,
+  });
+});
+
+r.post("/submissions/:id/approve", async (req, res) => {
+  const submission = await getPageSubmissionById(req.params.id);
+  if (!submission) {
+    pushNotification(req, {
+      type: "error",
+      message: "Contribution introuvable.",
+    });
+    return res.redirect("/admin/submissions");
+  }
+  if (submission.status !== "pending") {
+    pushNotification(req, {
+      type: "info",
+      message: "Cette contribution a déjà été traitée.",
+    });
+    return res.redirect("/admin/submissions");
+  }
+
+  const reviewNote = (req.body.note || "").trim();
+  const reviewerId = req.session.user?.id || null;
+
+  try {
+    if (submission.type === "create") {
+      const base = slugify(submission.title);
+      const slugId = randSlugId(base);
+      const pageSnowflake = generateSnowflake();
+      const insertResult = await run(
+        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content) VALUES(?,?,?,?,?)",
+        [pageSnowflake, base, slugId, submission.title, submission.content],
+      );
+      const pageId = insertResult?.lastID;
+      if (!pageId) {
+        throw new Error("Impossible de créer la page");
+      }
+      const tagNames = await upsertTags(pageId, submission.tags || "");
+      await recordRevision(pageId, submission.title, submission.content, reviewerId);
+      await savePageFts({
+        id: pageId,
+        title: submission.title,
+        content: submission.content,
+        slug_id: slugId,
+        tags: tagNames.join(" "),
+      });
+      await updatePageSubmissionStatus(submission.snowflake_id, {
+        status: "approved",
+        reviewerId,
+        reviewNote,
+        pageId,
+        resultSlugId: slugId,
+        targetSlugId: slugId,
+      });
+      pushNotification(req, {
+        type: "success",
+        message: "Contribution approuvée et nouvel article publié.",
+      });
+      const pageUrl = req.protocol + "://" + req.get("host") + "/wiki/" + slugId;
+      await sendAdminEvent("Contribution approuvée", {
+        page: { title: submission.title, slug_id: slugId, snowflake_id: pageSnowflake },
+        user: req.session.user?.username || null,
+        extra: {
+          submission: submission.snowflake_id,
+          ip: submission.ip || null,
+          type: submission.type,
+        },
+      });
+      await sendFeedEvent(
+        "Nouvel article",
+        {
+          page: { title: submission.title, slug_id: slugId, snowflake_id: pageSnowflake },
+          author: submission.submitted_by || null,
+          url: pageUrl,
+          tags: submission.tags,
+        },
+        { articleContent: submission.content },
+      );
+    } else {
+      const page = submission.page_id
+        ? await get("SELECT * FROM pages WHERE id=?", [submission.page_id])
+        : submission.current_slug
+          ? await get("SELECT * FROM pages WHERE slug_id=?", [submission.current_slug])
+          : null;
+      if (!page) {
+        throw new Error("Page cible introuvable");
+      }
+      await recordRevision(page.id, page.title, page.content, reviewerId);
+      const base = slugify(submission.title);
+      await run(
+        "UPDATE pages SET title=?, content=?, slug_base=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        [submission.title, submission.content, base, page.id],
+      );
+      await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
+      const tagNames = await upsertTags(page.id, submission.tags || "");
+      await recordRevision(page.id, submission.title, submission.content, reviewerId);
+      await savePageFts({
+        id: page.id,
+        title: submission.title,
+        content: submission.content,
+        slug_id: page.slug_id,
+        tags: tagNames.join(" "),
+      });
+      await updatePageSubmissionStatus(submission.snowflake_id, {
+        status: "approved",
+        reviewerId,
+        reviewNote,
+        pageId: page.id,
+        resultSlugId: page.slug_id,
+        targetSlugId: page.slug_id,
+      });
+      pushNotification(req, {
+        type: "success",
+        message: "Contribution approuvée et article mis à jour.",
+      });
+      await sendAdminEvent("Contribution approuvée", {
+        page: {
+          title: submission.title,
+          slug_id: page.slug_id,
+          snowflake_id: page.snowflake_id,
+        },
+        user: req.session.user?.username || null,
+        extra: {
+          submission: submission.snowflake_id,
+          ip: submission.ip || null,
+          type: submission.type,
+        },
+      });
+    }
+  } catch (err) {
+    console.error(err);
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible d'approuver la contribution.",
+    });
+    return res.redirect(`/admin/submissions/${submission.snowflake_id}`);
+  }
+
+  res.redirect("/admin/submissions");
+});
+
+r.post("/submissions/:id/reject", async (req, res) => {
+  const submission = await getPageSubmissionById(req.params.id);
+  if (!submission) {
+    pushNotification(req, {
+      type: "error",
+      message: "Contribution introuvable.",
+    });
+    return res.redirect("/admin/submissions");
+  }
+  if (submission.status !== "pending") {
+    pushNotification(req, {
+      type: "info",
+      message: "Cette contribution a déjà été traitée.",
+    });
+    return res.redirect("/admin/submissions");
+  }
+
+  const reviewNote = (req.body.note || "").trim();
+  const reviewerId = req.session.user?.id || null;
+  const updated = await updatePageSubmissionStatus(submission.snowflake_id, {
+    status: "rejected",
+    reviewerId,
+    reviewNote,
+  });
+  if (!updated) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de mettre à jour cette contribution.",
+    });
+    return res.redirect(`/admin/submissions/${submission.snowflake_id}`);
+  }
+
+  pushNotification(req, {
+    type: "info",
+    message: "Contribution rejetée.",
+  });
+  await sendAdminEvent("Contribution rejetée", {
+    page: submission.current_slug
+      ? { title: submission.current_title, slug_id: submission.current_slug }
+      : { title: submission.title },
+    user: req.session.user?.username || null,
+    extra: {
+      submission: submission.snowflake_id,
+      ip: submission.ip || null,
+      type: submission.type,
+      note: reviewNote || null,
+    },
+  });
+
+  res.redirect("/admin/submissions");
 });
 
 r.get("/pages", async (req, res) => {
