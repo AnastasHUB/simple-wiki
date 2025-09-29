@@ -36,6 +36,7 @@ import {
   invalidateSiteSettingsCache,
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
+import { countBanAppeals, fetchBanAppeals } from "../utils/banAppeals.js";
 
 await ensureUploadDir();
 
@@ -213,6 +214,21 @@ async function handleCommentDeletion(req, res) {
 
 r.delete("/comments/:id", handleCommentDeletion);
 r.post("/comments/:id/delete", handleCommentDeletion);
+
+r.get("/ban-appeals", async (req, res) => {
+  const total = await countBanAppeals();
+  const pagination = buildPagination(req, total);
+  const offset = (pagination.page - 1) * pagination.perPage;
+  const appeals = await fetchBanAppeals({
+    limit: pagination.perPage,
+    offset,
+  });
+
+  res.render("admin/banAppeals", {
+    appeals,
+    pagination,
+  });
+});
 
 r.get("/ip-bans", async (req, res) => {
   const activeCountRow = await get(

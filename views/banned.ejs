@@ -1,4 +1,7 @@
 <% title = 'Accès restreint'; %>
+<% const showAppealSuccess = typeof appealSuccess !== "undefined" && appealSuccess; %>
+<% const appealMessageValue = typeof appealMessage !== "undefined" ? appealMessage : ""; %>
+<% const appealErrorMessage = typeof appealError !== "undefined" ? appealError : null; %>
 <section class="card">
   <h1>Accès restreint</h1>
   <p>
@@ -7,7 +10,7 @@
   <% if (ban && ban.reason) { %>
     <p><strong>Raison :</strong> <%= ban.reason %></p>
   <% } %>
-  <% if (appealSuccess) { %>
+  <% if (showAppealSuccess) { %>
     <p class="alert alert-success">
       Votre demande de débannissement a bien été envoyée. Un administrateur la traitera prochainement.
     </p>
@@ -24,10 +27,10 @@
           rows="5"
           maxlength="2000"
           required
-        ><%= (appealMessage || "") %></textarea>
+        ><%= appealMessageValue %></textarea>
       </div>
-      <% if (appealError) { %>
-        <p class="form-error"><%= appealError %></p>
+      <% if (appealErrorMessage) { %>
+        <p class="form-error"><%= appealErrorMessage %></p>
       <% } %>
       <button type="submit" class="btn btn-primary">Envoyer une demande de déban</button>
     </form>
