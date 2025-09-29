@@ -51,7 +51,11 @@ app.use(async (req, res, next) => {
         res.locals.adminActionCounts = await getAdminActionCounts();
       } catch (actionErr) {
         console.error("Unable to load admin action counts", actionErr);
-        res.locals.adminActionCounts = { pendingComments: 0, pendingSubmissions: 0 };
+        res.locals.adminActionCounts = {
+          pendingComments: 0,
+          pendingSubmissions: 0,
+          flaggedIps: 0,
+        };
       }
     }
     next();

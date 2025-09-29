@@ -1,6 +1,7 @@
 import { createHash } from "crypto";
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
+import { autoRefreshIpReputation } from "./ipReputation.js";
 
 const SALT = process.env.IP_PROFILE_SALT || "simple-wiki-ip-profile::v1";
 
@@ -40,13 +41,18 @@ export async function touchIpProfile(ip) {
   }
 
   const existing = await get(
-    "SELECT id, hash FROM ip_profiles WHERE ip = ?",
+    `SELECT id, hash FROM ip_profiles WHERE ip = ?`,
     [normalized],
   );
   if (existing?.id) {
     await run("UPDATE ip_profiles SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?", [
       existing.id,
     ]);
+    try {
+      await autoRefreshIpReputation(normalized);
+    } catch (err) {
+      console.error("Impossible de rafraîchir la réputation IP", err);
+    }
     return {
       hash: existing.hash,
       shortHash: formatIpProfileLabel(existing.hash),
@@ -76,6 +82,11 @@ export async function touchIpProfile(ip) {
       [normalized],
     );
   }
+  try {
+    await autoRefreshIpReputation(normalized);
+  } catch (err) {
+    console.error("Impossible de rafraîchir la réputation IP", err);
+  }
   return {
     hash: finalHash,
     shortHash: formatIpProfileLabel(finalHash),
@@ -89,7 +100,10 @@ export async function getIpProfileByHash(hash) {
   }
 
   const profile = await get(
-    `SELECT id, ip, hash, created_at, last_seen_at
+    `SELECT id, ip, hash, created_at, last_seen_at,
+            reputation_status, reputation_provider, reputation_reason,
+            reputation_checked_at, reputation_flagged_at,
+            reputation_reviewed_at, reputation_reviewed_by
        FROM ip_profiles
       WHERE hash = ?`,
     [normalized],
@@ -182,8 +196,18 @@ export async function getIpProfileByHash(hash) {
   return {
     hash: profile.hash,
     shortHash: formatIpProfileLabel(profile.hash),
+    ip: profile.ip,
     createdAt: profile.created_at || null,
     lastSeenAt: profile.last_seen_at || null,
+    reputation: {
+      status: profile.reputation_status || "unknown",
+      provider: profile.reputation_provider || null,
+      reason: profile.reputation_reason || null,
+      checkedAt: profile.reputation_checked_at || null,
+      flaggedAt: profile.reputation_flagged_at || null,
+      reviewedAt: profile.reputation_reviewed_at || null,
+      reviewedBy: profile.reputation_reviewed_by || null,
+    },
     stats: {
       views: {
         total: Number(viewStats?.total || 0),
@@ -280,6 +304,9 @@ export async function fetchIpProfiles({
         ipr.ip,
         ipr.created_at,
         ipr.last_seen_at,
+        ipr.reputation_status,
+        ipr.reputation_reason,
+        ipr.reputation_checked_at,
         (SELECT COUNT(*) FROM comments WHERE ip = ipr.ip AND status='approved') AS approved_comments,
         (SELECT COUNT(*) FROM page_submissions WHERE ip = ipr.ip) AS submissions,
         (SELECT COUNT(*) FROM likes WHERE ip = ipr.ip) AS likes,
@@ -298,6 +325,11 @@ export async function fetchIpProfiles({
     ip: row.ip,
     createdAt: row.created_at,
     lastSeenAt: row.last_seen_at,
+    reputation: {
+      status: row.reputation_status || "unknown",
+      reason: row.reputation_reason || null,
+      checkedAt: row.reputation_checked_at || null,
+    },
     stats: {
       approvedComments: Number(row.approved_comments || 0),
       submissions: Number(row.submissions || 0),
@@ -305,6 +337,61 @@ export async function fetchIpProfiles({
       views: Number(row.views || 0),
     },
   }));
+}
+
+export async function countFlaggedIpProfiles() {
+  const row = await get(
+    "SELECT COUNT(*) AS total FROM ip_profiles WHERE reputation_status='flagged'",
+  );
+  return Number(row?.total ?? 0);
+}
+
+export async function fetchFlaggedIpProfiles() {
+  const rows = await all(
+    `SELECT id, hash, ip, reputation_reason, reputation_checked_at,
+            reputation_flagged_at, reputation_provider
+       FROM ip_profiles
+      WHERE reputation_status='flagged'
+      ORDER BY COALESCE(reputation_flagged_at, reputation_checked_at) DESC, last_seen_at DESC`,
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    hash: row.hash,
+    shortHash: formatIpProfileLabel(row.hash),
+    ip: row.ip,
+    reason: row.reputation_reason || "Signalement sans précision",
+    provider: row.reputation_provider || null,
+    flaggedAt: row.reputation_flagged_at || row.reputation_checked_at || null,
+    checkedAt: row.reputation_checked_at || null,
+  }));
+}
+
+export async function markIpProfileSafe(hash, reviewer = null) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    return false;
+  }
+  const profile = await get(
+    `SELECT id FROM ip_profiles WHERE hash = ?`,
+    [normalized],
+  );
+  if (!profile?.id) {
+    return false;
+  }
+  const now = new Date().toISOString();
+  await run(
+    `UPDATE ip_profiles
+        SET reputation_status='safe',
+            reputation_reason='Validé manuellement par un administrateur.',
+            reputation_flagged_at=NULL,
+            reputation_provider='manuel',
+            reputation_reviewed_at=?,
+            reputation_reviewed_by=?,
+            reputation_checked_at=?
+      WHERE id=?`,
+    [now, reviewer || null, now, profile.id],
+  );
+  return true;
 }
 
 function buildExcerpt(text, limit = 160) {

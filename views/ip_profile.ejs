@@ -22,6 +22,35 @@
       <dt>Dernière activité</dt>
       <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString('fr-FR') : 'Inconnue' %></dd>
     </div>
+    <div>
+      <dt>Statut de confiance</dt>
+      <dd>
+        <% const reputation = profile.reputation || {}; %>
+        <% const status = reputation.status || 'unknown'; %>
+        <span class="status-badge status-<%= status %>">
+          <%= status === 'flagged' ? 'À vérifier' : status === 'safe' ? 'Sûr' : 'Inconnu' %>
+        </span>
+        <% if (reputation.reason) { %>
+          <div class="text-muted"><%= reputation.reason %></div>
+        <% } %>
+        <div class="text-muted">
+          <% if (reputation.checkedAt) { %>
+            Vérifié automatiquement le <%= new Date(reputation.checkedAt).toLocaleString('fr-FR') %>
+            <% if (reputation.provider) { %>
+              (source : <%= reputation.provider %>)
+            <% } %>
+          <% } else { %>
+            Pas encore vérifié automatiquement.
+          <% } %>
+          <% if (reputation.reviewedBy) { %>
+            <br />Validé par <strong><%= reputation.reviewedBy %></strong>
+            <% if (reputation.reviewedAt) { %>
+              le <%= new Date(reputation.reviewedAt).toLocaleString('fr-FR') %>
+            <% } %>
+          <% } %>
+        </div>
+      </dd>
+    </div>
   </dl>
 
   <ul class="stat-grid ip-profile-stats">

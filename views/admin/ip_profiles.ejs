@@ -33,6 +33,7 @@
           <tr>
             <th>Profil</th>
             <th>Adresse IP</th>
+            <th>Statut</th>
             <th>Dernière activité</th>
             <th>Commentaires</th>
             <th>Propositions</th>
@@ -55,6 +56,22 @@
                 </small>
               </td>
               <td><code><%= profile.ip %></code></td>
+              <td>
+                <% const status = profile.reputation.status; %>
+                <span class="status-badge status-<%= status %>">
+                  <%= status === 'flagged' ? 'À vérifier' : status === 'safe' ? 'Sûr' : 'Inconnu' %>
+                </span>
+                <% if (profile.reputation.checkedAt) { %>
+                  <br />
+                  <small class="text-muted">
+                    Vérifié : <%= new Date(profile.reputation.checkedAt).toLocaleString('fr-FR') %>
+                  </small>
+                <% } %>
+                <% if (profile.reputation.reason) { %>
+                  <br />
+                  <small class="text-muted"><%= profile.reputation.reason %></small>
+                <% } %>
+              </td>
               <td>
                 <% if (profile.lastSeenAt) { %>
                   <time datetime="<%= profile.lastSeenAt %>"><%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %></time>

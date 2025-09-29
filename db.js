@@ -174,6 +174,14 @@ export async function initDb() {
   await ensureColumn("comments", "edit_token", "TEXT");
   await ensureColumn("comments", "author_is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "display_name", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_status", "TEXT NOT NULL DEFAULT 'unknown'");
+  await ensureColumn("ip_profiles", "reputation_provider", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_reason", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_payload", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_checked_at", "DATETIME");
+  await ensureColumn("ip_profiles", "reputation_flagged_at", "DATETIME");
+  await ensureColumn("ip_profiles", "reputation_reviewed_at", "DATETIME");
+  await ensureColumn("ip_profiles", "reputation_reviewed_by", "TEXT");
   await ensureSnowflake("settings");
   await ensureSnowflake("users");
   await ensureSnowflake("pages");

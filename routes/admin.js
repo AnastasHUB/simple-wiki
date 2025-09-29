@@ -20,7 +20,14 @@ import {
   normalizeDisplayName,
 } from "../utils/uploads.js";
 import { banIp, liftBan } from "../utils/ipBans.js";
-import { countIpProfiles, fetchIpProfiles } from "../utils/ipProfiles.js";
+import {
+  countIpProfiles,
+  fetchIpProfiles,
+  fetchFlaggedIpProfiles,
+  markIpProfileSafe,
+  getIpProfileByHash,
+} from "../utils/ipProfiles.js";
+import { forceRefreshIpReputation } from "../utils/ipReputation.js";
 import { getClientIp } from "../utils/ip.js";
 import { buildPagination, decoratePagination } from "../utils/pagination.js";
 import {
@@ -439,6 +446,82 @@ r.get("/ip-profiles", async (req, res) => {
     searchTerm,
     pagination,
   });
+});
+
+r.get("/ip-security", async (_req, res) => {
+  const flagged = await fetchFlaggedIpProfiles();
+  res.render("admin/ip_security", {
+    flagged,
+  });
+});
+
+r.post("/ip-security/:hash/mark-safe", async (req, res) => {
+  const reviewer = req.session.user?.username || null;
+  const success = await markIpProfileSafe(req.params.hash, reviewer);
+  if (!success) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-security");
+  }
+  pushNotification(req, {
+    type: "success",
+    message: "Profil marqué comme sûr.",
+  });
+  res.redirect("/admin/ip-security");
+});
+
+r.post("/ip-security/:hash/recheck", async (req, res) => {
+  const profile = await getIpProfileByHash(req.params.hash);
+  if (!profile?.ip) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-security");
+  }
+  try {
+    await forceRefreshIpReputation(profile.ip);
+    pushNotification(req, {
+      type: "success",
+      message: "Analyse relancée.",
+    });
+  } catch (err) {
+    console.error("Impossible de relancer l'analyse IP", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Échec de la relance de l'analyse.",
+    });
+  }
+  res.redirect("/admin/ip-security");
+});
+
+r.post("/ip-security/:hash/ban", async (req, res) => {
+  const profile = await getIpProfileByHash(req.params.hash);
+  if (!profile?.ip) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-security");
+  }
+  const reasonInput = typeof req.body?.reason === "string" ? req.body.reason.trim() : "";
+  const reason = reasonInput || "Bannissement effectué via le module de sécurité IP.";
+  await banIp({ ip: profile.ip, scope: "global", reason });
+  pushNotification(req, {
+    type: "success",
+    message: "Adresse IP bannie.",
+  });
+  await sendAdminEvent("IP bannie", {
+    extra: {
+      ip: profile.ip,
+      reason,
+      source: "ip-security",
+    },
+    user: req.session.user?.username || null,
+  });
+  res.redirect("/admin/ip-security");
 });
 
 r.get("/submissions", async (req, res) => {

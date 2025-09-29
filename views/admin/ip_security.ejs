@@ -1,0 +1,84 @@
+<% title = 'Sécurité IP'; %>
+<h1>Sécurité IP</h1>
+
+<section class="card card-highlight">
+  <p class="mt-0">
+    Ce module interroge l'API gratuite <strong>ip-api.com</strong> pour repérer automatiquement les
+    adresses IP associées à des proxies, VPN ou hébergeurs. Examinez les alertes ci-dessous pour
+    confirmer qu'il s'agit bien d'activités suspectes avant d'appliquer une sanction.
+  </p>
+</section>
+
+<% if (!flagged.length) { %>
+  <div class="alert alert-success mt-md">
+    Aucune adresse IP suspecte en attente de révision. Bravo !
+  </div>
+<% } else { %>
+  <div class="alert alert-warning mt-md">
+    <strong><%= flagged.length %></strong> adresse(s) IP nécessitent votre attention.
+  </div>
+  <section class="card mt-md">
+    <h2 class="mt-0">Adresses signalées</h2>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Profil</th>
+            <th>Adresse IP</th>
+            <th>Raison</th>
+            <th>Dernière vérification</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% flagged.forEach((ip) => { %>
+            <tr>
+              <td>
+                <strong>
+                  <a href="/profiles/ip/<%= ip.hash %>" target="_blank" rel="noopener">
+                    Profil #<%= ip.shortHash %>
+                  </a>
+                </strong>
+                <br />
+                <span class="status-badge status-flagged">À vérifier</span>
+              </td>
+              <td><code><%= ip.ip %></code></td>
+              <td>
+                <div><%= ip.reason %></div>
+                <% if (ip.provider) { %>
+                  <small class="text-muted">Source : <%= ip.provider %></small>
+                <% } %>
+              </td>
+              <td>
+                <% if (ip.flaggedAt) { %>
+                  <time datetime="<%= ip.flaggedAt %>"><%= new Date(ip.flaggedAt).toLocaleString('fr-FR') %></time>
+                <% } else if (ip.checkedAt) { %>
+                  <time datetime="<%= ip.checkedAt %>"><%= new Date(ip.checkedAt).toLocaleString('fr-FR') %></time>
+                <% } else { %>
+                  <span class="text-muted">Jamais</span>
+                <% } %>
+              </td>
+              <td>
+                <div class="flex flex-col gap-sm">
+                  <form method="post" action="/admin/ip-security/<%= ip.hash %>/ban" class="stack-form">
+                    <label class="stack-form">
+                      <span class="text-sm text-muted">Raison (optionnelle)</span>
+                      <input type="text" name="reason" placeholder="Motif du bannissement" />
+                    </label>
+                    <button class="btn danger" data-icon="🚫" type="submit">Bannir globalement</button>
+                  </form>
+                  <form method="post" action="/admin/ip-security/<%= ip.hash %>/mark-safe">
+                    <button class="btn secondary" data-icon="✅" type="submit">Marquer comme sûr</button>
+                  </form>
+                  <form method="post" action="/admin/ip-security/<%= ip.hash %>/recheck">
+                    <button class="btn secondary" data-icon="🔄" type="submit">Réanalyser</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+<% } %>
