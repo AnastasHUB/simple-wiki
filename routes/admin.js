@@ -23,8 +23,10 @@ import { banIp, liftBan, getBan, deleteBan } from "../utils/ipBans.js";
 import {
   countIpProfiles,
   fetchIpProfiles,
+  countIpProfilesForReview,
   listIpProfilesForReview,
   fetchRecentlyClearedProfiles,
+  countIpReputationHistoryEntries,
   fetchRecentIpReputationChecks,
   markIpProfileSafe,
   markIpProfileBanned,
@@ -740,11 +742,44 @@ r.post("/ip-bans/:id/delete", async (req, res) => {
 });
 
 r.get("/ip-reputation", async (req, res) => {
-  const [suspicious, cleared, history] = await Promise.all([
-    listIpProfilesForReview({ limit: 100 }),
+  const reviewTotal = await countIpProfilesForReview();
+  const reviewBase = buildPagination(req, reviewTotal, {
+    pageParam: "reviewPage",
+    perPageParam: "reviewPerPage",
+    defaultPageSize: 20,
+    pageSizeOptions: [5, 10, 20, 50, 100],
+  });
+  const reviewOffset = (reviewBase.page - 1) * reviewBase.perPage;
+
+  const [suspicious, cleared] = await Promise.all([
+    listIpProfilesForReview({ limit: reviewBase.perPage, offset: reviewOffset }),
     fetchRecentlyClearedProfiles({ limit: 8 }),
-    fetchRecentIpReputationChecks({ limit: 20 }),
   ]);
+
+  const reviewPagination = decoratePagination(req, reviewBase, {
+    pageParam: "reviewPage",
+    perPageParam: "reviewPerPage",
+  });
+
+  const historyTotal = await countIpReputationHistoryEntries();
+  const historyBase = buildPagination(req, historyTotal, {
+    pageParam: "historyPage",
+    perPageParam: "historyPerPage",
+    defaultPageSize: 20,
+    pageSizeOptions: [10, 20, 50, 100],
+  });
+  const historyOffset = (historyBase.page - 1) * historyBase.perPage;
+
+  const history = await fetchRecentIpReputationChecks({
+    limit: historyBase.perPage,
+    offset: historyOffset,
+  });
+
+  const historyPagination = decoratePagination(req, historyBase, {
+    pageParam: "historyPage",
+    perPageParam: "historyPerPage",
+  });
+
   const refreshIntervalHours = Math.round(
     (IP_REPUTATION_REFRESH_INTERVAL_MS / (60 * 60 * 1000)) * 10,
   ) / 10;
@@ -752,6 +787,8 @@ r.get("/ip-reputation", async (req, res) => {
     suspicious,
     cleared,
     history,
+    reviewPagination,
+    historyPagination,
     refreshIntervalHours,
     providerName: "ipapi.is",
   });

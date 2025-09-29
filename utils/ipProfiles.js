@@ -656,8 +656,19 @@ export async function refreshIpReputationByHash(hash, { force = false } = {}) {
   return refreshIpReputation(profile.ip, { force });
 }
 
-export async function listIpProfilesForReview({ limit = 50 } = {}) {
+export async function countIpProfilesForReview() {
+  const row = await get(
+    `SELECT COUNT(*) AS total
+       FROM ip_profiles
+      WHERE reputation_auto_status='suspicious'
+        AND (reputation_override IS NULL OR reputation_override NOT IN ('safe','banned'))`,
+  );
+  return Number(row?.total ?? 0);
+}
+
+export async function listIpProfilesForReview({ limit = 50, offset = 0 } = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 50;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
     `SELECT hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
             reputation_status, reputation_auto_status, reputation_override,
@@ -666,8 +677,8 @@ export async function listIpProfilesForReview({ limit = 50 } = {}) {
       WHERE reputation_auto_status='suspicious'
         AND (reputation_override IS NULL OR reputation_override NOT IN ('safe','banned'))
       ORDER BY COALESCE(reputation_checked_at, last_seen_at, created_at) DESC
-      LIMIT ?`,
-    [safeLimit],
+      LIMIT ? OFFSET ?`,
+    [safeLimit, safeOffset],
   );
   return rows.map((row) => ({
     hash: row.hash,
@@ -690,16 +701,26 @@ export async function listIpProfilesForReview({ limit = 50 } = {}) {
   }));
 }
 
-export async function fetchRecentIpReputationChecks({ limit = 20 } = {}) {
+export async function countIpReputationHistoryEntries() {
+  const row = await get(
+    `SELECT COUNT(*) AS total
+       FROM ip_profiles
+      WHERE reputation_checked_at IS NOT NULL`,
+  );
+  return Number(row?.total ?? 0);
+}
+
+export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 20;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
     `SELECT hash, ip, reputation_status, reputation_auto_status, reputation_override,
             reputation_summary, reputation_checked_at, last_seen_at
        FROM ip_profiles
       WHERE reputation_checked_at IS NOT NULL
       ORDER BY reputation_checked_at DESC
-      LIMIT ?`,
-    [safeLimit],
+      LIMIT ? OFFSET ?`,
+    [safeLimit, safeOffset],
   );
 
   return rows.map((row) => ({
