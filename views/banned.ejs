@@ -7,5 +7,29 @@
   <% if (ban && ban.reason) { %>
     <p><strong>Raison :</strong> <%= ban.reason %></p>
   <% } %>
-  <p>Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur.</p>
+  <% if (appealSuccess) { %>
+    <p class="alert alert-success">
+      Votre demande de débannissement a bien été envoyée. Un administrateur la traitera prochainement.
+    </p>
+  <% } else { %>
+    <p>Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur.</p>
+    <form method="post" action="/ban-appeal" class="form">
+      <input type="hidden" name="scope" value="<%= ban?.scope || '' %>" />
+      <input type="hidden" name="value" value="<%= ban?.value || '' %>" />
+      <div class="form-group">
+        <label for="appeal-message">Expliquez votre situation :</label>
+        <textarea
+          id="appeal-message"
+          name="message"
+          rows="5"
+          maxlength="2000"
+          required
+        ><%= (appealMessage || "") %></textarea>
+      </div>
+      <% if (appealError) { %>
+        <p class="form-error"><%= appealError %></p>
+      <% } %>
+      <button type="submit" class="btn btn-primary">Envoyer une demande de déban</button>
+    </form>
+  <% } %>
 </section>
