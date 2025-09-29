@@ -794,6 +794,31 @@ export async function listIpProfilesForReview({ limit = 50 } = {}) {
   }));
 }
 
+export async function fetchRecentIpReputationChecks({ limit = 20 } = {}) {
+  const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 20;
+  const rows = await all(
+    `SELECT hash, ip, reputation_status, reputation_auto_status, reputation_override,
+            reputation_summary, reputation_checked_at, last_seen_at
+       FROM ip_profiles
+      WHERE reputation_checked_at IS NOT NULL
+      ORDER BY reputation_checked_at DESC
+      LIMIT ?`,
+    [safeLimit],
+  );
+
+  return rows.map((row) => ({
+    hash: row.hash,
+    shortHash: formatIpProfileLabel(row.hash),
+    ip: row.ip,
+    status: row.reputation_status || "unknown",
+    autoStatus: row.reputation_auto_status || "unknown",
+    override: normalizeOverride(row.reputation_override),
+    summary: row.reputation_summary || null,
+    checkedAt: row.reputation_checked_at || null,
+    lastSeenAt: row.last_seen_at || null,
+  }));
+}
+
 export async function fetchRecentlyClearedProfiles({ limit = 10 } = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
   const rows = await all(

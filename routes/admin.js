@@ -25,6 +25,7 @@ import {
   fetchIpProfiles,
   listIpProfilesForReview,
   fetchRecentlyClearedProfiles,
+  fetchRecentIpReputationChecks,
   markIpProfileSafe,
   markIpProfileBanned,
   refreshIpReputationByHash,
@@ -636,9 +637,10 @@ r.post("/ip-bans/:id/delete", async (req, res) => {
 });
 
 r.get("/ip-reputation", async (req, res) => {
-  const [suspicious, cleared] = await Promise.all([
+  const [suspicious, cleared, history] = await Promise.all([
     listIpProfilesForReview({ limit: 100 }),
     fetchRecentlyClearedProfiles({ limit: 8 }),
+    fetchRecentIpReputationChecks({ limit: 20 }),
   ]);
   const refreshIntervalHours = Math.round(
     (IP_REPUTATION_REFRESH_INTERVAL_MS / (60 * 60 * 1000)) * 10,
@@ -646,6 +648,7 @@ r.get("/ip-reputation", async (req, res) => {
   res.render("admin/ip_reputation", {
     suspicious,
     cleared,
+    history,
     refreshIntervalHours,
     providerName: "ipapi.is",
   });
