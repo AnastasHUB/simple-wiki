@@ -49,7 +49,12 @@ import {
   invalidateSiteSettingsCache,
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
-import { countBanAppeals, fetchBanAppeals } from "../utils/banAppeals.js";
+import {
+  countBanAppeals,
+  fetchBanAppeals,
+  getBanAppealBySnowflake,
+  resolveBanAppeal,
+} from "../utils/banAppeals.js";
 
 await ensureUploadDir();
 
@@ -264,13 +269,23 @@ r.post("/comments/:id/delete", handleCommentDeletion);
 
 r.get("/ban-appeals", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
-  const total = await countBanAppeals({ search: searchTerm || null });
+  const requestedStatus = (req.query.status || "all").toLowerCase();
+  const allowedStatuses = new Set(["pending", "accepted", "rejected"]);
+  const statusFilter = allowedStatuses.has(requestedStatus)
+    ? requestedStatus
+    : "all";
+  const countStatus = statusFilter === "all" ? null : statusFilter;
+  const total = await countBanAppeals({
+    search: searchTerm || null,
+    status: countStatus,
+  });
   const basePagination = buildPagination(req, total);
   const offset = (basePagination.page - 1) * basePagination.perPage;
   const appeals = await fetchBanAppeals({
     limit: basePagination.perPage,
     offset,
     search: searchTerm || null,
+    status: countStatus,
   });
   const pagination = decoratePagination(req, basePagination);
 
@@ -278,7 +293,122 @@ r.get("/ban-appeals", async (req, res) => {
     appeals,
     pagination,
     searchTerm,
+    statusFilter,
   });
+});
+
+r.post("/ban-appeals/:id/accept", async (req, res) => {
+  const appealId = req.params.id;
+  const appeal = await getBanAppealBySnowflake(appealId);
+  if (!appeal) {
+    pushNotification(req, {
+      type: "error",
+      message: "Demande introuvable.",
+    });
+    return res.redirect("/admin/ban-appeals");
+  }
+  if (appeal.status !== "pending") {
+    pushNotification(req, {
+      type: "error",
+      message: "Cette demande a déjà été traitée.",
+    });
+    return res.redirect("/admin/ban-appeals");
+  }
+
+  try {
+    const updated = await resolveBanAppeal({
+      snowflakeId: appealId,
+      status: "accepted",
+      resolvedBy: req.session.user?.username || null,
+    });
+    if (updated) {
+      pushNotification(req, {
+        type: "success",
+        message: "Demande acceptée.",
+      });
+      await sendAdminEvent("Demande de déban acceptée", {
+        user: req.session.user?.username || null,
+        extra: {
+          appeal: appealId,
+          ip: appeal.ip || null,
+          scope: appeal.scope || null,
+          value: appeal.value || null,
+          reason: appeal.reason || null,
+          status: "accepted",
+        },
+      });
+    } else {
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible de mettre à jour la demande.",
+      });
+    }
+  } catch (err) {
+    console.error("Unable to accept ban appeal", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Une erreur est survenue lors de l'acceptation.",
+    });
+  }
+
+  res.redirect("/admin/ban-appeals");
+});
+
+r.post("/ban-appeals/:id/reject", async (req, res) => {
+  const appealId = req.params.id;
+  const appeal = await getBanAppealBySnowflake(appealId);
+  if (!appeal) {
+    pushNotification(req, {
+      type: "error",
+      message: "Demande introuvable.",
+    });
+    return res.redirect("/admin/ban-appeals");
+  }
+  if (appeal.status !== "pending") {
+    pushNotification(req, {
+      type: "error",
+      message: "Cette demande a déjà été traitée.",
+    });
+    return res.redirect("/admin/ban-appeals");
+  }
+
+  try {
+    const updated = await resolveBanAppeal({
+      snowflakeId: appealId,
+      status: "rejected",
+      resolvedBy: req.session.user?.username || null,
+    });
+    if (updated) {
+      pushNotification(req, {
+        type: "success",
+        message: "Demande refusée.",
+      });
+      await sendAdminEvent("Demande de déban refusée", {
+        user: req.session.user?.username || null,
+        extra: {
+          appeal: appealId,
+          ip: appeal.ip || null,
+          scope: appeal.scope || null,
+          value: appeal.value || null,
+          reason: appeal.reason || null,
+          status: "rejected",
+        },
+      });
+    } else {
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible de mettre à jour la demande.",
+      });
+    }
+  } catch (err) {
+    console.error("Unable to reject ban appeal", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Une erreur est survenue lors du refus.",
+    });
+  }
+
+  res.redirect("/admin/ban-appeals");
 });
 
 r.get("/ip-bans", async (req, res) => {

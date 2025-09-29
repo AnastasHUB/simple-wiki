@@ -146,6 +146,10 @@ export async function initDb() {
     value TEXT,
     reason TEXT,
     message TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending'
+      CHECK(status IN ('pending','accepted','rejected')),
+    resolved_at DATETIME,
+    resolved_by TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS event_logs(
@@ -193,6 +197,13 @@ export async function initDb() {
   );
   await ensureColumn("ip_profiles", "is_abuser", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("ip_profiles", "is_tor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "ban_appeals",
+    "status",
+    "TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','accepted','rejected'))",
+  );
+  await ensureColumn("ban_appeals", "resolved_at", "DATETIME");
+  await ensureColumn("ban_appeals", "resolved_by", "TEXT");
   await ensureSnowflake("settings");
   await ensureSnowflake("users");
   await ensureSnowflake("pages");
@@ -209,6 +220,9 @@ export async function initDb() {
   await ensureSnowflake("ip_profiles");
   await ensureSnowflake("event_logs");
   await ensureSnowflake("uploads", "snowflake_id");
+  await db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_ban_appeals_pending_ip ON ban_appeals(ip) WHERE ip IS NOT NULL AND status='pending'",
+  );
   return db;
 }
 

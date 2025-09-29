@@ -46,7 +46,11 @@ import {
   buildPagination,
   decoratePagination,
 } from "../utils/pagination.js";
-import { createBanAppeal } from "../utils/banAppeals.js";
+import {
+  createBanAppeal,
+  hasPendingBanAppeal,
+  hasRejectedBanAppeal,
+} from "../utils/banAppeals.js";
 import { loadChangelogEntries } from "../utils/changelog.js";
 
 const r = Router();
@@ -1048,6 +1052,29 @@ r.post(
       [ban] = bans;
     }
 
+    const sessionLock = req.session.banAppealLock || null;
+    const pendingFromDb = ip ? await hasPendingBanAppeal(ip) : false;
+    const rejectedFromDb = ip ? await hasRejectedBanAppeal(ip) : false;
+
+    if (sessionLock === "rejected" || rejectedFromDb) {
+      req.session.banAppealLock = "rejected";
+      return res.status(403).render("banned", {
+        ban,
+        appealError:
+          "Votre précédente demande a été refusée. Vous ne pouvez plus soumettre de nouvelle demande.",
+        appealMessage: "",
+      });
+    }
+
+    if (sessionLock === "pending" || pendingFromDb) {
+      req.session.banAppealLock = "pending";
+      return res.status(403).render("banned", {
+        ban,
+        appealError: "Une demande est déjà en cours de traitement. Veuillez patienter.",
+        appealMessage: message,
+      });
+    }
+
     if (!message) {
       return res.status(403).render("banned", {
         ban,
@@ -1070,6 +1097,8 @@ r.post(
       reason: ban?.reason || null,
       message,
     });
+
+    req.session.banAppealLock = "pending";
 
     await sendAdminEvent(
       "Demande de débannissement",

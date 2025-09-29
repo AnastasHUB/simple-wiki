@@ -53,6 +53,7 @@ app.use(async (req, res, next) => {
           pendingComments: 0,
           pendingSubmissions: 0,
           suspiciousIps: 0,
+          pendingBanAppeals: 0,
           ...counts,
         };
       } catch (actionErr) {
@@ -61,6 +62,7 @@ app.use(async (req, res, next) => {
           pendingComments: 0,
           pendingSubmissions: 0,
           suspiciousIps: 0,
+          pendingBanAppeals: 0,
         };
       }
     }
