@@ -114,8 +114,14 @@
           <p>
             <code>utils/webhook.js</code> expédie des notifications Discord
             (canaux « admin » et « feed ») et journalise chaque événement dans la
-            table <code>event_logs</code>. Les descriptions longues sont
-            tronquées pour respecter les limites de l’API.
+            table <code>event_logs</code>.
+          </p>
+          <p>
+            Le module valide les URL, applique un backoff automatique en cas de
+            rate limit ou d’erreur réseau, tronque les contenus pour respecter
+            les contraintes de l’API et offre des options avancées (contenu
+            texte, mentions, composants, embeds supplémentaires, pièces
+            jointes…).
           </p>
         </article>
       </div>
