@@ -244,15 +244,15 @@ r.post(
         submittedBy: req.session.user?.username || null,
       });
       await touchIpProfile(req.clientIp);
+      const followAction = req.session.user
+        ? { href: "/account/submissions", label: "Suivre mes contributions" }
+        : { href: "/profiles/ip/me", label: "Suivre mes contributions" };
       pushNotification(req, {
         type: "success",
         message:
           "Merci ! Votre proposition sera examinée par un administrateur.",
         timeout: 6000,
-        action: {
-          href: "/account/submissions",
-          label: "Suivre mes contributions",
-        },
+        action: followAction,
       });
       await sendAdminEvent("Soumission de nouvelle page", {
         page: { title },
@@ -818,15 +818,15 @@ r.post(
         targetSlugId: page.slug_id,
       });
       await touchIpProfile(req.clientIp);
+      const followAction = req.session.user
+        ? { href: "/account/submissions", label: "Suivre mes contributions" }
+        : { href: "/profiles/ip/me", label: "Suivre mes contributions" };
       pushNotification(req, {
         type: "success",
         message:
           "Merci ! Votre proposition de mise à jour sera vérifiée avant publication.",
         timeout: 6000,
-        action: {
-          href: "/account/submissions",
-          label: "Suivre mes contributions",
-        },
+        action: followAction,
       });
       await sendAdminEvent("Soumission de modification", {
         page: {
