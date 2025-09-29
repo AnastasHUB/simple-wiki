@@ -50,3 +50,7 @@ export async function liftBan(id) {
 export async function getBan(id) {
   return get("SELECT * FROM ip_bans WHERE snowflake_id=?", [id]);
 }
+
+export async function deleteBan(id) {
+  await run("DELETE FROM ip_bans WHERE snowflake_id=?", [id]);
+}
