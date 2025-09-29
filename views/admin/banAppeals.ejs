@@ -96,7 +96,13 @@
                     </form>
                   </div>
                 <% } else { %>
-                  <span class="text-muted">—</span>
+                  <form
+                    method="post"
+                    action="/admin/ban-appeals/<%= appeal.snowflake_id %>/delete"
+                    onsubmit="return confirm('Supprimer cette demande de déban ?');"
+                  >
+                    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                  </form>
                 <% } %>
               </td>
             </tr>

@@ -2,6 +2,7 @@ import { createHash } from "crypto";
 import fetch from "node-fetch";
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
+import { getActiveBans } from "./ipBans.js";
 
 const DEFAULT_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const configuredRefreshInterval =
@@ -324,7 +325,18 @@ export async function getIpProfileByHash(hash) {
     return null;
   }
 
-  const [viewStats, likeStats, commentStats, submissionStats, submissionBreakdown, recentComments, recentLikes, recentViews, recentSubmissions] =
+  const [
+    viewStats,
+    likeStats,
+    commentStats,
+    submissionStats,
+    submissionBreakdown,
+    recentComments,
+    recentLikes,
+    recentViews,
+    recentSubmissions,
+    activeBans,
+  ] =
     await Promise.all([
       get(
         `SELECT COUNT(*) AS total, COUNT(DISTINCT page_id) AS unique_pages, MAX(viewed_at) AS last_at
@@ -394,6 +406,7 @@ export async function getIpProfileByHash(hash) {
           LIMIT 5`,
         [profile.ip],
       ),
+      getActiveBans(profile.ip),
     ]);
 
   const submissionsByStatus = submissionBreakdown.reduce(
@@ -474,6 +487,15 @@ export async function getIpProfileByHash(hash) {
           row.result_slug_id || row.current_slug || row.target_slug_id || null,
       })),
     },
+    bans: Array.isArray(activeBans)
+      ? activeBans.map((ban) => ({
+          id: ban.snowflake_id,
+          scope: ban.scope,
+          value: ban.value,
+          reason: ban.reason || null,
+          createdAt: ban.created_at,
+        }))
+      : [],
   };
 }
 

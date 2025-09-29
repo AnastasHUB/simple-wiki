@@ -125,6 +125,9 @@ body {
   color: var(--muted);
   margin-bottom: 0.25rem;
 }
+.stat-sub.sanction-reason {
+  color: var(--danger);
+}
 .stat-number {
   font-size: 1.75rem;
   font-weight: 700;
@@ -906,6 +909,9 @@ form .actions {
   color: var(--danger);
   border-color: rgba(237, 66, 69, 0.35);
   background: rgba(237, 66, 69, 0.12);
+}
+.status-pill.ip-profile-sanction {
+  margin-left: 0.4rem;
 }
 .status-pill.suspicious {
   color: #f97316;

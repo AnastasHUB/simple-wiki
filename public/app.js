@@ -168,7 +168,14 @@ async function handleLikeSubmit(event, form) {
 
     if (!response.ok || data?.ok === false) {
       const message = data?.message || "Impossible de mettre à jour vos favoris.";
-      throw new Error(message);
+      const error = new Error(message);
+      if (Array.isArray(data?.notifications) && data.notifications.length) {
+        error.notifications = data.notifications;
+      }
+      if (data?.redirect) {
+        error.redirect = data.redirect;
+      }
+      throw error;
     }
 
     if (!data || typeof data.likes === "undefined") {
@@ -182,13 +189,22 @@ async function handleLikeSubmit(event, form) {
 
     notifyClient(data.notifications);
   } catch (err) {
-    notifyClient([
-      {
-        type: "error",
-        message: err.message || "Une erreur est survenue.",
-        timeout: 4000,
-      },
-    ]);
+    const notifications =
+      Array.isArray(err.notifications) && err.notifications.length
+        ? err.notifications
+        : [
+            {
+              type: "error",
+              message: err.message || "Une erreur est survenue.",
+              timeout: 4000,
+            },
+          ];
+    notifyClient(notifications);
+    if (err.redirect) {
+      setTimeout(() => {
+        window.location.href = err.redirect;
+      }, 150);
+    }
   } finally {
     if (submitter) {
       submitter.disabled = false;

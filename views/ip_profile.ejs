@@ -20,16 +20,23 @@
   <% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
   <% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
   <div class="<%= repClasses %>">
-    <div class="ip-profile-reputation-header">
-      <span class="<%= pillClass %>"><%= repLabel %></span>
-      <% if (rep.lastCheckedAt) { %>
-        <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
-      <% } %>
-    </div>
-    <p class="ip-profile-reputation-text">
-      <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
-    </p>
+  <div class="ip-profile-reputation-header">
+    <span class="<%= pillClass %>"><%= repLabel %></span>
+    <% if (rep.lastCheckedAt) { %>
+      <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
+    <% } %>
   </div>
+  <p class="ip-profile-reputation-text">
+    <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
+  </p>
+</div>
+
+ <% const actionSanctions = {}; %>
+ <% (profile.bans || []).forEach((ban) => { %>
+   <% if (ban.scope === 'action' && ban.value) { %>
+     <% actionSanctions[ban.value] = ban; %>
+   <% } %>
+ <% }); %>
 
   <dl class="ip-profile-details">
     <div>
@@ -44,32 +51,61 @@
 
   <ul class="stat-grid ip-profile-stats">
     <li class="ip-profile-stat">
-      <span class="label">Vues enregistrées</span>
+      <span class="label">
+        Vues enregistrées
+        <% if (actionSanctions.view) { %>
+          <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
+        <% } %>
+      </span>
       <strong><%= profile.stats.views.total %></strong>
       <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.views.uniquePages %></strong></span>
       <% if (profile.stats.views.lastAt) { %>
         <span class="stat-sub">Dernière vue : <%= new Date(profile.stats.views.lastAt).toLocaleString('fr-FR') %></span>
       <% } %>
+      <% if (actionSanctions.view?.reason) { %>
+        <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.view.reason %></span>
+      <% } %>
     </li>
     <li class="ip-profile-stat">
-      <span class="label">Likes</span>
+      <span class="label">
+        Likes
+        <% if (actionSanctions.like) { %>
+          <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
+        <% } %>
+      </span>
       <strong><%= profile.stats.likes.total %></strong>
       <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.likes.uniquePages %></strong></span>
       <% if (profile.stats.likes.lastAt) { %>
         <span class="stat-sub">Dernier like : <%= new Date(profile.stats.likes.lastAt).toLocaleString('fr-FR') %></span>
       <% } %>
+      <% if (actionSanctions.like?.reason) { %>
+        <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.like.reason %></span>
+      <% } %>
     </li>
     <li class="ip-profile-stat">
-      <span class="label">Commentaires approuvés</span>
+      <span class="label">
+        Commentaires approuvés
+        <% if (actionSanctions.comment) { %>
+          <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
+        <% } %>
+      </span>
       <strong><%= profile.stats.comments.total %></strong>
       <% if (profile.stats.comments.lastAt) { %>
         <span class="stat-sub">Dernier commentaire : <%= new Date(profile.stats.comments.lastAt).toLocaleString('fr-FR') %></span>
       <% } else { %>
         <span class="stat-sub">Aucun commentaire approuvé pour le moment.</span>
       <% } %>
+      <% if (actionSanctions.comment?.reason) { %>
+        <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.comment.reason %></span>
+      <% } %>
     </li>
     <li class="ip-profile-stat">
-      <span class="label">Propositions</span>
+      <span class="label">
+        Propositions
+        <% if (actionSanctions.contribute) { %>
+          <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
+        <% } %>
+      </span>
       <strong><%= profile.stats.submissions.total %></strong>
       <% const submissionStatuses = profile.stats.submissions.byStatus || {}; %>
       <% if (Object.keys(submissionStatuses).length) { %>
@@ -83,6 +119,9 @@
       <% } %>
       <% if (profile.stats.submissions.lastAt) { %>
         <span class="stat-sub">Dernière proposition : <%= new Date(profile.stats.submissions.lastAt).toLocaleString('fr-FR') %></span>
+      <% } %>
+      <% if (actionSanctions.contribute?.reason) { %>
+        <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.contribute.reason %></span>
       <% } %>
     </li>
   </ul>
