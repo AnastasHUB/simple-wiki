@@ -12,12 +12,26 @@
 <% } else { %>
   <div class="table-wrap mt-md">
     <table class="data-table">
-      <thead><tr><th>ID</th><th>Nom</th><th>Admin</th><th></th></tr></thead>
+      <thead><tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Admin</th><th></th></tr></thead>
       <tbody>
       <% users.forEach(u=>{ %>
         <tr>
           <td><%= u.id %></td>
           <td><%= u.username %></td>
+          <td>
+            <form method="post" action="/admin/users/<%= u.id %>/display-name" class="flex gap-sm items-center">
+              <input
+                type="text"
+                name="displayName"
+                maxlength="80"
+                value="<%= u.display_name || '' %>"
+                placeholder="Nom affiché"
+                aria-label="Pseudo pour <%= u.username %>"
+                class="flex-basis-220"
+              />
+              <button class="btn secondary" data-icon="💾" type="submit">Enregistrer</button>
+            </form>
+          </td>
           <td><%= u.is_admin ? 'Oui' : 'Non' %></td>
           <td>
             <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">

@@ -318,6 +318,11 @@ r.post(
     if (!page) return res.status(404).send("Page introuvable");
 
     const ip = req.clientIp;
+    const adminDisplayName = req.session.user?.is_admin
+      ? getUserDisplayName(req.session.user)
+      : null;
+    const trimmedAuthorInput = (req.body.author || "").trim().slice(0, 80);
+    const trimmedBodyInput = (req.body.body || "").trim();
     const tagNames = await fetchPageTags(page.id);
     const ban = await isIpBanned(ip, {
       action: "comment",
@@ -327,8 +332,8 @@ r.post(
       req.session.commentFeedback = {
         slug: page.slug_id,
         values: {
-          author: (req.body.author || "").trim().slice(0, 80),
-          body: (req.body.body || "").trim(),
+          author: adminDisplayName || trimmedAuthorInput,
+          body: trimmedBodyInput,
         },
       };
       pushNotification(req, {
@@ -347,10 +352,12 @@ r.post(
       honeypotInput: req.body.website,
     });
 
+    const authorToUse = adminDisplayName || validation.author;
+
     if (validation.errors.length) {
       req.session.commentFeedback = {
         slug: page.slug_id,
-        values: { author: validation.author, body: validation.body },
+        values: { author: authorToUse, body: validation.body },
       };
       for (const error of validation.errors) {
         pushNotification(req, {
@@ -369,7 +376,7 @@ r.post(
       [
         commentSnowflake,
         page.id,
-        validation.author || null,
+        authorToUse || null,
         validation.body,
         ip || null,
         token,
@@ -394,7 +401,7 @@ r.post(
       page,
       comment: {
         id: commentSnowflake,
-        author: validation.author || "Anonyme",
+        author: authorToUse || "Anonyme",
         preview: validation.body.slice(0, 200),
       },
       user: req.session.user?.username || null,
@@ -927,6 +934,25 @@ function consumeCommentFeedback(req, slugId) {
     slug: feedback.slug,
     values: feedback.values || {},
   };
+}
+
+function getUserDisplayName(user) {
+  if (!user) {
+    return null;
+  }
+  if (typeof user.display_name === "string") {
+    const trimmedDisplay = user.display_name.trim();
+    if (trimmedDisplay) {
+      return trimmedDisplay;
+    }
+  }
+  if (typeof user.username === "string") {
+    const trimmedUsername = user.username.trim();
+    if (trimmedUsername) {
+      return trimmedUsername;
+    }
+  }
+  return null;
 }
 
 export default r;

@@ -17,6 +17,7 @@ export async function initDb() {
     snowflake_id TEXT UNIQUE,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
+    display_name TEXT,
     is_admin INTEGER NOT NULL DEFAULT 1
   );
   CREATE TABLE IF NOT EXISTS settings(
@@ -153,6 +154,7 @@ export async function initDb() {
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");
+  await ensureColumn("users", "display_name", "TEXT");
   await ensureSnowflake("settings");
   await ensureSnowflake("users");
   await ensureSnowflake("pages");
