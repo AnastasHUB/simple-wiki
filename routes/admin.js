@@ -335,7 +335,7 @@ r.get("/pages", async (req, res) => {
   });
 });
 
-r.get("/stats", async (_req, res) => {
+r.get("/stats", async (req, res) => {
   const periods = [
     {
       key: "day",
