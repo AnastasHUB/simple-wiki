@@ -39,6 +39,7 @@
             <th>Propositions</th>
             <th>Likes</th>
             <th>Vues</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -94,6 +95,15 @@
               </td>
               <td>
                 <strong><%= profile.stats.views %></strong>
+              </td>
+              <td>
+                <form
+                  method="post"
+                  action="/admin/ip-profiles/<%= profile.hash %>/delete"
+                  onsubmit="return confirm('Supprimer ce profil IP ?');"
+                >
+                  <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                </form>
               </td>
             </tr>
           <% }) %>

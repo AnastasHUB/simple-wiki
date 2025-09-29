@@ -603,6 +603,25 @@ export async function getRawIpProfileByHash(hash) {
   );
 }
 
+export async function deleteIpProfileByHash(hash) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    return null;
+  }
+
+  const profile = await get(
+    `SELECT id, hash, ip FROM ip_profiles WHERE hash = ?`,
+    [normalized],
+  );
+  if (!profile?.id) {
+    return null;
+  }
+
+  await run(`DELETE FROM ip_profiles WHERE id = ?`, [profile.id]);
+
+  return { hash: profile.hash, ip: profile.ip };
+}
+
 export async function refreshIpReputationByHash(hash, { force = false } = {}) {
   const profile = await getRawIpProfileByHash(hash);
   if (!profile?.ip) {

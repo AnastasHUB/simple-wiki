@@ -31,6 +31,7 @@ import {
   getRawIpProfileByHash,
   IP_REPUTATION_REFRESH_INTERVAL_MS,
   formatIpProfileLabel,
+  deleteIpProfileByHash,
 } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
 import { buildPagination, decoratePagination } from "../utils/pagination.js";
@@ -773,6 +774,34 @@ r.get("/ip-profiles", async (req, res) => {
     pagination,
   });
 });
+
+async function handleIpProfileDeletion(req, res) {
+  const deleted = await deleteIpProfileByHash(req.params.hash);
+  if (!deleted) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-profiles");
+  }
+
+  const label = formatIpProfileLabel(deleted.hash);
+  const profileName = label ? "#" + label : deleted.ip;
+  pushNotification(req, {
+    type: "success",
+    message: "Profil " + (profileName || "IP") + " supprimé.",
+  });
+
+  await sendAdminEvent("Profil IP supprimé", {
+    extra: { ip: deleted.ip, hash: deleted.hash, profile: label },
+    user: req.session.user?.username || null,
+  });
+
+  res.redirect("/admin/ip-profiles");
+}
+
+r.delete("/ip-profiles/:hash", handleIpProfileDeletion);
+r.post("/ip-profiles/:hash/delete", handleIpProfileDeletion);
 
 r.get("/submissions", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
@@ -2890,6 +2919,41 @@ r.get("/events", async (req, res) => {
     searchTerm,
   });
 });
+
+async function handleEventDeletion(req, res) {
+  const eventId = Number.parseInt(req.params.id, 10);
+  if (!Number.isInteger(eventId)) {
+    pushNotification(req, {
+      type: "error",
+      message: "Identifiant d'événement invalide.",
+    });
+    return res.redirect("/admin/events");
+  }
+
+  const event = await get(
+    `SELECT id FROM event_logs WHERE id = ?`,
+    [eventId],
+  );
+  if (!event?.id) {
+    pushNotification(req, {
+      type: "error",
+      message: "Événement introuvable.",
+    });
+    return res.redirect("/admin/events");
+  }
+
+  await run(`DELETE FROM event_logs WHERE id = ?`, [event.id]);
+
+  pushNotification(req, {
+    type: "success",
+    message: "Événement supprimé.",
+  });
+
+  res.redirect("/admin/events");
+}
+
+r.delete("/events/:id", handleEventDeletion);
+r.post("/events/:id/delete", handleEventDeletion);
 
 export default r;
 
