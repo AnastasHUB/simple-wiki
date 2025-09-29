@@ -1,0 +1,86 @@
+<% title = 'Profils IP'; %>
+<h1>Profils IP</h1>
+
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rechercher</span>
+      <input
+        type="text"
+        name="search"
+        value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
+        placeholder="Hash, IP…"
+        class="flex-basis-260"
+      />
+    </label>
+    <input type="hidden" name="page" value="1" />
+    <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
+    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <% if (searchTerm) { %>
+      <a class="btn secondary" href="/admin/ip-profiles">Réinitialiser</a>
+    <% } %>
+  </div>
+</form>
+
+<section class="card">
+  <h2 class="mt-0">Profils enregistrés (<%= pagination.totalItems %>)</h2>
+  <% if (!profiles.length) { %>
+    <p class="text-muted">Aucun profil IP n'a encore été généré.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Profil</th>
+            <th>Adresse IP</th>
+            <th>Dernière activité</th>
+            <th>Commentaires</th>
+            <th>Propositions</th>
+            <th>Likes</th>
+            <th>Vues</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% profiles.forEach(profile => { %>
+            <tr>
+              <td>
+                <strong>
+                  <a href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">
+                    Profil #<%= profile.shortHash %>
+                  </a>
+                </strong>
+                <br />
+                <small class="text-muted">
+                  Créé : <%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %>
+                </small>
+              </td>
+              <td><code><%= profile.ip %></code></td>
+              <td>
+                <% if (profile.lastSeenAt) { %>
+                  <time datetime="<%= profile.lastSeenAt %>"><%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %></time>
+                <% } else { %>
+                  <span class="text-muted">Jamais</span>
+                <% } %>
+              </td>
+              <td>
+                <strong><%= profile.stats.approvedComments %></strong>
+                <br />
+                <small class="text-muted">approuvés</small>
+              </td>
+              <td>
+                <strong><%= profile.stats.submissions %></strong>
+              </td>
+              <td>
+                <strong><%= profile.stats.likes %></strong>
+              </td>
+              <td>
+                <strong><%= profile.stats.views %></strong>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('./paginationControls', { pagination }) %>
+  <% } %>
+</section>

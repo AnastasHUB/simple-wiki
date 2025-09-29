@@ -20,6 +20,7 @@ import {
   normalizeDisplayName,
 } from "../utils/uploads.js";
 import { banIp, liftBan } from "../utils/ipBans.js";
+import { countIpProfiles, fetchIpProfiles } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
 import { buildPagination, decoratePagination } from "../utils/pagination.js";
 import {
@@ -404,6 +405,40 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
+});
+
+r.get("/ip-profiles", async (req, res) => {
+  const searchTerm =
+    typeof req.query.search === "string" ? req.query.search.trim() : "";
+  const paginationOptions = {
+    pageParam: "page",
+    perPageParam: "perPage",
+    defaultPageSize: 25,
+    pageSizeOptions: [10, 25, 50, 100],
+  };
+
+  const total = await countIpProfiles({
+    search: searchTerm || null,
+  });
+  const paginationBase = buildPagination(req, total, paginationOptions);
+  const offset = (paginationBase.page - 1) * paginationBase.perPage;
+
+  const profiles = await fetchIpProfiles({
+    search: searchTerm || null,
+    limit: paginationBase.perPage,
+    offset,
+  });
+  const pagination = decoratePagination(
+    req,
+    paginationBase,
+    paginationOptions,
+  );
+
+  res.render("admin/ip_profiles", {
+    profiles,
+    searchTerm,
+    pagination,
+  });
 });
 
 r.get("/submissions", async (req, res) => {
@@ -1679,9 +1714,10 @@ r.post(
               ? comment.edit_token
               : null;
           const commentId = parseInteger(comment.id);
+          const authorIsAdmin = comment.author_is_admin ? 1 : 0;
           await run(
-            `INSERT INTO comments(id, snowflake_id, page_id, author, body, status, created_at, updated_at, ip, edit_token)
-             VALUES(?,?,?,?,?,?,?,?,?,?)
+            `INSERT INTO comments(id, snowflake_id, page_id, author, body, status, created_at, updated_at, ip, edit_token, author_is_admin)
+             VALUES(?,?,?,?,?,?,?,?,?,?,?)
              ON CONFLICT(snowflake_id) DO UPDATE SET
                page_id=excluded.page_id,
                author=excluded.author,
@@ -1690,7 +1726,8 @@ r.post(
                created_at=excluded.created_at,
                updated_at=excluded.updated_at,
                ip=excluded.ip,
-               edit_token=excluded.edit_token`,
+               edit_token=excluded.edit_token,
+               author_is_admin=excluded.author_is_admin`,
             [
               commentId,
               snowflakeId,
@@ -1702,6 +1739,7 @@ r.post(
               updatedAt,
               ipValue,
               editToken,
+              authorIsAdmin,
             ],
           );
           summary.stats.comments++;

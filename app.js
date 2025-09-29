@@ -14,6 +14,7 @@ import searchRoutes from "./routes/search.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp } from "./utils/ip.js";
+import { getAdminActionCounts } from "./utils/adminTasks.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,6 +46,14 @@ app.use(async (req, res, next) => {
     res.locals.footerText = settings.footerText;
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
+    if (res.locals.user?.is_admin) {
+      try {
+        res.locals.adminActionCounts = await getAdminActionCounts();
+      } catch (actionErr) {
+        console.error("Unable to load admin action counts", actionErr);
+        res.locals.adminActionCounts = { pendingComments: 0, pendingSubmissions: 0 };
+      }
+    }
     next();
   } catch (err) {
     next(err);

@@ -172,6 +172,7 @@ export async function initDb() {
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");
+  await ensureColumn("comments", "author_is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "display_name", "TEXT");
   await ensureSnowflake("settings");
   await ensureSnowflake("users");

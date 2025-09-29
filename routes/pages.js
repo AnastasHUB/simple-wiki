@@ -47,6 +47,7 @@ import {
   decoratePagination,
 } from "../utils/pagination.js";
 import { createBanAppeal } from "../utils/banAppeals.js";
+import { loadChangelogEntries } from "../utils/changelog.js";
 
 const r = Router();
 
@@ -102,6 +103,14 @@ r.get(
       size,
       sizeOptions: PAGE_SIZE_OPTIONS,
     });
+  }),
+);
+
+r.get(
+  "/changelog",
+  asyncHandler(async (_req, res) => {
+    const entries = await loadChangelogEntries();
+    res.render("changelog", { entries });
   }),
 );
 
@@ -382,7 +391,15 @@ r.post(
     const token = randomUUID();
     const commentSnowflake = generateSnowflake();
     const insertResult = await run(
-      "INSERT INTO comments(snowflake_id, page_id, author, body, ip, edit_token) VALUES(?,?,?,?,?,?)",
+      `INSERT INTO comments(
+         snowflake_id,
+         page_id,
+         author,
+         body,
+         ip,
+         edit_token,
+         author_is_admin
+       ) VALUES(?,?,?,?,?,?,?)`,
       [
         commentSnowflake,
         page.id,
@@ -390,6 +407,7 @@ r.post(
         validation.body,
         ip || null,
         token,
+        req.session.user?.is_admin ? 1 : 0,
       ],
     );
 

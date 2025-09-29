@@ -1,0 +1,13 @@
+[
+  {
+    "date": "2024-06-07",
+    "title": "Améliorations de modération et nouveautés interface",
+    "details": [
+      "Ajout d'un panneau des profils IP pour les administrateurs avec recherche et statistiques détaillées.",
+      "Affichage de badges dynamiques dans la navigation admin lorsque des commentaires ou propositions attendent une action.",
+      "Mise en avant visuelle des commentaires rédigés par un administrateur avec effet arc-en-ciel sur le pseudo.",
+      "Création d'une page Changelog accessible depuis la navigation principale pour suivre les évolutions.",
+      "Refonte de la page 404 avec suggestions d'actions pour retrouver son chemin."
+    ]
+  }
+]

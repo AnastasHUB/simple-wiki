@@ -42,6 +42,7 @@
     <nav class="vnav" id="vnav">
       <a href="/">🏠 Accueil</a>
       <a href="/rss.xml">📰 Flux RSS</a>
+      <a href="/changelog">🛠️ Changelog</a>
       <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
         <a href="/profiles/ip/me">🪪 Mon profil IP</a>
       <% } %>
@@ -49,14 +50,26 @@
         <a href="/new">✍️ Contribuer</a>
       <% } %>
       <% if (currentUser && currentUser.is_admin) { %>
+        <% const adminCounts = typeof adminActionCounts !== 'undefined' ? adminActionCounts : {}; %>
         <a href="/new">➕ Nouvelle page</a>
-        <a href="/admin/submissions">📝 Contributions</a>
+        <a href="/admin/submissions" class="nav-link nav-link--with-badge">
+          <span>📝 Contributions</span>
+          <% if (adminCounts.pendingSubmissions) { %>
+            <span class="nav-badge" aria-label="Propositions à examiner"><%= adminCounts.pendingSubmissions %></span>
+          <% } %>
+        </a>
         <a href="/admin/pages">📄 Articles</a>
         <a href="/admin/stats">📈 Statistiques</a>
         <a href="/admin/users">👤 Utilisateurs</a>
-        <a href="/admin/comments">💬 Commentaires</a>
+        <a href="/admin/comments" class="nav-link nav-link--with-badge">
+          <span>💬 Commentaires</span>
+          <% if (adminCounts.pendingComments) { %>
+            <span class="nav-badge" aria-label="Commentaires en attente"><%= adminCounts.pendingComments %></span>
+          <% } %>
+        </a>
         <a href="/admin/likes">❤️ Likes</a>
         <a href="/admin/ip-bans">🚫 Blocages IP</a>
+        <a href="/admin/ip-profiles">🧾 Profils IP</a>
         <a href="/admin/ban-appeals">📬 Demandes de déban</a>
         <a href="/admin/events">📜 Événements</a>
         <a href="/admin/uploads">🖼️ Images</a>

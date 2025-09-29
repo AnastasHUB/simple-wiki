@@ -66,7 +66,14 @@
       <% comments.forEach(c => { %>
         <li class="comment">
           <div class="comment-meta">
-            <strong><%= c.author || 'Anonyme' %></strong>
+            <% const authorClasses = ['comment-author']; %>
+            <% if (c.isAdminAuthor) { authorClasses.push('comment-author--admin'); } %>
+            <strong class="<%= authorClasses.join(' ') %>">
+              <%= c.author || 'Anonyme' %>
+              <% if (c.isAdminAuthor) { %>
+                <span class="comment-author-badge" title="Administrateur">⭐</span>
+              <% } %>
+            </strong>
             <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
             <% if (c.ipProfile) { %>
               <span>
