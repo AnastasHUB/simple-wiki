@@ -284,20 +284,7 @@ async function fetchModeratableComment(rawId) {
     return { comment: null };
   }
 
-  let whereClause = "c.snowflake_id=?";
-  const params = [identifier];
-  const legacyCandidate = Number.parseInt(identifier, 10);
-  const legacyId =
-    /^[0-9]+$/.test(identifier) && Number.isSafeInteger(legacyCandidate)
-      ? legacyCandidate
-      : null;
-  if (legacyId !== null) {
-    whereClause = "(c.snowflake_id=? OR c.id=?)";
-    params.push(legacyId);
-  }
-
-  const comment = await get(
-    `SELECT c.id,
+  const baseSelect = `SELECT c.id,
             c.snowflake_id,
             c.status,
             c.ip,
@@ -306,10 +293,29 @@ async function fetchModeratableComment(rawId) {
             p.snowflake_id AS page_snowflake_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE ${whereClause}
-      LIMIT 1`,
-    params,
-  );
+      WHERE %WHERE%
+      LIMIT 1`;
+
+  let comment = null;
+
+  const legacyMatch = identifier.match(/^legacy-(\d+)$/i);
+  const numericIdentifier = legacyMatch
+    ? Number.parseInt(legacyMatch[1], 10)
+    : /^[0-9]+$/.test(identifier)
+      ? Number.parseInt(identifier, 10)
+      : null;
+
+  if (!legacyMatch) {
+    comment = await get(baseSelect.replace("%WHERE%", "c.snowflake_id=?"), [
+      identifier,
+    ]);
+  }
+
+  if (!comment && numericIdentifier !== null && Number.isSafeInteger(numericIdentifier)) {
+    comment = await get(baseSelect.replace("%WHERE%", "c.id=?"), [
+      numericIdentifier,
+    ]);
+  }
 
   if (comment && !comment.snowflake_id) {
     const newSnowflake = generateSnowflake();

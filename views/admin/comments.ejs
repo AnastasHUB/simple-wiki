@@ -29,7 +29,7 @@
     <p>Aucun commentaire en attente.</p>
   <% } else { %>
     <ul class="admin-comment-list">
-      <% pending.forEach(c => { %>
+      <% pending.forEach(c => { const commentIdentifier = c.snowflake_id ? c.snowflake_id : `legacy-${c.id}`; %>
         <li>
           <header>
             <div>
@@ -44,13 +44,13 @@
             <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
           <% } %>
           <div class="actions">
-            <form method="post" action="/admin/comments/<%= c.snowflake_id || c.id %>/approve">
+            <form method="post" action="/admin/comments/<%= commentIdentifier %>/approve">
               <button class="btn success" data-icon="✅" type="submit">Approuver</button>
             </form>
-            <form method="post" action="/admin/comments/<%= c.snowflake_id || c.id %>/reject">
+            <form method="post" action="/admin/comments/<%= commentIdentifier %>/reject">
               <button class="btn" data-icon="🚫" type="submit">Rejeter</button>
             </form>
-            <form method="post" action="/admin/comments/<%= c.snowflake_id || c.id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+            <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
               <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
             </form>
           </div>
@@ -67,7 +67,7 @@
     <p>Aucun commentaire modéré pour le moment.</p>
   <% } else { %>
     <ul class="admin-comment-list compact">
-      <% recent.forEach(c => { %>
+      <% recent.forEach(c => { const commentIdentifier = c.snowflake_id ? c.snowflake_id : `legacy-${c.id}`; %>
         <li>
           <header>
             <div>
@@ -82,7 +82,7 @@
             <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
           <% } %>
           <div class="actions">
-            <form method="post" action="/admin/comments/<%= c.snowflake_id || c.id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+            <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
               <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
             </form>
           </div>
