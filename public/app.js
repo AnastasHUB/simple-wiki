@@ -253,22 +253,8 @@ function initHtmlEditor() {
   registerQuillDivider(window.Quill);
   registerQuillCodeBlock(window.Quill);
 
-  const codeLanguageSelect = toolbarElement
-    ? toolbarElement.querySelector("select.ql-code-language")
-    : null;
-
-  const supportedCodeLanguages = codeLanguageSelect
-    ? Array.from(codeLanguageSelect.options)
-        .map((option) => option.value.trim())
-        .filter((value) => value.length > 0)
-    : [];
-
   if (window.hljs) {
-    const hljsConfig = { ignoreUnescapedHTML: true };
-    if (supportedCodeLanguages.length > 0) {
-      hljsConfig.languages = supportedCodeLanguages;
-    }
-    window.hljs.configure(hljsConfig);
+    window.hljs.configure({ ignoreUnescapedHTML: true });
   }
 
   const options = {
@@ -355,38 +341,7 @@ function initHtmlEditor() {
     }
   };
 
-  const readLineLanguage = (line) => {
-    const blotName = line?.statics?.blotName || line?.constructor?.blotName;
-    if (blotName !== CODE_BLOCK_BLOT_NAME) {
-      return "";
-    }
-    if (!line.domNode || typeof line.domNode.getAttribute !== "function") {
-      return "";
-    }
-    return line.domNode.getAttribute("data-language") || "";
-  };
-
-  const getSelectionLanguage = () => {
-    const range = quill.getSelection();
-    if (!range) return "";
-    const lines = getCodeBlockLinesInRange(range);
-    if (lines.length === 0) {
-      const [line] = quill.getLine(range.index);
-      if (line) {
-        return readLineLanguage(line);
-      }
-      return "";
-    }
-    return readLineLanguage(lines[0]);
-  };
-
-  const syncLanguageSelect = () => {
-    if (!codeLanguageSelect) return;
-    const current = getSelectionLanguage();
-    codeLanguageSelect.value = current || "";
-  };
-
-  const applyLanguageToSelection = (language) => {
+  const clearLanguageFromSelection = () => {
     let range = quill.getSelection(true);
     if (!range && lastKnownSelection) {
       range = { ...lastKnownSelection };
@@ -394,10 +349,7 @@ function initHtmlEditor() {
     }
     if (!range) return;
 
-    const normalizedLanguage =
-      language && supportedCodeLanguages.includes(language) ? language : "";
-
-    quill.format("code-block", normalizedLanguage || true);
+    quill.format("code-block", true);
 
     const affectedLines = getCodeBlockLinesInRange(range);
     if (affectedLines.length === 0) {
@@ -411,12 +363,10 @@ function initHtmlEditor() {
 
     affectedLines.forEach((line) => {
       const node = line?.domNode;
-      if (!node || typeof node.setAttribute !== "function") {
+      if (!node) {
         return;
       }
-      if (normalizedLanguage) {
-        node.setAttribute("data-language", normalizedLanguage);
-      } else {
+      if (typeof node.removeAttribute === "function") {
         node.removeAttribute("data-language");
       }
       node.classList.add("hljs");
@@ -524,25 +474,11 @@ function initHtmlEditor() {
     });
     toolbar.addHandler("code-block", (value) => {
       if (value) {
-        const chosenLanguage = codeLanguageSelect?.value || "";
-        applyLanguageToSelection(chosenLanguage);
+        clearLanguageFromSelection();
       } else {
         quill.format("code-block", false);
         refreshCodeHighlighting({ immediate: true });
       }
-      requestAnimationFrame(() => {
-        syncLanguageSelect();
-      });
-    });
-  }
-
-  if (codeLanguageSelect) {
-    codeLanguageSelect.addEventListener("change", (event) => {
-      applyLanguageToSelection(event.target.value || "");
-      requestAnimationFrame(() => {
-        syncLanguageSelect();
-        quill.focus();
-      });
     });
   }
 
@@ -563,13 +499,11 @@ function initHtmlEditor() {
   };
 
   syncField();
-  syncLanguageSelect();
   refreshCodeHighlighting({ immediate: true });
 
   quill.on("text-change", (_delta, _oldDelta, source) => {
     syncField();
     refreshCodeHighlighting({ immediate: source !== "user" });
-    syncLanguageSelect();
   });
 
   quill.on("selection-change", (range, oldRange) => {
@@ -581,7 +515,6 @@ function initHtmlEditor() {
         length: oldRange.length || 0,
       };
     }
-    syncLanguageSelect();
   });
 
   const form = field.form;
