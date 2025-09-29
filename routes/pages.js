@@ -228,8 +228,6 @@ r.post(
       bodyInput: req.body.body,
       captchaInput: req.body.captcha,
       honeypotInput: req.body.website,
-      lastCommentAt: req.session.lastCommentAt,
-      now: Date.now(),
     });
 
     if (validation.errors.length) {
@@ -267,7 +265,6 @@ r.post(
       req.session.commentTokens[insertResult.lastID] = token;
     }
 
-    req.session.lastCommentAt = validation.now;
     delete req.session.commentFeedback;
     pushNotification(req, {
       type: "success",
