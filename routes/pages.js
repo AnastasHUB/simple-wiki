@@ -54,7 +54,6 @@ import {
   hasPendingBanAppeal,
   hasRejectedBanAppeal,
 } from "../utils/banAppeals.js";
-import { loadChangelogEntries } from "../utils/changelog.js";
 
 const r = Router();
 
@@ -163,14 +162,6 @@ r.get(
       size,
       sizeOptions: PAGE_SIZE_OPTIONS,
     });
-  }),
-);
-
-r.get(
-  "/changelog",
-  asyncHandler(async (_req, res) => {
-    const entries = await loadChangelogEntries();
-    res.render("changelog", { entries });
   }),
 );
 
