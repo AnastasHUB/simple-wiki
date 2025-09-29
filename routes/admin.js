@@ -215,7 +215,24 @@ r.post("/comments/:id/approve", async (req, res) => {
     });
     return redirectToComments(req, res);
   }
-  await run("UPDATE comments SET status='approved' WHERE id=?", [comment.id]);
+  if (comment.status === "approved") {
+    pushNotification(req, {
+      type: "info",
+      message: "Ce commentaire est déjà approuvé.",
+    });
+    return redirectToComments(req, res);
+  }
+  const result = await run(
+    "UPDATE comments SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    [comment.id],
+  );
+  if (!result?.changes) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible d'approuver ce commentaire.",
+    });
+    return redirectToComments(req, res);
+  }
   comment.status = "approved";
   pushNotification(req, {
     type: "success",
@@ -238,7 +255,24 @@ r.post("/comments/:id/reject", async (req, res) => {
     });
     return redirectToComments(req, res);
   }
-  await run("UPDATE comments SET status='rejected' WHERE id=?", [comment.id]);
+  if (comment.status === "rejected") {
+    pushNotification(req, {
+      type: "info",
+      message: "Ce commentaire est déjà rejeté.",
+    });
+    return redirectToComments(req, res);
+  }
+  const result = await run(
+    "UPDATE comments SET status='rejected', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    [comment.id],
+  );
+  if (!result?.changes) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de rejeter ce commentaire.",
+    });
+    return redirectToComments(req, res);
+  }
   comment.status = "rejected";
   pushNotification(req, {
     type: "info",
@@ -261,7 +295,14 @@ async function handleCommentDeletion(req, res) {
     });
     return redirectToComments(req, res);
   }
-  await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  const result = await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  if (!result?.changes) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de supprimer ce commentaire.",
+    });
+    return redirectToComments(req, res);
+  }
   comment.status = "deleted";
   pushNotification(req, {
     type: "success",
