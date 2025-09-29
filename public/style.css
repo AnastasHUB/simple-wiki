@@ -165,10 +165,14 @@ body {
   color: #a60000;
 }
 
-.card-highlight {
+.card.card-highlight {
   background: #f4f6ff;
   border-color: #c7d2fe;
   color: #1e293b;
+}
+
+.card.card-highlight * {
+  color: inherit;
 }
 
 /* === TOPBAR === */
