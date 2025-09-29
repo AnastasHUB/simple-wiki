@@ -131,7 +131,22 @@ function spawnNotification(layer, notif) {
 
   const message = document.createElement("div");
   message.className = "notification-message";
-  message.textContent = notif.message;
+  const messageText = document.createElement("span");
+  messageText.textContent = notif.message;
+  message.appendChild(messageText);
+
+  if (notif.action && typeof notif.action.href === "string") {
+    const actionLink = document.createElement("a");
+    actionLink.className = "notification-action";
+    actionLink.href = notif.action.href;
+    actionLink.textContent =
+      typeof notif.action.label === "string" && notif.action.label
+        ? notif.action.label
+        : "Ouvrir";
+    actionLink.rel = "noopener";
+    message.appendChild(actionLink);
+  }
+
   body.appendChild(message);
 
   item.appendChild(body);

@@ -1,0 +1,143 @@
+<% title = 'Mes contributions'; %>
+<h1>Mes contributions</h1>
+<p class="text-muted mb-lg">
+  Retrouvez ici l’ensemble de vos propositions de pages ou de modifications. Vous pouvez suivre
+  leur traitement par l’équipe de modération.
+</p>
+
+<section class="card mb-xl">
+  <h2>En attente (<%= pendingPagination.totalItems %>)</h2>
+  <% if (!pending.length) { %>
+    <p>Aucune contribution en attente de validation pour le moment.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Titre proposé</th>
+            <th>Page liée</th>
+            <th>Tags</th>
+            <th>Soumise le</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pending.forEach(item => { %>
+            <tr>
+              <td><code><%= item.snowflake_id %></code></td>
+              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><strong><%= item.title %></strong></td>
+              <td>
+                <% if (item.current_slug) { %>
+                  <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td>
+                <% if (item.tag_list && item.tag_list.length) { %>
+                  <%= item.tag_list.join(', ') %>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td><%= new Date(item.created_at).toLocaleString('fr-FR') %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('../admin/paginationControls', { pagination: pendingPagination }) %>
+  <% } %>
+</section>
+
+<section class="card mb-xl">
+  <h2>Approuvées (<%= approvedPagination.totalItems %>)</h2>
+  <% if (!approved.length) { %>
+    <p>Vous n’avez pas encore de contribution approuvée.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Titre proposé</th>
+            <th>Publié le</th>
+            <th>Page finale</th>
+            <th>Note du modérateur</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% approved.forEach(item => { %>
+            <tr>
+              <td><code><%= item.snowflake_id %></code></td>
+              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><strong><%= item.title %></strong></td>
+              <td>
+                <% if (item.reviewed_at) { %>
+                  <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td>
+                <% if (item.result_slug_id) { %>
+                  <a href="/wiki/<%= item.result_slug_id %>"><code><%= item.result_slug_id %></code></a>
+                <% } else if (item.target_slug_id) { %>
+                  <a href="/wiki/<%= item.target_slug_id %>"><code><%= item.target_slug_id %></code></a>
+                <% } else if (item.current_slug) { %>
+                  <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td><%= item.review_note ? item.review_note : '–' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('../admin/paginationControls', { pagination: approvedPagination }) %>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2>Rejetées (<%= rejectedPagination.totalItems %>)</h2>
+  <% if (!rejected.length) { %>
+    <p>Aucune contribution rejetée n’a été trouvée.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Type</th>
+            <th>Titre proposé</th>
+            <th>Décision</th>
+            <th>Raison</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% rejected.forEach(item => { %>
+            <tr>
+              <td><code><%= item.snowflake_id %></code></td>
+              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><strong><%= item.title %></strong></td>
+              <td>
+                <% if (item.reviewed_at) { %>
+                  <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
+              <td><%= item.review_note ? item.review_note : '–' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('../admin/paginationControls', { pagination: rejectedPagination }) %>
+  <% } %>
+</section>

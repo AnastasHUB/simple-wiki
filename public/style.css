@@ -1419,6 +1419,21 @@ input[type="checkbox"] {
   color: var(--muted);
 }
 
+.notification-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-top: 0.4rem;
+  font-weight: 500;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.notification-action::after {
+  content: "→";
+  font-size: 0.85em;
+}
+
 .notification-close {
   margin-left: auto;
   background: transparent;

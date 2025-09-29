@@ -9,6 +9,7 @@ import { initDb } from "./db.js";
 import { sessionConfig } from "./utils/config.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/admin.js";
+import accountRoutes from "./routes/account.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
 import { getSiteSettings } from "./utils/settingsService.js";
@@ -122,6 +123,7 @@ app.get("/rss.xml", async (req, res) => {
 
 app.use("/", pagesRoutes);
 app.use("/", authRoutes);
+app.use("/account", accountRoutes);
 app.use("/admin", adminRoutes);
 app.use("/", searchRoutes);
 

@@ -64,7 +64,29 @@ function applySubmissionSearch(filters, params, search) {
   params.push(like, like, like, like, like, like, like);
 }
 
-export async function countPageSubmissions({ status = null, search = null } = {}) {
+function applySubmissionIdentityFilter(filters, params, { submittedBy = null, ip = null } = {}) {
+  const normalizedSubmittedBy =
+    typeof submittedBy === "string" && submittedBy.trim() ? submittedBy.trim() : null;
+  const normalizedIp = typeof ip === "string" && ip.trim() ? ip.trim() : null;
+
+  if (normalizedSubmittedBy && normalizedIp) {
+    filters.push("(ps.submitted_by=? OR ps.ip=?)");
+    params.push(normalizedSubmittedBy, normalizedIp);
+  } else if (normalizedSubmittedBy) {
+    filters.push("ps.submitted_by=?");
+    params.push(normalizedSubmittedBy);
+  } else if (normalizedIp) {
+    filters.push("ps.ip=?");
+    params.push(normalizedIp);
+  }
+}
+
+export async function countPageSubmissions({
+  status = null,
+  search = null,
+  submittedBy = null,
+  ip = null,
+} = {}) {
   const filters = [];
   const params = [];
 
@@ -78,6 +100,7 @@ export async function countPageSubmissions({ status = null, search = null } = {}
   }
 
   applySubmissionSearch(filters, params, search);
+  applySubmissionIdentityFilter(filters, params, { submittedBy, ip });
 
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
   const row = await get(
@@ -97,6 +120,8 @@ export async function fetchPageSubmissions({
   orderBy = "created_at",
   direction = "DESC",
   search = null,
+  submittedBy = null,
+  ip = null,
 } = {}) {
   const allowedOrder = new Set([
     "created_at",
@@ -119,6 +144,7 @@ export async function fetchPageSubmissions({
   }
 
   applySubmissionSearch(whereClauses, params, search);
+  applySubmissionIdentityFilter(whereClauses, params, { submittedBy, ip });
 
   const where = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
 

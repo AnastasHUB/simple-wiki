@@ -2,7 +2,25 @@ import { randomUUID } from "crypto";
 
 const DEFAULT_TIMEOUT = 5000;
 
-export function pushNotification(req, { type = "info", message, timeout = DEFAULT_TIMEOUT } = {}) {
+function normalizeAction(action) {
+  if (!action || typeof action !== "object") {
+    return null;
+  }
+  const href = typeof action.href === "string" && action.href.trim() ? action.href.trim() : null;
+  if (!href) {
+    return null;
+  }
+  const label =
+    typeof action.label === "string" && action.label.trim()
+      ? action.label.trim()
+      : null;
+  return { href, label };
+}
+
+export function pushNotification(
+  req,
+  { type = "info", message, timeout = DEFAULT_TIMEOUT, action = null } = {},
+) {
   if (!req?.session || !message) {
     return;
   }
@@ -14,6 +32,7 @@ export function pushNotification(req, { type = "info", message, timeout = DEFAUL
     type,
     message,
     timeout: Number.isFinite(timeout) ? timeout : DEFAULT_TIMEOUT,
+    action: normalizeAction(action),
   });
 }
 
