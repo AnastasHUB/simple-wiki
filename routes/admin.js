@@ -216,12 +216,14 @@ r.post("/comments/:id/approve", async (req, res) => {
     return redirectToComments(req, res);
   }
   await run("UPDATE comments SET status='approved' WHERE id=?", [comment.id]);
+  comment.status = "approved";
   pushNotification(req, {
     type: "success",
     message: "Commentaire approuvé.",
   });
   await sendAdminEvent("Commentaire approuvé", {
-    page: comment,
+    page: buildCommentPageSummary(comment),
+    comment: buildCommentSummary(comment),
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   return redirectToComments(req, res);
@@ -237,12 +239,14 @@ r.post("/comments/:id/reject", async (req, res) => {
     return redirectToComments(req, res);
   }
   await run("UPDATE comments SET status='rejected' WHERE id=?", [comment.id]);
+  comment.status = "rejected";
   pushNotification(req, {
     type: "info",
     message: "Commentaire rejeté.",
   });
   await sendAdminEvent("Commentaire rejeté", {
-    page: comment,
+    page: buildCommentPageSummary(comment),
+    comment: buildCommentSummary(comment),
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   return redirectToComments(req, res);
@@ -258,12 +262,14 @@ async function handleCommentDeletion(req, res) {
     return redirectToComments(req, res);
   }
   await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  comment.status = "deleted";
   pushNotification(req, {
     type: "success",
     message: "Commentaire supprimé.",
   });
   await sendAdminEvent("Commentaire supprimé", {
-    page: comment,
+    page: buildCommentPageSummary(comment),
+    comment: buildCommentSummary(comment),
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   return redirectToComments(req, res);
@@ -291,7 +297,13 @@ async function fetchModeratableComment(rawId) {
   }
 
   const comment = await get(
-    `SELECT c.id, c.snowflake_id, c.status, c.ip, p.title, p.slug_id
+    `SELECT c.id,
+            c.snowflake_id,
+            c.status,
+            c.ip,
+            p.title AS page_title,
+            p.slug_id AS page_slug,
+            p.snowflake_id AS page_snowflake_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
       WHERE ${whereClause}
@@ -309,6 +321,21 @@ async function fetchModeratableComment(rawId) {
   }
 
   return { comment };
+}
+
+function buildCommentPageSummary(comment = {}) {
+  return {
+    title: comment.page_title || comment.title || null,
+    slug_id: comment.page_slug || comment.slug_id || null,
+    snowflake_id: comment.page_snowflake_id || null,
+  };
+}
+
+function buildCommentSummary(comment = {}) {
+  return {
+    id: comment.snowflake_id || null,
+    status: comment.status || null,
+  };
 }
 
 r.get("/ban-appeals", async (req, res) => {
