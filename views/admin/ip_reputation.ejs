@@ -1,4 +1,19 @@
 <% title = 'Surveillance IP'; %>
+<%
+  const historyEntries = Array.isArray(history) ? history : [];
+  function formatReputationStatusLabel(status) {
+    if (status === 'suspicious') return 'Suspecte';
+    if (status === 'safe') return 'Validée';
+    if (status === 'clean') return 'Neutre';
+    return 'Inconnue';
+  }
+  function getReputationStatusClass(status) {
+    if (status === 'suspicious') return 'status-pill suspicious';
+    if (status === 'safe') return 'status-pill safe';
+    if (status === 'clean') return 'status-pill clean';
+    return 'status-pill pending';
+  }
+%>
 <h1>Surveillance des IP à risque</h1>
 
 <p class="text-muted leading-snug">
@@ -134,5 +149,68 @@
         </li>
       <% }) %>
     </ul>
+  <% } %>
+</section>
+
+<section class="card">
+  <h2 class="mt-0">Historique des analyses</h2>
+  <% if (!historyEntries.length) { %>
+    <p class="text-muted">Aucune analyse d'adresse IP n'a encore été enregistrée.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Adresse IP</th>
+            <th>Statut</th>
+            <th>Résumé</th>
+            <th>Dernière vérification</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% historyEntries.forEach((entry) => { %>
+            <tr>
+              <td>
+                <code><%= entry.ip %></code>
+                <br />
+                <small class="text-muted">Profil #<%= entry.shortHash %></small>
+              </td>
+              <td>
+                <span class="<%= getReputationStatusClass(entry.status) %>">
+                  <%= formatReputationStatusLabel(entry.status) %>
+                </span>
+                <% if (entry.override) { %>
+                  <br />
+                  <small class="text-muted">Forçage : <%= entry.override %></small>
+                <% } %>
+              </td>
+              <td>
+                <%= entry.summary || "Aucun signal particulier détecté." %>
+              </td>
+              <td>
+                <% if (entry.checkedAt) { %>
+                  <time datetime="<%= entry.checkedAt %>">
+                    <%= new Date(entry.checkedAt).toLocaleString('fr-FR') %>
+                  </time>
+                <% } else { %>
+                  <span class="text-muted">Jamais</span>
+                <% } %>
+              </td>
+              <td>
+                <a
+                  class="btn secondary btn-compact"
+                  href="/profiles/ip/<%= entry.hash %>"
+                  target="_blank"
+                  rel="noopener"
+                >
+                  Voir le profil
+                </a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
   <% } %>
 </section>
