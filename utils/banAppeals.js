@@ -87,6 +87,17 @@ export async function resolveBanAppeal({ snowflakeId, status, resolvedBy = null 
   return Number(result?.changes ?? 0);
 }
 
+export async function deleteBanAppeal(snowflakeId) {
+  if (!snowflakeId) {
+    return 0;
+  }
+  const result = await run(
+    `DELETE FROM ban_appeals WHERE snowflake_id=?`,
+    [snowflakeId],
+  );
+  return Number(result?.changes ?? 0);
+}
+
 export async function countBanAppeals({ search, status } = {}) {
   const filters = [];
   const params = [];

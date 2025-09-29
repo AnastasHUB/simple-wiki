@@ -60,9 +60,8 @@ r.use(
     req.clientIp = getClientIp(req);
     if (req.clientIp) {
       const ban = await isIpBanned(req.clientIp, { action: "view" });
-      const allowAppealRoute =
-        req.path === "/ban-appeal" && req.method.toUpperCase() === "POST";
-      if (ban && ban.scope === "global" && !allowAppealRoute) {
+      const isAppealRoute = req.path === "/ban-appeal";
+      if (ban && ban.scope === "global" && !isAppealRoute) {
         return res.status(403).render("banned", { ban });
       }
     }
@@ -71,6 +70,60 @@ r.use(
 );
 
 const RECENT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+
+function appendNotification(res, notif) {
+  if (!notif?.message) {
+    return;
+  }
+  const existing = Array.isArray(res.locals.notifications)
+    ? res.locals.notifications.slice()
+    : [];
+  existing.push({
+    timeout: 5000,
+    ...notif,
+  });
+  res.locals.notifications = existing;
+}
+
+async function resolveAppealContext(req, { requestedScope = null, requestedValue = null } = {}) {
+  const ip = req.clientIp || getClientIp(req);
+  const bans = ip ? await getActiveBans(ip) : [];
+  let ban = null;
+  if (requestedScope) {
+    ban =
+      bans.find(
+        (b) => b.scope === requestedScope && (b.value || "") === (requestedValue || ""),
+      ) || null;
+  }
+  if (!ban && bans.length) {
+    [ban] = bans;
+  }
+
+  const sessionLock = req.session.banAppealLock || null;
+  const pendingFromDb = ip ? await hasPendingBanAppeal(ip) : false;
+  const rejectedFromDb = ip ? await hasRejectedBanAppeal(ip) : false;
+
+  return {
+    ip,
+    ban,
+    bans,
+    sessionLock,
+    pendingFromDb,
+    rejectedFromDb,
+  };
+}
+
+function buildAppealUrl({ scope, value } = {}) {
+  const params = new URLSearchParams();
+  if (scope) {
+    params.set("scope", scope);
+  }
+  if (value) {
+    params.set("value", value);
+  }
+  const qs = params.toString();
+  return qs ? `/ban-appeal?${qs}` : "/ban-appeal";
+}
 
 r.get(
   "/",
@@ -614,15 +667,33 @@ r.post(
       tags: tagNames,
     });
     if (ban) {
+      const reasonText = ban?.reason
+        ? `Action interdite : ${ban.reason}`
+        : "Action interdite.";
+      const appealMessage = reasonText.endsWith(".")
+        ? `${reasonText} Vous pouvez envoyer une demande de déban.`
+        : `${reasonText}. Vous pouvez envoyer une demande de déban.`;
+      const appealUrl = buildAppealUrl(ban);
       if (wantsJson) {
         return res.status(403).json({
           ok: false,
-          message: ban?.reason
-            ? `Action interdite: ${ban.reason}`
-            : "Action interdite",
+          message: reasonText,
           ban,
+          notifications: [
+            {
+              type: "error",
+              message: appealMessage,
+              timeout: 6000,
+            },
+          ],
+          redirect: appealUrl,
         });
       }
+      appendNotification(res, {
+        type: "error",
+        message: appealMessage,
+        timeout: 6000,
+      });
       return res.status(403).render("banned", { ban });
     }
 
@@ -1031,6 +1102,62 @@ function getUserDisplayName(user) {
   return null;
 }
 
+r.get(
+  "/ban-appeal",
+  asyncHandler(async (req, res) => {
+    const requestedScope = req.query.scope || null;
+    const requestedValue = req.query.value || null;
+    const { ban, sessionLock, pendingFromDb, rejectedFromDb } = await resolveAppealContext(
+      req,
+      { requestedScope, requestedValue },
+    );
+
+    if (!ban) {
+      pushNotification(req, {
+        type: "error",
+        message: "Aucun bannissement actif n'a été trouvé pour cette adresse.",
+      });
+      return res.redirect(req.get("referer") || "/");
+    }
+
+    if (sessionLock === "rejected" || rejectedFromDb) {
+      req.session.banAppealLock = "rejected";
+      const errorMessage =
+        "Votre précédente demande a été refusée. Vous ne pouvez plus soumettre de nouvelle demande.";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
+      return res.status(403).render("banned", {
+        ban,
+        appealError: errorMessage,
+        appealMessage: "",
+      });
+    }
+
+    if (sessionLock === "pending" || pendingFromDb) {
+      req.session.banAppealLock = "pending";
+      const errorMessage = "Une demande est déjà en cours de traitement. Veuillez patienter.";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
+      return res.status(403).render("banned", {
+        ban,
+        appealError: errorMessage,
+        appealMessage: "",
+      });
+    }
+
+    return res.status(403).render("banned", {
+      ban,
+      appealMessage: "",
+    });
+  }),
+);
+
 r.post(
   "/ban-appeal",
   asyncHandler(async (req, res) => {
@@ -1039,53 +1166,82 @@ r.post(
     const requestedScope = req.body.scope || null;
     const requestedValue = req.body.value || null;
 
-    const bans = ip ? await getActiveBans(ip) : [];
-    let ban = null;
-    if (requestedScope) {
-      ban =
-        bans.find(
-          (b) =>
-            b.scope === requestedScope && (b.value || "") === (requestedValue || ""),
-        ) || null;
-    }
-    if (!ban && bans.length) {
-      [ban] = bans;
-    }
+    const {
+      ban,
+      sessionLock,
+      pendingFromDb,
+      rejectedFromDb,
+    } = await resolveAppealContext(req, { requestedScope, requestedValue });
 
-    const sessionLock = req.session.banAppealLock || null;
-    const pendingFromDb = ip ? await hasPendingBanAppeal(ip) : false;
-    const rejectedFromDb = ip ? await hasRejectedBanAppeal(ip) : false;
+    if (!ban) {
+      const errorMessage =
+        "Aucun bannissement actif correspondant n'a été trouvé pour cette action.";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
+      return res.status(403).render("banned", {
+        ban: null,
+        appealError: errorMessage,
+        appealMessage: message,
+      });
+    }
 
     if (sessionLock === "rejected" || rejectedFromDb) {
       req.session.banAppealLock = "rejected";
+      const errorMessage =
+        "Votre précédente demande a été refusée. Vous ne pouvez plus soumettre de nouvelle demande.";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
       return res.status(403).render("banned", {
         ban,
-        appealError:
-          "Votre précédente demande a été refusée. Vous ne pouvez plus soumettre de nouvelle demande.",
+        appealError: errorMessage,
         appealMessage: "",
       });
     }
 
     if (sessionLock === "pending" || pendingFromDb) {
       req.session.banAppealLock = "pending";
+      const errorMessage = "Une demande est déjà en cours de traitement. Veuillez patienter.";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
       return res.status(403).render("banned", {
         ban,
-        appealError: "Une demande est déjà en cours de traitement. Veuillez patienter.",
+        appealError: errorMessage,
         appealMessage: message,
       });
     }
 
     if (!message) {
+      const errorMessage = "Veuillez expliquer pourquoi votre adresse devrait être débannie.";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
       return res.status(403).render("banned", {
         ban,
-        appealError: "Veuillez expliquer pourquoi votre adresse devrait être débannie.",
+        appealError: errorMessage,
         appealMessage: message,
       });
     }
     if (message.length > 2000) {
+      const errorMessage = "Votre message est trop long (2000 caractères maximum).";
+      appendNotification(res, {
+        type: "error",
+        message: errorMessage,
+        timeout: 6000,
+      });
       return res.status(403).render("banned", {
         ban,
-        appealError: "Votre message est trop long (2000 caractères maximum).",
+        appealError: errorMessage,
         appealMessage: message,
       });
     }
@@ -1099,6 +1255,13 @@ r.post(
     });
 
     req.session.banAppealLock = "pending";
+
+    appendNotification(res, {
+      type: "success",
+      message:
+        "Votre demande de débannissement a bien été envoyée. Un administrateur la traitera prochainement.",
+      timeout: 6000,
+    });
 
     await sendAdminEvent(
       "Demande de débannissement",

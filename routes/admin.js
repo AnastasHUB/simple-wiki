@@ -54,6 +54,7 @@ import {
   fetchBanAppeals,
   getBanAppealBySnowflake,
   resolveBanAppeal,
+  deleteBanAppeal,
 } from "../utils/banAppeals.js";
 
 await ensureUploadDir();
@@ -405,6 +406,59 @@ r.post("/ban-appeals/:id/reject", async (req, res) => {
     pushNotification(req, {
       type: "error",
       message: "Une erreur est survenue lors du refus.",
+    });
+  }
+
+  res.redirect("/admin/ban-appeals");
+});
+
+r.post("/ban-appeals/:id/delete", async (req, res) => {
+  const appealId = req.params.id;
+  const appeal = await getBanAppealBySnowflake(appealId);
+  if (!appeal) {
+    pushNotification(req, {
+      type: "error",
+      message: "Demande introuvable.",
+    });
+    return res.redirect("/admin/ban-appeals");
+  }
+  if (appeal.status === "pending") {
+    pushNotification(req, {
+      type: "error",
+      message: "Traitez la demande avant de la supprimer.",
+    });
+    return res.redirect("/admin/ban-appeals");
+  }
+
+  try {
+    const deleted = await deleteBanAppeal(appealId);
+    if (deleted) {
+      pushNotification(req, {
+        type: "success",
+        message: "Demande supprimée.",
+      });
+      await sendAdminEvent("Demande de déban supprimée", {
+        user: req.session.user?.username || null,
+        extra: {
+          appeal: appealId,
+          ip: appeal.ip || null,
+          scope: appeal.scope || null,
+          value: appeal.value || null,
+          reason: appeal.reason || null,
+          status: appeal.status,
+        },
+      });
+    } else {
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible de supprimer la demande.",
+      });
+    }
+  } catch (err) {
+    console.error("Unable to delete ban appeal", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Une erreur est survenue lors de la suppression.",
     });
   }
 
