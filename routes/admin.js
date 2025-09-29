@@ -19,7 +19,7 @@ import {
   optimizeUpload,
   normalizeDisplayName,
 } from "../utils/uploads.js";
-import { banIp, liftBan } from "../utils/ipBans.js";
+import { banIp, liftBan, getBan, deleteBan } from "../utils/ipBans.js";
 import {
   countIpProfiles,
   fetchIpProfiles,
@@ -581,10 +581,14 @@ r.post("/ip-bans", async (req, res) => {
 });
 
 r.post("/ip-bans/:id/lift", async (req, res) => {
-  const ban = await get(
-    "SELECT snowflake_id, ip, scope, value FROM ip_bans WHERE snowflake_id=?",
-    [req.params.id],
-  );
+  const ban = await getBan(req.params.id);
+  if (!ban) {
+    pushNotification(req, {
+      type: "error",
+      message: "Blocage introuvable.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
   await liftBan(req.params.id);
   pushNotification(req, {
     type: "success",
@@ -593,9 +597,36 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
   await sendAdminEvent("IP débannie", {
     extra: {
       id: req.params.id,
-      ip: ban?.ip || null,
-      scope: ban?.scope,
-      value: ban?.value,
+      ip: ban.ip,
+      scope: ban.scope,
+      value: ban.value,
+    },
+    user: req.session.user?.username || null,
+  });
+  res.redirect("/admin/ip-bans");
+});
+
+r.post("/ip-bans/:id/delete", async (req, res) => {
+  const ban = await getBan(req.params.id);
+  if (!ban) {
+    pushNotification(req, {
+      type: "error",
+      message: "Blocage introuvable.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+  await deleteBan(req.params.id);
+  pushNotification(req, {
+    type: "success",
+    message: "Blocage supprimé.",
+  });
+  await sendAdminEvent("Blocage IP supprimé", {
+    extra: {
+      id: req.params.id,
+      ip: ban.ip,
+      scope: ban.scope,
+      value: ban.value,
+      lifted: Boolean(ban.lifted_at),
     },
     user: req.session.user?.username || null,
   });
