@@ -74,14 +74,37 @@ const r = Router();
 r.use(requireAdmin);
 
 r.get("/comments", async (req, res) => {
+  const pendingCountRow = await get(
+    "SELECT COUNT(*) AS total FROM comments WHERE status='pending'",
+  );
+  const pendingPagination = buildPagination(
+    req,
+    Number(pendingCountRow?.total ?? 0),
+    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
+  );
+  const pendingOffset = (pendingPagination.page - 1) * pendingPagination.perPage;
+
   const pending = await all(
     `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
        FROM comments c
        JOIN pages p ON p.id = c.page_id
       WHERE c.status='pending'
-      ORDER BY c.created_at ASC`,
+      ORDER BY c.created_at ASC
+      LIMIT ? OFFSET ?`,
+    [pendingPagination.perPage, pendingOffset],
   );
+
+  const recentCountRow = await get(
+    "SELECT COUNT(*) AS total FROM comments WHERE status<>'pending'",
+  );
+  const recentPagination = buildPagination(
+    req,
+    Number(recentCountRow?.total ?? 0),
+    { pageParam: "recentPage", perPageParam: "recentPerPage" },
+  );
+  const recentOffset = (recentPagination.page - 1) * recentPagination.perPage;
+
   const recent = await all(
     `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
             p.title AS page_title, p.slug_id AS page_slug
@@ -89,9 +112,16 @@ r.get("/comments", async (req, res) => {
        JOIN pages p ON p.id = c.page_id
       WHERE c.status<>'pending'
       ORDER BY c.created_at DESC
-      LIMIT 30`,
+      LIMIT ? OFFSET ?`,
+    [recentPagination.perPage, recentOffset],
   );
-  res.render("admin/comments", { pending, recent });
+
+  res.render("admin/comments", {
+    pending,
+    recent,
+    pendingPagination,
+    recentPagination,
+  });
 });
 
 r.post("/comments/:id/approve", async (req, res) => {
@@ -179,24 +209,49 @@ r.delete("/comments/:id", handleCommentDeletion);
 r.post("/comments/:id/delete", handleCommentDeletion);
 
 r.get("/ip-bans", async (req, res) => {
-  const [activeBans, liftedBans] = await Promise.all([
-    all(
-      `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
-         FROM ip_bans
-        WHERE lifted_at IS NULL
-        ORDER BY created_at DESC`,
-    ),
-    all(
-      `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
-         FROM ip_bans
-        WHERE lifted_at IS NOT NULL
-        ORDER BY lifted_at DESC
-        LIMIT 200`,
-    ),
-  ]);
+  const activeCountRow = await get(
+    "SELECT COUNT(*) AS total FROM ip_bans WHERE lifted_at IS NULL",
+  );
+  const activePagination = buildPagination(
+    req,
+    Number(activeCountRow?.total ?? 0),
+    { pageParam: "activePage", perPageParam: "activePerPage" },
+  );
+  const activeOffset = (activePagination.page - 1) * activePagination.perPage;
+
+  const activeBans = await all(
+    `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
+       FROM ip_bans
+      WHERE lifted_at IS NULL
+      ORDER BY created_at DESC
+      LIMIT ? OFFSET ?`,
+    [activePagination.perPage, activeOffset],
+  );
+
+  const liftedCountRow = await get(
+    "SELECT COUNT(*) AS total FROM ip_bans WHERE lifted_at IS NOT NULL",
+  );
+  const liftedPagination = buildPagination(
+    req,
+    Number(liftedCountRow?.total ?? 0),
+    { pageParam: "liftedPage", perPageParam: "liftedPerPage" },
+  );
+  const liftedOffset = (liftedPagination.page - 1) * liftedPagination.perPage;
+
+  const liftedBans = await all(
+    `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
+       FROM ip_bans
+      WHERE lifted_at IS NOT NULL
+      ORDER BY lifted_at DESC
+      LIMIT ? OFFSET ?`,
+    [liftedPagination.perPage, liftedOffset],
+  );
+
   res.render("admin/ip_bans", {
     activeBans,
     liftedBans,
+    activePagination,
+    liftedPagination,
   });
 });
 
@@ -1446,9 +1501,14 @@ r.use((err, req, res, next) => {
   next(err);
 });
 
-r.get("/uploads", async (_req, res) => {
-  const uploads = await listUploads();
-  res.render("admin/uploads", { uploads });
+r.get("/uploads", async (req, res) => {
+  const uploadsList = await listUploads();
+  const ordered = [...uploadsList].sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+  const pagination = buildPagination(req, ordered.length);
+  const start = (pagination.page - 1) * pagination.perPage;
+  const uploads = ordered.slice(start, start + pagination.perPage);
+
+  res.render("admin/uploads", { uploads, pagination });
 });
 
 r.post("/uploads/:id/name", async (req, res) => {
@@ -1532,11 +1592,16 @@ r.post("/settings", async (req, res) => {
 });
 
 // users
-r.get("/users", async (_req, res) => {
+r.get("/users", async (req, res) => {
+  const totalRow = await get("SELECT COUNT(*) AS total FROM users");
+  const pagination = buildPagination(req, Number(totalRow?.total ?? 0));
+  const offset = (pagination.page - 1) * pagination.perPage;
+
   const users = await all(
-    "SELECT id, username, is_admin FROM users ORDER BY id",
+    "SELECT id, username, is_admin FROM users ORDER BY id LIMIT ? OFFSET ?",
+    [pagination.perPage, offset],
   );
-  res.render("admin/users", { users });
+  res.render("admin/users", { users, pagination });
 });
 r.post("/users", async (req, res) => {
   const { username, password } = req.body;
@@ -1646,12 +1711,14 @@ r.post("/likes/:id/delete", async (req, res) => {
   res.redirect("/admin/likes");
 });
 
-function buildPagination(req, totalItems) {
-  const requestedPage = Number.parseInt(req.query.page, 10);
+function buildPagination(req, totalItems, options = {}) {
+  const { pageParam = "page", perPageParam = "perPage" } = options;
+
+  const requestedPage = Number.parseInt(req.query[pageParam], 10);
   let page =
     Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  const requestedPerPage = Number.parseInt(req.query.perPage, 10);
+  const requestedPerPage = Number.parseInt(req.query[perPageParam], 10);
   const perPage = PAGE_SIZE_OPTIONS.includes(requestedPerPage)
     ? requestedPerPage
     : DEFAULT_PAGE_SIZE;
