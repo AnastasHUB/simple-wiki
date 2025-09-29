@@ -33,6 +33,7 @@ import {
   IP_REPUTATION_REFRESH_INTERVAL_MS,
   formatIpProfileLabel,
   touchIpProfile,
+  triggerIpReputationRefresh,
   deleteIpProfileByHash,
 } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
@@ -767,7 +768,7 @@ r.post("/ip-reputation/manual-check", async (req, res) => {
   }
 
   try {
-    const profile = await touchIpProfile(rawIp);
+    const profile = await touchIpProfile(rawIp, { skipRefresh: true });
     if (!profile?.hash) {
       pushNotification(req, {
         type: "error",
@@ -780,6 +781,7 @@ r.post("/ip-reputation/manual-check", async (req, res) => {
       type: "success",
       message: `Analyse lancée pour le profil #${formatIpProfileLabel(profile.hash)}.`,
     });
+    triggerIpReputationRefresh(rawIp, { force: true });
     await sendAdminEvent("Analyse IP manuelle", {
       extra: { ip: rawIp, hash: profile.hash },
       user: req.session.user?.username || null,

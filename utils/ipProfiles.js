@@ -98,6 +98,31 @@ function buildReputationSummary(data, flags) {
   return `${baseSummary} ${details.join(" · ")}.`;
 }
 
+const pendingReputationRefreshes = new Map();
+
+function scheduleIpReputationRefresh(ip, options = {}) {
+  const normalized = normalizeIp(ip);
+  if (!normalized) {
+    return null;
+  }
+
+  const key = `${normalized}:${options?.force ? "force" : "auto"}`;
+  if (pendingReputationRefreshes.has(key)) {
+    return pendingReputationRefreshes.get(key);
+  }
+
+  const refreshPromise = refreshIpReputation(normalized, options)
+    .catch((err) => {
+      console.error("Unable to refresh IP reputation", err);
+    })
+    .finally(() => {
+      pendingReputationRefreshes.delete(key);
+    });
+
+  pendingReputationRefreshes.set(key, refreshPromise);
+  return refreshPromise;
+}
+
 async function queryIpReputation(ip) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), IP_REPUTATION_TIMEOUT_MS);
@@ -135,7 +160,7 @@ export function formatIpProfileLabel(hash, length = 10) {
   return hash.slice(0, safeLength).toUpperCase();
 }
 
-export async function touchIpProfile(ip) {
+export async function touchIpProfile(ip, { skipRefresh = false } = {}) {
   const normalized = normalizeIp(ip);
   if (!normalized) {
     return null;
@@ -153,10 +178,8 @@ export async function touchIpProfile(ip) {
     await run("UPDATE ip_profiles SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?", [
       existing.id,
     ]);
-    try {
-      await refreshIpReputation(normalized);
-    } catch (err) {
-      console.error("Unable to refresh IP reputation", err);
+    if (!skipRefresh) {
+      scheduleIpReputationRefresh(normalized);
     }
     return {
       hash: existing.hash,
@@ -187,15 +210,17 @@ export async function touchIpProfile(ip) {
       [normalized],
     );
   }
-  try {
-    await refreshIpReputation(normalized);
-  } catch (err) {
-    console.error("Unable to refresh IP reputation", err);
+  if (!skipRefresh) {
+    scheduleIpReputationRefresh(normalized);
   }
   return {
     hash: finalHash,
     shortHash: formatIpProfileLabel(finalHash),
   };
+}
+
+export function triggerIpReputationRefresh(ip, options = {}) {
+  return scheduleIpReputationRefresh(ip, options);
 }
 
 export async function refreshIpReputation(ip, { force = false } = {}) {
