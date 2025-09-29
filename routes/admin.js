@@ -215,7 +215,24 @@ r.post("/comments/:id/approve", async (req, res) => {
     });
     return redirectToComments(req, res);
   }
-  await run("UPDATE comments SET status='approved' WHERE id=?", [comment.id]);
+  if (comment.status === "approved") {
+    pushNotification(req, {
+      type: "info",
+      message: "Ce commentaire est déjà approuvé.",
+    });
+    return redirectToComments(req, res);
+  }
+  const result = await run(
+    "UPDATE comments SET status='approved', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    [comment.id],
+  );
+  if (result?.changes === 0) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible d'approuver ce commentaire.",
+    });
+    return redirectToComments(req, res);
+  }
   comment.status = "approved";
   pushNotification(req, {
     type: "success",
@@ -238,7 +255,24 @@ r.post("/comments/:id/reject", async (req, res) => {
     });
     return redirectToComments(req, res);
   }
-  await run("UPDATE comments SET status='rejected' WHERE id=?", [comment.id]);
+  if (comment.status === "rejected") {
+    pushNotification(req, {
+      type: "info",
+      message: "Ce commentaire est déjà rejeté.",
+    });
+    return redirectToComments(req, res);
+  }
+  const result = await run(
+    "UPDATE comments SET status='rejected', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    [comment.id],
+  );
+  if (result?.changes === 0) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de rejeter ce commentaire.",
+    });
+    return redirectToComments(req, res);
+  }
   comment.status = "rejected";
   pushNotification(req, {
     type: "info",
@@ -261,7 +295,14 @@ async function handleCommentDeletion(req, res) {
     });
     return redirectToComments(req, res);
   }
-  await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  const result = await run("DELETE FROM comments WHERE id=?", [comment.id]);
+  if (result?.changes === 0) {
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de supprimer ce commentaire.",
+    });
+    return redirectToComments(req, res);
+  }
   comment.status = "deleted";
   pushNotification(req, {
     type: "success",
@@ -284,20 +325,7 @@ async function fetchModeratableComment(rawId) {
     return { comment: null };
   }
 
-  let whereClause = "c.snowflake_id=?";
-  const params = [identifier];
-  const legacyCandidate = Number.parseInt(identifier, 10);
-  const legacyId =
-    /^[0-9]+$/.test(identifier) && Number.isSafeInteger(legacyCandidate)
-      ? legacyCandidate
-      : null;
-  if (legacyId !== null) {
-    whereClause = "(c.snowflake_id=? OR c.id=?)";
-    params.push(legacyId);
-  }
-
-  const comment = await get(
-    `SELECT c.id,
+  const baseSelect = `SELECT c.id,
             c.snowflake_id,
             c.status,
             c.ip,
@@ -306,10 +334,29 @@ async function fetchModeratableComment(rawId) {
             p.snowflake_id AS page_snowflake_id
        FROM comments c
        JOIN pages p ON p.id = c.page_id
-      WHERE ${whereClause}
-      LIMIT 1`,
-    params,
-  );
+      WHERE %WHERE%
+      LIMIT 1`;
+
+  let comment = null;
+
+  const legacyMatch = identifier.match(/^legacy-(\d+)$/i);
+  const numericIdentifier = legacyMatch
+    ? Number.parseInt(legacyMatch[1], 10)
+    : /^[0-9]+$/.test(identifier)
+      ? Number.parseInt(identifier, 10)
+      : null;
+
+  if (!legacyMatch) {
+    comment = await get(baseSelect.replace("%WHERE%", "c.snowflake_id=?"), [
+      identifier,
+    ]);
+  }
+
+  if (!comment && numericIdentifier !== null && Number.isSafeInteger(numericIdentifier)) {
+    comment = await get(baseSelect.replace("%WHERE%", "c.id=?"), [
+      numericIdentifier,
+    ]);
+  }
 
   if (comment && !comment.snowflake_id) {
     const newSnowflake = generateSnowflake();
