@@ -1,0 +1,153 @@
+<% const pageTitle = `Profil IP #${profile.shortHash}`; %>
+<% title = pageTitle; %>
+<section class="card ip-profile-card">
+  <header class="ip-profile-header">
+    <h1 class="mt-0">Profil IP #<%= profile.shortHash %></h1>
+    <p class="text-muted">
+      Ce profil regroupe les activités publiques associées à une adresse IP. L'adresse IP réelle est hachée afin de protéger l'anonymat des contributeurs non connectés.
+    </p>
+    <% if (isOwner) { %>
+      <p class="ip-profile-owner-note">
+        Vous consultez votre propre profil IP. Seules les contributions publiques (commentaires approuvés, likes, vues et propositions) sont visibles ici.
+      </p>
+    <% } %>
+  </header>
+
+  <dl class="ip-profile-details">
+    <div>
+      <dt>Profil créé</dt>
+      <dd><%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %></dd>
+    </div>
+    <div>
+      <dt>Dernière activité</dt>
+      <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString('fr-FR') : 'Inconnue' %></dd>
+    </div>
+  </dl>
+
+  <ul class="stat-grid ip-profile-stats">
+    <li class="ip-profile-stat">
+      <span class="label">Vues enregistrées</span>
+      <strong><%= profile.stats.views.total %></strong>
+      <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.views.uniquePages %></strong></span>
+      <% if (profile.stats.views.lastAt) { %>
+        <span class="stat-sub">Dernière vue : <%= new Date(profile.stats.views.lastAt).toLocaleString('fr-FR') %></span>
+      <% } %>
+    </li>
+    <li class="ip-profile-stat">
+      <span class="label">Likes</span>
+      <strong><%= profile.stats.likes.total %></strong>
+      <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.likes.uniquePages %></strong></span>
+      <% if (profile.stats.likes.lastAt) { %>
+        <span class="stat-sub">Dernier like : <%= new Date(profile.stats.likes.lastAt).toLocaleString('fr-FR') %></span>
+      <% } %>
+    </li>
+    <li class="ip-profile-stat">
+      <span class="label">Commentaires approuvés</span>
+      <strong><%= profile.stats.comments.total %></strong>
+      <% if (profile.stats.comments.lastAt) { %>
+        <span class="stat-sub">Dernier commentaire : <%= new Date(profile.stats.comments.lastAt).toLocaleString('fr-FR') %></span>
+      <% } else { %>
+        <span class="stat-sub">Aucun commentaire approuvé pour le moment.</span>
+      <% } %>
+    </li>
+    <li class="ip-profile-stat">
+      <span class="label">Propositions</span>
+      <strong><%= profile.stats.submissions.total %></strong>
+      <% const submissionStatuses = profile.stats.submissions.byStatus || {}; %>
+      <% if (Object.keys(submissionStatuses).length) { %>
+        <span class="stat-sub">
+          <% Object.entries(submissionStatuses).forEach(([status, total], index, entries) => { %>
+            <%= status %> : <strong><%= total %></strong><%= index < entries.length - 1 ? ' · ' : '' %>
+          <% }) %>
+        </span>
+      <% } else { %>
+        <span class="stat-sub">Aucune proposition enregistrée.</span>
+      <% } %>
+      <% if (profile.stats.submissions.lastAt) { %>
+        <span class="stat-sub">Dernière proposition : <%= new Date(profile.stats.submissions.lastAt).toLocaleString('fr-FR') %></span>
+      <% } %>
+    </li>
+  </ul>
+
+  <section class="ip-profile-section">
+    <h2>Commentaires récents</h2>
+    <% if (profile.recent.comments.length) { %>
+      <ul class="ip-profile-activity">
+        <% profile.recent.comments.forEach((item) => { %>
+          <li>
+            <div class="ip-profile-activity-meta">
+              <a href="/wiki/<%= item.slug %>#comments"><%= item.pageTitle %></a>
+              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+            </div>
+            <% if (item.excerpt) { %>
+              <p class="ip-profile-activity-text"><%= item.excerpt %></p>
+            <% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucun commentaire approuvé n'est encore visible.</p>
+    <% } %>
+  </section>
+
+  <section class="ip-profile-section">
+    <h2>Likes récents</h2>
+    <% if (profile.recent.likes.length) { %>
+      <ul class="ip-profile-activity">
+        <% profile.recent.likes.forEach((item) => { %>
+          <li>
+            <div class="ip-profile-activity-meta">
+              <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
+              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucun like enregistré pour l'instant.</p>
+    <% } %>
+  </section>
+
+  <section class="ip-profile-section">
+    <h2>Pages consultées récemment</h2>
+    <% if (profile.recent.views.length) { %>
+      <ul class="ip-profile-activity">
+        <% profile.recent.views.forEach((item) => { %>
+          <li>
+            <div class="ip-profile-activity-meta">
+              <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
+              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucune vue enregistrée avec cette IP.</p>
+    <% } %>
+  </section>
+
+  <section class="ip-profile-section">
+    <h2>Propositions récentes</h2>
+    <% if (profile.recent.submissions.length) { %>
+      <ul class="ip-profile-activity">
+        <% profile.recent.submissions.forEach((item) => { %>
+          <li>
+            <div class="ip-profile-activity-meta">
+              <% if (item.slug) { %>
+                <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
+              <% } else { %>
+                <span><%= item.pageTitle || 'Proposition' %></span>
+              <% } %>
+              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+            </div>
+            <p class="ip-profile-activity-text text-muted">
+              Type : <strong><%= item.type %></strong> · Statut : <strong><%= item.status %></strong>
+            </p>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucune proposition n'a encore été envoyée avec cette IP.</p>
+    <% } %>
+  </section>
+</section>

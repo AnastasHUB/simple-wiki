@@ -42,6 +42,9 @@
     <nav class="vnav" id="vnav">
       <a href="/">🏠 Accueil</a>
       <a href="/rss.xml">📰 Flux RSS</a>
+      <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
+        <a href="/profiles/ip/me">🪪 Mon profil IP</a>
+      <% } %>
       <% if (!currentUser || !currentUser.is_admin) { %>
         <a href="/new">✍️ Contribuer</a>
       <% } %>

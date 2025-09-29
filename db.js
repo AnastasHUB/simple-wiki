@@ -59,6 +59,14 @@ export async function initDb() {
   );
   CREATE INDEX IF NOT EXISTS idx_page_views_page ON page_views(page_id);
   CREATE INDEX IF NOT EXISTS idx_page_views_page_date ON page_views(page_id, viewed_at);
+  CREATE TABLE IF NOT EXISTS ip_profiles(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    ip TEXT UNIQUE NOT NULL,
+    hash TEXT UNIQUE NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS page_view_daily(
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     day TEXT NOT NULL,
@@ -167,6 +175,7 @@ export async function initDb() {
   await ensureSnowflake("comments");
   await ensureSnowflake("page_submissions");
   await ensureSnowflake("ip_bans");
+  await ensureSnowflake("ip_profiles");
   await ensureSnowflake("event_logs");
   await ensureSnowflake("uploads", "snowflake_id");
   return db;

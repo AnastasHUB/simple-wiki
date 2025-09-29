@@ -872,6 +872,17 @@ form .actions {
   margin-bottom: 8px;
 }
 
+.comment-meta .comment-ip-profile {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.comment-meta .comment-ip-profile:hover,
+.comment-meta .comment-ip-profile:focus {
+  text-decoration: underline;
+}
+
 .comment-body {
   white-space: pre-wrap;
   line-height: 1.7;
@@ -932,6 +943,11 @@ form .actions {
   gap: 8px;
 }
 
+.stat-grid .stat-sub {
+  font-size: 0.9em;
+  color: var(--muted);
+}
+
 .stat-grid .label {
   font-size: 0.85em;
   color: #94a3b8;
@@ -977,6 +993,101 @@ form .actions {
 
 .admin-comment-list.compact li {
   padding: 14px;
+}
+
+/* === IP PROFILES === */
+
+.ip-profile-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ip-profile-header p {
+  margin: 0.35rem 0 0;
+}
+
+.ip-profile-owner-note {
+  background: rgba(79, 109, 251, 0.12);
+  border: 1px solid rgba(79, 109, 251, 0.35);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  color: var(--text);
+}
+
+.ip-profile-details {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 0;
+}
+
+.ip-profile-details div {
+  background: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.ip-profile-details dt {
+  margin: 0 0 0.25rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.ip-profile-details dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.ip-profile-stats {
+  margin: 0;
+}
+
+.ip-profile-stat strong {
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.ip-profile-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ip-profile-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ip-profile-activity li {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 0.85rem 1rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.ip-profile-activity-meta {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.ip-profile-activity-meta time {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.ip-profile-activity-text {
+  margin: 0.5rem 0 0;
 }
 
 .admin-comment-list .status {
