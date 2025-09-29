@@ -15,15 +15,24 @@
 </head>
 <body>
 <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
+<% const hasBrandLogo = typeof logoUrl !== 'undefined' && logoUrl; %>
 <header class="topbar">
-  <button class="btn icon only" id="sidebarToggle" aria-label="Menu">☰</button>
-  <form method="get" action="/search" class="searchbar">
-    <input type="text" name="q" placeholder="Rechercher…">
-    <button class="btn search" data-icon="🔍">Rechercher</button>
+  <div class="topbar-left">
+    <button class="btn icon only" id="sidebarToggle" aria-label="Ouvrir le menu">☰</button>
+    <a class="brand-link" href="/">
+      <% if (hasBrandLogo) { %>
+        <img src="<%= logoUrl %>" alt="Logo de <%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>">
+      <% } %>
+      <span class="brand-name"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></span>
+    </a>
+  </div>
+  <form method="get" action="/search" class="searchbar" role="search">
+    <input type="text" name="q" placeholder="Rechercher…" aria-label="Rechercher sur le wiki">
+    <button class="btn search" data-icon="🔍" type="submit">Rechercher</button>
   </form>
   <div class="auth">
     <% if (currentUser) { %>
-      <div class="who">Connecté: <strong><%= currentUser.display_name || currentUser.username %></strong></div>
+      <div class="who">Connecté : <strong><%= currentUser.display_name || currentUser.username %></strong></div>
       <form action="/logout" method="post"><button class="btn" data-icon="🔓">Déconnexion</button></form>
     <% } else { %>
       <a class="btn" data-icon="🔐" href="/login">Connexion</a>
@@ -35,8 +44,7 @@
   <!-- Sidebar AVANT overlay -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
-      <% const hasLogo = typeof logoUrl !== 'undefined' && logoUrl; %>
-      <% if (hasLogo) { %><img src="<%= logoUrl %>" alt="logo"><% } %>
+      <% if (hasBrandLogo) { %><img src="<%= logoUrl %>" alt="Logo de <%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>"><% } %>
       <div class="brand-name"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></div>
     </div>
     <nav class="vnav" id="vnav">
