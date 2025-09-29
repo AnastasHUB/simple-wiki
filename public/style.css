@@ -914,8 +914,10 @@ code {
     max-width: 100% !important;
   }
   .site-footer {
-    margin-left: 0 !important;
-    padding-left: var(--sidebar-w) !important;
+    margin-left: var(--sidebar-w) !important;
+    width: calc(100vw - var(--sidebar-w)) !important;
+    max-width: calc(100vw - var(--sidebar-w)) !important;
+    padding-left: 28px !important;
     box-sizing: border-box !important;
   }
   /* Tables et médias ne forcent pas l’élargissement */
