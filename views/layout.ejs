@@ -101,9 +101,7 @@
       <% if (!currentUser || !currentUser.is_admin) { %>
         <a href="/new">✍️ Contribuer</a>
       <% } %>
-      <% if (currentUser) { %>
-        <a href="/account/submissions">🗂️ Mes contributions</a>
-      <% } %>
+      <a href="/account/submissions">🗂️ Mes contributions</a>
       <% if (currentUser && currentUser.is_admin) { %>
         <% const adminCounts = typeof adminActionCounts !== 'undefined' ? adminActionCounts : {}; %>
         <a href="/new">➕ Nouvelle page</a>

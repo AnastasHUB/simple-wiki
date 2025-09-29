@@ -10,13 +10,6 @@ import { getClientIp } from "../utils/ip.js";
 
 const r = Router();
 
-r.use((req, res, next) => {
-  if (!req.session.user) {
-    return res.redirect("/login");
-  }
-  next();
-});
-
 function resolveIdentity(req) {
   return {
     submittedBy: req.session.user?.username || null,
@@ -25,6 +18,15 @@ function resolveIdentity(req) {
 }
 
 async function buildSection(req, identity, { status, pageParam, perPageParam, orderBy, direction }) {
+  const hasIdentity = Boolean(identity.submittedBy) || Boolean(identity.ip);
+
+  if (!hasIdentity) {
+    return {
+      rows: [],
+      pagination: buildPaginationView(req, 0, { pageParam, perPageParam }),
+    };
+  }
+
   const total = await countPageSubmissions({
     status,
     submittedBy: identity.submittedBy,

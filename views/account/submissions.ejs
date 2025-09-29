@@ -4,6 +4,12 @@
   Retrouvez ici l’ensemble de vos propositions de pages ou de modifications. Vous pouvez suivre
   leur traitement par l’équipe de modération.
 </p>
+<% if (!user) { %>
+  <p class="alert alert-info">
+    Vous n’êtes pas connecté. Nous affichons ici les contributions envoyées depuis cette adresse
+    IP. Connectez-vous ou créez un compte pour associer vos futures contributions à votre profil.
+  </p>
+<% } %>
 
 <section class="card mb-xl">
   <h2>En attente (<%= pendingPagination.totalItems %>)</h2>
