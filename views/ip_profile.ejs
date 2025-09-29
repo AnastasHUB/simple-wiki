@@ -1,63 +1,99 @@
-<% const pageTitle = `Profil IP #${profile.shortHash}`; %>
-<% title = pageTitle; %>
+<% const preferences = profile.preferences || {}; %>
+<% const customLabel = preferences.publicLabel && preferences.publicLabel.trim() ? preferences.publicLabel.trim() : null; %>
+<% const displayTitle = customLabel || `Profil IP #${profile.shortHash}`; %>
+<% title = displayTitle; %>
+<% const rep = profile.reputation || {}; %>
+<% const repStatus = rep.status || 'unknown'; %>
+<% const repLabel = repStatus === 'suspicious' ? 'IP suspecte' : repStatus === 'safe' ? 'IP validée' : repStatus === 'clean' ? 'IP neutre' : 'Statut inconnu'; %>
+<% let repClasses = 'ip-profile-reputation card-subtle notice'; %>
+<% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
+<% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
+<% const pageSizeOptions = Array.isArray(preferenceOptions?.commentPageSizes) && preferenceOptions.commentPageSizes.length ? preferenceOptions.commentPageSizes : [5, 10, 20, 50]; %>
+<% const activityListClass = ['ip-profile-activity']; %>
+<% if (preferences.compactComments) { activityListClass.push('compact'); } %>
+<% const activityClassName = activityListClass.join(' '); %>
+<% const defaultAuthorLabel = preferences.defaultAuthor ? preferences.defaultAuthor : 'Non défini'; %>
+<% const commentPageSizeLabel = preferences.commentPageSize || 10; %>
+
 <section class="card ip-profile-card">
   <header class="ip-profile-header">
-    <h1 class="mt-0">Profil IP #<%= profile.shortHash %></h1>
-    <p class="text-muted">
-      Ce profil regroupe les activités publiques associées à une adresse IP. L'adresse IP réelle est hachée afin de protéger l'anonymat des contributeurs non connectés.
-    </p>
-    <% if (isOwner) { %>
-      <p class="ip-profile-owner-note">
-        Vous consultez votre propre profil IP. Seules les contributions publiques (commentaires approuvés, likes, vues et propositions) sont visibles ici.
+    <div>
+      <span class="ip-profile-chip">Profil IP public</span>
+      <h1 class="mt-0"><%= displayTitle %></h1>
+      <p class="text-muted">
+        Ce profil regroupe les activités publiques associées à une adresse IP. L'adresse IP réelle est hachée afin de protéger l'anonymat des contributeurs non connectés.
       </p>
+    </div>
+    <% if (isOwner) { %>
+      <div class="ip-profile-owner-box">
+        <p class="ip-profile-owner-note">
+          Vous consultez votre propre profil IP. Seules les contributions publiques (commentaires approuvés, likes, vues et propositions) sont visibles ici.
+        </p>
+        <a class="btn secondary btn-compact" href="#preferences" data-icon="⚙️">Modifier mes préférences</a>
+      </div>
     <% } %>
   </header>
 
-  <% const rep = profile.reputation || {}; %>
-  <% const repStatus = rep.status || 'unknown'; %>
-  <% const repLabel = repStatus === 'suspicious' ? 'IP suspecte' : repStatus === 'safe' ? 'IP validée' : repStatus === 'clean' ? 'IP neutre' : 'Statut inconnu'; %>
-  <% let repClasses = 'notice ip-profile-reputation'; %>
-  <% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
-  <% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
-  <div class="<%= repClasses %>">
-  <div class="ip-profile-reputation-header">
-    <span class="<%= pillClass %>"><%= repLabel %></span>
-    <% if (rep.lastCheckedAt) { %>
-      <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
-    <% } %>
+  <div class="ip-profile-summary-grid">
+    <div class="<%= repClasses %>">
+      <div class="ip-profile-reputation-header">
+        <span class="<%= pillClass %>"><%= repLabel %></span>
+        <% if (rep.lastCheckedAt) { %>
+          <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
+        <% } %>
+      </div>
+      <p class="ip-profile-reputation-text">
+        <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
+      </p>
+    </div>
+    <div class="ip-profile-meta-card card-subtle">
+      <dl class="ip-profile-details">
+        <div>
+          <dt>Profil créé</dt>
+          <dd><%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %></dd>
+        </div>
+        <div>
+          <dt>Dernière activité</dt>
+          <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString('fr-FR') : 'Inconnue' %></dd>
+        </div>
+        <div>
+          <dt>Identifiant</dt>
+          <dd><code>#<%= profile.shortHash %></code></dd>
+        </div>
+      </dl>
+      <% if (isOwner) { %>
+        <div class="ip-profile-preference-mini">
+          <h3>Préférences rapides</h3>
+          <ul>
+            <li><span>Nom public</span><strong><%= customLabel || `Profil IP #${profile.shortHash}` %></strong></li>
+            <li><span>Nom par défaut</span><strong><%= defaultAuthorLabel %></strong></li>
+            <li><span>Commentaires/page</span><strong><%= commentPageSizeLabel %></strong></li>
+          </ul>
+          <% if (preferences.updatedAt) { %>
+            <p class="text-sm text-muted">Mis à jour le <%= new Date(preferences.updatedAt).toLocaleString('fr-FR') %></p>
+          <% } %>
+        </div>
+      <% } %>
+    </div>
   </div>
-  <p class="ip-profile-reputation-text">
-    <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
-  </p>
-</div>
 
- <% const actionSanctions = {}; %>
- <% (profile.bans || []).forEach((ban) => { %>
-   <% if (ban.scope === 'action' && ban.value) { %>
-     <% actionSanctions[ban.value] = ban; %>
-   <% } %>
- <% }); %>
-
-  <dl class="ip-profile-details">
-    <div>
-      <dt>Profil créé</dt>
-      <dd><%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %></dd>
-    </div>
-    <div>
-      <dt>Dernière activité</dt>
-      <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString('fr-FR') : 'Inconnue' %></dd>
-    </div>
-  </dl>
+  <% const actionSanctions = {}; %>
+  <% (profile.bans || []).forEach((ban) => { %>
+    <% if (ban.scope === 'action' && ban.value) { %>
+      <% actionSanctions[ban.value] = ban; %>
+    <% } %>
+  <% }); %>
 
   <ul class="stat-grid ip-profile-stats">
     <li class="ip-profile-stat">
+      <span class="stat-icon" aria-hidden="true">👀</span>
       <span class="label">
         Vues enregistrées
         <% if (actionSanctions.view) { %>
           <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
         <% } %>
       </span>
-      <strong><%= profile.stats.views.total %></strong>
+      <strong class="stat-value"><%= profile.stats.views.total %></strong>
       <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.views.uniquePages %></strong></span>
       <% if (profile.stats.views.lastAt) { %>
         <span class="stat-sub">Dernière vue : <%= new Date(profile.stats.views.lastAt).toLocaleString('fr-FR') %></span>
@@ -67,13 +103,14 @@
       <% } %>
     </li>
     <li class="ip-profile-stat">
+      <span class="stat-icon" aria-hidden="true">💖</span>
       <span class="label">
         Likes
         <% if (actionSanctions.like) { %>
           <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
         <% } %>
       </span>
-      <strong><%= profile.stats.likes.total %></strong>
+      <strong class="stat-value"><%= profile.stats.likes.total %></strong>
       <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.likes.uniquePages %></strong></span>
       <% if (profile.stats.likes.lastAt) { %>
         <span class="stat-sub">Dernier like : <%= new Date(profile.stats.likes.lastAt).toLocaleString('fr-FR') %></span>
@@ -83,13 +120,14 @@
       <% } %>
     </li>
     <li class="ip-profile-stat">
+      <span class="stat-icon" aria-hidden="true">💬</span>
       <span class="label">
         Commentaires approuvés
         <% if (actionSanctions.comment) { %>
           <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
         <% } %>
       </span>
-      <strong><%= profile.stats.comments.total %></strong>
+      <strong class="stat-value"><%= profile.stats.comments.total %></strong>
       <% if (profile.stats.comments.lastAt) { %>
         <span class="stat-sub">Dernier commentaire : <%= new Date(profile.stats.comments.lastAt).toLocaleString('fr-FR') %></span>
       <% } else { %>
@@ -100,13 +138,14 @@
       <% } %>
     </li>
     <li class="ip-profile-stat">
+      <span class="stat-icon" aria-hidden="true">🛠️</span>
       <span class="label">
         Propositions
         <% if (actionSanctions.contribute) { %>
           <span class="status-pill rejected ip-profile-sanction" title="Cette action est actuellement bloquée.">Sanction</span>
         <% } %>
       </span>
-      <strong><%= profile.stats.submissions.total %></strong>
+      <strong class="stat-value"><%= profile.stats.submissions.total %></strong>
       <% const submissionStatuses = profile.stats.submissions.byStatus || {}; %>
       <% if (Object.keys(submissionStatuses).length) { %>
         <span class="stat-sub">
@@ -126,85 +165,155 @@
     </li>
   </ul>
 
-  <section class="ip-profile-section">
-    <h2>Commentaires récents</h2>
-    <% if (profile.recent.comments.length) { %>
-      <ul class="ip-profile-activity">
-        <% profile.recent.comments.forEach((item) => { %>
+  <% if (profile.bans && profile.bans.length) { %>
+    <section class="ip-profile-section card-subtle ip-profile-bans">
+      <h2>Sanctions actives</h2>
+      <ul class="ip-profile-ban-list">
+        <% profile.bans.forEach((ban) => { %>
           <li>
-            <div class="ip-profile-activity-meta">
-              <a href="/wiki/<%= item.slug %>#comments"><%= item.pageTitle %></a>
-              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+            <div class="ip-profile-ban-header">
+              <span class="status-pill rejected"><%= ban.scope === 'global' ? 'Globale' : ban.scope %></span>
+              <% if (ban.value) { %>
+                <code><%= ban.value %></code>
+              <% } %>
             </div>
-            <% if (item.excerpt) { %>
-              <p class="ip-profile-activity-text"><%= item.excerpt %></p>
+            <p class="text-sm text-muted">Depuis le <%= new Date(ban.createdAt).toLocaleString('fr-FR') %></p>
+            <% if (ban.reason) { %>
+              <p class="text-muted"><%= ban.reason %></p>
             <% } %>
           </li>
         <% }) %>
       </ul>
-    <% } else { %>
-      <p class="text-muted">Aucun commentaire approuvé n'est encore visible.</p>
-    <% } %>
-  </section>
+    </section>
+  <% } %>
 
-  <section class="ip-profile-section">
-    <h2>Likes récents</h2>
-    <% if (profile.recent.likes.length) { %>
-      <ul class="ip-profile-activity">
-        <% profile.recent.likes.forEach((item) => { %>
-          <li>
-            <div class="ip-profile-activity-meta">
-              <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
-              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
-            </div>
-          </li>
-        <% }) %>
-      </ul>
-    <% } else { %>
-      <p class="text-muted">Aucun like enregistré pour l'instant.</p>
-    <% } %>
-  </section>
+  <% if (isOwner) { %>
+    <section id="preferences" class="ip-profile-section card-subtle ip-profile-preferences">
+      <h2>Mes préférences</h2>
+      <p class="text-muted">
+        Personnalisez l'apparence de votre profil et les paramètres par défaut utilisés lors de vos contributions.
+      </p>
+      <form method="post" action="/profiles/ip/<%= profile.hash %>/preferences" class="ip-preferences-form">
+        <label class="stack-form">
+          <span class="text-sm text-muted">Nom public du profil</span>
+          <input
+            type="text"
+            name="publicLabel"
+            maxlength="60"
+            value="<%= customLabel || '' %>"
+            placeholder="Profil IP personnalisé"
+          />
+          <span class="form-help">Laissez vide pour afficher « Profil IP #<%= profile.shortHash %> ».</span>
+        </label>
+        <label class="stack-form">
+          <span class="text-sm text-muted">Nom par défaut pour vos commentaires</span>
+          <input
+            type="text"
+            name="defaultAuthor"
+            maxlength="80"
+            value="<%= preferences.defaultAuthor || '' %>"
+            placeholder="Anonyme"
+          />
+        </label>
+        <label class="stack-form">
+          <span class="text-sm text-muted">Commentaires affichés par page</span>
+          <select name="commentPageSize">
+            <option value="" <%= preferences.commentPageSize ? '' : 'selected' %>>Automatique (10)</option>
+            <% pageSizeOptions.forEach((size) => { %>
+              <option value="<%= size %>" <%= preferences.commentPageSize === size ? 'selected' : '' %>><%= size %></option>
+            <% }) %>
+          </select>
+        </label>
+        <label class="checkbox ip-preferences-checkbox">
+          <input type="checkbox" name="compactComments" <%= preferences.compactComments ? 'checked' : '' %> />
+          <span>Afficher les historiques en mode compact</span>
+        </label>
+        <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+      </form>
+    </section>
+  <% } %>
 
-  <section class="ip-profile-section">
-    <h2>Pages consultées récemment</h2>
-    <% if (profile.recent.views.length) { %>
-      <ul class="ip-profile-activity">
-        <% profile.recent.views.forEach((item) => { %>
-          <li>
-            <div class="ip-profile-activity-meta">
-              <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
-              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
-            </div>
-          </li>
-        <% }) %>
-      </ul>
-    <% } else { %>
-      <p class="text-muted">Aucune vue enregistrée avec cette IP.</p>
-    <% } %>
-  </section>
-
-  <section class="ip-profile-section">
-    <h2>Propositions récentes</h2>
-    <% if (profile.recent.submissions.length) { %>
-      <ul class="ip-profile-activity">
-        <% profile.recent.submissions.forEach((item) => { %>
-          <li>
-            <div class="ip-profile-activity-meta">
-              <% if (item.slug) { %>
-                <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
-              <% } else { %>
-                <span><%= item.pageTitle || 'Proposition' %></span>
+  <div class="ip-profile-activity-grid">
+    <section class="ip-profile-section card-subtle">
+      <h2>Commentaires récents</h2>
+      <% if (profile.recent.comments.length) { %>
+        <ul class="<%= activityClassName %>">
+          <% profile.recent.comments.forEach((item) => { %>
+            <li>
+              <div class="ip-profile-activity-meta">
+                <a href="/wiki/<%= item.slug %>#comments"><%= item.pageTitle %></a>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+              </div>
+              <% if (item.excerpt) { %>
+                <p class="ip-profile-activity-text"><%= item.excerpt %></p>
               <% } %>
-              <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
-            </div>
-            <p class="ip-profile-activity-text text-muted">
-              Type : <strong><%= item.type %></strong> · Statut : <strong><%= item.status %></strong>
-            </p>
-          </li>
-        <% }) %>
-      </ul>
-    <% } else { %>
-      <p class="text-muted">Aucune proposition n'a encore été envoyée avec cette IP.</p>
-    <% } %>
-  </section>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">Aucun commentaire approuvé n'est encore visible.</p>
+      <% } %>
+    </section>
+    <section class="ip-profile-section card-subtle">
+      <h2>Likes récents</h2>
+      <% if (profile.recent.likes.length) { %>
+        <ul class="<%= activityClassName %>">
+          <% profile.recent.likes.forEach((item) => { %>
+            <li>
+              <div class="ip-profile-activity-meta">
+                <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">Aucun like enregistré pour l'instant.</p>
+      <% } %>
+    </section>
+  </div>
+
+  <div class="ip-profile-activity-grid">
+    <section class="ip-profile-section card-subtle">
+      <h2>Pages consultées récemment</h2>
+      <% if (profile.recent.views.length) { %>
+        <ul class="<%= activityClassName %>">
+          <% profile.recent.views.forEach((item) => { %>
+            <li>
+              <div class="ip-profile-activity-meta">
+                <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+              </div>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">Aucune vue enregistrée avec cette IP.</p>
+      <% } %>
+    </section>
+    <section class="ip-profile-section card-subtle">
+      <h2>Propositions récentes</h2>
+      <% if (profile.recent.submissions.length) { %>
+        <ul class="<%= activityClassName %>">
+          <% profile.recent.submissions.forEach((item) => { %>
+            <li>
+              <div class="ip-profile-activity-meta">
+                <% if (item.slug) { %>
+                  <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
+                <% } else { %>
+                  <span><%= item.pageTitle || 'Proposition' %></span>
+                <% } %>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+              </div>
+              <p class="ip-profile-activity-text text-muted">
+                Type : <strong><%= item.type %></strong> · Statut : <strong><%= item.status %></strong>
+              </p>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">Aucune proposition n'a encore été envoyée avec cette IP.</p>
+      <% } %>
+    </section>
+  </div>
 </section>

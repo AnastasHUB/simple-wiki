@@ -1,61 +1,160 @@
 <% title='Statistiques'; %>
-<h1>Statistiques de consultation</h1>
-
-<section class="card mb-xl">
-  <h2>Résumé global</h2>
-  <ul class="stat-grid">
-    <li>
-      <span class="label">Vues cumulées</span>
+<section class="card stats-hero">
+  <div>
+    <h1 class="mt-0">Tableau de bord des statistiques</h1>
+    <p class="text-muted">Suivez en un clin d'œil la popularité du wiki et la charge de modération.</p>
+  </div>
+  <div class="stats-hero-metrics">
+    <div>
+      <span class="stats-hero-label">Vues cumulées</span>
       <strong><%= totalViews %></strong>
-    </li>
-    <li>
-      <span class="label">Likes</span>
-      <strong><%= totalsBreakdown.likes %></strong>
-    </li>
-    <li>
-      <span class="label">Commentaires</span>
-      <strong><%= totalsBreakdown.comments %></strong>
-    </li>
-    <li>
-      <span class="label">Blocages actifs</span>
-      <strong><%= totalsBreakdown.activeBans %></strong>
-    </li>
-    <li>
-      <span class="label">Événements loggés</span>
-      <strong><%= totalsBreakdown.events %></strong>
-    </li>
-    <li>
-      <span class="label">Visiteurs uniques (IP)</span>
-      <strong><%= totalsBreakdown.uniqueIps %></strong>
-    </li>
-  </ul>
-  <% if (totalsBreakdown.commentByStatus && totalsBreakdown.commentByStatus.length) { %>
-    <h3>Commentaires par statut</h3>
-    <div class="table-wrap">
-      <table class="data-table compact">
-        <thead>
-          <tr>
-            <th>Statut</th>
-            <th>Total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% totalsBreakdown.commentByStatus.forEach(row => { %>
-            <tr>
-              <td><%= row.status %></td>
-              <td><%= row.count %></td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
     </div>
-  <% } %>
-  <p class="note-text">
-    Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
-  </p>
+    <div>
+      <span class="stats-hero-label">Moyenne par page</span>
+      <strong><%= avgViewsPerPage %></strong>
+    </div>
+    <div>
+      <span class="stats-hero-label">Visiteurs uniques</span>
+      <strong><%= totalsBreakdown.uniqueIps %></strong>
+    </div>
+  </div>
 </section>
 
-<section class="card mb-xl grid gap-lg">
+<section class="stats-overview-grid">
+  <div class="card">
+    <h2>Résumé global</h2>
+    <ul class="stat-grid">
+      <li>
+        <span class="label">Vues cumulées</span>
+        <strong><%= totalViews %></strong>
+      </li>
+      <li>
+        <span class="label">Likes</span>
+        <strong><%= totalsBreakdown.likes %></strong>
+      </li>
+      <li>
+        <span class="label">Commentaires</span>
+        <strong><%= totalsBreakdown.comments %></strong>
+      </li>
+      <li>
+        <span class="label">Blocages actifs</span>
+        <strong><%= totalsBreakdown.activeBans %></strong>
+      </li>
+      <li>
+        <span class="label">Événements loggés</span>
+        <strong><%= totalsBreakdown.events %></strong>
+      </li>
+      <li>
+        <span class="label">Visiteurs uniques (IP)</span>
+        <strong><%= totalsBreakdown.uniqueIps %></strong>
+      </li>
+    </ul>
+    <% if (totalsBreakdown.commentByStatus && totalsBreakdown.commentByStatus.length) { %>
+      <h3>Commentaires par statut</h3>
+      <div class="table-wrap">
+        <table class="data-table compact">
+          <thead>
+            <tr>
+              <th>Statut</th>
+              <th>Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <% totalsBreakdown.commentByStatus.forEach(row => { %>
+              <tr>
+                <td><%= row.status %></td>
+                <td><%= row.count %></td>
+              </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+    <% } %>
+    <p class="note-text">
+      Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
+    </p>
+  </div>
+  <div class="card stats-highlight-card">
+    <h2>Indicateurs clés</h2>
+    <% if (!engagementHighlights.length) { %>
+      <p>Aucun indicateur disponible pour le moment.</p>
+    <% } else { %>
+      <ul class="stats-highlight-grid">
+        <% engagementHighlights.forEach(item => { %>
+          <li>
+            <span class="highlight-icon" aria-hidden="true"><%= item.icon %></span>
+            <div>
+              <span class="highlight-label"><%= item.label %></span>
+              <strong><%= item.value %></strong>
+              <% if (item.secondary) { %>
+                <span class="highlight-secondary"><%= item.secondary %></span>
+              <% } %>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+</section>
+
+<section class="card stats-trend-card">
+  <h2>Vues quotidiennes récentes</h2>
+  <% if (!viewTrends.length) { %>
+    <p>Aucune donnée de vues quotidiennes n'est encore disponible.</p>
+  <% } else { %>
+    <ul class="stats-trend-list">
+      <% viewTrends.forEach((row) => { %>
+        <li>
+          <span><%= row.day %></span>
+          <strong><%= row.views %></strong>
+        </li>
+      <% }) %>
+    </ul>
+  <% } %>
+</section>
+
+<section class="stats-activity-grid">
+  <div class="card">
+    <h2>Pages récemment créées</h2>
+    <% if (!recentPages.length) { %>
+      <p>Aucune création récente.</p>
+    <% } else { %>
+      <ul class="stats-activity-list">
+        <% recentPages.forEach(page => { %>
+          <li>
+            <div>
+              <a href="/wiki/<%= page.slug_id %>"><%= page.title %></a>
+              <span class="text-muted text-sm">Créée le <%= page.created_at ? new Date(page.created_at).toLocaleString('fr-FR') : 'n/a' %></span>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+  <div class="card">
+    <h2>Événements récents</h2>
+    <% if (!recentEvents.length) { %>
+      <p>Aucun événement administrateur enregistré.</p>
+    <% } else { %>
+      <ul class="stats-activity-list">
+        <% recentEvents.forEach(event => { %>
+          <li>
+            <div>
+              <span class="highlight-label"><%= event.type %></span>
+              <span class="text-muted text-sm">Canal : <%= event.channel %></span>
+            </div>
+            <div class="text-muted text-sm">
+              <time datetime="<%= event.created_at %>"><%= new Date(event.created_at).toLocaleString('fr-FR') %></time>
+              <% if (event.username) { %> · <span>par <strong><%= event.username %></strong></span><% } %>
+            </div>
+          </li>
+        <% }) %>
+      </ul>
+    <% } %>
+  </div>
+</section>
+
+<section class="card stats-panels">
   <div>
     <h2>Pages les plus aimées</h2>
     <% if (!topLikedPages.length) { %>
@@ -169,7 +268,7 @@
   <% } %>
 </section>
 
-<section class="card mb-xl grid gap-lg">
+<section class="card mb-xl stats-panels">
   <div>
     <h2>Tags les plus utilisés</h2>
     <% if (!tagUsage.length) { %>

@@ -28,6 +28,62 @@ const IP_REPUTATION_TIMEOUT_MS = Number.isFinite(configuredTimeout)
   : DEFAULT_TIMEOUT_MS;
 
 const SALT = process.env.IP_PROFILE_SALT || "simple-wiki-ip-profile::v1";
+const COMMENT_PAGE_SIZE_OPTIONS = [5, 10, 20, 50];
+export const IP_PROFILE_COMMENT_PAGE_SIZES = Object.freeze([
+  ...COMMENT_PAGE_SIZE_OPTIONS,
+]);
+
+function normalizePublicLabel(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, 60);
+}
+
+function normalizeDefaultAuthor(value) {
+  if (typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.slice(0, 80);
+}
+
+function normalizeCommentPageSize(value) {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+  const numeric = Number.parseInt(value, 10);
+  if (!Number.isInteger(numeric)) {
+    return null;
+  }
+  return COMMENT_PAGE_SIZE_OPTIONS.includes(numeric) ? numeric : null;
+}
+
+function mapPreferenceRow(row) {
+  if (!row) {
+    return {
+      publicLabel: null,
+      defaultAuthor: null,
+      commentPageSize: null,
+      compactComments: false,
+      updatedAt: null,
+    };
+  }
+  return {
+    publicLabel: row.public_label ? row.public_label : null,
+    defaultAuthor: row.default_author ? row.default_author : null,
+    commentPageSize: normalizeCommentPageSize(row.comment_page_size),
+    compactComments: Boolean(row.compact_comments),
+    updatedAt: row.updated_at || row.created_at || null,
+  };
+}
 
 function normalizeOverride(value) {
   if (!value) {
@@ -336,6 +392,7 @@ export async function getIpProfileByHash(hash) {
     recentViews,
     recentSubmissions,
     activeBans,
+    preferencesRow,
   ] =
     await Promise.all([
       get(
@@ -407,6 +464,13 @@ export async function getIpProfileByHash(hash) {
         [profile.ip],
       ),
       getActiveBans(profile.ip),
+      get(
+        `SELECT public_label, default_author, comment_page_size, compact_comments,
+                created_at, updated_at
+           FROM ip_profile_preferences
+          WHERE hash = ?`,
+        [profile.hash],
+      ),
     ]);
 
   const submissionsByStatus = submissionBreakdown.reduce(
@@ -496,7 +560,73 @@ export async function getIpProfileByHash(hash) {
           createdAt: ban.created_at,
         }))
       : [],
+    preferences: mapPreferenceRow(preferencesRow),
   };
+}
+
+export async function getIpProfilePreferences(hash) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    return mapPreferenceRow(null);
+  }
+  const row = await get(
+    `SELECT public_label, default_author, comment_page_size, compact_comments,
+            created_at, updated_at
+       FROM ip_profile_preferences
+      WHERE hash = ?`,
+    [normalized],
+  );
+  return mapPreferenceRow(row);
+}
+
+export async function getIpProfilePreferencesByIp(ip) {
+  const hashed = hashIp(ip);
+  if (!hashed) {
+    return mapPreferenceRow(null);
+  }
+  return getIpProfilePreferences(hashed);
+}
+
+export async function updateIpProfilePreferences(
+  hash,
+  { publicLabel, defaultAuthor, commentPageSize, compactComments } = {},
+) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    throw new Error("Profil IP introuvable");
+  }
+
+  const normalizedLabel = normalizePublicLabel(publicLabel);
+  const normalizedAuthor = normalizeDefaultAuthor(defaultAuthor);
+  const normalizedPageSize = normalizeCommentPageSize(commentPageSize);
+  const compactFlag = compactComments ? 1 : 0;
+
+  await run(
+    `INSERT INTO ip_profile_preferences(
+        hash,
+        public_label,
+        default_author,
+        comment_page_size,
+        compact_comments,
+        updated_at
+      )
+      VALUES(?,?,?,?,?,CURRENT_TIMESTAMP)
+      ON CONFLICT(hash) DO UPDATE SET
+        public_label=excluded.public_label,
+        default_author=excluded.default_author,
+        comment_page_size=excluded.comment_page_size,
+        compact_comments=excluded.compact_comments,
+        updated_at=CURRENT_TIMESTAMP`,
+    [
+      normalized,
+      normalizedLabel,
+      normalizedAuthor,
+      normalizedPageSize,
+      compactFlag,
+    ],
+  );
+
+  return getIpProfilePreferences(normalized);
 }
 
 export async function countIpProfiles({ search = null } = {}) {
