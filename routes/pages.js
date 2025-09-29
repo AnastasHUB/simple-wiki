@@ -22,8 +22,11 @@ import { upsertTags, recordRevision } from "../utils/pageEditing.js";
 import { createPageSubmission } from "../utils/pageSubmissionService.js";
 import {
   getIpProfileByHash,
+  getIpProfilePreferencesByIp,
   hashIp,
   touchIpProfile,
+  updateIpProfilePreferences,
+  IP_PROFILE_COMMENT_PAGE_SIZES,
 } from "../utils/ipProfiles.js";
 import {
   fetchRecentPages,
@@ -325,12 +328,15 @@ r.get(
     page.views = Number(page.views || 0) + 1;
     await touchIpProfile(ip);
 
+    const viewerPreferences = await getIpProfilePreferencesByIp(ip);
+    const preferredCommentPageSize = viewerPreferences?.commentPageSize || 10;
+
     const totalComments = Number(page.comment_count || 0);
     const commentPaginationOptions = {
       pageParam: "commentsPage",
       perPageParam: "commentsPerPage",
-      defaultPageSize: 10,
-      pageSizeOptions: [5, 10, 20, 50],
+      defaultPageSize: preferredCommentPageSize,
+      pageSizeOptions: [...IP_PROFILE_COMMENT_PAGE_SIZES],
     };
     let commentPagination = buildPagination(
       req,
@@ -378,6 +384,7 @@ r.get(
       commentPagination,
       commentFeedback,
       ownCommentTokens,
+      viewerPreferences,
     });
   }),
 );
@@ -1137,7 +1144,51 @@ r.get(
     res.render("ip_profile", {
       profile,
       isOwner: viewerHash ? viewerHash === profile.hash : false,
+      preferenceOptions: {
+        commentPageSizes: IP_PROFILE_COMMENT_PAGE_SIZES,
+      },
     });
+  }),
+);
+
+r.post(
+  "/profiles/ip/:hash/preferences",
+  asyncHandler(async (req, res) => {
+    const requestedHash = (req.params.hash || "").trim().toLowerCase();
+    if (!requestedHash) {
+      return res.status(404).render("page404");
+    }
+
+    const viewerHash = hashIp(req.clientIp);
+    if (!viewerHash || viewerHash !== requestedHash) {
+      pushNotification(req, {
+        type: "error",
+        message: "Vous ne pouvez modifier que vos propres préférences.",
+      });
+      return res.redirect(`/profiles/ip/${requestedHash}`);
+    }
+
+    try {
+      await updateIpProfilePreferences(requestedHash, {
+        publicLabel: req.body.publicLabel,
+        defaultAuthor: req.body.defaultAuthor,
+        commentPageSize: req.body.commentPageSize,
+        compactComments: req.body.compactComments === "on",
+      });
+      pushNotification(req, {
+        type: "success",
+        message: "Préférences mises à jour.",
+      });
+    } catch (err) {
+      console.error("Unable to update IP profile preferences", err);
+      pushNotification(req, {
+        type: "error",
+        message:
+          "Impossible d'enregistrer vos préférences pour le moment. Merci de réessayer.",
+      });
+    }
+
+    res.redirect(`/profiles/ip/${requestedHash}#preferences`);
   }),
 );
 

@@ -10,17 +10,32 @@
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
         placeholder="Titre, slug, auteur…"
-        class="flex-basis-220"
+        class="flex-basis-180"
       />
     </label>
     <input type="hidden" name="page" value="1" />
     <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn btn-compact" data-icon="🔍" type="submit">Rechercher</button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/trash">Réinitialiser</a>
+      <a class="btn secondary btn-compact" href="/admin/trash">Réinitialiser</a>
     <% } %>
   </div>
 </form>
+
+<% if (trashedPages.length) { %>
+  <div class="trash-toolbar card mb-md">
+    <div class="flex items-center justify-between flex-wrap gap-sm">
+      <p class="mt-0 mb-0 text-muted"><strong><%= trashedPages.length %></strong> élément(s) dans la corbeille.</p>
+      <form
+        method="post"
+        action="/admin/trash/empty"
+        onsubmit="return confirm('Vider définitivement la corbeille ? Cette action est irréversible.');"
+      >
+        <button class="btn danger" data-icon="🔥" type="submit">Vider la corbeille</button>
+      </form>
+    </div>
+  </div>
+<% } %>
 
 <section class="card">
   <h2 class="mt-0">Pages supprimées</h2>
@@ -66,9 +81,22 @@
                 <% } %>
               </td>
               <td>
-                <form method="post" action="/admin/trash/<%= page.snowflake_id %>/restore" onsubmit="return confirm('Restaurer cette page ?');">
-                  <button class="btn success" data-icon="♻️" type="submit">Restaurer</button>
-                </form>
+                <div class="trash-row-actions">
+                  <form
+                    method="post"
+                    action="/admin/trash/<%= page.snowflake_id %>/restore"
+                    onsubmit="return confirm('Restaurer cette page ?');"
+                  >
+                    <button class="btn success btn-compact" data-icon="♻️" type="submit">Restaurer</button>
+                  </form>
+                  <form
+                    method="post"
+                    action="/admin/trash/<%= page.snowflake_id %>/delete"
+                    onsubmit="return confirm('Supprimer définitivement cette page ? Cette action est irréversible.');"
+                  >
+                    <button class="btn danger btn-compact" data-icon="🗑️" type="submit">Supprimer définitivement</button>
+                  </form>
+                </div>
               </td>
             </tr>
           <% }) %>
