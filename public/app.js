@@ -339,12 +339,44 @@ function initHtmlEditor() {
     }
   };
 
+  const CODE_BLOCK_BLOT_NAME = "code-block";
+
+  const getCodeBlockLinesInRange = (range) => {
+    if (!range) return [];
+    try {
+      const lines = quill.getLines(range.index, range.length || 0);
+      return lines.filter((line) => {
+        const blotName = line?.statics?.blotName || line?.constructor?.blotName;
+        return blotName === CODE_BLOCK_BLOT_NAME;
+      });
+    } catch (_error) {
+      return [];
+    }
+  };
+
+  const readLineLanguage = (line) => {
+    const blotName = line?.statics?.blotName || line?.constructor?.blotName;
+    if (blotName !== CODE_BLOCK_BLOT_NAME) {
+      return "";
+    }
+    if (!line.domNode || typeof line.domNode.getAttribute !== "function") {
+      return "";
+    }
+    return line.domNode.getAttribute("data-language") || "";
+  };
+
   const getSelectionLanguage = () => {
     const range = quill.getSelection();
     if (!range) return "";
-    const formats = quill.getFormat(range);
-    const current = formats?.["code-block"];
-    return typeof current === "string" ? current : "";
+    const lines = getCodeBlockLinesInRange(range);
+    if (lines.length === 0) {
+      const [line] = quill.getLine(range.index);
+      if (line) {
+        return readLineLanguage(line);
+      }
+      return "";
+    }
+    return readLineLanguage(lines[0]);
   };
 
   const syncLanguageSelect = () => {
@@ -356,11 +388,35 @@ function initHtmlEditor() {
   const applyLanguageToSelection = (language) => {
     const range = quill.getSelection(true);
     if (!range) return;
-    if (language) {
-      quill.format("code-block", language);
-    } else {
-      quill.format("code-block", true);
+
+    const normalizedLanguage =
+      language && supportedCodeLanguages.includes(language) ? language : "";
+
+    quill.format("code-block", normalizedLanguage || true);
+
+    const affectedLines = getCodeBlockLinesInRange(range);
+    if (affectedLines.length === 0) {
+      const [singleLine] = quill.getLine(range.index);
+      const blotName =
+        singleLine?.statics?.blotName || singleLine?.constructor?.blotName;
+      if (blotName === CODE_BLOCK_BLOT_NAME) {
+        affectedLines.push(singleLine);
+      }
     }
+
+    affectedLines.forEach((line) => {
+      const node = line?.domNode;
+      if (!node || typeof node.setAttribute !== "function") {
+        return;
+      }
+      if (normalizedLanguage) {
+        node.setAttribute("data-language", normalizedLanguage);
+      } else {
+        node.removeAttribute("data-language");
+      }
+      node.classList.add("hljs");
+    });
+
     refreshCodeHighlighting({ immediate: true });
   };
   const uploadEndpoint =
