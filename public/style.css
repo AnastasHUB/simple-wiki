@@ -1018,16 +1018,140 @@ code {
 
 /* === HTML EDITOR === */
 .html-editor-shell {
+  position: relative;
   margin-top: 12px;
   background: var(--card);
   border: 1px solid var(--border);
   border-radius: 16px;
-  overflow: hidden;
+  overflow: visible;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .html-editor-toolbar {
+  position: relative;
   border-bottom: 1px solid var(--border);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  background: linear-gradient(180deg, rgba(23, 25, 35, 0.92), rgba(17, 20, 30, 0.92));
+  backdrop-filter: blur(4px);
+  z-index: 1;
+}
+
+.html-editor-toolbar .ql-formats {
+  display: inline-flex;
+  gap: 4px;
+  padding: 6px 8px;
+  align-items: center;
+}
+
+.html-editor-toolbar .ql-picker.ql-header,
+.html-editor-toolbar select.ql-header {
+  --header-picker-bg: rgba(15, 18, 27, 0.9);
+  --header-picker-border: rgba(79, 109, 251, 0.35);
+  --header-picker-text: var(--text);
+  min-width: 148px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--header-picker-bg);
+  color: var(--header-picker-text);
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-label,
+.html-editor-toolbar select.ql-header {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  color: inherit;
+  padding: 0.35rem 2.4rem 0.35rem 0.75rem;
+}
+
+.html-editor-toolbar select.ql-header {
+  appearance: none;
+  color-scheme: dark;
+}
+
+.html-editor-toolbar select.ql-header option {
+  background: rgba(15, 18, 27, 0.96);
+  color: var(--header-picker-text);
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-label::after,
+.html-editor-toolbar select.ql-header {
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 13px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-label::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 0.9rem;
+  inset-block-start: 50%;
+  width: 0.55rem;
+  height: 0.55rem;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: translateY(-50%) rotate(45deg);
+  transition: transform 160ms ease, border-color 160ms ease;
+}
+
+.html-editor-toolbar .ql-picker.ql-header.ql-expanded .ql-picker-label::after,
+.html-editor-toolbar .ql-picker.ql-header:focus-within .ql-picker-label::after,
+.html-editor-toolbar select.ql-header:focus {
+  border-color: var(--accent);
+  transform: translateY(-50%) rotate(-135deg);
+}
+
+.html-editor-toolbar .ql-picker.ql-header.ql-expanded,
+.html-editor-toolbar .ql-picker.ql-header:focus-within,
+.html-editor-toolbar select.ql-header:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(79, 109, 251, 0.2);
+  background: rgba(18, 22, 33, 0.98);
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-options {
+  margin-top: 6px;
+  padding: 0.35rem 0.4rem;
+  border-radius: 12px;
+  border: 1px solid rgba(79, 109, 251, 0.35);
+  background: rgba(15, 18, 27, 0.96);
+  box-shadow: 0 18px 34px rgba(8, 12, 24, 0.55);
+  color: var(--header-picker-text);
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-item {
+  padding: 0.35rem 0.85rem;
+  border-radius: 8px;
+  color: inherit;
+  transition: background-color 160ms ease, color 160ms ease;
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-label::before {
+  content: attr(data-label);
+  color: inherit;
+  font-weight: 600;
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-item::before {
+  content: attr(data-label);
+  color: inherit;
+  font-weight: 600;
+}
+
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-item:hover,
+.html-editor-toolbar .ql-picker.ql-header .ql-picker-item.ql-selected {
+  background: rgba(79, 109, 251, 0.3);
+  color: #f8fafc;
 }
 
 .html-editor .ql-editor,
@@ -1040,6 +1164,9 @@ code {
 
 .html-editor {
   position: relative;
+  border-bottom-left-radius: 16px;
+  border-bottom-right-radius: 16px;
+  overflow: hidden;
 }
 
 .html-editor[data-uploading-image="true"] {
@@ -1140,6 +1267,7 @@ code {
   padding: 0.35rem 0.4rem;
   margin-top: 6px;
   box-shadow: 0 18px 36px rgba(8, 11, 24, 0.6);
+  z-index: 12;
 }
 
 .html-editor-toolbar .ql-picker.ql-code-language .ql-picker-item {
@@ -1147,6 +1275,19 @@ code {
   padding: 0.35rem 0.85rem;
   border-radius: 8px;
   transition: background-color 160ms ease, color 160ms ease;
+}
+
+.html-editor-toolbar .ql-picker.ql-code-language .ql-picker-item::before {
+  content: attr(data-label);
+  color: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.html-editor-toolbar .ql-picker.ql-code-language .ql-picker-label::before {
+  content: attr(data-label);
+  color: inherit;
+  font-weight: 600;
 }
 
 .html-editor-toolbar .ql-picker.ql-code-language .ql-picker-item:hover,
@@ -1200,6 +1341,63 @@ code {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(79, 109, 251, 0.25);
   background-color: var(--code-language-bg-focus);
+}
+
+.html-editor-toolbar button.ql-code,
+.html-editor-toolbar button.ql-code-block {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(24, 27, 39, 0.9);
+  border: 1px solid transparent;
+  transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+}
+
+.html-editor-toolbar button.ql-code svg,
+.html-editor-toolbar button.ql-code-block svg {
+  display: none;
+}
+
+.html-editor-toolbar button.ql-code::before,
+.html-editor-toolbar button.ql-code-block::before {
+  font-family: "Fira Code", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.html-editor-toolbar button.ql-code::before {
+  content: "``";
+  font-size: 1rem;
+  letter-spacing: -0.05em;
+}
+
+.html-editor-toolbar button.ql-code-block::before {
+  content: "</>";
+}
+
+.html-editor-toolbar button.ql-code:hover,
+.html-editor-toolbar button.ql-code-block:hover {
+  background: rgba(30, 35, 50, 0.95);
+  border-color: rgba(79, 109, 251, 0.35);
+}
+
+.html-editor-toolbar button.ql-code:hover::before,
+.html-editor-toolbar button.ql-code-block:hover::before,
+.html-editor-toolbar button.ql-code.ql-active::before,
+.html-editor-toolbar button.ql-code-block.ql-active::before {
+  color: #f8fafc;
+}
+
+.html-editor-toolbar button.ql-code.ql-active,
+.html-editor-toolbar button.ql-code-block.ql-active {
+  background: rgba(79, 109, 251, 0.25);
+  border-color: rgba(79, 109, 251, 0.55);
 }
 
 .html-editor .ql-editor pre.ql-syntax {
