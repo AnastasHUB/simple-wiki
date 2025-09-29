@@ -22,6 +22,7 @@ export async function fetchRecentPages({
   return all(
     `
     SELECT p.id,
+           p.snowflake_id,
            p.title,
            p.slug_id,
            substr(p.content, 1, ${excerpt}) AS excerpt,
@@ -50,6 +51,7 @@ export async function fetchPaginatedPages({
   return all(
     `
     SELECT p.id,
+           p.snowflake_id,
            p.title,
            p.slug_id,
            substr(p.content, 1, ${excerpt}) AS excerpt,
@@ -111,6 +113,7 @@ export async function fetchPagesByTag({ tagName, ip, excerptLength = 1200 }) {
   return all(
     `
     SELECT p.id,
+           p.snowflake_id,
            p.title,
            p.slug_id,
            substr(p.content, 1, ${excerpt}) AS excerpt,

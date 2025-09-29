@@ -5,6 +5,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randSlugId, savePageFts } from "../db.js";
+import { generateSnowflake } from "../utils/snowflake.js";
 import { slugify } from "../utils/linkify.js";
 import { sendAdminEvent } from "../utils/webhook.js";
 import { hashPassword } from "../utils/passwords.js";
@@ -674,21 +675,26 @@ r.post(
           );
           continue;
         }
-        const insertParams = [username, password, isAdmin ? 1 : 0];
+        const providedUserSnowflake =
+          typeof user.snowflake_id === "string" && user.snowflake_id.trim()
+            ? user.snowflake_id.trim()
+            : null;
+        const userSnowflake = providedUserSnowflake || generateSnowflake();
+        const insertParams = [userSnowflake, username, password, isAdmin ? 1 : 0];
         const userId = parseInteger(user.id);
         if (userId !== null) {
           await run(
-            `INSERT INTO users(id, username, password, is_admin) VALUES(?,?,?,?)
+            `INSERT INTO users(id, snowflake_id, username, password, is_admin) VALUES(?,?,?,?,?)
              ON CONFLICT(username) DO UPDATE SET password=excluded.password, is_admin=excluded.is_admin`,
             [userId, ...insertParams],
           );
         } else {
           await run(
-            `INSERT INTO users(username, password, is_admin) VALUES(?,?,?)
+            `INSERT INTO users(snowflake_id, username, password, is_admin) VALUES(?,?,?,?)
              ON CONFLICT(username) DO UPDATE SET password=excluded.password, is_admin=excluded.is_admin`,
-              insertParams,
-            );
-          }
+            insertParams,
+          );
+        }
           summary.stats.users++;
         }
 
@@ -736,6 +742,12 @@ r.post(
             sanitizeDate(item.created_at) || new Date().toISOString();
           const updatedAt = sanitizeDate(item.updated_at);
 
+          const providedPageSnowflake =
+            typeof item.snowflake_id === "string" && item.snowflake_id.trim()
+              ? item.snowflake_id.trim()
+              : null;
+          const pageSnowflake = providedPageSnowflake || generateSnowflake();
+
           const existing = await get(
             "SELECT id, created_at FROM pages WHERE slug_id=?",
             [slugId],
@@ -761,16 +773,33 @@ r.post(
           } else {
             const explicitId = parseInteger(item.id);
             if (explicitId !== null) {
-            await run(
-              "INSERT INTO pages(id, slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
-              [explicitId, slugBase, slugId, title, content, createdAt, updatedAt],
-            );
-            pageId = explicitId;
-            summary.created++;
+              await run(
+                "INSERT INTO pages(id, snowflake_id, slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?,?,?)",
+                [
+                  explicitId,
+                  pageSnowflake,
+                  slugBase,
+                  slugId,
+                  title,
+                  content,
+                  createdAt,
+                  updatedAt,
+                ],
+              );
+              pageId = explicitId;
+              summary.created++;
             } else {
               const result = await run(
-                "INSERT INTO pages(slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?)",
-                [slugBase, slugId, title, content, createdAt, updatedAt],
+                "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, created_at, updated_at) VALUES(?,?,?,?,?,?,?)",
+                [
+                  pageSnowflake,
+                  slugBase,
+                  slugId,
+                  title,
+                  content,
+                  createdAt,
+                  updatedAt,
+                ],
               );
               pageId = result.lastID;
               summary.created++;
@@ -783,7 +812,10 @@ r.post(
           for (const tagName of tags) {
             let tagId = tagCache.get(tagName);
             if (!tagId) {
-              await run("INSERT OR IGNORE INTO tags(name) VALUES(?)", [tagName]);
+              await run("INSERT OR IGNORE INTO tags(name, snowflake_id) VALUES(?,?)", [
+                tagName,
+                generateSnowflake(),
+              ]);
               const row = await get("SELECT id FROM tags WHERE name=?", [
                 tagName,
               ]);
@@ -794,8 +826,8 @@ r.post(
             }
             if (tagId) {
               await run(
-                "INSERT OR IGNORE INTO page_tags(page_id, tag_id) VALUES(?,?)",
-                [pageId, tagId],
+                "INSERT OR IGNORE INTO page_tags(snowflake_id, page_id, tag_id) VALUES(?,?,?)",
+                [generateSnowflake(), pageId, tagId],
               );
             }
           }
@@ -848,15 +880,27 @@ r.post(
           if (!authorId && authorUsername) {
             authorId = usernameToId.get(authorUsername) || null;
           }
+          const revisionSnowflake =
+            typeof revision.snowflake_id === "string" && revision.snowflake_id.trim()
+              ? revision.snowflake_id.trim()
+              : generateSnowflake();
           await run(
-            `INSERT INTO page_revisions(page_id, revision, title, content, author_id, created_at)
-             VALUES(?,?,?,?,?,?)
+            `INSERT INTO page_revisions(snowflake_id, page_id, revision, title, content, author_id, created_at)
+             VALUES(?,?,?,?,?,?,?)
              ON CONFLICT(page_id, revision) DO UPDATE SET
                title=excluded.title,
                content=excluded.content,
                author_id=excluded.author_id,
                created_at=excluded.created_at`,
-            [pageId, revisionNumber, title, content, authorId, createdAt],
+            [
+              revisionSnowflake,
+              pageId,
+              revisionNumber,
+              title,
+              content,
+              authorId,
+              createdAt,
+            ],
           );
           summary.stats.revisions++;
         }
@@ -885,17 +929,21 @@ r.post(
           const createdAt =
             sanitizeDate(like.created_at) || new Date().toISOString();
           const likeId = parseInteger(like.id);
+          const likeSnowflake =
+            typeof like.snowflake_id === "string" && like.snowflake_id.trim()
+              ? like.snowflake_id.trim()
+              : generateSnowflake();
           if (likeId !== null) {
             await run(
-              `INSERT INTO likes(id, page_id, ip, created_at) VALUES(?,?,?,?)
+              `INSERT INTO likes(id, snowflake_id, page_id, ip, created_at) VALUES(?,?,?,?,?)
                ON CONFLICT(id) DO UPDATE SET page_id=excluded.page_id, ip=excluded.ip, created_at=excluded.created_at`,
-              [likeId, pageId, ipValue, createdAt],
+              [likeId, likeSnowflake, pageId, ipValue, createdAt],
             );
           } else {
             await run(
-              `INSERT INTO likes(page_id, ip, created_at) VALUES(?,?,?)
+              `INSERT INTO likes(snowflake_id, page_id, ip, created_at) VALUES(?,?,?,?)
                ON CONFLICT(page_id, ip) DO UPDATE SET created_at=excluded.created_at`,
-              [pageId, ipValue, createdAt],
+              [likeSnowflake, pageId, ipValue, createdAt],
             );
           }
           summary.stats.likes++;
@@ -995,17 +1043,21 @@ r.post(
             typeof view.ip === "string" && view.ip.trim()
               ? view.ip.trim()
               : null;
+          const viewSnowflake =
+            typeof view.snowflake_id === "string" && view.snowflake_id.trim()
+              ? view.snowflake_id.trim()
+              : generateSnowflake();
           const viewId = parseInteger(view.id);
           if (viewId !== null) {
             await run(
-              `INSERT INTO page_views(id, page_id, ip, viewed_at) VALUES(?,?,?,?)
+              `INSERT INTO page_views(id, snowflake_id, page_id, ip, viewed_at) VALUES(?,?,?,?,?)
                ON CONFLICT(id) DO UPDATE SET page_id=excluded.page_id, ip=excluded.ip, viewed_at=excluded.viewed_at`,
-              [viewId, pageId, ipValue, viewedAt],
+              [viewId, viewSnowflake, pageId, ipValue, viewedAt],
             );
           } else {
             await run(
-              `INSERT INTO page_views(page_id, ip, viewed_at) VALUES(?,?,?)`,
-              [pageId, ipValue, viewedAt],
+              `INSERT INTO page_views(snowflake_id, page_id, ip, viewed_at) VALUES(?,?,?,?)`,
+              [viewSnowflake, pageId, ipValue, viewedAt],
             );
           }
           summary.stats.viewEvents++;
@@ -1031,10 +1083,14 @@ r.post(
           }
           const viewsValue = parseInteger(view.views);
           const finalViews = viewsValue ?? 0;
+          const viewDailySnowflake =
+            typeof view.snowflake_id === "string" && view.snowflake_id.trim()
+              ? view.snowflake_id.trim()
+              : generateSnowflake();
           await run(
-            `INSERT INTO page_view_daily(page_id, day, views) VALUES(?,?,?)
+            `INSERT INTO page_view_daily(snowflake_id, page_id, day, views) VALUES(?,?,?,?)
              ON CONFLICT(page_id, day) DO UPDATE SET views=excluded.views`,
-            [pageId, day, finalViews],
+            [viewDailySnowflake, pageId, day, finalViews],
           );
           summary.stats.viewDaily++;
         }
@@ -1070,16 +1126,28 @@ r.post(
                 : null;
           const sizeValue = parseInteger(upload.size);
           const createdAt = sanitizeDate(upload.created_at);
+          const uploadSnowflake =
+            typeof upload.snowflake_id === "string" && upload.snowflake_id.trim()
+              ? upload.snowflake_id.trim()
+              : generateSnowflake();
           await run(
-            `INSERT INTO uploads(id, original_name, display_name, extension, size, created_at)
-             VALUES(?,?,?,?,?,?)
+            `INSERT INTO uploads(id, snowflake_id, original_name, display_name, extension, size, created_at)
+             VALUES(?,?,?,?,?,?,?)
              ON CONFLICT(id) DO UPDATE SET
                original_name=excluded.original_name,
                display_name=excluded.display_name,
                extension=excluded.extension,
                size=excluded.size,
                created_at=excluded.created_at`,
-            [id, originalName, displayName, extension, sizeValue ?? null, createdAt],
+            [
+              id,
+              uploadSnowflake,
+              originalName,
+              displayName,
+              extension,
+              sizeValue ?? null,
+              createdAt,
+            ],
           );
           summary.stats.uploads++;
         }
@@ -1151,9 +1219,13 @@ r.post(
             );
             continue;
           }
+          const eventSnowflake =
+            typeof event.snowflake_id === "string" && event.snowflake_id.trim()
+              ? event.snowflake_id.trim()
+              : generateSnowflake();
           await run(
-            `INSERT INTO event_logs(id, channel, type, payload, ip, username, created_at)
-             VALUES(?,?,?,?,?,?,?)
+            `INSERT INTO event_logs(id, snowflake_id, channel, type, payload, ip, username, created_at)
+             VALUES(?,?,?,?,?,?,?,?)
              ON CONFLICT(id) DO UPDATE SET
                channel=excluded.channel,
                type=excluded.type,
@@ -1163,6 +1235,7 @@ r.post(
                created_at=excluded.created_at`,
             [
               eventId,
+              eventSnowflake,
               channel,
               type,
               typeof event.payload === "string"
@@ -1476,8 +1549,8 @@ r.post("/users", async (req, res) => {
   }
   const hashed = await hashPassword(password);
   const result = await run(
-    "INSERT INTO users(username,password,is_admin) VALUES(?,?,1)",
-    [username, hashed],
+    "INSERT INTO users(snowflake_id, username,password,is_admin) VALUES(?,?,?,1)",
+    [generateSnowflake(), username, hashed],
   );
   const ip = getClientIp(req);
   await sendAdminEvent(

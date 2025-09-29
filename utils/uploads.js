@@ -3,6 +3,7 @@ import path from "path";
 import sharp from "sharp";
 import { fileURLToPath } from "url";
 import { all, get, run } from "../db.js";
+import { generateSnowflake } from "./snowflake.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -108,14 +109,14 @@ export async function recordUpload({
   await ensureUploadDir();
   const normalizedName = normalizeDisplayName(displayName);
   await run(
-    `INSERT INTO uploads(id, original_name, display_name, extension, size)
-     VALUES(?,?,?,?,?)
+    `INSERT INTO uploads(id, snowflake_id, original_name, display_name, extension, size)
+     VALUES(?,?,?,?,?,?)
      ON CONFLICT(id) DO UPDATE SET
        original_name=excluded.original_name,
        display_name=excluded.display_name,
        extension=excluded.extension,
        size=excluded.size`,
-    [id, originalName, normalizedName, extension, size],
+    [id, generateSnowflake(), originalName, normalizedName, extension, size],
   );
 }
 
@@ -180,8 +181,8 @@ export async function listUploads() {
     const ext = path.extname(name).toLowerCase();
     const id = path.basename(name, ext);
     await run(
-      "INSERT OR IGNORE INTO uploads(id, original_name, display_name, extension, size) VALUES(?,?,?,?,?)",
-      [id, name, null, ext, stat.size],
+      "INSERT OR IGNORE INTO uploads(id, snowflake_id, original_name, display_name, extension, size) VALUES(?,?,?,?,?,?)",
+      [id, generateSnowflake(), name, null, ext, stat.size],
     );
     entries.push({
       id,
