@@ -102,6 +102,25 @@ const r = Router();
 
 r.use(requireAdmin);
 
+function redirectToComments(req, res) {
+  const fallback = "/admin/comments";
+  const referer = req.get("referer");
+  if (referer) {
+    try {
+      const host = req.get("host");
+      const baseUrl = `${req.protocol}://${host ?? "localhost"}`;
+      const parsed = new URL(referer, baseUrl);
+      if (parsed.host === host && parsed.pathname === fallback) {
+        const search = parsed.search ?? "";
+        return res.redirect(`${fallback}${search}`);
+      }
+    } catch {
+      // Ignore malformed referers and fall back to the default location.
+    }
+  }
+  return res.redirect(fallback);
+}
+
 r.get("/comments", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const like = searchTerm ? `%${searchTerm}%` : null;
@@ -194,7 +213,7 @@ r.post("/comments/:id/approve", async (req, res) => {
       type: "error",
       message: "Commentaire introuvable.",
     });
-    return res.redirect("/admin/comments");
+    return redirectToComments(req, res);
   }
   await run("UPDATE comments SET status='approved' WHERE id=?", [comment.id]);
   pushNotification(req, {
@@ -205,7 +224,7 @@ r.post("/comments/:id/approve", async (req, res) => {
     page: comment,
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
-  res.redirect("/admin/comments");
+  return redirectToComments(req, res);
 });
 
 r.post("/comments/:id/reject", async (req, res) => {
@@ -215,7 +234,7 @@ r.post("/comments/:id/reject", async (req, res) => {
       type: "error",
       message: "Commentaire introuvable.",
     });
-    return res.redirect("/admin/comments");
+    return redirectToComments(req, res);
   }
   await run("UPDATE comments SET status='rejected' WHERE id=?", [comment.id]);
   pushNotification(req, {
@@ -226,7 +245,7 @@ r.post("/comments/:id/reject", async (req, res) => {
     page: comment,
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
-  res.redirect("/admin/comments");
+  return redirectToComments(req, res);
 });
 
 async function handleCommentDeletion(req, res) {
@@ -236,7 +255,7 @@ async function handleCommentDeletion(req, res) {
       type: "error",
       message: "Commentaire introuvable.",
     });
-    return res.redirect("/admin/comments");
+    return redirectToComments(req, res);
   }
   await run("DELETE FROM comments WHERE id=?", [comment.id]);
   pushNotification(req, {
@@ -247,7 +266,7 @@ async function handleCommentDeletion(req, res) {
     page: comment,
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
-  res.redirect("/admin/comments");
+  return redirectToComments(req, res);
 }
 
 r.delete("/comments/:id", handleCommentDeletion);
