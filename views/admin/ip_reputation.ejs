@@ -1,6 +1,10 @@
 <% title = 'Surveillance IP'; %>
 <%
+  const reviewPager = reviewPagination || null;
+  const suspiciousTotal = reviewPager ? reviewPager.totalItems : suspicious.length;
   const historyEntries = Array.isArray(history) ? history : [];
+  const historyPager = historyPagination || null;
+  const historyTotal = historyPager ? historyPager.totalItems : historyEntries.length;
   function formatReputationStatusLabel(status) {
     if (status === 'suspicious') return 'Suspecte';
     if (status === 'safe') return 'Validée';
@@ -41,9 +45,9 @@
   </p>
 </section>
 
-<% if (suspicious.length) { %>
+<% if (suspiciousTotal) { %>
   <div class="alert alert-error mb-md">
-    ⚠️ <strong><%= suspicious.length %> IP</strong> nécessitent une action de modération. Vous pouvez les bannir ou les marquer comme sûres après vérification.
+    ⚠️ <strong><%= suspiciousTotal %> IP</strong> nécessitent une action de modération. Vous pouvez les bannir ou les marquer comme sûres après vérification.
   </div>
 <% } else { %>
   <div class="alert alert-success mb-md">
@@ -56,7 +60,7 @@
   <div class="grid grid-auto">
     <div>
       <p class="stat-sub">IP en attente de revue</p>
-      <p class="stat-number"><%= suspicious.length %></p>
+      <p class="stat-number"><%= suspiciousTotal %></p>
     </div>
     <div>
       <p class="stat-sub">Fournisseur de détection</p>
@@ -70,8 +74,8 @@
 </section>
 
 <section class="card mb-xl">
-  <h2 class="mt-0">IP à examiner (<%= suspicious.length %>)</h2>
-  <% if (!suspicious.length) { %>
+  <h2 class="mt-0">IP à examiner (<%= suspiciousTotal %>)</h2>
+  <% if (!suspiciousTotal) { %>
     <p class="text-muted">Aucune adresse IP suspecte n'est en file d'attente.</p>
   <% } else { %>
     <ul class="admin-risk-list">
@@ -120,6 +124,7 @@
         </li>
       <% }) %>
     </ul>
+    <%- include('./paginationControls', { pagination: reviewPager }) %>
   <% } %>
 </section>
 
@@ -154,7 +159,7 @@
 
 <section class="card">
   <h2 class="mt-0">Historique des analyses</h2>
-  <% if (!historyEntries.length) { %>
+  <% if (!historyTotal) { %>
     <p class="text-muted">Aucune analyse d'adresse IP n'a encore été enregistrée.</p>
   <% } else { %>
     <div class="table-wrap">
@@ -212,5 +217,6 @@
         </tbody>
       </table>
     </div>
+    <%- include('./paginationControls', { pagination: historyPager }) %>
   <% } %>
 </section>
