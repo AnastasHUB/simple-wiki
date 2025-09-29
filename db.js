@@ -174,6 +174,25 @@ export async function initDb() {
   await ensureColumn("comments", "edit_token", "TEXT");
   await ensureColumn("comments", "author_is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "display_name", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_status", "TEXT NOT NULL DEFAULT 'unknown'");
+  await ensureColumn(
+    "ip_profiles",
+    "reputation_auto_status",
+    "TEXT NOT NULL DEFAULT 'unknown'",
+  );
+  await ensureColumn("ip_profiles", "reputation_override", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_summary", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_details", "TEXT");
+  await ensureColumn("ip_profiles", "reputation_checked_at", "DATETIME");
+  await ensureColumn("ip_profiles", "is_vpn", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("ip_profiles", "is_proxy", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "ip_profiles",
+    "is_datacenter",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn("ip_profiles", "is_abuser", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("ip_profiles", "is_tor", "INTEGER NOT NULL DEFAULT 0");
   await ensureSnowflake("settings");
   await ensureSnowflake("users");
   await ensureSnowflake("pages");
