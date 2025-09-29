@@ -32,6 +32,11 @@ import {
   validateCommentBody,
 } from "../utils/commentValidation.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
+import {
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+  resolvePageSize,
+} from "../utils/pagination.js";
 
 const r = Router();
 
@@ -48,8 +53,6 @@ r.use(
   }),
 );
 
-const PAGE_SIZE_OPTIONS = [5, 10, 50, 100, 500];
-const DEFAULT_PAGE_SIZE = 50;
 const RECENT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 
 r.get(
@@ -59,10 +62,7 @@ r.get(
     const weekAgo = new Date(Date.now() - RECENT_LOOKBACK_MS).toISOString();
 
     const total = await countPages();
-    const requestedSize = parseInt(req.query.size || String(DEFAULT_PAGE_SIZE), 10);
-    const size = PAGE_SIZE_OPTIONS.includes(requestedSize)
-      ? requestedSize
-      : DEFAULT_PAGE_SIZE;
+    const size = resolvePageSize(req.query.size, DEFAULT_PAGE_SIZE);
     const totalPages = Math.max(1, Math.ceil(total / size));
     let page = parseInt(req.query.page || "1", 10);
     if (Number.isNaN(page) || page < 1) page = 1;
