@@ -37,6 +37,7 @@
             <th>Utilisateur</th>
             <th>IP</th>
             <th>Date</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -48,6 +49,15 @@
               <td><%= ev.username || '-' %></td>
               <td><%= ev.ip || '-' %></td>
               <td><%= new Date(ev.created_at).toLocaleString('fr-FR') %></td>
+              <td>
+                <form
+                  method="post"
+                  action="/admin/events/<%= ev.id %>/delete"
+                  onsubmit="return confirm('Supprimer cet évènement ?');"
+                >
+                  <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                </form>
+              </td>
             </tr>
           <% }) %>
         </tbody>
