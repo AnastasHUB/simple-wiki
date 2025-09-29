@@ -22,14 +22,16 @@ import {
 import { banIp, liftBan } from "../utils/ipBans.js";
 import { getClientIp } from "../utils/ip.js";
 import {
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+  resolvePageSize,
+} from "../utils/pagination.js";
+import {
   getSiteSettingsForForm,
   updateSiteSettingsFromForm,
   invalidateSiteSettingsCache,
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
-
-const PAGE_SIZE_OPTIONS = [5, 10, 50, 100, 500];
-const DEFAULT_PAGE_SIZE = 10;
 
 await ensureUploadDir();
 
@@ -1718,10 +1720,7 @@ function buildPagination(req, totalItems, options = {}) {
   let page =
     Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
-  const requestedPerPage = Number.parseInt(req.query[perPageParam], 10);
-  const perPage = PAGE_SIZE_OPTIONS.includes(requestedPerPage)
-    ? requestedPerPage
-    : DEFAULT_PAGE_SIZE;
+  const perPage = resolvePageSize(req.query[perPageParam], DEFAULT_PAGE_SIZE);
 
   const totalPages = Math.max(1, Math.ceil(totalItems / perPage));
 
