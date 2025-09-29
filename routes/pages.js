@@ -96,12 +96,41 @@ r.get(
 r.get(
   "/lookup/:base",
   asyncHandler(async (req, res) => {
-    const row = await get(
+    const requested = (req.params.base || "").trim();
+    if (!requested) {
+      return res.status(404).send("Page introuvable");
+    }
+
+    const normalized = slugify(requested);
+    if (!normalized) {
+      return res.status(404).send("Page introuvable");
+    }
+
+    const byBase = await get(
       "SELECT slug_id FROM pages WHERE slug_base=? ORDER BY updated_at DESC LIMIT 1",
-      [req.params.base],
+      [normalized],
     );
-    if (!row) return res.status(404).send("Page introuvable");
-    res.redirect("/wiki/" + row.slug_id);
+    if (byBase?.slug_id) {
+      return res.redirect("/wiki/" + byBase.slug_id);
+    }
+
+    const direct = await get(
+      "SELECT slug_id FROM pages WHERE slug_id=? LIMIT 1",
+      [normalized],
+    );
+    if (direct?.slug_id) {
+      return res.redirect("/wiki/" + direct.slug_id);
+    }
+
+    const prefixed = await get(
+      "SELECT slug_id FROM pages WHERE slug_id LIKE ? ORDER BY updated_at DESC LIMIT 1",
+      [normalized + "-%"],
+    );
+    if (prefixed?.slug_id) {
+      return res.redirect("/wiki/" + prefixed.slug_id);
+    }
+
+    res.status(404).send("Page introuvable");
   }),
 );
 

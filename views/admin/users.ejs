@@ -7,20 +7,50 @@
     <button class="btn success" data-icon="➕">Ajouter</button>
   </div>
 </form>
-<table class="data-table">
-  <thead><tr><th>ID</th><th>Nom</th><th>Admin</th><th></th></tr></thead>
-  <tbody>
-  <% users.forEach(u=>{ %>
-    <tr>
-      <td><%= u.id %></td>
-      <td><%= u.username %></td>
-      <td>Oui</td>
-      <td>
-        <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
-          <button class="btn danger" data-icon="🗑️">Supprimer</button>
-        </form>
-      </td>
-    </tr>
-  <% }) %>
-  </tbody>
-</table>
+<% if (!users.length) { %>
+  <p class="card" style="margin-top:16px;">Aucun utilisateur trouvé.</p>
+<% } else { %>
+  <div class="table-wrap" style="margin-top:16px;">
+    <table class="data-table">
+      <thead><tr><th>ID</th><th>Nom</th><th>Admin</th><th></th></tr></thead>
+      <tbody>
+      <% users.forEach(u=>{ %>
+        <tr>
+          <td><%= u.id %></td>
+          <td><%= u.username %></td>
+          <td><%= u.is_admin ? 'Oui' : 'Non' %></td>
+          <td>
+            <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
+              <button class="btn danger" data-icon="🗑️">Supprimer</button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
+    <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
+      <label for="users-per-page" style="white-space:nowrap;">Éléments par page</label>
+      <select id="users-per-page" name="perPage" onchange="this.form.submit()">
+        <% pagination.perPageOptions.forEach(option => { %>
+          <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
+        <% }) %>
+      </select>
+      <input type="hidden" name="page" value="1">
+    </form>
+    <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
+    <div style="display:flex; gap:0.5rem;">
+      <% if (pagination.hasPrevious) { %>
+        <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
+      <% } else { %>
+        <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+      <% } %>
+      <% if (pagination.hasNext) { %>
+        <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
+      <% } else { %>
+        <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+      <% } %>
+    </div>
+  </div>
+<% } %>

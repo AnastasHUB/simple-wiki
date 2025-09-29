@@ -1,7 +1,7 @@
 <h1>Modération des commentaires</h1>
 
 <section class="card" style="margin-bottom:24px;">
-  <h2 style="margin-top:0;">En attente de validation (<%= pending.length %>)</h2>
+  <h2 style="margin-top:0;">En attente de validation (<%= pendingPagination.totalItems %>)</h2>
   <% if (!pending.length) { %>
     <p>Aucun commentaire en attente.</p>
   <% } else { %>
@@ -34,6 +34,32 @@
         </li>
       <% }) %>
     </ul>
+    <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
+      <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
+        <label for="pending-per-page" style="white-space:nowrap;">Éléments par page</label>
+        <select id="pending-per-page" name="pendingPerPage" onchange="this.form.submit()">
+          <% pendingPagination.perPageOptions.forEach(option => { %>
+            <option value="<%= option %>" <%= option === pendingPagination.perPage ? 'selected' : '' %>><%= option %></option>
+          <% }) %>
+        </select>
+        <input type="hidden" name="pendingPage" value="1">
+        <input type="hidden" name="recentPage" value="<%= recentPagination.page %>">
+        <input type="hidden" name="recentPerPage" value="<%= recentPagination.perPage %>">
+      </form>
+      <span>Page <%= pendingPagination.page %> sur <%= pendingPagination.totalPages %></span>
+      <div style="display:flex; gap:0.5rem;">
+        <% if (pendingPagination.hasPrevious) { %>
+          <a class="btn" data-icon="⬅️" href="?pendingPage=<%= pendingPagination.previousPage %>&pendingPerPage=<%= pendingPagination.perPage %>&recentPage=<%= recentPagination.page %>&recentPerPage=<%= recentPagination.perPage %>">Précédent</a>
+        <% } else { %>
+          <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+        <% } %>
+        <% if (pendingPagination.hasNext) { %>
+          <a class="btn" data-icon="➡️" href="?pendingPage=<%= pendingPagination.nextPage %>&pendingPerPage=<%= pendingPagination.perPage %>&recentPage=<%= recentPagination.page %>&recentPerPage=<%= recentPagination.perPage %>">Suivant</a>
+        <% } else { %>
+          <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+        <% } %>
+      </div>
+    </div>
   <% } %>
 </section>
 
@@ -65,5 +91,31 @@
         </li>
       <% }) %>
     </ul>
+    <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
+      <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
+        <label for="recent-per-page" style="white-space:nowrap;">Éléments par page</label>
+        <select id="recent-per-page" name="recentPerPage" onchange="this.form.submit()">
+          <% recentPagination.perPageOptions.forEach(option => { %>
+            <option value="<%= option %>" <%= option === recentPagination.perPage ? 'selected' : '' %>><%= option %></option>
+          <% }) %>
+        </select>
+        <input type="hidden" name="recentPage" value="1">
+        <input type="hidden" name="pendingPage" value="<%= pendingPagination.page %>">
+        <input type="hidden" name="pendingPerPage" value="<%= pendingPagination.perPage %>">
+      </form>
+      <span>Page <%= recentPagination.page %> sur <%= recentPagination.totalPages %></span>
+      <div style="display:flex; gap:0.5rem;">
+        <% if (recentPagination.hasPrevious) { %>
+          <a class="btn" data-icon="⬅️" href="?recentPage=<%= recentPagination.previousPage %>&recentPerPage=<%= recentPagination.perPage %>&pendingPage=<%= pendingPagination.page %>&pendingPerPage=<%= pendingPagination.perPage %>">Précédent</a>
+        <% } else { %>
+          <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+        <% } %>
+        <% if (recentPagination.hasNext) { %>
+          <a class="btn" data-icon="➡️" href="?recentPage=<%= recentPagination.nextPage %>&recentPerPage=<%= recentPagination.perPage %>&pendingPage=<%= pendingPagination.page %>&pendingPerPage=<%= pendingPagination.perPage %>">Suivant</a>
+        <% } else { %>
+          <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+        <% } %>
+      </div>
+    </div>
   <% } %>
 </section>
