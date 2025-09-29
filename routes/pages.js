@@ -894,6 +894,73 @@ async function handlePageDeletion(req, res) {
   }
 
   const tags = await fetchPageTags(page.id);
+  const [existingComments, existingLikes, existingViewEvents, existingViewDaily] =
+    await Promise.all([
+      all(
+        `SELECT author, body, created_at, updated_at, ip, edit_token, status, author_is_admin
+           FROM comments
+          WHERE page_id=?
+          ORDER BY id`,
+        [page.id],
+      ),
+      all(
+        `SELECT snowflake_id, ip, created_at
+           FROM likes
+          WHERE page_id=?
+          ORDER BY created_at`,
+        [page.id],
+      ),
+      all(
+        `SELECT snowflake_id, ip, viewed_at
+           FROM page_views
+          WHERE page_id=?
+          ORDER BY viewed_at`,
+        [page.id],
+      ),
+      all(
+        `SELECT snowflake_id, day, views
+           FROM page_view_daily
+          WHERE page_id=?
+          ORDER BY day`,
+        [page.id],
+      ),
+    ]);
+  const serializedComments = existingComments.map((comment) => ({
+    author: comment.author || null,
+    body: comment.body || "",
+    created_at: comment.created_at || null,
+    updated_at: comment.updated_at || null,
+    ip: comment.ip || null,
+    edit_token: comment.edit_token || null,
+    status: comment.status || "pending",
+    author_is_admin: comment.author_is_admin ? 1 : 0,
+  }));
+  const serializedStats = {
+    likes: existingLikes.map((like) => ({
+      snowflake_id: like.snowflake_id || null,
+      ip: like.ip || null,
+      created_at: like.created_at || null,
+    })),
+    viewEvents: existingViewEvents.map((view) => ({
+      snowflake_id: view.snowflake_id || null,
+      ip: view.ip || null,
+      viewed_at: view.viewed_at || null,
+    })),
+    viewDaily: existingViewDaily.map((view) => ({
+      snowflake_id: view.snowflake_id || null,
+      day: view.day,
+      views: Math.max(0, Number.isFinite(view.views) ? Number(view.views) : 0),
+    })),
+  };
+  const tagsJson = JSON.stringify(tags || []);
+  const commentsJson = serializedComments.length
+    ? JSON.stringify(serializedComments)
+    : null;
+  const hasStats =
+    serializedStats.likes.length ||
+    serializedStats.viewEvents.length ||
+    serializedStats.viewDaily.length;
+  const statsJson = hasStats ? JSON.stringify(serializedStats) : null;
   const trashSnowflake = generateSnowflake();
   const pageTitle = page.title || "Cette page";
 
@@ -906,13 +973,15 @@ async function handlePageDeletion(req, res) {
          page_snowflake_id,
          slug_id,
          slug_base,
-         title,
-         content,
-         tags_json,
-         created_at,
-         updated_at,
-         deleted_by
-       ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
+        title,
+        content,
+        tags_json,
+        created_at,
+        updated_at,
+        deleted_by,
+        comments_json,
+        stats_json
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         trashSnowflake,
         page.id,
@@ -921,10 +990,12 @@ async function handlePageDeletion(req, res) {
         page.slug_base,
         page.title,
         page.content,
-        JSON.stringify(tags || []),
+        tagsJson,
         page.created_at,
         page.updated_at,
         req.session.user?.username || null,
+        commentsJson,
+        statsJson,
       ],
     );
     await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);

@@ -2915,7 +2915,15 @@ r.get("/trash", async (req, res) => {
   );
 
   const trashedPages = trashedRows.map((row) => ({
-    ...row,
+    id: row.id,
+    snowflake_id: row.snowflake_id,
+    slug_id: row.slug_id,
+    slug_base: row.slug_base,
+    title: row.title,
+    deleted_at: row.deleted_at,
+    deleted_by: row.deleted_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
     tags: parseTagsJson(row.tags_json),
   }));
 
@@ -2956,6 +2964,8 @@ r.post("/trash/:id/restore", async (req, res) => {
   }
 
   const tags = parseTagsJson(trashed.tags_json);
+  const comments = parseCommentsJson(trashed.comments_json);
+  const stats = parseStatsJson(trashed.stats_json);
   const snowflake = trashed.page_snowflake_id || generateSnowflake();
   const restoredTitle = trashed.title || "Page restaurée";
   const restoredLabel = trashed.title ? `« ${restoredTitle} »` : "La page";
@@ -2980,6 +2990,64 @@ r.post("/trash/:id/restore", async (req, res) => {
     if (pageId) {
       if (tags.length) {
         await upsertTags(pageId, tags);
+      }
+      if (comments.length) {
+        for (const comment of comments) {
+          await run(
+            `INSERT INTO comments(page_id, author, body, created_at, updated_at, ip, edit_token, status, author_is_admin)
+             VALUES(?,?,?,?,?,?,?,?,?)`,
+            [
+              pageId,
+              comment.author,
+              comment.body,
+              comment.created_at,
+              comment.updated_at,
+              comment.ip,
+              comment.edit_token,
+              comment.status,
+              comment.author_is_admin ? 1 : 0,
+            ],
+          );
+        }
+      }
+      if (stats.likes.length) {
+        for (const like of stats.likes) {
+          await run(
+            `INSERT INTO likes(snowflake_id, page_id, ip, created_at) VALUES(?,?,?,?)`,
+            [
+              like.snowflake_id || generateSnowflake(),
+              pageId,
+              like.ip,
+              like.created_at,
+            ],
+          );
+        }
+      }
+      if (stats.viewEvents.length) {
+        for (const view of stats.viewEvents) {
+          await run(
+            `INSERT INTO page_views(snowflake_id, page_id, ip, viewed_at) VALUES(?,?,?,?)`,
+            [
+              view.snowflake_id || generateSnowflake(),
+              pageId,
+              view.ip,
+              view.viewed_at,
+            ],
+          );
+        }
+      }
+      if (stats.viewDaily.length) {
+        for (const view of stats.viewDaily) {
+          await run(
+            `INSERT INTO page_view_daily(snowflake_id, page_id, day, views) VALUES(?,?,?,?)`,
+            [
+              view.snowflake_id || generateSnowflake(),
+              pageId,
+              view.day,
+              view.views,
+            ],
+          );
+        }
       }
       await savePageFts({
         id: pageId,
@@ -3289,6 +3357,120 @@ function parseTagsJson(value) {
     );
   } catch (_error) {
     return [];
+  }
+}
+
+function parseCommentsJson(value) {
+  if (!value) {
+    return [];
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+    return parsed
+      .map((comment) => {
+        if (!comment || typeof comment !== "object") {
+          return null;
+        }
+        const body = typeof comment.body === "string" ? comment.body : "";
+        const status =
+          typeof comment.status === "string" &&
+          ["pending", "approved", "rejected"].includes(comment.status)
+            ? comment.status
+            : "pending";
+        return {
+          author: typeof comment.author === "string" ? comment.author : null,
+          body,
+          created_at:
+            typeof comment.created_at === "string" ? comment.created_at : null,
+          updated_at:
+            typeof comment.updated_at === "string" ? comment.updated_at : null,
+          ip: typeof comment.ip === "string" ? comment.ip : null,
+          edit_token:
+            typeof comment.edit_token === "string" ? comment.edit_token : null,
+          status,
+          author_is_admin: comment.author_is_admin ? 1 : 0,
+        };
+      })
+      .filter(Boolean);
+  } catch (_error) {
+    return [];
+  }
+}
+
+function parseStatsJson(value) {
+  const empty = { likes: [], viewEvents: [], viewDaily: [] };
+  if (!value) {
+    return empty;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    if (!parsed || typeof parsed !== "object") {
+      return empty;
+    }
+    const likes = Array.isArray(parsed.likes)
+      ? parsed.likes
+          .map((like) => {
+            if (!like || typeof like !== "object") {
+              return null;
+            }
+            return {
+              snowflake_id:
+                typeof like.snowflake_id === "string" && like.snowflake_id
+                  ? like.snowflake_id
+                  : null,
+              ip: typeof like.ip === "string" ? like.ip : null,
+              created_at:
+                typeof like.created_at === "string" ? like.created_at : null,
+            };
+          })
+          .filter(Boolean)
+      : [];
+    const viewEvents = Array.isArray(parsed.viewEvents)
+      ? parsed.viewEvents
+          .map((view) => {
+            if (!view || typeof view !== "object") {
+              return null;
+            }
+            return {
+              snowflake_id:
+                typeof view.snowflake_id === "string" && view.snowflake_id
+                  ? view.snowflake_id
+                  : null,
+              ip: typeof view.ip === "string" ? view.ip : null,
+              viewed_at:
+                typeof view.viewed_at === "string" ? view.viewed_at : null,
+            };
+          })
+          .filter(Boolean)
+      : [];
+    const viewDaily = Array.isArray(parsed.viewDaily)
+      ? parsed.viewDaily
+          .map((view) => {
+            if (!view || typeof view !== "object") {
+              return null;
+            }
+            const day = typeof view.day === "string" ? view.day : null;
+            if (!day) {
+              return null;
+            }
+            const views = Number(view.views);
+            return {
+              snowflake_id:
+                typeof view.snowflake_id === "string" && view.snowflake_id
+                  ? view.snowflake_id
+                  : null,
+              day,
+              views: Number.isFinite(views) && views > 0 ? Math.floor(views) : 0,
+            };
+          })
+          .filter(Boolean)
+      : [];
+    return { likes, viewEvents, viewDaily };
+  } catch (_error) {
+    return empty;
   }
 }
 
