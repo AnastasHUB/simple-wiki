@@ -1642,6 +1642,144 @@ input[type="checkbox"] {
   box-shadow: 0 8px 18px rgba(9, 12, 20, 0.22);
 }
 
+.admin-risk-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 1.5rem;
+}
+
+.admin-risk-item {
+  position: relative;
+  padding: 1.4rem;
+  border-radius: var(--radius-md);
+  background: linear-gradient(140deg, rgba(76, 110, 245, 0.12), rgba(11, 16, 27, 0.9));
+  border: 1px solid rgba(76, 110, 245, 0.28);
+  box-shadow: 0 20px 35px rgba(6, 8, 14, 0.45);
+  overflow: hidden;
+}
+
+.admin-risk-item::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 1px solid rgba(138, 180, 248, 0.22);
+  pointer-events: none;
+  mix-blend-mode: screen;
+}
+
+.admin-risk-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.admin-risk-header code {
+  display: inline-block;
+  font-size: 1.1rem;
+  letter-spacing: 0.04em;
+  background: rgba(12, 17, 30, 0.65);
+  border: 1px solid rgba(138, 180, 248, 0.35);
+  padding: 0.35rem 0.65rem;
+  border-radius: var(--radius-sm);
+  color: #eef2ff;
+}
+
+.admin-risk-header .status-pill {
+  margin-left: 0.6rem;
+}
+
+.admin-risk-header .text-muted {
+  margin-left: 0.6rem;
+}
+
+.admin-risk-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.admin-risk-summary {
+  margin: 0 0 0.9rem;
+  color: rgba(226, 231, 255, 0.88);
+}
+
+.admin-risk-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.admin-risk-meta {
+  font-size: 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.admin-risk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.admin-risk-actions form {
+  margin: 0;
+}
+
+.tag-danger {
+  background: rgba(249, 112, 112, 0.2);
+  border-color: rgba(249, 112, 112, 0.5);
+  color: #ffe3e3;
+}
+
+.tag-warning {
+  background: rgba(247, 201, 72, 0.18);
+  border-color: rgba(247, 201, 72, 0.5);
+  color: #fff1c1;
+}
+
+.tag-info {
+  background: rgba(99, 179, 237, 0.18);
+  border-color: rgba(99, 179, 237, 0.45);
+  color: #d0ebff;
+}
+
+@media (max-width: 860px) {
+  .admin-risk-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .admin-risk-links {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+@media (max-width: 540px) {
+  .admin-risk-item {
+    padding: 1.1rem;
+  }
+
+  .admin-risk-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-risk-actions form {
+    width: 100%;
+  }
+
+  .admin-risk-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 .trash-toolbar {
   display: flex;
   justify-content: space-between;
