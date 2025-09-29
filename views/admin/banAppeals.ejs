@@ -1,0 +1,70 @@
+<% title = 'Demandes de déban'; %>
+<h1>Demandes de débannissement</h1>
+
+<section class="card">
+  <h2>Demandes reçues (<%= pagination.totalItems %>)</h2>
+  <% if (!appeals.length) { %>
+    <p>Aucune demande n'a encore été envoyée.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Date</th>
+            <th>IP</th>
+            <th>Portée</th>
+            <th>Valeur</th>
+            <th>Motif du ban</th>
+            <th>Message de l'appel</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% appeals.forEach(appeal => { %>
+            <tr>
+              <td><code><%= appeal.snowflake_id %></code></td>
+              <td><%= new Date(appeal.created_at).toLocaleString('fr-FR') %></td>
+              <td>
+                <% if (appeal.ip) { %>
+                  <code><%= appeal.ip %></code>
+                <% } else { %>
+                  -
+                <% } %>
+              </td>
+              <td><%= appeal.scope || '-' %></td>
+              <td><%= appeal.value || '-' %></td>
+              <td><%= appeal.reason || '-' %></td>
+              <td>
+                <pre><%= appeal.message %></pre>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <div class="table-footer">
+      <form method="get">
+        <label for="appeals-per-page" class="nowrap">Éléments par page</label>
+        <select id="appeals-per-page" name="perPage" onchange="this.form.submit()">
+          <% pagination.perPageOptions.forEach(option => { %>
+            <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
+          <% }) %>
+        </select>
+        <input type="hidden" name="page" value="1">
+      </form>
+      <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
+      <div class="pager">
+        <% if (pagination.hasPrevious) { %>
+          <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
+        <% } else { %>
+          <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+        <% } %>
+        <% if (pagination.hasNext) { %>
+          <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
+        <% } else { %>
+          <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+        <% } %>
+      </div>
+    </div>
+  <% } %>
+</section>
