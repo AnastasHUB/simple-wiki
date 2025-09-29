@@ -20,6 +20,10 @@ const aggregates = await all(
   [cutoffIso],
 );
 
+const existingPages = new Set(
+  (await all(`SELECT id FROM pages`)).map((row) => row.id),
+);
+
 if (!aggregates.length) {
   console.log("Aucune donnée à agréger : la table page_views reste inchangée.");
   process.exit(0);
@@ -31,12 +35,28 @@ await run("BEGIN");
 let committed = false;
 try {
   for (const row of aggregates) {
-    await run(
-      `INSERT INTO page_view_daily(snowflake_id, page_id, day, views)
-       VALUES(?, ?, ?, ?)
-       ON CONFLICT(page_id, day) DO UPDATE SET views = views + excluded.views`,
-      [generateSnowflake(), row.page_id, row.day, row.views],
-    );
+    if (!existingPages.has(row.page_id)) {
+      console.warn(
+        `Ignoré : ${row.views} vue(s) pour la page ${row.page_id} (supprimée ?) le ${row.day}.`,
+      );
+      continue;
+    }
+    try {
+      await run(
+        `INSERT INTO page_view_daily(snowflake_id, page_id, day, views)
+         VALUES(?, ?, ?, ?)
+         ON CONFLICT(page_id, day) DO UPDATE SET views = views + excluded.views`,
+        [generateSnowflake(), row.page_id, row.day, row.views],
+      );
+    } catch (err) {
+      if (err?.code === "SQLITE_CONSTRAINT") {
+        console.warn(
+          `Contrainte ignorée pour la page ${row.page_id} le ${row.day}: ${err.message}.`,
+        );
+        continue;
+      }
+      throw err;
+    }
   }
   await run("DELETE FROM page_views WHERE viewed_at < ?", [cutoffIso]);
   await run("COMMIT");
