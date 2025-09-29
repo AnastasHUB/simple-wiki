@@ -68,6 +68,14 @@
           <div class="comment-meta">
             <strong><%= c.author || 'Anonyme' %></strong>
             <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
+            <% if (c.ipProfile) { %>
+              <span>
+                ·
+                <a class="comment-ip-profile" href="/profiles/ip/<%= c.ipProfile.hash %>">
+                  Profil IP #<%= c.ipProfile.shortHash %>
+                </a>
+              </span>
+            <% } %>
           </div>
           <div class="comment-body"><%= c.body %></div>
           <% if (ownCommentTokens && ownCommentTokens[c.snowflake_id]) { %>

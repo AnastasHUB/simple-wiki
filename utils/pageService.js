@@ -1,4 +1,5 @@
 import { all, get } from "../db.js";
+import { formatIpProfileLabel, hashIp } from "./ipProfiles.js";
 
 const TAGS_CSV_SUBQUERY = `(
   SELECT GROUP_CONCAT(t.name, ',')
@@ -95,16 +96,19 @@ export async function fetchPageTags(pageId) {
 export async function fetchPageComments(pageId, options = {}) {
   const { limit, offset } = options;
   const params = [pageId];
-  let query = `SELECT id AS legacy_id,
-            snowflake_id,
-            author,
-            body,
-            created_at,
-            updated_at
-       FROM comments
-      WHERE page_id = ?
-        AND status = 'approved'
-      ORDER BY created_at ASC`;
+  let query = `SELECT c.id AS legacy_id,
+            c.snowflake_id,
+            c.author,
+            c.body,
+            c.created_at,
+            c.updated_at,
+            c.ip AS raw_ip,
+            ipr.hash AS ip_hash
+       FROM comments c
+       LEFT JOIN ip_profiles ipr ON ipr.ip = c.ip
+      WHERE c.page_id = ?
+        AND c.status = 'approved'
+      ORDER BY c.created_at ASC`;
 
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;
@@ -121,7 +125,20 @@ export async function fetchPageComments(pageId, options = {}) {
     params.push(safeOffset);
   }
 
-  return all(query, params);
+  const rows = await all(query, params);
+  return rows.map((row) => {
+    const ipHash = row.ip_hash || hashIp(row.raw_ip || "");
+    const { raw_ip: _unusedIp, ip_hash: _unusedHash, ...rest } = row;
+    return {
+      ...rest,
+      ipProfile: ipHash
+        ? {
+            hash: ipHash,
+            shortHash: formatIpProfileLabel(ipHash),
+          }
+        : null,
+    };
+  });
 }
 
 export async function fetchPagesByTag({ tagName, ip, excerptLength = 1200 }) {

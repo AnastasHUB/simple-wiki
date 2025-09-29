@@ -13,6 +13,7 @@ import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
+import { getClientIp } from "./utils/ip.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,6 +44,7 @@ app.use(async (req, res, next) => {
     res.locals.logoUrl = settings.logoUrl;
     res.locals.footerText = settings.footerText;
     res.locals.notifications = consumeNotifications(req);
+    res.locals.canViewIpProfile = Boolean(getClientIp(req));
     next();
   } catch (err) {
     next(err);

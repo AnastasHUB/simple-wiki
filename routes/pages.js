@@ -21,6 +21,11 @@ import { pushNotification } from "../utils/notifications.js";
 import { upsertTags, recordRevision } from "../utils/pageEditing.js";
 import { createPageSubmission } from "../utils/pageSubmissionService.js";
 import {
+  getIpProfileByHash,
+  hashIp,
+  touchIpProfile,
+} from "../utils/ipProfiles.js";
+import {
   fetchRecentPages,
   fetchPaginatedPages,
   fetchPageWithStats,
@@ -177,6 +182,7 @@ r.post(
         ip: req.clientIp,
         submittedBy: req.session.user?.username || null,
       });
+      await touchIpProfile(req.clientIp);
       pushNotification(req, {
         type: "success",
         message: "Merci ! Votre proposition sera examinée par un administrateur.",
@@ -248,6 +254,7 @@ r.get(
 
     await incrementView(page.id, ip);
     page.views = Number(page.views || 0) + 1;
+    await touchIpProfile(ip);
 
     const totalComments = Number(page.comment_count || 0);
     const commentPaginationOptions = {
@@ -382,6 +389,8 @@ r.post(
         token,
       ],
     );
+
+    await touchIpProfile(ip);
 
     req.session.commentTokens = req.session.commentTokens || {};
     req.session.commentTokens[commentSnowflake] = token;
@@ -635,6 +644,8 @@ r.post(
       }
     }
 
+    await touchIpProfile(ip);
+
     const total = await get("SELECT COUNT(*) AS totalLikes FROM likes WHERE page_id=?", [
       page.id,
     ]);
@@ -713,6 +724,7 @@ r.post(
         submittedBy: req.session.user?.username || null,
         targetSlugId: page.slug_id,
       });
+      await touchIpProfile(req.clientIp);
       pushNotification(req, {
         type: "success",
         message:
@@ -882,6 +894,45 @@ r.get(
     if (!revision) return res.status(404).send("Révision introuvable");
     const html = linkifyInternal(revision.content);
     res.render("revision", { page, revision, html });
+  }),
+);
+
+r.get(
+  "/profiles/ip/me",
+  asyncHandler(async (req, res) => {
+    const ip = req.clientIp;
+    if (!ip) {
+      return res.status(400).render("error", {
+        message:
+          "Impossible de déterminer votre adresse IP pour générer un profil public.",
+      });
+    }
+    const profile = await touchIpProfile(ip);
+    if (!profile?.hash) {
+      return res.status(500).render("error", {
+        message: "Profil IP actuellement indisponible. Veuillez réessayer plus tard.",
+      });
+    }
+    res.redirect(`/profiles/ip/${profile.hash}`);
+  }),
+);
+
+r.get(
+  "/profiles/ip/:hash",
+  asyncHandler(async (req, res) => {
+    const requestedHash = (req.params.hash || "").trim().toLowerCase();
+    if (!requestedHash) {
+      return res.status(404).render("page404");
+    }
+    const profile = await getIpProfileByHash(requestedHash);
+    if (!profile) {
+      return res.status(404).render("page404");
+    }
+    const viewerHash = hashIp(req.clientIp);
+    res.render("ip_profile", {
+      profile,
+      isOwner: viewerHash ? viewerHash === profile.hash : false,
+    });
   }),
 );
 
