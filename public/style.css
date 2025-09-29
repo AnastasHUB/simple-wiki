@@ -1027,6 +1027,16 @@ textarea {
   transition: border-color var(--transition), box-shadow var(--transition);
 }
 
+select {
+  background-color: var(--panel);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+select option {
+  color: #0b1220;
+}
+
 input:focus,
 select:focus,
 textarea:focus {
@@ -1040,6 +1050,13 @@ label {
   font-size: 0.95rem;
   margin-bottom: 0.4rem;
   display: inline-block;
+}
+
+input[type="checkbox"] {
+  width: auto;
+  min-width: 1.1rem;
+  min-height: 1.1rem;
+  accent-color: var(--accent);
 }
 
 .field,
