@@ -5,23 +5,61 @@ let quillCodeBlockRegistered = false;
   const toggleBtn = document.getElementById("sidebarToggle");
   const overlayHit = document.getElementById("overlayHit"); // zone cliquable à droite
   const links = document.querySelectorAll("#vnav a");
+  const html = document.documentElement;
 
-  const openDrawer = () =>
-    document.documentElement.classList.add("drawer-open");
-  const closeDrawer = () =>
-    document.documentElement.classList.remove("drawer-open");
+  const setExpanded = (expanded) => {
+    if (!toggleBtn) return;
+    toggleBtn.setAttribute("aria-expanded", expanded ? "true" : "false");
+    toggleBtn.setAttribute(
+      "aria-label",
+      expanded ? "Fermer le menu" : "Ouvrir le menu",
+    );
+  };
+
+  const openDrawer = () => {
+    html.classList.add("drawer-open");
+    setExpanded(true);
+  };
+  const closeDrawer = () => {
+    if (!html.classList.contains("drawer-open")) {
+      return;
+    }
+    html.classList.remove("drawer-open");
+    setExpanded(false);
+  };
 
   if (toggleBtn) {
     toggleBtn.addEventListener("click", (e) => {
       e.preventDefault();
-      document.documentElement.classList.contains("drawer-open")
-        ? closeDrawer()
-        : openDrawer();
+      html.classList.contains("drawer-open") ? closeDrawer() : openDrawer();
     });
+    setExpanded(html.classList.contains("drawer-open"));
   }
 
   overlayHit && overlayHit.addEventListener("click", closeDrawer);
   links.forEach((a) => a.addEventListener("click", closeDrawer));
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeDrawer();
+    }
+  });
+
+  const mq = window.matchMedia("(min-width: 1025px)");
+  if (mq.addEventListener) {
+    mq.addEventListener("change", (event) => {
+      if (event.matches) {
+        closeDrawer();
+      }
+    });
+  } else if (mq.addListener) {
+    // Safari < 14
+    mq.addListener((event) => {
+      if (event.matches) {
+        closeDrawer();
+      }
+    });
+  }
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
