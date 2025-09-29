@@ -52,6 +52,7 @@ import {
   hasPendingBanAppeal,
   hasRejectedBanAppeal,
 } from "../utils/banAppeals.js";
+import { buildPageMeta } from "../utils/meta.js";
 
 const r = Router();
 
@@ -366,6 +367,16 @@ r.get(
       req.session.commentTokens || {},
     );
     const html = linkifyInternal(page.content);
+    const host = req.get("host") || "localhost";
+    const baseUrl = `${req.protocol}://${host}`;
+    const meta = buildPageMeta({
+      page,
+      baseUrl,
+      siteName: res.locals.wikiName,
+      logoUrl: res.locals.logoUrl,
+      tags: tagNames,
+      protocol: req.protocol,
+    });
 
     res.render("page", {
       page,
@@ -375,6 +386,7 @@ r.get(
       commentPagination,
       commentFeedback,
       ownCommentTokens,
+      meta,
     });
   }),
 );
