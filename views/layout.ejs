@@ -76,7 +76,12 @@
           <% } %>
         </a>
         <a href="/admin/ip-profiles">🧾 Profils IP</a>
-        <a href="/admin/ban-appeals">📬 Demandes de déban</a>
+        <a href="/admin/ban-appeals" class="nav-link nav-link--with-badge">
+          <span>📬 Demandes de déban</span>
+          <% if (adminCounts.pendingBanAppeals) { %>
+            <span class="nav-badge" aria-label="Demandes de déban en attente"><%= adminCounts.pendingBanAppeals %></span>
+          <% } %>
+        </a>
         <a href="/admin/events">📜 Événements</a>
         <a href="/admin/uploads">🖼️ Images</a>
         <a href="/admin/settings">⚙️ Paramètres</a>

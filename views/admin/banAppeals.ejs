@@ -1,4 +1,5 @@
 <% title = 'Demandes de déban'; %>
+<% const selectedStatus = typeof statusFilter === 'string' ? statusFilter : 'all'; %>
 <h1>Demandes de débannissement</h1>
 
 <form method="get" class="card mb-md">
@@ -13,10 +14,19 @@
         class="flex-basis-260"
       />
     </label>
+    <label class="stack-form">
+      <span class="text-sm text-muted">Statut</span>
+      <select name="status" class="flex-basis-200">
+        <option value="all" <%= selectedStatus === 'all' ? 'selected' : '' %>>Tous</option>
+        <option value="pending" <%= selectedStatus === 'pending' ? 'selected' : '' %>>En attente</option>
+        <option value="accepted" <%= selectedStatus === 'accepted' ? 'selected' : '' %>>Acceptées</option>
+        <option value="rejected" <%= selectedStatus === 'rejected' ? 'selected' : '' %>>Refusées</option>
+      </select>
+    </label>
     <input type="hidden" name="page" value="1" />
     <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
     <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
-    <% if (searchTerm) { %>
+    <% if (searchTerm || selectedStatus !== 'all') { %>
       <a class="btn secondary" href="/admin/ban-appeals">Réinitialiser</a>
     <% } %>
   </div>
@@ -38,6 +48,8 @@
             <th>Valeur</th>
             <th>Motif du ban</th>
             <th>Message de l'appel</th>
+            <th>Statut</th>
+            <th>Actions</th>
           </tr>
         </thead>
         <tbody>
@@ -57,6 +69,35 @@
               <td><%= appeal.reason || '-' %></td>
               <td>
                 <pre><%= appeal.message %></pre>
+              </td>
+              <td>
+                <% if (appeal.status === 'pending') { %>
+                  <span class="status-pill pending">En attente</span>
+                <% } else if (appeal.status === 'accepted') { %>
+                  <span class="status-pill approved">Acceptée</span>
+                <% } else { %>
+                  <span class="status-pill rejected">Refusée</span>
+                <% } %>
+                <% if (appeal.resolved_at) { %>
+                  <div class="text-sm text-muted">le <%= new Date(appeal.resolved_at).toLocaleString('fr-FR') %></div>
+                <% } %>
+                <% if (appeal.resolved_by) { %>
+                  <div class="text-sm text-muted">par <%= appeal.resolved_by %></div>
+                <% } %>
+              </td>
+              <td>
+                <% if (appeal.status === 'pending') { %>
+                  <div class="flex gap-sm flex-wrap">
+                    <form method="post" action="/admin/ban-appeals/<%= appeal.snowflake_id %>/accept">
+                      <button class="btn success" data-icon="✅" type="submit">Accepter</button>
+                    </form>
+                    <form method="post" action="/admin/ban-appeals/<%= appeal.snowflake_id %>/reject">
+                      <button class="btn danger" data-icon="✖️" type="submit">Refuser</button>
+                    </form>
+                  </div>
+                <% } else { %>
+                  <span class="text-muted">—</span>
+                <% } %>
               </td>
             </tr>
           <% }) %>
