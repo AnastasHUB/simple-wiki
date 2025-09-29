@@ -1,4 +1,5 @@
 import { initDb, all, run } from "../db.js";
+import { generateSnowflake } from "../utils/snowflake.js";
 
 await initDb();
 
@@ -31,10 +32,10 @@ let committed = false;
 try {
   for (const row of aggregates) {
     await run(
-      `INSERT INTO page_view_daily(page_id, day, views)
-       VALUES(?, ?, ?)
+      `INSERT INTO page_view_daily(snowflake_id, page_id, day, views)
+       VALUES(?, ?, ?, ?)
        ON CONFLICT(page_id, day) DO UPDATE SET views = views + excluded.views`,
-      [row.page_id, row.day, row.views],
+      [generateSnowflake(), row.page_id, row.day, row.views],
     );
   }
   await run("DELETE FROM page_views WHERE viewed_at < ?", [cutoffIso]);

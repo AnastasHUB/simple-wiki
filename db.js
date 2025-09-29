@@ -14,12 +14,14 @@ export async function initDb() {
   PRAGMA foreign_keys=ON;
   CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     is_admin INTEGER NOT NULL DEFAULT 1
   );
   CREATE TABLE IF NOT EXISTS settings(
     id INTEGER PRIMARY KEY CHECK (id=1),
+    snowflake_id TEXT UNIQUE,
     wiki_name TEXT DEFAULT 'Wiki',
     logo_url TEXT DEFAULT '',
     admin_webhook_url TEXT DEFAULT '',
@@ -29,6 +31,7 @@ export async function initDb() {
   INSERT OR IGNORE INTO settings(id) VALUES(1);
   CREATE TABLE IF NOT EXISTS pages(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     slug_base TEXT NOT NULL,
     slug_id TEXT UNIQUE NOT NULL,
     title TEXT NOT NULL,
@@ -39,6 +42,7 @@ export async function initDb() {
   CREATE TABLE IF NOT EXISTS page_revisions(
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     revision INTEGER NOT NULL,
+    snowflake_id TEXT UNIQUE,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     author_id INTEGER REFERENCES users(id),
@@ -47,6 +51,7 @@ export async function initDb() {
   );
   CREATE TABLE IF NOT EXISTS page_views(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     ip TEXT,
     viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -56,20 +61,24 @@ export async function initDb() {
   CREATE TABLE IF NOT EXISTS page_view_daily(
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     day TEXT NOT NULL,
+    snowflake_id TEXT UNIQUE,
     views INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY(page_id, day)
   );
   CREATE TABLE IF NOT EXISTS tags(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     name TEXT UNIQUE NOT NULL
   );
   CREATE TABLE IF NOT EXISTS page_tags(
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    snowflake_id TEXT UNIQUE,
     PRIMARY KEY(page_id, tag_id)
   );
   CREATE TABLE IF NOT EXISTS likes(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     ip TEXT NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -91,6 +100,7 @@ export async function initDb() {
     ON comments(page_id, status);
   CREATE TABLE IF NOT EXISTS ip_bans(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     ip TEXT NOT NULL,
     scope TEXT NOT NULL CHECK(scope IN ('global','action','tag')),
     value TEXT,
@@ -102,6 +112,7 @@ export async function initDb() {
     ON ip_bans(ip, scope, value, lifted_at);
   CREATE TABLE IF NOT EXISTS event_logs(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
     channel TEXT NOT NULL CHECK(channel IN ('admin','feed')),
     type TEXT NOT NULL,
     payload TEXT,
@@ -111,6 +122,7 @@ export async function initDb() {
   );
   CREATE TABLE IF NOT EXISTS uploads(
     id TEXT PRIMARY KEY,
+    snowflake_id TEXT UNIQUE,
     original_name TEXT NOT NULL,
     display_name TEXT,
     extension TEXT NOT NULL,
@@ -122,8 +134,19 @@ export async function initDb() {
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");
+  await ensureSnowflake("settings");
+  await ensureSnowflake("users");
+  await ensureSnowflake("pages");
+  await ensureSnowflake("page_revisions");
+  await ensureSnowflake("page_views");
+  await ensureSnowflake("page_view_daily");
+  await ensureSnowflake("tags");
+  await ensureSnowflake("page_tags");
+  await ensureSnowflake("likes");
   await ensureSnowflake("comments");
   await ensureSnowflake("ip_bans");
+  await ensureSnowflake("event_logs");
+  await ensureSnowflake("uploads", "snowflake_id");
   return db;
 }
 
@@ -169,8 +192,8 @@ export async function ensureDefaultAdmin() {
   if (!admin) {
     const hashed = await hashPassword("admin");
     await db.run(
-      "INSERT INTO users(username,password,is_admin) VALUES(?,?,1)",
-      ["admin", hashed],
+      "INSERT INTO users(snowflake_id, username,password,is_admin) VALUES(?,?,?,1)",
+      [generateSnowflake(), "admin", hashed],
     );
     console.log("Default admin created: admin / (mot de passe haché)");
   }
@@ -184,7 +207,8 @@ export function randSlugId(base) {
 export async function incrementView(pageId, ip = null) {
   if (!pageId) return;
   try {
-    await run("INSERT INTO page_views(page_id, ip) VALUES(?, ?)", [
+    await run("INSERT INTO page_views(snowflake_id, page_id, ip) VALUES(?,?,?)", [
+      generateSnowflake(),
       pageId,
       ip || null,
     ]);
@@ -281,8 +305,15 @@ export async function logEvent({
   if (!channel || !type) return;
   try {
     await run(
-      "INSERT INTO event_logs(channel, type, payload, ip, username) VALUES(?,?,?,?,?)",
-      [channel, type, payload ? JSON.stringify(payload) : null, ip, username],
+      "INSERT INTO event_logs(snowflake_id, channel, type, payload, ip, username) VALUES(?,?,?,?,?,?)",
+      [
+        generateSnowflake(),
+        channel,
+        type,
+        payload ? JSON.stringify(payload) : null,
+        ip,
+        username,
+      ],
     );
   } catch (err) {
     console.warn("Unable to log event", err?.message || err);

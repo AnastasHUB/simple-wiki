@@ -121,9 +121,10 @@ r.post(
     const { title, content, tags } = req.body;
     const base = slugify(title);
     const slug_id = randSlugId(base);
+    const pageSnowflake = generateSnowflake();
     const result = await run(
-      "INSERT INTO pages(slug_base, slug_id, title, content) VALUES(?,?,?,?)",
-      [base, slug_id, title, content],
+      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content) VALUES(?,?,?,?,?)",
+      [pageSnowflake, base, slug_id, title, content],
     );
     const tagNames = await upsertTags(result.lastID, tags);
     await recordRevision(result.lastID, title, content, req.session.user?.id || null);
@@ -136,13 +137,13 @@ r.post(
     });
     await sendAdminEvent("Page created", {
       user: req.session.user?.username,
-      page: { title, slug_id, slug_base: base },
+      page: { title, slug_id, slug_base: base, snowflake_id: pageSnowflake },
       extra: { tags },
     });
     await sendFeedEvent(
       "Nouvel article",
       {
-        page: { title, slug_id },
+        page: { title, slug_id, snowflake_id: pageSnowflake },
         author: req.session.user?.username,
         url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
         tags,
@@ -195,9 +196,12 @@ r.get(
 r.post(
   "/wiki/:slugid/comments",
   asyncHandler(async (req, res) => {
-    const page = await get("SELECT id, title, slug_id FROM pages WHERE slug_id=?", [
-      req.params.slugid,
-    ]);
+    const page = await get(
+      "SELECT id, snowflake_id, title, slug_id FROM pages WHERE slug_id=?",
+      [
+        req.params.slugid,
+      ],
+    );
     if (!page) return res.status(404).send("Page introuvable");
 
     const ip = req.clientIp;
@@ -317,9 +321,9 @@ r.post(
   "/wiki/:slugid/comments/:commentId/edit",
   asyncHandler(async (req, res) => {
     const comment = await get(
-      `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.author, c.body, c.status, c.edit_token, c.ip, p.slug_id, p.title
-       FROM comments c
-       JOIN pages p ON p.id = c.page_id
+      `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.author, c.body, c.status, c.edit_token, c.ip, p.slug_id, p.title, p.snowflake_id AS page_snowflake_id
+        FROM comments c
+        JOIN pages p ON p.id = c.page_id
       WHERE c.snowflake_id=? AND p.slug_id=?`,
       [req.params.commentId, req.params.slugid],
     );
@@ -355,7 +359,11 @@ r.post(
       [author || null, bodyValidation.body, comment.legacy_id],
     );
     await sendAdminEvent("Commentaire modifié", {
-      page: { title: comment.title, slug_id: comment.slug_id },
+      page: {
+        title: comment.title,
+        slug_id: comment.slug_id,
+        snowflake_id: comment.page_snowflake_id,
+      },
       comment: {
         id: comment.snowflake_id,
         author: author || "Anonyme",
@@ -383,7 +391,7 @@ r.post(
   "/wiki/:slugid/comments/:commentId/delete",
   asyncHandler(async (req, res) => {
     const comment = await get(
-      `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.edit_token, c.ip, p.slug_id, p.title
+      `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.edit_token, c.ip, p.slug_id, p.title, p.snowflake_id AS page_snowflake_id
         FROM comments c
         JOIN pages p ON p.id = c.page_id
       WHERE c.snowflake_id=? AND p.slug_id=?`,
@@ -402,7 +410,11 @@ r.post(
       delete req.session.commentTokens[comment.snowflake_id];
     }
     await sendAdminEvent("Commentaire supprimé par auteur", {
-      page: { title: comment.title, slug_id: comment.slug_id },
+      page: {
+        title: comment.title,
+        slug_id: comment.slug_id,
+        snowflake_id: comment.page_snowflake_id,
+      },
       comment: { id: comment.snowflake_id },
       user: req.session.user?.username || null,
       extra: {
@@ -428,10 +440,10 @@ r.post(
       req.get("X-Requested-With") === "XMLHttpRequest" ||
       (req.headers.accept || "").includes("application/json");
 
-    const page = await get(
-      "SELECT id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
-      [req.params.slugid],
-    );
+      const page = await get(
+        "SELECT id, snowflake_id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
+        [req.params.slugid],
+      );
     if (!page) {
       if (wantsJson) {
         return res.status(404).json({
@@ -461,17 +473,17 @@ r.post(
     }
 
     const notifications = [];
-    const exists = await get("SELECT 1 FROM likes WHERE page_id=? AND ip=?", [
-      page.id,
-      ip,
-    ]);
+    const existingLike = await get(
+      "SELECT snowflake_id FROM likes WHERE page_id=? AND ip=?",
+      [page.id, ip],
+    );
 
-    if (exists) {
+    if (existingLike) {
       await run("DELETE FROM likes WHERE page_id=? AND ip=?", [page.id, ip]);
       await sendAdminEvent("Like removed", {
         user: req.session.user?.username,
         page,
-        extra: { ip },
+        extra: { ip, likeSnowflake: existingLike.snowflake_id || null },
       });
       notifications.push({
         type: "info",
@@ -482,11 +494,16 @@ r.post(
         pushNotification(req, notifications[notifications.length - 1]);
       }
     } else {
-      await run("INSERT INTO likes(page_id, ip) VALUES(?,?)", [page.id, ip]);
+      const likeSnowflake = generateSnowflake();
+      await run("INSERT INTO likes(snowflake_id, page_id, ip) VALUES(?,?,?)", [
+        likeSnowflake,
+        page.id,
+        ip,
+      ]);
       await sendAdminEvent("Like added", {
         user: req.session.user?.username,
         page,
-        extra: { ip },
+        extra: { ip, likeSnowflake },
       });
       notifications.push({
         type: "success",
@@ -506,7 +523,7 @@ r.post(
     if (wantsJson) {
       return res.json({
         ok: true,
-        liked: !exists,
+        liked: !existingLike,
         likes: likeCount,
         slug: page.slug_id,
         notifications,
@@ -564,7 +581,12 @@ r.post(
     });
     await sendAdminEvent("Page updated", {
       user: req.session.user?.username,
-      page: { title, slug_id: req.params.slugid, slug_base: base },
+      page: {
+        title,
+        slug_id: req.params.slugid,
+        slug_base: base,
+        snowflake_id: page.snowflake_id,
+      },
       extra: { tags },
     });
     pushNotification(req, {
@@ -580,7 +602,7 @@ r.delete(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const page = await get(
-      "SELECT id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
+      "SELECT id, snowflake_id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
       [req.params.slugid],
     );
     await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);
@@ -606,7 +628,7 @@ r.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const page = await get(
-      "SELECT id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
+      "SELECT id, snowflake_id, title, slug_id, slug_base FROM pages WHERE slug_id=?",
       [req.params.slugid],
     );
     await run("DELETE FROM pages WHERE slug_id=?", [req.params.slugid]);
@@ -702,12 +724,15 @@ async function upsertTags(pageId, csv = "") {
     ),
   );
   for (const n of names) {
-    await run("INSERT OR IGNORE INTO tags(name) VALUES(?)", [n]);
-    const tag = await get("SELECT id FROM tags WHERE name=?", [n]);
-    await run("INSERT OR IGNORE INTO page_tags(page_id, tag_id) VALUES(?,?)", [
-      pageId,
-      tag.id,
+    await run("INSERT OR IGNORE INTO tags(name, snowflake_id) VALUES(?,?)", [
+      n,
+      generateSnowflake(),
     ]);
+    const tag = await get("SELECT id FROM tags WHERE name=?", [n]);
+    await run(
+      "INSERT OR IGNORE INTO page_tags(snowflake_id, page_id, tag_id) VALUES(?,?,?)",
+      [generateSnowflake(), pageId, tag.id],
+    );
   }
   return names;
 }
@@ -718,10 +743,11 @@ async function recordRevision(pageId, title, content, authorId = null) {
     [pageId],
   );
   const next = row?.next || 1;
-  await run(
-    "INSERT INTO page_revisions(page_id, revision, title, content, author_id) VALUES(?,?,?,?,?)",
-    [pageId, next, title, content, authorId],
-  );
+    const snowflake = generateSnowflake();
+    await run(
+      "INSERT INTO page_revisions(snowflake_id, page_id, revision, title, content, author_id) VALUES(?,?,?,?,?,?)",
+      [snowflake, pageId, next, title, content, authorId],
+    );
   return next;
 }
 
