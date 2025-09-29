@@ -759,6 +759,22 @@ form .actions {
   border-bottom: 1px solid #242a36;
 }
 
+.data-table td.status {
+  font-weight: 600;
+}
+
+.data-table td.status.approved {
+  color: var(--success);
+}
+
+.data-table td.status.pending {
+  color: var(--muted);
+}
+
+.data-table td.status.rejected {
+  color: var(--danger);
+}
+
 .data-table th code,
 .data-table td code {
   white-space: nowrap;
@@ -800,6 +816,35 @@ form .actions {
   border-color: rgba(237, 66, 69, 0.5);
   background: rgba(237, 66, 69, 0.14);
   color: #fecaca;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.status-pill.pending {
+  color: var(--muted);
+}
+
+.status-pill.approved {
+  color: var(--success);
+  border-color: rgba(87, 242, 135, 0.35);
+  background: rgba(87, 242, 135, 0.12);
+}
+
+.status-pill.rejected {
+  color: var(--danger);
+  border-color: rgba(237, 66, 69, 0.35);
+  background: rgba(237, 66, 69, 0.12);
 }
 
 .comments .comment-list,

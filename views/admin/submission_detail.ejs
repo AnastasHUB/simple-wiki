@@ -24,11 +24,11 @@
       <strong>Statut</strong>
       <p>
         <% if (submission.status === 'pending') { %>
-          En attente
+          <span class="status status-pill pending">En attente</span>
         <% } else if (submission.status === 'approved') { %>
-          Approuvée
+          <span class="status status-pill approved">Approuvée</span>
         <% } else { %>
-          Rejetée
+          <span class="status status-pill rejected">Rejetée</span>
         <% } %>
       </p>
     </div>
