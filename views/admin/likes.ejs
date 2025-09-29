@@ -34,9 +34,9 @@
       </table>
     </div>
   <% } %>
-  <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
-    <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
-      <label for="likes-per-page" style="white-space:nowrap;">Éléments par page</label>
+  <div class="table-footer">
+    <form method="get">
+      <label for="likes-per-page" class="nowrap">Éléments par page</label>
       <select id="likes-per-page" name="perPage" onchange="this.form.submit()">
         <% pagination.perPageOptions.forEach(option => { %>
           <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -45,16 +45,16 @@
       <input type="hidden" name="page" value="1">
     </form>
     <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
-    <div style="display:flex; gap:0.5rem;">
+    <div class="pager">
       <% if (pagination.hasPrevious) { %>
         <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
       <% } else { %>
-        <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
       <% } %>
       <% if (pagination.hasNext) { %>
         <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
       <% } else { %>
-        <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
       <% } %>
     </div>
   </div>

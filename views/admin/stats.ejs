@@ -1,7 +1,7 @@
 <% title='Statistiques'; %>
 <h1>Statistiques de consultation</h1>
 
-<section class="card" style="margin-bottom:24px;">
+<section class="card mb-xl">
   <h2>Résumé global</h2>
   <ul class="stat-grid">
     <li>
@@ -50,12 +50,12 @@
       </table>
     </div>
   <% } %>
-  <p style="font-size:0.9em; color:#555; margin-top:16px;">
+  <p class="note-text">
     Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
   </p>
 </section>
 
-<section class="card" style="margin-bottom:24px; display:grid; gap:20px;">
+<section class="card mb-xl grid gap-lg">
   <div>
     <h2>Pages les plus aimées</h2>
     <% if (!topLikedPages.length) { %>
@@ -137,7 +137,7 @@
   </div>
 </section>
 
-<section class="card" style="margin-bottom:24px;">
+<section class="card mb-xl">
   <h2>IPs les plus actives</h2>
   <% if (!activeIps.length) { %>
     <p>Aucune IP enregistrée.</p>
@@ -165,7 +165,7 @@
   <% } %>
 </section>
 
-<section class="card" style="margin-bottom:24px; display:grid; gap:20px;">
+<section class="card mb-xl grid gap-lg">
   <div>
     <h2>Tags les plus utilisés</h2>
     <% if (!tagUsage.length) { %>
@@ -220,7 +220,7 @@
   </div>
 </section>
 
-<section class="card" style="margin-bottom:24px;">
+<section class="card mb-xl">
   <h2>Vues par IP et article</h2>
   <% if (!ipViewsByPage.length) { %>
     <p>Aucune donnée disponible.</p>
@@ -251,7 +251,7 @@
 </section>
 
 <% periods.forEach(period => { const rows = stats[period.key] || []; %>
-  <section class="card" style="margin-bottom:24px;">
+  <section class="card mb-xl">
     <h2><%= period.label %></h2>
     <% if (!rows.length) { %>
       <p>Aucune donnée disponible pour cette période.</p>

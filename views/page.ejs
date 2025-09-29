@@ -42,7 +42,7 @@
 <% if (tags && tags.length) { %>
   <div class="card">
     <strong>Tags</strong>
-    <div class="tags-row" style="margin-top:8px">
+    <div class="tags-row mt-xs">
       <% tags.forEach(t => { %>
         <a class="tag" href="/tags/<%= t %>"><%= t %></a>
       <% }) %>
@@ -52,7 +52,7 @@
 
 <% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
 <section class="card comments" id="comments">
-  <h2 style="margin-top:0">Commentaires</h2>
+  <h2 class="mt-0">Commentaires</h2>
   <% if (comments && comments.length) { %>
     <ul class="comment-list">
       <% comments.forEach(c => { %>
@@ -83,11 +83,11 @@
       <input id="comment-author" type="text" name="author" maxlength="80" value="<%= commentValues.author || '' %>">
     </div>
     <div class="field">
-      <label for="comment-body">Votre message <span style="color:#f87171;">*</span></label>
+      <label for="comment-body">Votre message <span class="text-required">*</span></label>
       <textarea id="comment-body" name="body" rows="5" maxlength="2000" required><%= commentValues.body || '' %></textarea>
     </div>
     <div class="field">
-      <label for="comment-captcha">Question anti-spam : 3 + 4 = ? <span style="color:#f87171;">*</span></label>
+      <label for="comment-captcha">Question anti-spam : 3 + 4 = ? <span class="text-required">*</span></label>
       <input id="comment-captcha" type="text" name="captcha" inputmode="numeric" pattern="[0-9]*" required>
     </div>
     <div class="field honeypot">

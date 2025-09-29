@@ -1,16 +1,16 @@
 <% title='Utilisateurs'; %>
 <h1>Utilisateurs (admins uniquement)</h1>
 <form method="post" class="card">
-  <div style="display:flex;gap:10px;flex-wrap:wrap">
+  <div class="flex flex-wrap gap-sm">
     <input type="text" name="username" placeholder="nouvel admin" required />
     <input type="password" name="password" placeholder="mot de passe" required />
     <button class="btn success" data-icon="➕">Ajouter</button>
   </div>
 </form>
 <% if (!users.length) { %>
-  <p class="card" style="margin-top:16px;">Aucun utilisateur trouvé.</p>
+  <p class="card mt-md">Aucun utilisateur trouvé.</p>
 <% } else { %>
-  <div class="table-wrap" style="margin-top:16px;">
+  <div class="table-wrap mt-md">
     <table class="data-table">
       <thead><tr><th>ID</th><th>Nom</th><th>Admin</th><th></th></tr></thead>
       <tbody>
@@ -29,9 +29,9 @@
       </tbody>
     </table>
   </div>
-  <div class="table-footer" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:0.75rem; margin-top:1rem;">
-    <form method="get" style="display:flex; align-items:center; gap:0.5rem;">
-      <label for="users-per-page" style="white-space:nowrap;">Éléments par page</label>
+  <div class="table-footer">
+    <form method="get">
+      <label for="users-per-page" class="nowrap">Éléments par page</label>
       <select id="users-per-page" name="perPage" onchange="this.form.submit()">
         <% pagination.perPageOptions.forEach(option => { %>
           <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -40,16 +40,16 @@
       <input type="hidden" name="page" value="1">
     </form>
     <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
-    <div style="display:flex; gap:0.5rem;">
+    <div class="pager">
       <% if (pagination.hasPrevious) { %>
         <a class="btn" data-icon="⬅️" href="?page=<%= pagination.previousPage %>&perPage=<%= pagination.perPage %>">Précédent</a>
       <% } else { %>
-        <span class="btn" data-icon="⬅️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Précédent</span>
+        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
       <% } %>
       <% if (pagination.hasNext) { %>
         <a class="btn" data-icon="➡️" href="?page=<%= pagination.nextPage %>&perPage=<%= pagination.perPage %>">Suivant</a>
       <% } else { %>
-        <span class="btn" data-icon="➡️" aria-disabled="true" style="pointer-events:none; opacity:0.5;">Suivant</span>
+        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
       <% } %>
     </div>
   </div>
