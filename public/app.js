@@ -3,7 +3,7 @@ let quillCodeBlockRegistered = false;
 
 (function () {
   const toggleBtn = document.getElementById("sidebarToggle");
-  const overlayHit = document.getElementById("overlayHit"); // zone cliquable à droite
+  const overlay = document.getElementById("drawerOverlay");
   const links = document.querySelectorAll("#vnav a");
   const html = document.documentElement;
 
@@ -14,6 +14,9 @@ let quillCodeBlockRegistered = false;
       "aria-label",
       expanded ? "Fermer le menu" : "Ouvrir le menu",
     );
+    if (overlay) {
+      overlay.setAttribute("aria-hidden", expanded ? "false" : "true");
+    }
   };
 
   const openDrawer = () => {
@@ -36,7 +39,7 @@ let quillCodeBlockRegistered = false;
     setExpanded(html.classList.contains("drawer-open"));
   }
 
-  overlayHit && overlayHit.addEventListener("click", closeDrawer);
+  overlay && overlay.addEventListener("click", closeDrawer);
   links.forEach((a) => a.addEventListener("click", closeDrawer));
 
   document.addEventListener("keydown", (event) => {
@@ -82,9 +85,15 @@ function enhanceIconButtons() {
     }
 
     const iconSpan = document.createElement("span");
-    iconSpan.className = "btn-icon";
     iconSpan.setAttribute("aria-hidden", "true");
-    iconSpan.textContent = icon;
+
+    if (icon.startsWith("mat:")) {
+      iconSpan.className = "btn-icon material-symbols-rounded";
+      iconSpan.textContent = icon.replace("mat:", "");
+    } else {
+      iconSpan.className = "btn-icon";
+      iconSpan.textContent = icon;
+    }
     btn.prepend(iconSpan);
   });
 }
