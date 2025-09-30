@@ -36,12 +36,6 @@
   }
 }
 
-@media (max-width: 1024px) {
-  :root {
-    --transition: 0ms;
-  }
-}
-
 * {
   box-sizing: border-box;
 }
@@ -183,14 +177,9 @@ a {
   transition: color var(--transition);
 }
 
+a:hover,
 a:focus {
   color: var(--accent-strong);
-}
-
-@media (min-width: 1025px) {
-  a:hover {
-    color: var(--accent-strong);
-  }
 }
 
 a[aria-disabled="true"] {
@@ -325,30 +314,22 @@ hr {
   z-index: -1;
 }
 
+.brand-link:hover .brand-glow,
 .brand-link:focus-visible .brand-glow {
   opacity: 0.95;
   transform: scale(1.08);
 }
 
+.brand-link:hover,
 .brand-link:focus-visible {
   border-color: rgba(198, 206, 255, 0.6);
   box-shadow: 0 12px 30px rgba(40, 60, 140, 0.35);
   transform: translateY(-1px);
-  outline: 2px solid rgba(198, 206, 255, 0.55);
-  outline-offset: 3px;
 }
 
-@media (min-width: 1025px) {
-  .brand-link:hover .brand-glow {
-    opacity: 0.95;
-    transform: scale(1.08);
-  }
-
-  .brand-link:hover {
-    border-color: rgba(198, 206, 255, 0.6);
-    box-shadow: 0 12px 30px rgba(40, 60, 140, 0.35);
-    transform: translateY(-1px);
-  }
+.brand-link:focus-visible {
+  outline: 2px solid rgba(198, 206, 255, 0.55);
+  outline-offset: 3px;
 }
 
 .brand-link img {
@@ -510,26 +491,20 @@ hr {
   z-index: -1;
 }
 
+.vnav a:hover,
 .vnav a:focus-visible {
   color: #fff;
   transform: translateX(6px);
-  outline: 2px solid rgba(186, 198, 255, 0.45);
-  outline-offset: 2px;
 }
 
+.vnav a:hover::before,
 .vnav a:focus-visible::before {
   opacity: 1;
 }
 
-@media (min-width: 1025px) {
-  .vnav a:hover {
-    color: #fff;
-    transform: translateX(6px);
-  }
-
-  .vnav a:hover::before {
-    opacity: 1;
-  }
+.vnav a:focus-visible {
+  outline: 2px solid rgba(186, 198, 255, 0.45);
+  outline-offset: 2px;
 }
 
 .nav-link--with-badge {
@@ -898,7 +873,7 @@ html.drawer-open .drawer-overlay {
   box-shadow: 0 24px 44px rgba(10, 16, 40, 0.4);
 }
 
-@media (hover: hover) and (min-width: 1025px) {
+@media (hover: hover) {
   .btn:hover {
     transform: translateY(-4px) scale(1.01);
     background: linear-gradient(135deg, rgba(44, 58, 128, 0.9), rgba(24, 31, 70, 0.78));
@@ -944,7 +919,7 @@ html.drawer-open .drawer-overlay {
   transform: scale(1.05);
 }
 
-@media (hover: hover) and (min-width: 1025px) {
+@media (hover: hover) {
   .btn:hover::after {
     opacity: 0.2;
     transform: scale(1.05);
@@ -968,7 +943,7 @@ html.drawer-open .drawer-overlay {
   background: rgba(60, 78, 150, 0.42);
 }
 
-@media (hover: hover) and (min-width: 1025px) {
+@media (hover: hover) {
   .btn.secondary:hover {
     color: #fff;
     background: rgba(60, 78, 150, 0.42);
@@ -986,7 +961,7 @@ html.drawer-open .drawer-overlay {
   color: #e0fff3;
 }
 
-@media (hover: hover) and (min-width: 1025px) {
+@media (hover: hover) {
   .btn.success:hover {
     background: linear-gradient(135deg, rgba(60, 196, 172, 0.32), rgba(32, 128, 96, 0.42));
     color: #e0fff3;
@@ -1004,7 +979,7 @@ html.drawer-open .drawer-overlay {
   color: #fff6f8;
 }
 
-@media (hover: hover) and (min-width: 1025px) {
+@media (hover: hover) {
   .btn.danger:hover {
     background: linear-gradient(135deg, rgba(255, 123, 146, 0.28), rgba(158, 40, 78, 0.48));
     color: #fff6f8;
@@ -1026,7 +1001,7 @@ html.drawer-open .drawer-overlay {
   background: linear-gradient(135deg, rgba(122, 92, 255, 0.3), rgba(87, 207, 255, 0.24));
 }
 
-@media (hover: hover) and (min-width: 1025px) {
+@media (hover: hover) {
   .btn.like:hover {
     background: linear-gradient(135deg, rgba(122, 92, 255, 0.3), rgba(87, 207, 255, 0.24));
   }
@@ -1154,13 +1129,11 @@ html.drawer-open .drawer-overlay {
   margin-top: 1.25rem;
 }
 
-@media (min-width: 1025px) {
-  .card:hover {
-    transform: translateY(-6px) scale(1.01);
-    border-color: rgba(182, 198, 255, 0.5);
-    box-shadow: 0 32px 60px rgba(12, 18, 48, 0.45);
-    background: linear-gradient(150deg, rgba(36, 46, 102, 0.82), rgba(15, 20, 46, 0.92));
-  }
+.card:hover {
+  transform: translateY(-6px) scale(1.01);
+  border-color: rgba(182, 198, 255, 0.5);
+  box-shadow: 0 32px 60px rgba(12, 18, 48, 0.45);
+  background: linear-gradient(150deg, rgba(36, 46, 102, 0.82), rgba(15, 20, 46, 0.92));
 }
 
 .card:focus-within {
@@ -1314,13 +1287,11 @@ html.drawer-open .drawer-overlay {
   transition: transform 200ms ease, box-shadow 220ms ease, background 200ms ease, border-color 200ms ease;
 }
 
-@media (min-width: 1025px) {
-  .tag:hover {
-    transform: translateY(-2px);
-    background: rgba(76, 110, 245, 0.32);
-    border-color: rgba(138, 180, 248, 0.65);
-    box-shadow: 0 10px 24px rgba(76, 110, 245, 0.28);
-  }
+.tag:hover {
+  transform: translateY(-2px);
+  background: rgba(76, 110, 245, 0.32);
+  border-color: rgba(138, 180, 248, 0.65);
+  box-shadow: 0 10px 24px rgba(76, 110, 245, 0.28);
 }
 
 .page-stats {
@@ -1552,12 +1523,10 @@ input[type="checkbox"] {
   background: rgba(255, 255, 255, 0.02);
 }
 
-@media (min-width: 1025px) {
-  .table tbody tr:hover,
-  .data-table tbody tr:hover {
-    background: rgba(76, 110, 245, 0.14);
-    transform: translateY(-1px);
-  }
+.table tbody tr:hover,
+.data-table tbody tr:hover {
+  background: rgba(76, 110, 245, 0.14);
+  transform: translateY(-1px);
 }
 
 .table tbody tr:last-child td,
@@ -1636,16 +1605,14 @@ input[type="checkbox"] {
   pointer-events: none;
 }
 
-@media (min-width: 1025px) {
-  .comment:hover {
-    transform: translateY(-3px);
-    border-color: rgba(76, 110, 245, 0.4);
-    box-shadow: 0 20px 42px rgba(5, 8, 17, 0.38);
-  }
+.comment:hover {
+  transform: translateY(-3px);
+  border-color: rgba(76, 110, 245, 0.4);
+  box-shadow: 0 20px 42px rgba(5, 8, 17, 0.38);
+}
 
-  .comment:hover::before {
-    opacity: 1;
-  }
+.comment:hover::before {
+  opacity: 1;
 }
 
 .comment-meta {
