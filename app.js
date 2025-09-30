@@ -12,7 +12,6 @@ import adminRoutes from "./routes/admin.js";
 import accountRoutes from "./routes/account.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
-import chatbotRoutes from "./routes/chatbot.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp, getClientUserAgent } from "./utils/ip.js";
@@ -124,7 +123,6 @@ app.get("/rss.xml", async (req, res) => {
 });
 
 app.use("/", pagesRoutes);
-app.use("/", chatbotRoutes);
 app.use("/", authRoutes);
 app.use("/account", accountRoutes);
 app.use("/admin", adminRoutes);
