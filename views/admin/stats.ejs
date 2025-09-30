@@ -124,6 +124,7 @@
         <thead>
           <tr>
             <th>Adresse IP</th>
+            <th>Type</th>
             <th>Page actuelle</th>
             <th>Dernière activité</th>
           </tr>
@@ -132,6 +133,19 @@
           <% liveVisitors.forEach((visitor) => { %>
             <tr>
               <td><code><%= visitor.ip %></code></td>
+              <td>
+                <% if (visitor.isBot) { %>
+                  <span class="status-pill suspicious">Bot</span>
+                  <% if (visitor.botReason) { %>
+                    <br /><small class="text-muted"><%= visitor.botReason %></small>
+                  <% } %>
+                <% } else { %>
+                  <span class="status-pill clean">Visiteur</span>
+                <% } %>
+                <% if (visitor.userAgent) { %>
+                  <br /><small class="text-muted"><%= visitor.userAgent %></small>
+                <% } %>
+              </td>
               <td><a href="<%= visitor.path %>"><%= visitor.path %></a></td>
               <td>
                 <time datetime="<%= visitor.lastSeenIso %>">

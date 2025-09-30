@@ -74,6 +74,15 @@
               <% if (rep.lastCheckedAt) { %>
                 <br /><small class="text-muted">Vérif : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></small>
               <% } %>
+              <% if (profile.bot?.isBot) { %>
+                <br /><span class="status-pill suspicious">Bot suspecté</span>
+              <% } %>
+              <% if (profile.bot?.reason) { %>
+                <br /><small class="text-muted"><%= profile.bot.reason %></small>
+              <% } %>
+              <% if (profile.bot?.userAgent) { %>
+                <br /><small class="text-muted">UA : <%= profile.bot.userAgent %></small>
+              <% } %>
             </td>
             <td>
               <% if (profile.lastSeenAt) { %>

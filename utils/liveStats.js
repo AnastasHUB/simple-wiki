@@ -1,3 +1,5 @@
+import { detectBotUserAgent, normalizeUserAgent } from "./ip.js";
+
 const activeVisitors = new Map();
 export const ACTIVE_VISITOR_TTL_MS = 2 * 60 * 1000;
 
@@ -20,14 +22,23 @@ function pruneExpired(now = Date.now()) {
   }
 }
 
-export function trackLiveVisitor(ip, path, { now = Date.now() } = {}) {
+export function trackLiveVisitor(
+  ip,
+  path,
+  { now = Date.now(), userAgent = null } = {},
+) {
   if (!ip) {
     return;
   }
+  const normalizedUserAgent = normalizeUserAgent(userAgent);
+  const detection = detectBotUserAgent(normalizedUserAgent);
   const entry = {
     ip,
     path: normalizePath(path),
     lastSeen: now,
+    userAgent: detection.userAgent,
+    isBot: detection.isBot,
+    botReason: detection.reason,
   };
   activeVisitors.set(ip, entry);
   pruneExpired(now);

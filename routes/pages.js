@@ -13,7 +13,7 @@ import { requireAdmin } from "../middleware/auth.js";
 import { slugify, linkifyInternal } from "../utils/linkify.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { listUploads } from "../utils/uploads.js";
-import { getClientIp } from "../utils/ip.js";
+import { getClientIp, getClientUserAgent } from "../utils/ip.js";
 import { getActiveBans, isIpBanned } from "../utils/ipBans.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
@@ -58,6 +58,7 @@ const r = Router();
 r.use(
   asyncHandler(async (req, res, next) => {
     req.clientIp = getClientIp(req);
+    req.clientUserAgent = getClientUserAgent(req);
     if (req.clientIp) {
       const ban = await isIpBanned(req.clientIp, { action: "view" });
       const isAppealRoute = req.path === "/ban-appeal";
@@ -238,7 +239,9 @@ r.post(
         ip: req.clientIp,
         submittedBy: req.session.user?.username || null,
       });
-      await touchIpProfile(req.clientIp);
+      await touchIpProfile(req.clientIp, {
+        userAgent: req.clientUserAgent,
+      });
       const followAction = req.session.user
         ? { href: "/account/submissions", label: "Suivre mes contributions" }
         : { href: "/profiles/ip/me", label: "Suivre mes contributions" };
@@ -315,7 +318,7 @@ r.get(
 
     await incrementView(page.id, ip);
     page.views = Number(page.views || 0) + 1;
-    await touchIpProfile(ip);
+    await touchIpProfile(ip, { userAgent: req.clientUserAgent });
 
     const totalComments = Number(page.comment_count || 0);
     const commentPaginationOptions = {
@@ -471,7 +474,7 @@ r.post(
       ],
     );
 
-    await touchIpProfile(ip);
+    await touchIpProfile(ip, { userAgent: req.clientUserAgent });
 
     req.session.commentTokens = req.session.commentTokens || {};
     req.session.commentTokens[commentSnowflake] = token;
@@ -743,7 +746,7 @@ r.post(
       }
     }
 
-    await touchIpProfile(ip);
+    await touchIpProfile(ip, { userAgent: req.clientUserAgent });
 
     const total = await get("SELECT COUNT(*) AS totalLikes FROM likes WHERE page_id=?", [
       page.id,
@@ -823,7 +826,9 @@ r.post(
         submittedBy: req.session.user?.username || null,
         targetSlugId: page.slug_id,
       });
-      await touchIpProfile(req.clientIp);
+      await touchIpProfile(req.clientIp, {
+        userAgent: req.clientUserAgent,
+      });
       const followAction = req.session.user
         ? { href: "/account/submissions", label: "Suivre mes contributions" }
         : { href: "/profiles/ip/me", label: "Suivre mes contributions" };
@@ -1119,7 +1124,9 @@ r.get(
           "Impossible de déterminer votre adresse IP pour générer un profil public.",
       });
     }
-    const profile = await touchIpProfile(ip);
+    const profile = await touchIpProfile(ip, {
+      userAgent: req.clientUserAgent,
+    });
     if (!profile?.hash) {
       return res.status(500).render("error", {
         message: "Profil IP actuellement indisponible. Veuillez réessayer plus tard.",
