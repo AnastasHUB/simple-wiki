@@ -28,7 +28,7 @@ const IP_REPUTATION_TIMEOUT_MS = Number.isFinite(configuredTimeout)
   : DEFAULT_TIMEOUT_MS;
 
 const SALT = process.env.IP_PROFILE_SALT || "simple-wiki-ip-profile::v1";
-export const IP_PROFILE_COMMENT_PAGE_SIZES = Object.freeze([5, 10, 20, 50]);
+export const IP_PROFILE_COMMENT_PAGE_SIZES = Object.freeze([5, 10, 50, 100]);
 
 function normalizeOverride(value) {
   if (!value) {
