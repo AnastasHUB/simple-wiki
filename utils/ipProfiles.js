@@ -792,16 +792,26 @@ export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } =
   }));
 }
 
-export async function fetchRecentlyClearedProfiles({ limit = 10 } = {}) {
+export async function countClearedIpProfiles() {
+  const row = await get(
+    `SELECT COUNT(*) AS total
+       FROM ip_profiles
+      WHERE reputation_override='safe'`,
+  );
+  return Number(row?.total ?? 0);
+}
+
+export async function fetchRecentlyClearedProfiles({ limit = 10, offset = 0 } = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
     `SELECT hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
             reputation_status, reputation_auto_status, last_user_agent, is_bot, bot_reason
        FROM ip_profiles
       WHERE reputation_override='safe'
       ORDER BY COALESCE(reputation_checked_at, last_seen_at, created_at) DESC
-      LIMIT ?`,
-    [safeLimit],
+      LIMIT ? OFFSET ?`,
+    [safeLimit, safeOffset],
   );
   return rows.map((row) => ({
     hash: row.hash,
