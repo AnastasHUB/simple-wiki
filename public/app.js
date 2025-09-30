@@ -63,6 +63,7 @@ let quillCodeBlockRegistered = false;
 })();
 
 document.addEventListener("DOMContentLoaded", () => {
+  initAmbientBackdrop();
   initNotifications();
   enhanceIconButtons();
   initLikeForms();
@@ -196,6 +197,94 @@ function initLikeForms() {
       handleLikeSubmit(event, form);
     });
   });
+}
+
+function initAmbientBackdrop() {
+  const scene = document.querySelector(".theme-liquid .background-scene");
+  if (!scene) {
+    return;
+  }
+
+  const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (motionQuery.matches) {
+    return;
+  }
+
+  let frame = null;
+
+  const update = (x, y) => {
+    scene.style.setProperty("--pointer-x", `${x}px`);
+    scene.style.setProperty("--pointer-y", `${y}px`);
+  };
+
+  const scheduleUpdate = (x, y) => {
+    if (typeof x !== "number" || typeof y !== "number") {
+      return;
+    }
+    if (frame) {
+      cancelAnimationFrame(frame);
+    }
+    frame = requestAnimationFrame(() => {
+      update(x, y);
+      frame = null;
+    });
+  };
+
+  const initialX = window.innerWidth / 2;
+  const initialY = window.innerHeight / 2;
+  scheduleUpdate(initialX, initialY);
+
+  const handlePointerMove = (event) => {
+    scheduleUpdate(event.clientX, event.clientY);
+  };
+
+  const handleTouchMove = (event) => {
+    const touch = event.touches?.[0];
+    if (!touch) {
+      return;
+    }
+    scheduleUpdate(touch.clientX, touch.clientY);
+  };
+
+  const resetPosition = () => {
+    scheduleUpdate(window.innerWidth / 2, window.innerHeight / 2);
+  };
+
+  const attachListeners = () => {
+    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointerleave", resetPosition, { passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { passive: true });
+    window.addEventListener("resize", resetPosition);
+  };
+
+  const detachListeners = () => {
+    window.removeEventListener("pointermove", handlePointerMove);
+    window.removeEventListener("pointerleave", resetPosition);
+    window.removeEventListener("touchmove", handleTouchMove);
+    window.removeEventListener("resize", resetPosition);
+  };
+
+  attachListeners();
+
+  const handlePreferenceChange = (event) => {
+    if (event.matches) {
+      detachListeners();
+      if (frame) {
+        cancelAnimationFrame(frame);
+      }
+      scene.style.removeProperty("--pointer-x");
+      scene.style.removeProperty("--pointer-y");
+    } else {
+      resetPosition();
+      attachListeners();
+    }
+  };
+
+  if (typeof motionQuery.addEventListener === "function") {
+    motionQuery.addEventListener("change", handlePreferenceChange);
+  } else if (typeof motionQuery.addListener === "function") {
+    motionQuery.addListener(handlePreferenceChange);
+  }
 }
 
 async function handleLikeSubmit(event, form) {

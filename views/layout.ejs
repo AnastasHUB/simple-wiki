@@ -58,34 +58,45 @@
     href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
   />
 </head>
-<body>
+<body class="theme-liquid">
 <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
 <% const hasBrandLogo = typeof logoUrl !== 'undefined' && logoUrl; %>
-<header class="topbar">
-  <div class="topbar-left">
-    <button class="btn icon only" id="sidebarToggle" aria-label="Ouvrir le menu">☰</button>
-    <a class="brand-link" href="/">
-      <% if (hasBrandLogo) { %>
-        <img src="<%= logoUrl %>" alt="Logo de <%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>">
+<div class="background-scene" aria-hidden="true">
+  <span class="orb orb-1"></span>
+  <span class="orb orb-2"></span>
+  <span class="orb orb-3"></span>
+</div>
+<div class="app-frame">
+  <header class="topbar">
+    <div class="topbar-left">
+      <button class="btn icon only" id="sidebarToggle" aria-label="Ouvrir le menu">
+        <span class="btn-icon" aria-hidden="true">☰</span>
+        <span class="btn-label sr-only">Menu</span>
+      </button>
+      <a class="brand-link" href="/">
+        <span class="brand-glow" aria-hidden="true"></span>
+        <% if (hasBrandLogo) { %>
+          <img src="<%= logoUrl %>" alt="Logo de <%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>">
+        <% } %>
+        <span class="brand-name"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></span>
+      </a>
+    </div>
+    <form method="get" action="/search" class="searchbar" role="search">
+      <label class="sr-only" for="wikiSearch">Rechercher</label>
+      <input id="wikiSearch" type="text" name="q" placeholder="Rechercher…" aria-label="Rechercher sur le wiki">
+      <button class="btn search" data-icon="🔍" type="submit">Rechercher</button>
+    </form>
+    <div class="auth">
+      <% if (currentUser) { %>
+        <div class="who">Connecté : <strong><%= currentUser.display_name || currentUser.username %></strong></div>
+        <form action="/logout" method="post"><button class="btn" data-icon="🔓">Déconnexion</button></form>
+      <% } else { %>
+        <a class="btn" data-icon="🔐" href="/login">Connexion</a>
       <% } %>
-      <span class="brand-name"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></span>
-    </a>
-  </div>
-  <form method="get" action="/search" class="searchbar" role="search">
-    <input type="text" name="q" placeholder="Rechercher…" aria-label="Rechercher sur le wiki">
-    <button class="btn search" data-icon="🔍" type="submit">Rechercher</button>
-  </form>
-  <div class="auth">
-    <% if (currentUser) { %>
-      <div class="who">Connecté : <strong><%= currentUser.display_name || currentUser.username %></strong></div>
-      <form action="/logout" method="post"><button class="btn" data-icon="🔓">Déconnexion</button></form>
-    <% } else { %>
-      <a class="btn" data-icon="🔐" href="/login">Connexion</a>
-    <% } %>
-  </div>
-</header>
+    </div>
+  </header>
 
-<div class="shell">
+  <div class="shell">
   <!-- Sidebar AVANT overlay -->
   <aside class="sidebar" id="sidebar">
     <div class="brand">
@@ -154,6 +165,7 @@
 </div>
 
 <footer class="site-footer"><small><%- typeof footerText !== 'undefined' ? footerText : '' %></small></footer>
+</div>
 
 <script type="application/json" id="initial-notifications"><%- JSON.stringify(initialNotifications).replace(/</g, '\\u003c') %></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
