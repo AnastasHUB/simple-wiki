@@ -20,84 +20,11 @@
       <small>Un index qui s’étoffe jour après jour.</small>
     </div>
     <div class="hero-stat">
-      <dt>Nouveautés (7 derniers jours)</dt>
-      <dd><strong><%= recent.length %></strong></dd>
-      <small>Dernières entrées des contributrices et contributeurs.</small>
-    </div>
-    <div class="hero-stat">
       <dt>Articles affichés</dt>
       <dd><strong><%= rows.length %></strong></dd>
       <small>Selon vos paramètres de pagination.</small>
     </div>
   </dl>
-</section>
-
-<section class="home-section">
-  <div class="section-heading">
-    <div class="section-heading-text">
-      <h2>Dernières publications</h2>
-      <p>Les articles fraîchement publiés au cours des sept derniers jours.</p>
-    </div>
-  </div>
-  <div class="article-grid">
-    <% if (recent.length === 0) { %>
-      <div class="card card-empty">Aucun article récent n’a encore été publié. Revenez bientôt !</div>
-    <% } %>
-    <% recent.forEach(p => {
-      const tags = (p.tagsCsv||'').split(',').filter(Boolean);
-      const createdDate = new Date(p.created_at);
-      const createdIso = !Number.isNaN(createdDate.valueOf()) ? createdDate.toISOString() : null;
-    %>
-      <article class="card article-card article-card--recent">
-        <header class="card-header">
-          <div class="card-title-group">
-            <h3 class="card-title"><strong><%= p.title %></strong></h3>
-            <span class="card-badge">🆕 Nouveau</span>
-          </div>
-          <time class="card-meta" <%= createdIso ? `datetime="${createdIso}"` : '' %>>Publié : <%= p.created_at %></time>
-        </header>
-        <% if (p.excerpt) { %>
-          <div class="excerpt">
-            <div class="excerpt-body"><%- p.excerpt %></div>
-          </div>
-        <% } %>
-        <% if (tags.length) { %>
-          <div class="tags-row">
-            <% tags.forEach(t => { %><a class="tag" href="/tags/<%= t %>"><%= t %></a><% }) %>
-          </div>
-        <% } %>
-        <div class="page-stats" aria-label="Statistiques de l’article">
-          <span title="Likes">💖 <strong data-like-count-for="<%= p.slug_id %>"><%= p.likes %></strong></span>
-          <span title="Commentaires">💬 <strong><%= p.comment_count %></strong></span>
-          <span title="Vues">👁️ <strong><%= p.views %></strong></span>
-        </div>
-        <footer class="card-footer">
-          <div class="card-actions">
-            <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
-            <form action="/wiki/<%= p.slug_id %>/like" method="post" data-like-form-for="<%= p.slug_id %>">
-              <button
-                class="btn <%= p.userLiked ? 'unlike' : 'like' %>"
-                data-icon="<%= p.userLiked ? '💔' : '💖' %>"
-                data-label-liked="Retirer"
-                data-label-unliked="Like"
-                type="submit"
-              >
-                <%= p.userLiked ? 'Retirer' : 'Like' %> (<%= p.likes %>)
-              </button>
-            </form>
-            <button
-              class="btn copy"
-              data-icon="🔗"
-              type="button"
-              onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')"
-            >
-              Copier le lien
-            </button>
-          </div>
-        </footer>
-      </article>
-    <% }) %>
-  </div>
 </section>
 
 <section class="home-section">

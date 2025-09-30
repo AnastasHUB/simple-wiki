@@ -27,7 +27,6 @@ import {
   IP_PROFILE_COMMENT_PAGE_SIZES,
 } from "../utils/ipProfiles.js";
 import {
-  fetchRecentPages,
   fetchPaginatedPages,
   fetchPageWithStats,
   fetchPageTags,
@@ -69,8 +68,6 @@ r.use(
     next();
   }),
 );
-
-const RECENT_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
 
 function appendNotification(res, notif) {
   if (!notif?.message) {
@@ -130,7 +127,6 @@ r.get(
   "/",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
-    const weekAgo = new Date(Date.now() - RECENT_LOOKBACK_MS).toISOString();
 
     const total = await countPages();
     const paginationOptions = {
@@ -147,15 +143,14 @@ r.get(
       excerpt: buildPreviewHtml(row.excerpt),
     });
 
-    const [recentRaw, rowsRaw] = await Promise.all([
-      fetchRecentPages({ ip, since: weekAgo, limit: 3 }),
-      fetchPaginatedPages({ ip, limit: pagination.perPage, offset }),
-    ]);
-    const recent = recentRaw.map(mapPreview);
+    const rowsRaw = await fetchPaginatedPages({
+      ip,
+      limit: pagination.perPage,
+      offset,
+    });
     const rows = rowsRaw.map(mapPreview);
 
     res.render("index", {
-      recent,
       rows,
       total,
       pagination,
