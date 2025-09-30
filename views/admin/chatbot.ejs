@@ -1,0 +1,69 @@
+<% title='Chatbot IA'; %>
+<h1>Assistant conversationnel</h1>
+<p class="mb-md text-muted">
+  Alimentez le chatbot interne avec des documents en texte brut. Chaque document est analysé pour proposer des réponses
+  contextuelles aux utilisateurs sur la page « Assistant IA ».
+</p>
+
+<section class="card mb-xl">
+  <h2>Ajouter un document d'entraînement</h2>
+  <form method="post" action="/admin/chatbot" class="stack-form gap-sm">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Titre (optionnel)</span>
+      <input type="text" name="title" maxlength="200" placeholder="Ex : Guide d'onboarding" />
+    </label>
+    <label class="stack-form">
+      <span class="text-sm text-muted">Contenu</span>
+      <textarea name="content" rows="10" required placeholder="Collez ici le texte d'entraînement"></textarea>
+    </label>
+    <div>
+      <button class="btn success" data-icon="💾" type="submit">Enregistrer le document</button>
+    </div>
+  </form>
+</section>
+
+<section class="card">
+  <h2>Corpus actuel</h2>
+  <% if (Array.isArray(documents) && documents.length) { %>
+    <p>
+      <strong><%= documents.length %></strong> document(s) d'entraînement — environ
+      <strong><%= totalWords %></strong> mot(s) indexés.
+    </p>
+    <div class="table-wrap">
+      <table class="data-table chatbot-documents">
+        <thead>
+          <tr>
+            <th scope="col">Titre</th>
+            <th scope="col">Mots</th>
+            <th scope="col">Aperçu</th>
+            <th scope="col">Ajouté</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% documents.forEach((doc) => { %>
+            <% const title = doc.title && doc.title.trim() ? doc.title.trim() : 'Sans titre'; %>
+            <% const createdLabel = doc.createdAt ? new Date(doc.createdAt).toLocaleString('fr-FR') : '—'; %>
+            <tr>
+              <td><strong><%= title %></strong></td>
+              <td><%= doc.wordCount %></td>
+              <td class="text-sm text-muted"><%= doc.preview %></td>
+              <td><%= createdLabel %></td>
+              <td>
+                <form
+                  method="post"
+                  action="/admin/chatbot/<%= doc.snowflakeId %>/delete"
+                  onsubmit="return confirm('Supprimer ce document du corpus ?')"
+                >
+                  <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } else { %>
+    <p class="mt-sm text-muted">Aucun document enregistré pour le moment. Ajoutez votre premier texte ci-dessus.</p>
+  <% } %>
+</section>
