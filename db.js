@@ -178,13 +178,6 @@ export async function initDb() {
     username TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
-  CREATE TABLE IF NOT EXISTS chatbot_documents(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    snowflake_id TEXT UNIQUE,
-    title TEXT,
-    content TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
   CREATE TABLE IF NOT EXISTS uploads(
     id TEXT PRIMARY KEY,
     snowflake_id TEXT UNIQUE,
@@ -248,7 +241,6 @@ export async function initDb() {
   await ensureSnowflake("ban_appeals");
   await ensureSnowflake("ip_profiles");
   await ensureSnowflake("event_logs");
-  await ensureSnowflake("chatbot_documents");
   await ensureSnowflake("uploads", "snowflake_id");
   await db.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_ban_appeals_pending_ip ON ban_appeals(ip) WHERE ip IS NOT NULL AND status='pending'",

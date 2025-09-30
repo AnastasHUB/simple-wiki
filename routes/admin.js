@@ -72,13 +72,6 @@ import {
   getActiveVisitors,
   ACTIVE_VISITOR_TTL_MS,
 } from "../utils/liveStats.js";
-import {
-  listChatbotDocuments,
-  createChatbotDocument,
-  deleteChatbotDocument,
-  summarizeDocument as summarizeChatbotDocument,
-  countWords as countChatbotWords,
-} from "../utils/chatbotService.js";
 
 await ensureUploadDir();
 
@@ -2606,79 +2599,6 @@ r.post("/trash/empty", async (req, res) => {
   });
 
   res.redirect("/admin/trash");
-});
-
-r.get("/chatbot", async (req, res, next) => {
-  try {
-    const documents = await listChatbotDocuments();
-    const rows = documents.map((document) => ({
-      ...document,
-      preview: summarizeChatbotDocument(document.content, { maxLength: 220 }),
-      wordCount: countChatbotWords(document.content),
-    }));
-    const totalWords = rows.reduce((sum, doc) => sum + doc.wordCount, 0);
-    res.render("admin/chatbot", {
-      documents: rows,
-      totalWords,
-    });
-  } catch (err) {
-    next(err);
-  }
-});
-
-r.post("/chatbot", async (req, res) => {
-  const title = typeof req.body.title === "string" ? req.body.title : "";
-  const content = typeof req.body.content === "string" ? req.body.content : "";
-  if (!content.trim()) {
-    pushNotification(req, {
-      type: "error",
-      message: "Ajoutez du texte avant d'enregistrer le document.",
-    });
-    return res.redirect("/admin/chatbot");
-  }
-
-  try {
-    await createChatbotDocument({ title, content });
-    pushNotification(req, {
-      type: "success",
-      message: "Document ajouté au corpus du chatbot.",
-    });
-  } catch (err) {
-    console.error("Unable to save chatbot document", err);
-    pushNotification(req, {
-      type: "error",
-      message: "Impossible d'enregistrer le document pour le chatbot.",
-    });
-  }
-  res.redirect("/admin/chatbot");
-});
-
-r.post("/chatbot/:snowflakeId/delete", async (req, res) => {
-  const snowflakeId = (req.params.snowflakeId || "").trim();
-  if (!snowflakeId) {
-    pushNotification(req, {
-      type: "error",
-      message: "Identifiant de document manquant.",
-    });
-    return res.redirect("/admin/chatbot");
-  }
-
-  try {
-    const deleted = await deleteChatbotDocument(snowflakeId);
-    pushNotification(req, {
-      type: deleted ? "success" : "info",
-      message: deleted
-        ? "Document supprimé du corpus du chatbot."
-        : "Ce document était déjà absent du corpus.",
-    });
-  } catch (err) {
-    console.error("Unable to delete chatbot document", err);
-    pushNotification(req, {
-      type: "error",
-      message: "Suppression impossible pour ce document.",
-    });
-  }
-  res.redirect("/admin/chatbot");
 });
 
 r.get("/events", async (req, res) => {
