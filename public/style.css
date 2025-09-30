@@ -630,6 +630,7 @@ html.drawer-open .drawer-overlay {
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  white-space: nowrap;
   transition:
     transform 180ms ease,
     box-shadow 220ms ease,
