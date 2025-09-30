@@ -25,6 +25,7 @@ import {
   fetchIpProfiles,
   countIpProfilesForReview,
   listIpProfilesForReview,
+  countClearedIpProfiles,
   fetchRecentlyClearedProfiles,
   countIpReputationHistoryEntries,
   fetchRecentIpReputationChecks,
@@ -32,6 +33,7 @@ import {
   markIpProfileBanned,
   refreshIpReputationByHash,
   getRawIpProfileByHash,
+  clearIpProfileOverride,
   IP_REPUTATION_REFRESH_INTERVAL_MS,
   formatIpProfileLabel,
   touchIpProfile,
@@ -747,39 +749,55 @@ r.post("/ip-bans/:id/delete", async (req, res) => {
 });
 
 r.get("/ip-reputation", async (req, res) => {
-  const reviewTotal = await countIpProfilesForReview();
+  const [reviewTotal, clearedTotal, historyTotal] = await Promise.all([
+    countIpProfilesForReview(),
+    countClearedIpProfiles(),
+    countIpReputationHistoryEntries(),
+  ]);
+
   const reviewBase = buildPagination(req, reviewTotal, {
     pageParam: "reviewPage",
     perPageParam: "reviewPerPage",
     defaultPageSize: DEFAULT_PAGE_SIZE,
     pageSizeOptions: PAGE_SIZE_OPTIONS,
   });
-  const reviewOffset = (reviewBase.page - 1) * reviewBase.perPage;
-
-  const [suspicious, cleared] = await Promise.all([
-    listIpProfilesForReview({ limit: reviewBase.perPage, offset: reviewOffset }),
-    fetchRecentlyClearedProfiles({ limit: 8 }),
-  ]);
-
-  const reviewPagination = decoratePagination(req, reviewBase, {
-    pageParam: "reviewPage",
-    perPageParam: "reviewPerPage",
+  const clearedBase = buildPagination(req, clearedTotal, {
+    pageParam: "clearedPage",
+    perPageParam: "clearedPerPage",
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   });
-
-  const historyTotal = await countIpReputationHistoryEntries();
   const historyBase = buildPagination(req, historyTotal, {
     pageParam: "historyPage",
     perPageParam: "historyPerPage",
     defaultPageSize: DEFAULT_PAGE_SIZE,
     pageSizeOptions: PAGE_SIZE_OPTIONS,
   });
+
+  const reviewOffset = (reviewBase.page - 1) * reviewBase.perPage;
+  const clearedOffset = (clearedBase.page - 1) * clearedBase.perPage;
   const historyOffset = (historyBase.page - 1) * historyBase.perPage;
 
-  const history = await fetchRecentIpReputationChecks({
-    limit: historyBase.perPage,
-    offset: historyOffset,
-  });
+  const [suspicious, cleared, history] = await Promise.all([
+    listIpProfilesForReview({ limit: reviewBase.perPage, offset: reviewOffset }),
+    fetchRecentlyClearedProfiles({
+      limit: clearedBase.perPage,
+      offset: clearedOffset,
+    }),
+    fetchRecentIpReputationChecks({
+      limit: historyBase.perPage,
+      offset: historyOffset,
+    }),
+  ]);
 
+  const reviewPagination = decoratePagination(req, reviewBase, {
+    pageParam: "reviewPage",
+    perPageParam: "reviewPerPage",
+  });
+  const clearedPagination = decoratePagination(req, clearedBase, {
+    pageParam: "clearedPage",
+    perPageParam: "clearedPerPage",
+  });
   const historyPagination = decoratePagination(req, historyBase, {
     pageParam: "historyPage",
     perPageParam: "historyPerPage",
@@ -793,6 +811,7 @@ r.get("/ip-reputation", async (req, res) => {
     cleared,
     history,
     reviewPagination,
+    clearedPagination,
     historyPagination,
     refreshIntervalHours,
     providerName: "ipapi.is",
@@ -862,6 +881,26 @@ r.post("/ip-reputation/:hash/mark-safe", async (req, res) => {
     message: success
       ? `Profil #${formatIpProfileLabel(profile.hash)} marqué comme sûr`
       : "Impossible de marquer ce profil comme sûr.",
+  });
+  res.redirect("/admin/ip-reputation");
+});
+
+r.post("/ip-reputation/:hash/clear-safe", async (req, res) => {
+  const hash = (req.params.hash || "").trim();
+  const profile = await getRawIpProfileByHash(hash);
+  if (!profile?.hash) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/ip-reputation");
+  }
+  const success = await clearIpProfileOverride(hash);
+  pushNotification(req, {
+    type: success ? "success" : "error",
+    message: success
+      ? `Profil #${formatIpProfileLabel(profile.hash)} retiré des validations récentes`
+      : "Impossible de retirer cette validation.",
   });
   res.redirect("/admin/ip-reputation");
 });

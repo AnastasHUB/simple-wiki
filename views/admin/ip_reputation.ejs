@@ -2,6 +2,8 @@
 <%
   const reviewPager = reviewPagination || null;
   const suspiciousTotal = reviewPager ? reviewPager.totalItems : suspicious.length;
+  const clearedPager = clearedPagination || null;
+  const clearedTotal = clearedPager ? clearedPager.totalItems : cleared.length;
   const historyEntries = Array.isArray(history) ? history : [];
   const historyPager = historyPagination || null;
   const historyTotal = historyPager ? historyPager.totalItems : historyEntries.length;
@@ -140,7 +142,7 @@
 
 <section class="card">
   <h2 class="mt-0">IP récemment validées</h2>
-  <% if (!cleared.length) { %>
+  <% if (!clearedTotal) { %>
     <p class="text-muted">Aucune validation manuelle récente.</p>
   <% } else { %>
     <ul class="admin-cleared-list">
@@ -163,6 +165,15 @@
           <% if (profile.bot?.userAgent) { %>
             <p class="text-muted text-sm"><small>Agent : <%= profile.bot.userAgent %></small></p>
           <% } %>
+          <div class="admin-cleared-actions">
+            <form
+              method="post"
+              action="/admin/ip-reputation/<%= profile.hash %>/clear-safe"
+              onsubmit="return confirm('Retirer cette IP des validations récentes ?');"
+            >
+              <button type="submit" class="btn danger" data-icon="🗑️">Retirer</button>
+            </form>
+          </div>
           <p class="admin-cleared-meta text-muted">
             <% if (profile.checkedAt) { %>
               Vérifié le <%= new Date(profile.checkedAt).toLocaleString('fr-FR') %>
@@ -173,6 +184,7 @@
         </li>
       <% }) %>
     </ul>
+    <%- include('./paginationControls', { pagination: clearedPager }) %>
   <% } %>
 </section>
 
