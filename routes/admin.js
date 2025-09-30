@@ -39,7 +39,12 @@ import {
   deleteIpProfileByHash,
 } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
-import { buildPagination, decoratePagination } from "../utils/pagination.js";
+import {
+  buildPagination,
+  decoratePagination,
+  DEFAULT_PAGE_SIZE,
+  PAGE_SIZE_OPTIONS,
+} from "../utils/pagination.js";
 import {
   countPageSubmissions,
   fetchPageSubmissions,
@@ -746,8 +751,8 @@ r.get("/ip-reputation", async (req, res) => {
   const reviewBase = buildPagination(req, reviewTotal, {
     pageParam: "reviewPage",
     perPageParam: "reviewPerPage",
-    defaultPageSize: 20,
-    pageSizeOptions: [5, 10, 20, 50, 100],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   });
   const reviewOffset = (reviewBase.page - 1) * reviewBase.perPage;
 
@@ -765,8 +770,8 @@ r.get("/ip-reputation", async (req, res) => {
   const historyBase = buildPagination(req, historyTotal, {
     pageParam: "historyPage",
     perPageParam: "historyPerPage",
-    defaultPageSize: 20,
-    pageSizeOptions: [10, 20, 50, 100],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   });
   const historyOffset = (historyBase.page - 1) * historyBase.perPage;
 
@@ -931,8 +936,8 @@ r.get("/ip-profiles", async (req, res) => {
   const paginationOptions = {
     pageParam: "page",
     perPageParam: "perPage",
-    defaultPageSize: 25,
-    pageSizeOptions: [10, 25, 50, 100],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
 
   const total = await countIpProfiles({
@@ -1361,8 +1366,8 @@ r.get("/stats", async (req, res) => {
   const topLikedOptions = {
     pageParam: "likesPage",
     perPageParam: "likesPerPage",
-    defaultPageSize: 15,
-    pageSizeOptions: [10, 15, 25, 50, 100],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let topLikedPagination = buildPagination(
     req,
@@ -1394,8 +1399,8 @@ r.get("/stats", async (req, res) => {
   const topCommentersOptions = {
     pageParam: "commentersPage",
     perPageParam: "commentersPerPage",
-    defaultPageSize: 15,
-    pageSizeOptions: [10, 15, 25, 50, 100],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let topCommentersPagination = buildPagination(
     req,
@@ -1431,8 +1436,8 @@ r.get("/stats", async (req, res) => {
   const topCommentedOptions = {
     pageParam: "commentedPage",
     perPageParam: "commentedPerPage",
-    defaultPageSize: 15,
-    pageSizeOptions: [10, 15, 25, 50, 100],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let topCommentedPagination = buildPagination(
     req,
@@ -1469,8 +1474,8 @@ r.get("/stats", async (req, res) => {
   const tagUsageOptions = {
     pageParam: "tagsPage",
     perPageParam: "tagsPerPage",
-    defaultPageSize: 20,
-    pageSizeOptions: [10, 20, 50, 100, 200],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let tagUsagePagination = buildPagination(
     req,
@@ -1506,8 +1511,8 @@ r.get("/stats", async (req, res) => {
   const commentTimelineOptions = {
     pageParam: "timelinePage",
     perPageParam: "timelinePerPage",
-    defaultPageSize: 30,
-    pageSizeOptions: [15, 30, 60, 120],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let commentTimelinePagination = buildPagination(
     req,
@@ -1543,8 +1548,8 @@ r.get("/stats", async (req, res) => {
   const activeIpsOptions = {
     pageParam: "ipsPage",
     perPageParam: "ipsPerPage",
-    defaultPageSize: 25,
-    pageSizeOptions: [10, 25, 50, 100, 200],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let activeIpsPagination = buildPagination(
     req,
@@ -1583,8 +1588,8 @@ r.get("/stats", async (req, res) => {
   const ipViewsOptions = {
     pageParam: "ipViewsPage",
     perPageParam: "ipViewsPerPage",
-    defaultPageSize: 50,
-    pageSizeOptions: [25, 50, 100, 200, 500],
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    pageSizeOptions: PAGE_SIZE_OPTIONS,
   };
   let ipViewsPagination = buildPagination(
     req,

@@ -106,12 +106,18 @@
       <h2>Tous les articles</h2>
       <p>Parcourez l’ensemble des contenus disponibles sur la plateforme.</p>
     </div>
+    <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
     <form class="page-size" method="get" action="/">
-      <input type="hidden" name="page" value="1">
-      <label for="size">Articles par page</label>
-      <select id="size" name="size" onchange="this.form.submit()">
-        <% sizeOptions.forEach(option => { %>
-          <option value="<%= option %>" <%= option === size ? 'selected' : '' %>><%= option %></option>
+      <input type="hidden" name="<%= pagination.pageParam %>" value="1">
+      <% if (pagination.preservedQuery && pagination.preservedQuery.length) { %>
+        <% pagination.preservedQuery.forEach(pair => { %>
+          <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
+        <% }) %>
+      <% } %>
+      <label for="<%= perPageFieldId %>">Articles par page</label>
+      <select id="<%= perPageFieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
+        <% pagination.perPageOptions.forEach(option => { %>
+          <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
         <% }) %>
       </select>
     </form>
@@ -172,11 +178,19 @@
 </section>
 
 <div class="actions pagination">
-  <% if (page > 1) { %>
-    <a class="btn" data-icon="⬅️" href="/?page=<%= page-1 %>&size=<%= size %>">Précédent</a>
-  <% } %>
-  <span class="pagination-status">Page <strong><%= page %></strong> / <%= totalPages %></span>
-  <% if (page < totalPages) { %>
-    <a class="btn" data-icon="➡️" href="/?page=<%= page+1 %>&size=<%= size %>">Suivant</a>
-  <% } %>
+  <span class="pagination-status">
+    Page <strong><%= pagination.page %></strong> / <%= pagination.totalPages %>
+  </span>
+  <div class="pager">
+    <% if (pagination.hasPrevious) { %>
+      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+    <% } else { %>
+      <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+    <% } %>
+    <% if (pagination.hasNext) { %>
+      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+    <% } else { %>
+      <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+    <% } %>
+  </div>
 </div>

@@ -43,9 +43,9 @@ import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
-  resolvePageSize,
   buildPagination,
   decoratePagination,
+  buildPaginationView,
 } from "../utils/pagination.js";
 import {
   createBanAppeal,
@@ -133,12 +133,14 @@ r.get(
     const weekAgo = new Date(Date.now() - RECENT_LOOKBACK_MS).toISOString();
 
     const total = await countPages();
-    const size = resolvePageSize(req.query.size, DEFAULT_PAGE_SIZE);
-    const totalPages = Math.max(1, Math.ceil(total / size));
-    let page = parseInt(req.query.page || "1", 10);
-    if (Number.isNaN(page) || page < 1) page = 1;
-    if (page > totalPages) page = totalPages;
-    const offset = (page - 1) * size;
+    const paginationOptions = {
+      pageParam: "page",
+      perPageParam: "size",
+      defaultPageSize: DEFAULT_PAGE_SIZE,
+      pageSizeOptions: PAGE_SIZE_OPTIONS,
+    };
+    const pagination = buildPaginationView(req, total, paginationOptions);
+    const offset = (pagination.page - 1) * pagination.perPage;
 
     const mapPreview = (row) => ({
       ...row,
@@ -147,7 +149,7 @@ r.get(
 
     const [recentRaw, rowsRaw] = await Promise.all([
       fetchRecentPages({ ip, since: weekAgo, limit: 3 }),
-      fetchPaginatedPages({ ip, limit: size, offset }),
+      fetchPaginatedPages({ ip, limit: pagination.perPage, offset }),
     ]);
     const recent = recentRaw.map(mapPreview);
     const rows = rowsRaw.map(mapPreview);
@@ -156,10 +158,7 @@ r.get(
       recent,
       rows,
       total,
-      page,
-      totalPages,
-      size,
-      sizeOptions: PAGE_SIZE_OPTIONS,
+      pagination,
     });
   }),
 );
@@ -327,7 +326,7 @@ r.get(
     const commentPaginationOptions = {
       pageParam: "commentsPage",
       perPageParam: "commentsPerPage",
-      defaultPageSize: 10,
+      defaultPageSize: DEFAULT_PAGE_SIZE,
       pageSizeOptions: [...IP_PROFILE_COMMENT_PAGE_SIZES],
     };
     let commentPagination = buildPagination(

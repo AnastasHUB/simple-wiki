@@ -100,7 +100,7 @@
     <p class="comment-empty">Aucun commentaire pour le moment.</p>
   <% } %>
 
-  <% if (commentPagination.totalPages > 1) { %>
+  <% if (commentPagination && commentPagination.totalItems > 0) { %>
     <div class="table-footer comment-pagination">
       <div class="per-page-control">
         <label for="comments-per-page" class="nowrap">Commentaires par page</label>
