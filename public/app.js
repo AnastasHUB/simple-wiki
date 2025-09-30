@@ -159,11 +159,25 @@ function spawnNotification(layer, notif) {
   close.textContent = "✕";
   item.appendChild(close);
 
+  let removing = false;
   const remove = () => {
+    if (removing || !item.isConnected) {
+      return;
+    }
+
+    removing = true;
     item.classList.remove("show");
+
+    const fallback = setTimeout(() => {
+      if (item.isConnected) {
+        item.remove();
+      }
+    }, 300);
+
     item.addEventListener(
       "transitionend",
       () => {
+        clearTimeout(fallback);
         item.remove();
       },
       { once: true },

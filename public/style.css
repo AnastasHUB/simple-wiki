@@ -463,6 +463,14 @@ textarea {
   display: flex;
   align-items: flex-start;
   gap: 0.75rem;
+  opacity: 0;
+  transform: translateY(-8px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.notification.show {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .notification.info {
