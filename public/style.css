@@ -641,16 +641,23 @@ html.drawer-open .drawer-overlay {
   text-align: center;
 }
 
-.btn:hover,
-.btn:focus {
+.btn:focus-visible {
+  outline: 2px solid rgba(76, 110, 245, 0.65);
+  outline-offset: 2px;
+}
+
+.btn:focus-visible {
   transform: translateY(-2px) scale(1.01);
   background: rgba(255, 255, 255, 0.08);
   box-shadow: 0 16px 32px rgba(9, 12, 20, 0.32);
 }
 
-.btn:focus-visible {
-  outline: 2px solid rgba(76, 110, 245, 0.65);
-  outline-offset: 2px;
+@media (hover: hover) {
+  .btn:hover {
+    transform: translateY(-2px) scale(1.01);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 16px 32px rgba(9, 12, 20, 0.32);
+  }
 }
 
 .btn:active {
@@ -668,10 +675,16 @@ html.drawer-open .drawer-overlay {
   pointer-events: none;
 }
 
-.btn:hover::after,
-.btn:focus::after {
+.btn:focus-visible::after {
   opacity: 0.18;
   transform: scale(1);
+}
+
+@media (hover: hover) {
+  .btn:hover::after {
+    opacity: 0.18;
+    transform: scale(1);
+  }
 }
 
 .btn:active::after {
@@ -686,10 +699,16 @@ html.drawer-open .drawer-overlay {
   color: var(--muted);
 }
 
-.btn.secondary:hover,
-.btn.secondary:focus {
+.btn.secondary:focus-visible {
   color: #fff;
   background: rgba(255, 255, 255, 0.06);
+}
+
+@media (hover: hover) {
+  .btn.secondary:hover {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
 }
 
 .btn.success {
@@ -698,10 +717,16 @@ html.drawer-open .drawer-overlay {
   color: #b9f6d2;
 }
 
-.btn.success:hover,
-.btn.success:focus {
+.btn.success:focus-visible {
   background: rgba(76, 195, 138, 0.28);
   color: #e0fff2;
+}
+
+@media (hover: hover) {
+  .btn.success:hover {
+    background: rgba(76, 195, 138, 0.28);
+    color: #e0fff2;
+  }
 }
 
 .btn.danger {
@@ -710,10 +735,16 @@ html.drawer-open .drawer-overlay {
   color: #ffd0d0;
 }
 
-.btn.danger:hover,
-.btn.danger:focus {
+.btn.danger:focus-visible {
   background: rgba(249, 112, 112, 0.28);
   color: #fff5f5;
+}
+
+@media (hover: hover) {
+  .btn.danger:hover {
+    background: rgba(249, 112, 112, 0.28);
+    color: #fff5f5;
+  }
 }
 
 .btn.like,
@@ -727,9 +758,48 @@ html.drawer-open .drawer-overlay {
   color: #dae1ff;
 }
 
-.btn.like:hover,
-.btn.like:focus {
+.btn.like:focus-visible {
   background: rgba(76, 110, 245, 0.25);
+}
+
+@media (hover: hover) {
+  .btn.like:hover {
+    background: rgba(76, 110, 245, 0.25);
+  }
+}
+
+@supports not selector(:focus-visible) {
+  .btn:focus {
+    outline: 2px solid rgba(76, 110, 245, 0.65);
+    outline-offset: 2px;
+    transform: translateY(-2px) scale(1.01);
+    background: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 16px 32px rgba(9, 12, 20, 0.32);
+  }
+
+  .btn:focus::after {
+    opacity: 0.18;
+    transform: scale(1);
+  }
+
+  .btn.secondary:focus {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.06);
+  }
+
+  .btn.success:focus {
+    background: rgba(76, 195, 138, 0.28);
+    color: #e0fff2;
+  }
+
+  .btn.danger:focus {
+    background: rgba(249, 112, 112, 0.28);
+    color: #fff5f5;
+  }
+
+  .btn.like:focus {
+    background: rgba(76, 110, 245, 0.25);
+  }
 }
 
 .btn.unlike {
