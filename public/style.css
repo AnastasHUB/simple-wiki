@@ -898,6 +898,11 @@ html.drawer-open .drawer-overlay {
       color var(--transition);
   }
 
+  .btn:focus-visible {
+    transform: none;
+    box-shadow: 0 24px 44px rgba(10, 16, 40, 0.4);
+  }
+
   .btn:active {
     transform: none;
   }
