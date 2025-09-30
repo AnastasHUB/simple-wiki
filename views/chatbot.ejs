@@ -1,0 +1,190 @@
+<% title = 'Assistant IA'; %>
+<h1>Assistant IA</h1>
+<p class="mb-md">
+  Discutez avec l'assistant du wiki. Ses réponses proviennent exclusivement des documents ajoutés par les administrateurs.
+</p>
+<% if (!hasTrainingData) { %>
+  <p class="card mb-lg">
+    Aucun document d'entraînement n'est disponible pour le moment. Les administrateurs peuvent en ajouter depuis l'onglet « Chatbot IA ».
+  </p>
+<% } %>
+
+<div class="chatbot-container">
+  <div class="chatbot-history" id="chatbotHistory" aria-live="polite">
+    <% if (Array.isArray(history) && history.length) { %>
+      <% history.forEach((entry) => { %>
+        <% const isAssistant = entry.role === 'assistant'; %>
+        <article class="chatbot-bubble <%= isAssistant ? 'assistant' : 'user' %>">
+          <header class="chatbot-role"><%= isAssistant ? 'Assistant' : 'Vous' %></header>
+          <div class="chatbot-text"><%= entry.content %></div>
+        </article>
+      <% }) %>
+    <% } else { %>
+      <p class="chatbot-empty text-muted">Posez votre première question pour démarrer la conversation.</p>
+    <% } %>
+  </div>
+
+  <form id="chatbotForm" class="chatbot-form" action="/chatbot/message" method="post">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Votre message</span>
+      <textarea
+        id="chatbotMessage"
+        name="message"
+        rows="3"
+        required
+        placeholder="Par exemple : Peux-tu résumer le guide d'onboarding ?"
+      ></textarea>
+    </label>
+    <div class="chatbot-actions">
+      <button class="btn primary" data-icon="💬" type="submit">Envoyer</button>
+      <button class="btn secondary" data-icon="♻️" type="submit" form="chatbotResetForm">Réinitialiser</button>
+    </div>
+  </form>
+  <form id="chatbotResetForm" action="/chatbot/reset" method="post"></form>
+</div>
+
+<script type="application/json" id="chatbotHistoryData"><%- JSON.stringify(history || []).replace(/</g, '\\u003c') %></script>
+<script>
+  (function () {
+    const historyEl = document.getElementById('chatbotHistory');
+    const form = document.getElementById('chatbotForm');
+    const messageInput = document.getElementById('chatbotMessage');
+    const resetForm = document.getElementById('chatbotResetForm');
+    const dataEl = document.getElementById('chatbotHistoryData');
+    let history = [];
+
+    if (dataEl) {
+      try {
+        const parsed = JSON.parse(dataEl.textContent || '[]');
+        if (Array.isArray(parsed)) {
+          history = parsed;
+        }
+      } catch (err) {
+        console.warn('Historique de chatbot invalide', err);
+      }
+    }
+
+    function renderHistory(entries) {
+      if (!historyEl) {
+        return;
+      }
+      historyEl.innerHTML = '';
+      if (!entries.length) {
+        const empty = document.createElement('p');
+        empty.className = 'chatbot-empty text-muted';
+        empty.textContent = 'Posez votre première question pour démarrer la conversation.';
+        historyEl.appendChild(empty);
+        return;
+      }
+      entries.forEach((item) => {
+        if (!item || typeof item !== 'object') {
+          return;
+        }
+        const wrapper = document.createElement('article');
+        wrapper.className = 'chatbot-bubble ' + (item.role === 'assistant' ? 'assistant' : 'user');
+
+        const role = document.createElement('header');
+        role.className = 'chatbot-role';
+        role.textContent = item.role === 'assistant' ? 'Assistant' : 'Vous';
+        wrapper.appendChild(role);
+
+        const text = document.createElement('div');
+        text.className = 'chatbot-text';
+        text.textContent = item.content || '';
+        wrapper.appendChild(text);
+
+        historyEl.appendChild(wrapper);
+      });
+      historyEl.scrollTop = historyEl.scrollHeight;
+    }
+
+    function toggleFormDisabled(disabled) {
+      if (!form) {
+        return;
+      }
+      const elements = form.querySelectorAll('textarea, button');
+      elements.forEach((el) => {
+        el.disabled = disabled;
+      });
+      form.classList.toggle('is-loading', disabled);
+    }
+
+    async function submitMessage(event) {
+      event.preventDefault();
+      if (!form || !messageInput) {
+        return;
+      }
+      const value = messageInput.value.trim();
+      if (!value) {
+        messageInput.focus();
+        return;
+      }
+      toggleFormDisabled(true);
+      try {
+        const payload = new URLSearchParams();
+        payload.set('message', value);
+        const response = await fetch(form.action, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          },
+          body: payload.toString(),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          history = Array.isArray(data.history) ? data.history : [];
+          renderHistory(history);
+          messageInput.value = '';
+        } else {
+          form.submit();
+        }
+      } catch (err) {
+        console.warn('Envoi du message impossible', err);
+        form.submit();
+      } finally {
+        toggleFormDisabled(false);
+        if (messageInput) {
+          messageInput.focus();
+        }
+      }
+    }
+
+    async function resetConversation(event) {
+      event.preventDefault();
+      if (!resetForm) {
+        return;
+      }
+      try {
+        const response = await fetch(resetForm.action, {
+          method: 'POST',
+          headers: {
+            Accept: 'application/json',
+          },
+        });
+        if (response.ok) {
+          history = [];
+          renderHistory(history);
+          if (messageInput) {
+            messageInput.value = '';
+            messageInput.focus();
+          }
+        } else {
+          resetForm.submit();
+        }
+      } catch (err) {
+        console.warn('Réinitialisation impossible', err);
+        resetForm.submit();
+      }
+    }
+
+    renderHistory(history);
+
+    if (form) {
+      form.addEventListener('submit', submitMessage);
+    }
+    if (resetForm) {
+      resetForm.addEventListener('submit', resetConversation);
+    }
+  })();
+</script>
