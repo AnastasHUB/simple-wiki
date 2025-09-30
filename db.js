@@ -215,6 +215,9 @@ export async function initDb() {
   );
   await ensureColumn("ip_profiles", "is_abuser", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("ip_profiles", "is_tor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("ip_profiles", "last_user_agent", "TEXT");
+  await ensureColumn("ip_profiles", "is_bot", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("ip_profiles", "bot_reason", "TEXT");
   await ensureColumn(
     "ban_appeals",
     "status",

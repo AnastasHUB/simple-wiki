@@ -86,6 +86,9 @@
               <code class="admin-risk-ip"><%= profile.ip %></code>
               <span class="status-pill suspicious">Suspecte</span>
               <span class="text-muted">Profil #<%= profile.shortHash %></span>
+              <% if (profile.bot?.isBot) { %>
+                <span class="status-pill suspicious">Bot suspecté</span>
+              <% } %>
             </div>
             <div class="admin-risk-links">
               <a class="btn secondary" href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">Profil public</a>
@@ -93,12 +96,19 @@
             </div>
           </header>
           <p class="admin-risk-summary"><%= profile.summary || 'Signaux d\'activité suspects détectés.' %></p>
+          <% if (profile.bot?.reason) { %>
+            <p class="text-muted text-sm">Détection bot : <%= profile.bot.reason %></p>
+          <% } %>
+          <% if (profile.bot?.userAgent) { %>
+            <p class="text-muted text-sm"><small>Agent : <%= profile.bot.userAgent %></small></p>
+          <% } %>
           <div class="admin-risk-flags">
             <% if (profile.flags.isVpn) { %><span class="tag tag-danger">VPN détecté</span><% } %>
             <% if (profile.flags.isProxy) { %><span class="tag tag-warning">Proxy</span><% } %>
             <% if (profile.flags.isTor) { %><span class="tag tag-warning">Noeud Tor</span><% } %>
             <% if (profile.flags.isDatacenter) { %><span class="tag tag-info">Hébergement</span><% } %>
             <% if (profile.flags.isAbuser) { %><span class="tag tag-danger">Risque d'abus</span><% } %>
+            <% if (profile.bot?.isBot) { %><span class="tag tag-danger">Bot</span><% } %>
           </div>
           <div class="admin-risk-meta text-muted">
             <% if (profile.checkedAt) { %>
@@ -140,9 +150,18 @@
             <code><%= profile.ip %></code>
             <span class="status-pill safe">Sûre</span>
             <span class="text-muted">Profil #<%= profile.shortHash %></span>
+            <% if (profile.bot?.isBot) { %>
+              <span class="status-pill suspicious">Bot suspecté</span>
+            <% } %>
           </div>
           <% if (profile.summary) { %>
             <p class="text-muted"><%= profile.summary %></p>
+          <% } %>
+          <% if (profile.bot?.reason) { %>
+            <p class="text-muted text-sm">Détection bot : <%= profile.bot.reason %></p>
+          <% } %>
+          <% if (profile.bot?.userAgent) { %>
+            <p class="text-muted text-sm"><small>Agent : <%= profile.bot.userAgent %></small></p>
           <% } %>
           <p class="admin-cleared-meta text-muted">
             <% if (profile.checkedAt) { %>
@@ -192,6 +211,14 @@
               </td>
               <td>
                 <%= entry.summary || "Aucun signal particulier détecté." %>
+                <% if (entry.bot?.isBot) { %>
+                  <br />
+                  <small class="text-muted">Bot détecté : <%= entry.bot.reason || 'Motifs automatiques' %></small>
+                <% } %>
+                <% if (entry.bot?.userAgent) { %>
+                  <br />
+                  <small class="text-muted"><%= entry.bot.userAgent %></small>
+                <% } %>
               </td>
               <td>
                 <% if (entry.checkedAt) { %>

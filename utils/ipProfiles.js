@@ -3,6 +3,7 @@ import fetch from "node-fetch";
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
 import { getActiveBans } from "./ipBans.js";
+import { detectBotUserAgent } from "./ip.js";
 
 const DEFAULT_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const configuredRefreshInterval =
@@ -160,7 +161,10 @@ export function formatIpProfileLabel(hash, length = 10) {
   return hash.slice(0, safeLength).toUpperCase();
 }
 
-export async function touchIpProfile(ip, { skipRefresh = false } = {}) {
+export async function touchIpProfile(
+  ip,
+  { skipRefresh = false, userAgent = null } = {},
+) {
   const normalized = normalizeIp(ip);
   if (!normalized) {
     return null;
@@ -169,15 +173,28 @@ export async function touchIpProfile(ip, { skipRefresh = false } = {}) {
   if (!hashed) {
     return null;
   }
+  const botDetection = detectBotUserAgent(userAgent);
+  const normalizedUserAgent = botDetection.userAgent;
 
   const existing = await get(
     "SELECT id, hash FROM ip_profiles WHERE ip = ?",
     [normalized],
   );
   if (existing?.id) {
-    await run("UPDATE ip_profiles SET last_seen_at=CURRENT_TIMESTAMP WHERE id=?", [
-      existing.id,
-    ]);
+    const updates = ["last_seen_at=CURRENT_TIMESTAMP"];
+    const params = [];
+    if (normalizedUserAgent !== null) {
+      updates.push("last_user_agent=?", "is_bot=?", "bot_reason=?");
+      params.push(
+        normalizedUserAgent,
+        botDetection.isBot ? 1 : 0,
+        botDetection.reason || null,
+      );
+    }
+    await run(
+      `UPDATE ip_profiles SET ${updates.join(", ")} WHERE id=?`,
+      [...params, existing.id],
+    );
     if (!skipRefresh) {
       scheduleIpReputationRefresh(normalized);
     }
@@ -188,10 +205,23 @@ export async function touchIpProfile(ip, { skipRefresh = false } = {}) {
   }
 
   const snowflake = generateSnowflake();
+  const columns = ["snowflake_id", "ip", "hash"];
+  const placeholders = ["?", "?", "?"];
+  const values = [snowflake, normalized, hashed];
+  if (normalizedUserAgent !== null) {
+    columns.push("last_user_agent", "is_bot", "bot_reason");
+    placeholders.push("?", "?", "?");
+    values.push(
+      normalizedUserAgent,
+      botDetection.isBot ? 1 : 0,
+      botDetection.reason || null,
+    );
+  }
+
   try {
     await run(
-      "INSERT INTO ip_profiles(snowflake_id, ip, hash) VALUES(?,?,?)",
-      [snowflake, normalized, hashed],
+      `INSERT INTO ip_profiles(${columns.join(",")}) VALUES(${placeholders.join(",")})`,
+      values,
     );
   } catch (err) {
     if (err?.code !== "SQLITE_CONSTRAINT_UNIQUE") {
@@ -341,7 +371,8 @@ export async function getIpProfileByHash(hash) {
     `SELECT id, ip, hash, created_at, last_seen_at,
             reputation_status, reputation_auto_status, reputation_override,
             reputation_summary, reputation_checked_at,
-            is_vpn, is_proxy, is_datacenter, is_abuser, is_tor
+            is_vpn, is_proxy, is_datacenter, is_abuser, is_tor,
+            last_user_agent, is_bot, bot_reason
        FROM ip_profiles
       WHERE hash = ?`,
     [normalized],
@@ -462,6 +493,11 @@ export async function getIpProfileByHash(hash) {
         isAbuser: Boolean(profile.is_abuser),
       },
     },
+    bot: {
+      isBot: Boolean(profile.is_bot),
+      reason: profile.bot_reason || null,
+      userAgent: profile.last_user_agent || null,
+    },
     stats: {
       views: {
         total: Number(viewStats?.total || 0),
@@ -577,6 +613,9 @@ export async function fetchIpProfiles({
         ipr.is_tor,
         ipr.is_datacenter,
         ipr.is_abuser,
+        ipr.last_user_agent,
+        ipr.is_bot,
+        ipr.bot_reason,
         (SELECT COUNT(*) FROM comments WHERE ip = ipr.ip AND status='approved') AS approved_comments,
         (SELECT COUNT(*) FROM page_submissions WHERE ip = ipr.ip) AS submissions,
         (SELECT COUNT(*) FROM likes WHERE ip = ipr.ip) AS likes,
@@ -608,6 +647,11 @@ export async function fetchIpProfiles({
         isDatacenter: Boolean(row.is_datacenter),
         isAbuser: Boolean(row.is_abuser),
       },
+    },
+    bot: {
+      isBot: Boolean(row.is_bot),
+      reason: row.bot_reason || null,
+      userAgent: row.last_user_agent || null,
     },
     stats: {
       approvedComments: Number(row.approved_comments || 0),
@@ -672,7 +716,8 @@ export async function listIpProfilesForReview({ limit = 50, offset = 0 } = {}) {
   const rows = await all(
     `SELECT hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
             reputation_status, reputation_auto_status, reputation_override,
-            is_vpn, is_proxy, is_tor, is_datacenter, is_abuser
+            is_vpn, is_proxy, is_tor, is_datacenter, is_abuser,
+            last_user_agent, is_bot, bot_reason
        FROM ip_profiles
       WHERE reputation_auto_status='suspicious'
         AND (reputation_override IS NULL OR reputation_override NOT IN ('safe','banned'))
@@ -698,6 +743,11 @@ export async function listIpProfilesForReview({ limit = 50, offset = 0 } = {}) {
       isDatacenter: Boolean(row.is_datacenter),
       isAbuser: Boolean(row.is_abuser),
     },
+    bot: {
+      isBot: Boolean(row.is_bot),
+      reason: row.bot_reason || null,
+      userAgent: row.last_user_agent || null,
+    },
   }));
 }
 
@@ -715,7 +765,8 @@ export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } =
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
     `SELECT hash, ip, reputation_status, reputation_auto_status, reputation_override,
-            reputation_summary, reputation_checked_at, last_seen_at
+            reputation_summary, reputation_checked_at, last_seen_at,
+            last_user_agent, is_bot, bot_reason
        FROM ip_profiles
       WHERE reputation_checked_at IS NOT NULL
       ORDER BY reputation_checked_at DESC
@@ -733,6 +784,11 @@ export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } =
     summary: row.reputation_summary || null,
     checkedAt: row.reputation_checked_at || null,
     lastSeenAt: row.last_seen_at || null,
+    bot: {
+      isBot: Boolean(row.is_bot),
+      reason: row.bot_reason || null,
+      userAgent: row.last_user_agent || null,
+    },
   }));
 }
 
@@ -740,7 +796,7 @@ export async function fetchRecentlyClearedProfiles({ limit = 10 } = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
   const rows = await all(
     `SELECT hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
-            reputation_status, reputation_auto_status
+            reputation_status, reputation_auto_status, last_user_agent, is_bot, bot_reason
        FROM ip_profiles
       WHERE reputation_override='safe'
       ORDER BY COALESCE(reputation_checked_at, last_seen_at, created_at) DESC
@@ -757,6 +813,11 @@ export async function fetchRecentlyClearedProfiles({ limit = 10 } = {}) {
     summary: row.reputation_summary || null,
     status: row.reputation_status || "safe",
     autoStatus: row.reputation_auto_status || "clean",
+    bot: {
+      isBot: Boolean(row.is_bot),
+      reason: row.bot_reason || null,
+      userAgent: row.last_user_agent || null,
+    },
   }));
 }
 

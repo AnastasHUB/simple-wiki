@@ -49,6 +49,25 @@
           <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString('fr-FR') : 'Inconnue' %></dd>
         </div>
         <div>
+          <dt>Détection automatique</dt>
+          <dd>
+            <% if (profile.bot?.isBot) { %>
+              <span class="status-pill suspicious">Bot suspecté</span>
+              <% if (profile.bot?.reason) { %>
+                <br /><small class="text-muted"><%= profile.bot.reason %></small>
+              <% } %>
+            <% } else { %>
+              <span class="status-pill clean">Activité humaine</span>
+            <% } %>
+          </dd>
+        </div>
+        <% if (profile.bot?.userAgent) { %>
+          <div>
+            <dt>Dernier agent utilisateur</dt>
+            <dd><small><%= profile.bot.userAgent %></small></dd>
+          </div>
+        <% } %>
+        <div>
           <dt>Identifiant</dt>
           <dd><code>#<%= profile.shortHash %></code></dd>
         </div>

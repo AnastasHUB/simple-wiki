@@ -14,7 +14,7 @@ import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
-import { getClientIp } from "./utils/ip.js";
+import { getClientIp, getClientUserAgent } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
 import { trackLiveVisitor } from "./utils/liveStats.js";
 
@@ -48,7 +48,8 @@ app.use((req, res, next) => {
   if (!isStatic && req.method !== "OPTIONS") {
     const ip = getClientIp(req);
     if (ip) {
-      trackLiveVisitor(ip, originalUrl);
+      const userAgent = getClientUserAgent(req);
+      trackLiveVisitor(ip, originalUrl, { userAgent });
     }
   }
   next();
