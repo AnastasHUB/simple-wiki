@@ -439,6 +439,56 @@ textarea {
   gap: 0.5rem;
 }
 
+.stats-live-card .live-stats-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.stats-live-card .live-stats-header > div:first-child {
+  flex: 1 1 240px;
+}
+
+.stats-live-card .live-stats-refresh,
+.stats-live-card .live-stats-per-page {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.stats-live-card select {
+  width: auto;
+}
+
+.stats-live-card .live-stats-refresh select,
+.stats-live-card .live-stats-per-page select {
+  min-width: 140px;
+}
+
+.stats-live-card .live-stats-empty {
+  margin: 0 0 1rem 0;
+  color: #52606d;
+}
+
+.stats-live-card [data-live-status] {
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+}
+
+.stats-live-card [data-live-status].live-stats-status-error {
+  color: #c81e1e;
+}
+
+@media (max-width: 640px) {
+  .stats-live-card .live-stats-refresh,
+  .stats-live-card .live-stats-per-page {
+    width: 100%;
+    justify-content: space-between;
+  }
+}
+
 .honeypot {
   display: none;
 }
