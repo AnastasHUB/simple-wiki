@@ -1129,12 +1129,14 @@ html.drawer-open .drawer-overlay {
   margin-top: 1.25rem;
 }
 
-.card:hover,
-.card:focus-within {
-  transform: translateY(-6px) scale(1.01);
-  border-color: rgba(182, 198, 255, 0.5);
-  box-shadow: 0 32px 60px rgba(12, 18, 48, 0.45);
-  background: linear-gradient(150deg, rgba(36, 46, 102, 0.82), rgba(15, 20, 46, 0.92));
+@media (hover: hover) {
+  .card:hover,
+  .card:focus-within {
+    transform: translateY(-6px) scale(1.01);
+    border-color: rgba(182, 198, 255, 0.5);
+    box-shadow: 0 32px 60px rgba(12, 18, 48, 0.45);
+    background: linear-gradient(150deg, rgba(36, 46, 102, 0.82), rgba(15, 20, 46, 0.92));
+  }
 }
 
 .card.card-highlight {
