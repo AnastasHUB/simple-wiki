@@ -664,6 +664,19 @@ html.drawer-open .drawer-overlay {
   transform: scale(0.97);
 }
 
+@media (hover: none) and (pointer: coarse) {
+  .btn {
+    transition:
+      background var(--transition),
+      border-color var(--transition),
+      color var(--transition);
+  }
+
+  .btn:active {
+    transform: none;
+  }
+}
+
 .btn::after {
   content: "";
   position: absolute;
