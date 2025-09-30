@@ -607,6 +607,10 @@ html.drawer-open .drawer-overlay {
     text-align: center;
   }
 
+  .card-actions form {
+    flex: 1 1 100%;
+  }
+
   .card-actions .btn {
     flex: 1 1 100%;
   }
@@ -986,10 +990,19 @@ html.drawer-open .drawer-overlay {
 
 .card-actions form {
   margin: 0;
+  display: flex;
+  flex: 1 1 150px;
+  min-width: 0;
+}
+
+.card-actions form .btn {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .card-actions .btn {
   flex: 1 1 150px;
+  min-width: 0;
 }
 
 .card-empty {
