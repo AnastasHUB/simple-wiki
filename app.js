@@ -12,6 +12,7 @@ import adminRoutes from "./routes/admin.js";
 import accountRoutes from "./routes/account.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
+import chatbotRoutes from "./routes/chatbot.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp, getClientUserAgent } from "./utils/ip.js";
@@ -31,6 +32,8 @@ app.set("layout", "layout");
 
 // Allow larger rich-text form submissions (e.g. with embedded images).
 const urlencodedBodyLimit = process.env.URLENCODED_BODY_LIMIT || "10mb";
+const jsonBodyLimit = process.env.JSON_BODY_LIMIT || "2mb";
+app.use(express.json({ limit: jsonBodyLimit }));
 app.use(express.urlencoded({ extended: true, limit: urlencodedBodyLimit }));
 app.use(methodOverride("_method"));
 app.use(morgan("dev"));
@@ -127,6 +130,7 @@ app.use("/", authRoutes);
 app.use("/account", accountRoutes);
 app.use("/admin", adminRoutes);
 app.use("/", searchRoutes);
+app.use("/", chatbotRoutes);
 
 app.use((err, req, res, next) => {
   console.error(err);
