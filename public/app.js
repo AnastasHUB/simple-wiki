@@ -69,6 +69,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLikeForms();
   initHtmlEditor();
   initCodeHighlighting();
+  initLiveStatsCard();
 });
 
 function enhanceIconButtons() {
@@ -210,6 +211,357 @@ function initLikeForms() {
       event.preventDefault();
       handleLikeSubmit(event, form);
     });
+  });
+}
+
+function initLiveStatsCard() {
+  const card = document.querySelector("[data-live-stats-card]");
+  if (!card) {
+    return;
+  }
+
+  const endpoint = card.getAttribute("data-endpoint") || "/admin/stats/live";
+  const pageParam = card.getAttribute("data-page-param") || "livePage";
+  const perPageParam = card.getAttribute("data-per-page-param") || "livePerPage";
+  const tableWrap = card.querySelector("[data-live-table]");
+  const tbody = card.querySelector("[data-live-table-body]");
+  const emptyMessage = card.querySelector("[data-live-empty]");
+  const footer = card.querySelector("[data-live-footer]");
+  const pageInfo = card.querySelector("[data-live-page-info]");
+  const prevButton = card.querySelector("[data-live-prev]");
+  const nextButton = card.querySelector("[data-live-next]");
+  const perPageSelect = card.querySelector("[data-live-per-page]");
+  const refreshSelect = card.querySelector("[data-live-refresh]");
+  const windowLabel = card.querySelector("[data-live-window-label]");
+  const statusEl = card.querySelector("[data-live-status]");
+
+  if (
+    !tbody ||
+    !pageInfo ||
+    !prevButton ||
+    !nextButton ||
+    !perPageSelect ||
+    !refreshSelect ||
+    !windowLabel ||
+    !statusEl
+  ) {
+    return;
+  }
+
+  const locale = document.documentElement.lang || undefined;
+  const timeFormatter = new Intl.DateTimeFormat(locale, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+
+  const parseNumber = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) ? parsed : fallback;
+  };
+
+  const state = {
+    page: parseNumber(card.getAttribute("data-live-page"), 1),
+    perPage: parseNumber(card.getAttribute("data-live-per-page"), parseNumber(perPageSelect.value, 10)),
+    totalPages: parseNumber(card.getAttribute("data-live-total-pages"), 1),
+    totalItems: parseNumber(card.getAttribute("data-live-total-items"), 0),
+    refreshMs: parseNumber(refreshSelect.value, 5000),
+    timerId: null,
+    loading: false,
+  };
+
+  let requestSerial = 0;
+  let activeRequests = 0;
+
+  const setHidden = (element, hidden) => {
+    if (!element) return;
+    if (hidden) {
+      element.setAttribute("hidden", "");
+    } else {
+      element.removeAttribute("hidden");
+    }
+  };
+
+  const pluralize = (count, singular, plural) => {
+    return `${count} ${count === 1 ? singular : plural}`;
+  };
+
+  const formatWindowLabel = (seconds) => {
+    const value = Number(seconds);
+    if (!Number.isFinite(value) || value <= 0) {
+      return "quelques secondes";
+    }
+    if (value >= 60) {
+      const minutes = Math.max(1, Math.round(value / 60));
+      return `${minutes} minute${minutes > 1 ? "s" : ""}`;
+    }
+    const secs = Math.max(1, Math.round(value));
+    return `${secs} seconde${secs > 1 ? "s" : ""}`;
+  };
+
+  const updateWindowLabel = (seconds) => {
+    windowLabel.textContent = `Basé sur l'activité des ${formatWindowLabel(seconds)} précédentes.`;
+  };
+
+  const updateStatus = (timestamp, isError = false) => {
+    if (isError) {
+      statusEl.textContent = "Dernière mise à jour : échec du rafraîchissement";
+      statusEl.classList.add("live-stats-status-error");
+      return;
+    }
+    statusEl.classList.remove("live-stats-status-error");
+    if (!timestamp) {
+      statusEl.textContent = "Dernière mise à jour : --";
+      return;
+    }
+    statusEl.textContent = `Dernière mise à jour : ${timeFormatter.format(new Date(timestamp))}`;
+  };
+
+  const renderVisitors = (visitors) => {
+    tbody.innerHTML = "";
+    if (!Array.isArray(visitors) || !visitors.length) {
+      return;
+    }
+
+    visitors.forEach((visitor) => {
+      const row = document.createElement("tr");
+
+      const ipCell = document.createElement("td");
+      const ipCode = document.createElement("code");
+      ipCode.textContent = visitor?.ip || "";
+      ipCell.appendChild(ipCode);
+      row.appendChild(ipCell);
+
+      const typeCell = document.createElement("td");
+      const statusPill = document.createElement("span");
+      statusPill.className = `status-pill ${visitor?.isBot ? "suspicious" : "clean"}`;
+      statusPill.textContent = visitor?.isBot ? "Bot" : "Visiteur";
+      typeCell.appendChild(statusPill);
+
+      if (visitor?.isBot && visitor?.botReason) {
+        typeCell.appendChild(document.createElement("br"));
+        const reason = document.createElement("small");
+        reason.className = "text-muted";
+        reason.textContent = visitor.botReason;
+        typeCell.appendChild(reason);
+      }
+
+      if (visitor?.userAgent) {
+        typeCell.appendChild(document.createElement("br"));
+        const ua = document.createElement("small");
+        ua.className = "text-muted";
+        ua.textContent = visitor.userAgent;
+        typeCell.appendChild(ua);
+      }
+
+      row.appendChild(typeCell);
+
+      const pathCell = document.createElement("td");
+      const pathLink = document.createElement("a");
+      const pathValue = visitor?.path || "";
+      pathLink.href = pathValue || "#";
+      pathLink.textContent = pathValue || "—";
+      pathCell.appendChild(pathLink);
+      row.appendChild(pathCell);
+
+      const timeCell = document.createElement("td");
+      const timeEl = document.createElement("time");
+      if (visitor?.lastSeenIso) {
+        timeEl.setAttribute("datetime", visitor.lastSeenIso);
+      }
+      const relative = visitor?.lastSeenRelative || "";
+      timeEl.textContent = relative ? `il y a ${relative}` : "—";
+      timeCell.appendChild(timeEl);
+      row.appendChild(timeCell);
+
+      tbody.appendChild(row);
+    });
+  };
+
+  const applyPagination = (pagination) => {
+    if (!pagination) {
+      return;
+    }
+
+    state.page = Math.max(1, parseNumber(pagination.page, state.page));
+    state.perPage = Math.max(1, parseNumber(pagination.perPage, state.perPage));
+    state.totalPages = Math.max(1, parseNumber(pagination.totalPages, state.totalPages));
+    state.totalItems = Math.max(0, parseNumber(pagination.totalItems, state.totalItems));
+
+    card.setAttribute("data-live-page", state.page);
+    card.setAttribute("data-live-per-page", state.perPage);
+    card.setAttribute("data-live-total-pages", state.totalPages);
+    card.setAttribute("data-live-total-items", state.totalItems);
+
+    if (perPageSelect) {
+      perPageSelect.value = String(state.perPage);
+    }
+
+    if (pageInfo) {
+      pageInfo.textContent = `Page ${state.page} sur ${state.totalPages} · ${pluralize(state.totalItems, "actif", "actifs")}`;
+    }
+
+    if (prevButton) {
+      prevButton.disabled = !pagination.hasPrevious;
+    }
+    if (nextButton) {
+      nextButton.disabled = !pagination.hasNext;
+    }
+  };
+
+  const updateVisibility = (hasVisitors) => {
+    setHidden(emptyMessage, hasVisitors);
+    setHidden(tableWrap, !hasVisitors);
+    setHidden(footer, !hasVisitors);
+  };
+
+  const fetchData = async (options = {}) => {
+    const requestedPage = parseNumber(options.page, state.page);
+    const requestedPerPage = parseNumber(options.perPage, state.perPage);
+    const params = new URLSearchParams();
+    params.set(pageParam, String(requestedPage));
+    params.set(perPageParam, String(requestedPerPage));
+
+    const token = ++requestSerial;
+    activeRequests += 1;
+    state.loading = true;
+    try {
+      const response = await fetch(`${endpoint}?${params.toString()}`, {
+        headers: {
+          Accept: "application/json",
+        },
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      if (!payload || payload.ok !== true) {
+        throw new Error("Réponse inattendue");
+      }
+
+      const visitors = Array.isArray(payload.visitors)
+        ? payload.visitors
+        : [];
+      if (token === requestSerial) {
+        renderVisitors(visitors);
+        updateVisibility(visitors.length > 0);
+        applyPagination(payload.pagination || {});
+        if (payload.liveVisitorsWindowSeconds !== undefined) {
+          const seconds = Number(payload.liveVisitorsWindowSeconds);
+          card.setAttribute("data-live-window-seconds", seconds);
+          updateWindowLabel(seconds);
+        }
+        updateStatus(Date.now());
+      }
+    } catch (error) {
+      console.error("Erreur lors du rafraîchissement des statistiques en direct", error);
+      if (token === requestSerial) {
+        updateStatus(null, true);
+      }
+    } finally {
+      activeRequests = Math.max(0, activeRequests - 1);
+      state.loading = activeRequests > 0;
+    }
+  };
+
+  const restartTimer = () => {
+    if (state.timerId) {
+      clearInterval(state.timerId);
+      state.timerId = null;
+    }
+    if (!Number.isFinite(state.refreshMs) || state.refreshMs < 500) {
+      return;
+    }
+    state.timerId = window.setInterval(() => {
+      if (!state.loading) {
+        fetchData();
+      }
+    }, state.refreshMs);
+  };
+
+  const handlePerPageChange = () => {
+    const value = parseNumber(perPageSelect.value, state.perPage);
+    if (value === state.perPage) {
+      return;
+    }
+    state.perPage = value;
+    state.page = 1;
+    fetchData({ page: state.page, perPage: state.perPage });
+    restartTimer();
+  };
+
+  const handlePrev = () => {
+    if (prevButton.disabled) {
+      return;
+    }
+    const targetPage = Math.max(1, state.page - 1);
+    fetchData({ page: targetPage, perPage: state.perPage });
+    restartTimer();
+  };
+
+  const handleNext = () => {
+    if (nextButton.disabled) {
+      return;
+    }
+    const targetPage = state.page + 1;
+    fetchData({ page: targetPage, perPage: state.perPage });
+    restartTimer();
+  };
+
+  const handleRefreshChange = () => {
+    state.refreshMs = parseNumber(refreshSelect.value, state.refreshMs);
+    restartTimer();
+  };
+
+  perPageSelect.addEventListener("change", handlePerPageChange);
+  prevButton.addEventListener("click", handlePrev);
+  nextButton.addEventListener("click", handleNext);
+  refreshSelect.addEventListener("change", handleRefreshChange);
+
+  const handleVisibilityChange = () => {
+    if (document.hidden) {
+      if (state.timerId) {
+        clearInterval(state.timerId);
+        state.timerId = null;
+      }
+    } else {
+      fetchData();
+      restartTimer();
+    }
+  };
+
+  document.addEventListener("visibilitychange", handleVisibilityChange);
+
+  const cleanup = () => {
+    if (state.timerId) {
+      clearInterval(state.timerId);
+      state.timerId = null;
+    }
+    document.removeEventListener("visibilitychange", handleVisibilityChange);
+    window.removeEventListener("beforeunload", cleanup);
+  };
+
+  window.addEventListener("beforeunload", cleanup);
+
+  const initialWindowSeconds = parseNumber(
+    card.getAttribute("data-live-window-seconds"),
+    120,
+  );
+  card.setAttribute("data-live-window-seconds", initialWindowSeconds);
+  updateWindowLabel(initialWindowSeconds);
+  updateStatus(null);
+  updateVisibility(state.totalItems > 0);
+  applyPagination({
+    page: state.page,
+    perPage: state.perPage,
+    totalPages: state.totalPages,
+    totalItems: state.totalItems,
+    hasPrevious: state.page > 1,
+    hasNext: state.page < state.totalPages,
+  });
+
+  fetchData().finally(() => {
+    restartTimer();
   });
 }
 

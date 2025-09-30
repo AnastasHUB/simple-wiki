@@ -100,6 +100,43 @@ const r = Router();
 
 r.use(requireAdmin);
 
+const LIVE_VISITOR_PAGE_SIZES = [5, 10, 25, 50];
+const LIVE_VISITOR_DEFAULT_PAGE_SIZE = 10;
+const LIVE_VISITOR_PAGINATION_OPTIONS = {
+  pageParam: "livePage",
+  perPageParam: "livePerPage",
+  defaultPageSize: LIVE_VISITOR_DEFAULT_PAGE_SIZE,
+  pageSizeOptions: LIVE_VISITOR_PAGE_SIZES,
+};
+
+function formatSecondsAgo(seconds) {
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) {
+    return minutes === 1 ? "1 min" : `${minutes} min`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) {
+    return hours === 1 ? "1 h" : `${hours} h`;
+  }
+  const days = Math.floor(hours / 24);
+  return days === 1 ? "1 j" : `${days} j`;
+}
+
+function serializeLiveVisitors(now = Date.now()) {
+  return getActiveVisitors({ now }).map((visitor) => {
+    const secondsAgo = Math.max(0, Math.round((now - visitor.lastSeen) / 1000));
+    return {
+      ...visitor,
+      lastSeenIso: new Date(visitor.lastSeen).toISOString(),
+      lastSeenSecondsAgo: secondsAgo,
+      lastSeenRelative: formatSecondsAgo(secondsAgo),
+    };
+  });
+}
+
 function redirectToComments(req, res) {
   const fallback = "/admin/comments";
   const referer = req.get("referer");
@@ -1769,31 +1806,18 @@ r.get("/stats", async (req, res) => {
   ];
 
   const now = Date.now();
-  const formatSecondsAgo = (seconds) => {
-    if (seconds < 60) {
-      return `${seconds}s`;
-    }
-    const minutes = Math.floor(seconds / 60);
-    if (minutes < 60) {
-      return minutes === 1 ? "1 min" : `${minutes} min`;
-    }
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) {
-      return hours === 1 ? "1 h" : `${hours} h`;
-    }
-    const days = Math.floor(hours / 24);
-    return days === 1 ? "1 j" : `${days} j`;
-  };
-
-  const liveVisitors = getActiveVisitors({ now }).map((visitor) => {
-    const secondsAgo = Math.max(0, Math.round((now - visitor.lastSeen) / 1000));
-    return {
-      ...visitor,
-      lastSeenIso: new Date(visitor.lastSeen).toISOString(),
-      lastSeenSecondsAgo: secondsAgo,
-      lastSeenRelative: formatSecondsAgo(secondsAgo),
-    };
-  });
+  const allLiveVisitors = serializeLiveVisitors(now);
+  const liveVisitorsPagination = buildPagination(
+    req,
+    allLiveVisitors.length,
+    LIVE_VISITOR_PAGINATION_OPTIONS,
+  );
+  const liveOffset =
+    (liveVisitorsPagination.page - 1) * liveVisitorsPagination.perPage;
+  const liveVisitors = allLiveVisitors.slice(
+    liveOffset,
+    liveOffset + liveVisitorsPagination.perPage,
+  );
   const liveVisitorsWindowSeconds = Math.round(ACTIVE_VISITOR_TTL_MS / 1000);
 
   res.render("admin/stats", {
@@ -1831,7 +1855,40 @@ r.get("/stats", async (req, res) => {
     recentEvents,
     viewTrends,
     liveVisitors,
+    liveVisitorsPagination,
     liveVisitorsWindowSeconds,
+  });
+});
+
+r.get("/stats/live", (req, res) => {
+  const now = Date.now();
+  const allLiveVisitors = serializeLiveVisitors(now);
+  const windowSeconds = Math.round(ACTIVE_VISITOR_TTL_MS / 1000);
+  const pagination = buildPagination(
+    req,
+    allLiveVisitors.length,
+    LIVE_VISITOR_PAGINATION_OPTIONS,
+  );
+  const offset = (pagination.page - 1) * pagination.perPage;
+  const visitors = allLiveVisitors.slice(
+    offset,
+    offset + pagination.perPage,
+  );
+
+  res.json({
+    ok: true,
+    visitors,
+    pagination: {
+      page: pagination.page,
+      perPage: pagination.perPage,
+      totalItems: pagination.totalItems,
+      totalPages: pagination.totalPages,
+      hasPrevious: pagination.hasPrevious,
+      hasNext: pagination.hasNext,
+      previousPage: pagination.previousPage,
+      nextPage: pagination.nextPage,
+    },
+    liveVisitorsWindowSeconds: windowSeconds,
   });
 });
 

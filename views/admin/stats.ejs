@@ -109,55 +109,125 @@
           (liveVisitorsWindowSeconds || 0) > 1 ? 's' : ''
         }`;
 %>
-<section class="card stats-live-card">
-  <div class="card-header">
-    <h2 class="mt-0">Live stats</h2>
-    <p class="text-muted text-sm">
-      Basé sur l'activité des <%= liveWindowLabel %> précédentes.
-    </p>
-  </div>
-  <% if (!liveVisitors.length) { %>
-    <p>Aucun visiteur actif détecté pour le moment.</p>
-  <% } else { %>
-    <div class="table-wrap">
-      <table class="data-table compact">
-        <thead>
-          <tr>
-            <th>Adresse IP</th>
-            <th>Type</th>
-            <th>Page actuelle</th>
-            <th>Dernière activité</th>
-          </tr>
-        </thead>
-        <tbody>
-          <% liveVisitors.forEach((visitor) => { %>
-            <tr>
-              <td><code><%= visitor.ip %></code></td>
-              <td>
-                <% if (visitor.isBot) { %>
-                  <span class="status-pill suspicious">Bot</span>
-                  <% if (visitor.botReason) { %>
-                    <br /><small class="text-muted"><%= visitor.botReason %></small>
-                  <% } %>
-                <% } else { %>
-                  <span class="status-pill clean">Visiteur</span>
-                <% } %>
-                <% if (visitor.userAgent) { %>
-                  <br /><small class="text-muted"><%= visitor.userAgent %></small>
-                <% } %>
-              </td>
-              <td><a href="<%= visitor.path %>"><%= visitor.path %></a></td>
-              <td>
-                <time datetime="<%= visitor.lastSeenIso %>">
-                  il y a <%= visitor.lastSeenRelative %>
-                </time>
-              </td>
-            </tr>
-          <% }) %>
-        </tbody>
-      </table>
+<section
+  class="card stats-live-card"
+  data-live-stats-card
+  data-endpoint="/admin/stats/live"
+  data-live-page="<%= liveVisitorsPagination?.page || 1 %>"
+  data-live-per-page="<%= liveVisitorsPagination?.perPage || 5 %>"
+  data-live-total-pages="<%= liveVisitorsPagination?.totalPages || 1 %>"
+  data-live-total-items="<%= liveVisitorsPagination?.totalItems || 0 %>"
+  data-page-param="livePage"
+  data-per-page-param="livePerPage"
+  data-live-window-seconds="<%= liveVisitorsWindowSeconds %>"
+>
+  <div class="card-header live-stats-header">
+    <div>
+      <h2 class="mt-0">Live stats</h2>
+      <p class="text-muted text-sm" data-live-window-label>
+        Basé sur l'activité des <%= liveWindowLabel %> précédentes.
+      </p>
+      <p class="text-muted text-sm" data-live-status>Dernière mise à jour : --</p>
     </div>
-  <% } %>
+    <div class="live-stats-refresh">
+      <label for="liveStatsInterval">Rafraîchir toutes les</label>
+      <select id="liveStatsInterval" data-live-refresh>
+        <option value="1000">1 seconde</option>
+        <option value="5000" selected>5 secondes</option>
+        <option value="10000">10 secondes</option>
+        <option value="30000">30 secondes</option>
+        <option value="60000">1 minute</option>
+        <option value="120000">2 minutes</option>
+        <option value="300000">5 minutes</option>
+      </select>
+    </div>
+  </div>
+  <p
+    class="live-stats-empty"
+    data-live-empty
+    <%= liveVisitors.length ? 'hidden' : '' %>
+  >
+    Aucun visiteur actif détecté pour le moment.
+  </p>
+  <div
+    class="table-wrap"
+    data-live-table
+    <%= liveVisitors.length ? '' : 'hidden' %>
+  >
+    <table class="data-table compact">
+      <thead>
+        <tr>
+          <th>Adresse IP</th>
+          <th>Type</th>
+          <th>Page actuelle</th>
+          <th>Dernière activité</th>
+        </tr>
+      </thead>
+      <tbody data-live-table-body>
+        <% liveVisitors.forEach((visitor) => { %>
+          <tr>
+            <td><code><%= visitor.ip %></code></td>
+            <td>
+              <% if (visitor.isBot) { %>
+                <span class="status-pill suspicious">Bot</span>
+                <% if (visitor.botReason) { %>
+                  <br /><small class="text-muted"><%= visitor.botReason %></small>
+                <% } %>
+              <% } else { %>
+                <span class="status-pill clean">Visiteur</span>
+              <% } %>
+              <% if (visitor.userAgent) { %>
+                <br /><small class="text-muted"><%= visitor.userAgent %></small>
+              <% } %>
+            </td>
+            <td><a href="<%= visitor.path %>"><%= visitor.path %></a></td>
+            <td>
+              <time datetime="<%= visitor.lastSeenIso %>">
+                il y a <%= visitor.lastSeenRelative %>
+              </time>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+  <div
+    class="table-footer"
+    data-live-footer
+    <%= liveVisitors.length ? '' : 'hidden' %>
+  >
+    <div class="live-stats-per-page">
+      <label for="liveStatsPerPage" class="nowrap">Éléments par page</label>
+      <select id="liveStatsPerPage" data-live-per-page>
+        <% (liveVisitorsPagination?.perPageOptions || []).forEach(option => { %>
+          <option value="<%= option %>" <%= option === liveVisitorsPagination.perPage ? 'selected' : '' %>><%= option %></option>
+        <% }) %>
+      </select>
+    </div>
+    <span data-live-page-info>
+      Page <%= liveVisitorsPagination?.page || 1 %> sur <%= liveVisitorsPagination?.totalPages || 1 %>
+    </span>
+    <div class="pager">
+      <button
+        type="button"
+        class="btn"
+        data-icon="⬅️"
+        data-live-prev
+        <%= liveVisitorsPagination?.hasPrevious ? '' : 'disabled' %>
+      >
+        Précédent
+      </button>
+      <button
+        type="button"
+        class="btn"
+        data-icon="➡️"
+        data-live-next
+        <%= liveVisitorsPagination?.hasNext ? '' : 'disabled' %>
+      >
+        Suivant
+      </button>
+    </div>
+  </div>
 </section>
 
 <section class="card stats-trend-card">
