@@ -1,5 +1,25 @@
 <% title = 'Tag · ' + tag; %>
 <h1>Tag: <%= tag %></h1>
+
+<div class="search-meta">
+  <p><strong><%= total %></strong> article<%= total > 1 ? 's' : '' %> trouvé<%= total > 1 ? 's' : '' %> pour ce tag.</p>
+  <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
+  <form class="page-size" method="get">
+    <input type="hidden" name="<%= pagination.pageParam %>" value="1">
+    <% if (pagination.preservedQuery && pagination.preservedQuery.length) { %>
+      <% pagination.preservedQuery.forEach(pair => { %>
+        <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
+      <% }) %>
+    <% } %>
+    <label for="<%= perPageFieldId %>">Articles par page</label>
+    <select id="<%= perPageFieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
+      <% pagination.perPageOptions.forEach(option => { %>
+        <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
+      <% }) %>
+    </select>
+  </form>
+</div>
+
 <div class="article-grid">
   <% if (!pages.length) { %><div class="card">Aucun article.</div><% } %>
   <% pages.forEach(p => { const tags = (p.tagsCsv||'').split(',').filter(Boolean); %>
@@ -37,4 +57,22 @@
       </div>
     </div>
   <% }) %>
+</div>
+
+<div class="actions pagination">
+  <span class="pagination-status">
+    Page <strong><%= pagination.page %></strong> / <%= pagination.totalPages %>
+  </span>
+  <div class="pager">
+    <% if (pagination.hasPrevious) { %>
+      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+    <% } else { %>
+      <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+    <% } %>
+    <% if (pagination.hasNext) { %>
+      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+    <% } else { %>
+      <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+    <% } %>
+  </div>
 </div>

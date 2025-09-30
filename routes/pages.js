@@ -33,6 +33,7 @@ import {
   fetchPageComments,
   fetchPagesByTag,
   countPages,
+  countPagesByTag,
 } from "../utils/pageService.js";
 import {
   validateCommentSubmission,
@@ -1054,7 +1055,8 @@ r.get(
   "/tags/:name",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
-    const tagName = req.params.name.toLowerCase();
+    const requestedTag = req.params.name;
+    const tagName = requestedTag.toLowerCase();
     const tagBan = await isIpBanned(ip, {
       action: "view",
       tags: [tagName],
@@ -1062,12 +1064,29 @@ r.get(
     if (tagBan) {
       return res.status(403).render("banned", { ban: tagBan });
     }
-    const pagesRaw = await fetchPagesByTag({ tagName: req.params.name, ip });
+    const total = await countPagesByTag(requestedTag);
+    const paginationOptions = {
+      pageParam: "page",
+      perPageParam: "size",
+      defaultPageSize: DEFAULT_PAGE_SIZE,
+      pageSizeOptions: PAGE_SIZE_OPTIONS,
+    };
+    const pagination = buildPaginationView(req, total, paginationOptions);
+    const offset = (pagination.page - 1) * pagination.perPage;
+    const pagesRaw =
+      total > 0
+        ? await fetchPagesByTag({
+            tagName: requestedTag,
+            ip,
+            limit: pagination.perPage,
+            offset,
+          })
+        : [];
     const pages = pagesRaw.map((page) => ({
       ...page,
       excerpt: buildPreviewHtml(page.excerpt),
     }));
-    res.render("tags", { tag: req.params.name, pages });
+    res.render("tags", { tag: requestedTag, pages, pagination, total });
   }),
 );
 
@@ -1079,15 +1098,35 @@ r.get(
       req.params.slugid,
     ]);
     if (!page) return res.status(404).send("Page introuvable");
-    const revisions = await all(
-      `SELECT pr.revision, pr.title, pr.created_at, u.username AS author
-       FROM page_revisions pr
-       LEFT JOIN users u ON u.id = pr.author_id
-      WHERE pr.page_id=?
-      ORDER BY pr.revision DESC`,
+    const totalRow = await get(
+      `SELECT COUNT(*) AS total FROM page_revisions WHERE page_id = ?`,
       [page.id],
     );
-    res.render("history", { page, revisions });
+    const total = Number(totalRow?.total ?? 0);
+    const paginationOptions = {
+      pageParam: "page",
+      perPageParam: "size",
+      defaultPageSize: 20,
+      pageSizeOptions: [10, 20, 50, 100],
+    };
+    const paginationBase = buildPagination(req, total, paginationOptions);
+    const offset = (paginationBase.page - 1) * paginationBase.perPage;
+    const revisions =
+      total > 0
+        ? await all(
+            `
+        SELECT pr.revision, pr.title, pr.created_at, u.username AS author
+          FROM page_revisions pr
+          LEFT JOIN users u ON u.id = pr.author_id
+         WHERE pr.page_id=?
+         ORDER BY pr.revision DESC
+         LIMIT ? OFFSET ?
+      `,
+            [page.id, paginationBase.perPage, offset],
+          )
+        : [];
+    const pagination = decoratePagination(req, paginationBase, paginationOptions);
+    res.render("history", { page, revisions, pagination, total });
   }),
 );
 

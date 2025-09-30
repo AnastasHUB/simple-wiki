@@ -1,6 +1,25 @@
 <% title = 'Recherche'; %>
 <h1>Résultats pour « <%= q %> »</h1>
 
+<div class="search-meta">
+  <p><strong><%= total %></strong> résultat<%= total > 1 ? 's' : '' %> trouvé<%= total > 1 ? 's' : '' %>.</p>
+  <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
+  <form class="page-size" method="get">
+    <input type="hidden" name="<%= pagination.pageParam %>" value="1">
+    <% if (pagination.preservedQuery && pagination.preservedQuery.length) { %>
+      <% pagination.preservedQuery.forEach(pair => { %>
+        <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
+      <% }) %>
+    <% } %>
+    <label for="<%= perPageFieldId %>">Résultats par page</label>
+    <select id="<%= perPageFieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
+      <% pagination.perPageOptions.forEach(option => { %>
+        <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
+      <% }) %>
+    </select>
+  </form>
+</div>
+
 <% if (mode !== 'fts') { %>
   <p><em>Recherche basique utilisée car l’index plein texte <% if (!ftsAvailable) { %>n’est pas disponible<% } else { %>n’a pas pu être utilisé pour cette requête<% } %>.</em></p>
 <% } %>
@@ -47,4 +66,22 @@
       </div>
     </div>
   <% }) %>
+</div>
+
+<div class="actions pagination">
+  <span class="pagination-status">
+    Page <strong><%= pagination.page %></strong> / <%= pagination.totalPages %>
+  </span>
+  <div class="pager">
+    <% if (pagination.hasPrevious) { %>
+      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+    <% } else { %>
+      <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+    <% } %>
+    <% if (pagination.hasNext) { %>
+      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+    <% } else { %>
+      <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+    <% } %>
+  </div>
 </div>
