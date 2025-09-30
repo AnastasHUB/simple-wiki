@@ -148,10 +148,29 @@ export async function fetchPageComments(pageId, options = {}) {
   });
 }
 
-export async function fetchPagesByTag({ tagName, ip, excerptLength = 1200 }) {
-  const excerpt = Math.max(1, Math.trunc(excerptLength));
-  return all(
+export async function countPagesByTag(tagName) {
+  const row = await get(
     `
+    SELECT COUNT(DISTINCT p.id) AS total
+      FROM pages p
+      JOIN page_tags pt ON p.id = pt.page_id
+      JOIN tags t ON t.id = pt.tag_id
+     WHERE t.name = ?
+  `,
+    [tagName],
+  );
+  return Number(row?.total ?? 0);
+}
+
+export async function fetchPagesByTag({
+  tagName,
+  ip,
+  limit,
+  offset,
+  excerptLength = 1200,
+}) {
+  const excerpt = Math.max(1, Math.trunc(excerptLength));
+  let query = `
     SELECT p.id,
            p.snowflake_id,
            p.title,
@@ -167,10 +186,25 @@ export async function fetchPagesByTag({ tagName, ip, excerptLength = 1200 }) {
       JOIN page_tags pt ON p.id = pt.page_id
       JOIN tags t ON t.id = pt.tag_id
      WHERE t.name = ?
-     ORDER BY p.updated_at DESC
-  `,
-    [ip, tagName],
-  );
+     ORDER BY p.updated_at DESC`;
+  const params = [ip, tagName];
+
+  const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;
+
+  if (safeLimit !== null) {
+    query += "\n     LIMIT ?";
+    params.push(safeLimit);
+    if (safeOffset !== null) {
+      query += " OFFSET ?";
+      params.push(safeOffset);
+    }
+  } else if (safeOffset !== null) {
+    query += "\n     LIMIT -1 OFFSET ?";
+    params.push(safeOffset);
+  }
+
+  return all(query, params);
 }
 
 export async function countPages() {
