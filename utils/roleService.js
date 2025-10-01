@@ -11,12 +11,14 @@ import {
   parseStoredRoleColor,
   serializeRoleColorScheme,
 } from "./roleColors.js";
+import {
+  EVERYONE_ROLE_SNOWFLAKE,
+  applyDefaultRoleMetadata,
+} from "./defaultRoles.js";
 
 const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
 const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, color, is_system, position, ${ROLE_FLAG_COLUMN_LIST}, created_at, updated_at`;
 const ROLE_UPDATE_ASSIGNMENTS = ROLE_FLAG_FIELDS.map((field) => `${field}=?`).join(", ");
-const EVERYONE_ROLE_NAME = "Everyone";
-
 let cachedEveryoneRole = null;
 let cachedEveryoneFetchedAt = 0;
 const EVERYONE_CACHE_TTL_MS = 60 * 1000;
@@ -65,7 +67,7 @@ function mapRoleRow(row) {
   for (const field of ROLE_FLAG_FIELDS) {
     normalizedFlags[field] = Boolean(row[field]);
   }
-  return {
+  const role = {
     id: snowflakeId,
     numeric_id: numericId,
     snowflake_id: snowflakeId,
@@ -78,6 +80,7 @@ function mapRoleRow(row) {
     position: Number.parseInt(row.position, 10) || 0,
     ...normalizedFlags,
   };
+  return applyDefaultRoleMetadata(role);
 }
 
 export async function listRoles() {
@@ -328,10 +331,7 @@ export async function deleteRole(roleId) {
   if (!role) {
     return false;
   }
-  if (
-    role.is_system ||
-    role.name?.toLowerCase() === EVERYONE_ROLE_NAME.toLowerCase()
-  ) {
+  if (role.is_system || role.isEveryone) {
     throw new Error("Impossible de supprimer ce rôle système.");
   }
   const usage = await countUsersWithRole(role.numeric_id);
@@ -354,10 +354,29 @@ export async function getEveryoneRole({ forceRefresh = false } = {}) {
   ) {
     return cachedEveryoneRole;
   }
-  const row = await get(
-    `SELECT ${ROLE_SELECT_FIELDS} FROM roles WHERE name=? COLLATE NOCASE LIMIT 1`,
-    [EVERYONE_ROLE_NAME],
+  let row = await get(
+    `SELECT ${ROLE_SELECT_FIELDS} FROM roles WHERE snowflake_id=? LIMIT 1`,
+    [EVERYONE_ROLE_SNOWFLAKE],
   );
+  if (!row) {
+    row = await get(
+      `SELECT ${ROLE_SELECT_FIELDS} FROM roles WHERE name=? COLLATE NOCASE LIMIT 1`,
+      ["Everyone"],
+    );
+    if (row?.id) {
+      await run(
+        "UPDATE roles SET snowflake_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        [EVERYONE_ROLE_SNOWFLAKE, row.id],
+      );
+      row.snowflake_id = EVERYONE_ROLE_SNOWFLAKE;
+    }
+  } else if (row.snowflake_id !== EVERYONE_ROLE_SNOWFLAKE && row.id) {
+    await run(
+      "UPDATE roles SET snowflake_id=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      [EVERYONE_ROLE_SNOWFLAKE, row.id],
+    );
+    row.snowflake_id = EVERYONE_ROLE_SNOWFLAKE;
+  }
   cachedEveryoneRole = mapRoleRow(row);
   cachedEveryoneFetchedAt = now;
   return cachedEveryoneRole;
