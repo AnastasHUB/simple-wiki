@@ -113,8 +113,9 @@
           <h3>Intégrations externes</h3>
           <p>
             <code>utils/webhook.js</code> expédie des notifications Discord
-            (canaux « admin » et « feed ») et journalise chaque événement dans la
-            table <code>event_logs</code>.
+            (canaux « admin » et « feed »), duplique automatiquement chaque
+            événement vers l’équipe d’administration et journalise chaque
+            envoi dans la table <code>event_logs</code>.
           </p>
           <p>
             Le module valide les URL, applique un backoff automatique en cas de
