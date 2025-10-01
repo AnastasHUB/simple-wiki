@@ -18,7 +18,8 @@ export async function initDb() {
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     display_name TEXT,
-    is_admin INTEGER NOT NULL DEFAULT 1
+    is_admin INTEGER NOT NULL DEFAULT 1,
+    is_moderator INTEGER NOT NULL DEFAULT 0
   );
   CREATE TABLE IF NOT EXISTS settings(
     id INTEGER PRIMARY KEY CHECK (id=1),
@@ -196,6 +197,7 @@ export async function initDb() {
   await ensureColumn("comments", "edit_token", "TEXT");
   await ensureColumn("comments", "author_is_admin", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "display_name", "TEXT");
+  await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("ip_profiles", "reputation_status", "TEXT NOT NULL DEFAULT 'unknown'");
   await ensureColumn(
     "ip_profiles",
@@ -290,7 +292,7 @@ export async function ensureDefaultAdmin() {
   if (!admin) {
     const hashed = await hashPassword("admin");
     await db.run(
-      "INSERT INTO users(snowflake_id, username,password,is_admin) VALUES(?,?,?,1)",
+      "INSERT INTO users(snowflake_id, username,password,is_admin, is_moderator) VALUES(?,?,?,1,0)",
       [generateSnowflake(), "admin", hashed],
     );
     console.log("Default admin created: admin / (mot de passe haché)");

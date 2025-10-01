@@ -2,7 +2,6 @@ import fs from "fs/promises";
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
-import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randId, savePageFts } from "../db.js";
 import {
   generateSnowflake,
@@ -102,7 +101,35 @@ const upload = multer({
 
 const r = Router();
 
-r.use(requireAdmin);
+const MODERATOR_ALLOWED_PREFIXES = ["/comments", "/submissions"];
+
+function isModeratorAllowedPath(pathname = "") {
+  return MODERATOR_ALLOWED_PREFIXES.some((prefix) => {
+    if (!pathname) return false;
+    if (pathname === prefix) {
+      return true;
+    }
+    return pathname.startsWith(`${prefix}/`);
+  });
+}
+
+r.use((req, res, next) => {
+  const user = req.session.user;
+  if (!user) {
+    return res.redirect("/login");
+  }
+  const isAdmin = Boolean(user.is_admin);
+  const isModerator = Boolean(user.is_moderator);
+  if (isAdmin) {
+    res.locals.isModeratorUser = isModerator;
+    return next();
+  }
+  if (isModerator && isModeratorAllowedPath(req.path || "")) {
+    res.locals.isModeratorUser = true;
+    return next();
+  }
+  return res.redirect("/login");
+});
 
 const LIVE_VISITOR_PAGE_SIZES = [5, 10, 25, 50];
 const LIVE_VISITOR_DEFAULT_PAGE_SIZE = 10;
@@ -2156,14 +2183,14 @@ r.get("/users", async (req, res) => {
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const users = await all(
-    `SELECT id, username, display_name, is_admin FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
+    `SELECT id, username, display_name, is_admin, is_moderator FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
     [...params, basePagination.perPage, offset],
   );
   const pagination = decoratePagination(req, basePagination);
   res.render("admin/users", { users, pagination, searchTerm });
 });
 r.post("/users", async (req, res) => {
-  const { username, password } = req.body;
+  const { username, password, role } = req.body;
   if (!username || !password) {
     pushNotification(req, {
       type: "error",
@@ -2171,11 +2198,20 @@ r.post("/users", async (req, res) => {
     });
     return res.redirect("/admin/users");
   }
+  const normalizedRole = role === "moderator" ? "moderator" : "admin";
+  const isAdmin = normalizedRole === "admin";
+  const isModerator = normalizedRole === "moderator";
   const hashed = await hashPassword(password);
   try {
     const result = await run(
-      "INSERT INTO users(snowflake_id, username,password,is_admin) VALUES(?,?,?,1)",
-      [generateSnowflake(), username.trim(), hashed],
+      "INSERT INTO users(snowflake_id, username,password,is_admin, is_moderator) VALUES(?,?,?,?,?)",
+      [
+        generateSnowflake(),
+        username.trim(),
+        hashed,
+        isAdmin ? 1 : 0,
+        isModerator ? 1 : 0,
+      ],
     );
     const ip = getClientIp(req);
     await sendAdminEvent(
@@ -2186,13 +2222,14 @@ r.post("/users", async (req, res) => {
           ip,
           newUser: username.trim(),
           userId: result?.lastID || null,
+          role: normalizedRole,
         },
       },
       { includeScreenshot: false },
     );
     pushNotification(req, {
       type: "success",
-      message: `Utilisateur ${username.trim()} créé.`,
+      message: `Utilisateur ${username.trim()} créé (${normalizedRole}).`,
     });
   } catch (error) {
     if (error?.code === "SQLITE_CONSTRAINT" || error?.code === "SQLITE_CONSTRAINT_UNIQUE") {
@@ -2268,6 +2305,45 @@ r.post("/users/:id/display-name", async (req, res) => {
       : `Pseudo supprimé pour ${target.username}.`,
   });
 
+  res.redirect("/admin/users");
+});
+r.post("/users/:id/moderator", async (req, res) => {
+  const target = await get(
+    "SELECT id, username, is_moderator FROM users WHERE id=?",
+    [req.params.id],
+  );
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+  const enable = req.body?.enable === "1";
+  await run("UPDATE users SET is_moderator=? WHERE id=?", [enable ? 1 : 0, target.id]);
+  if (req.session.user?.id === target.id) {
+    req.session.user.is_moderator = enable;
+  }
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    enable ? "Rôle modérateur activé" : "Rôle modérateur désactivé",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        enabled: enable,
+      },
+    },
+    { includeScreenshot: false },
+  );
+  pushNotification(req, {
+    type: "success",
+    message: enable
+      ? `Modérateur activé pour ${target.username}.`
+      : `Modérateur désactivé pour ${target.username}.`,
+  });
   res.redirect("/admin/users");
 });
 r.post("/users/:id/delete", async (req, res) => {

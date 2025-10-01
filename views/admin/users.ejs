@@ -21,10 +21,23 @@
   </div>
 </form>
 <form method="post" class="card">
-  <div class="flex flex-wrap gap-sm">
-    <input type="text" name="username" placeholder="nouvel admin" required />
-    <input type="password" name="password" placeholder="mot de passe" required />
-    <button class="btn success" data-icon="➕">Ajouter</button>
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Nom d'utilisateur</span>
+      <input type="text" name="username" placeholder="nouvel utilisateur" required />
+    </label>
+    <label class="stack-form">
+      <span class="text-sm text-muted">Mot de passe</span>
+      <input type="password" name="password" placeholder="mot de passe" required />
+    </label>
+    <label class="stack-form">
+      <span class="text-sm text-muted">Rôle</span>
+      <select name="role">
+        <option value="admin">Administrateur</option>
+        <option value="moderator">Modérateur</option>
+      </select>
+    </label>
+    <button class="btn success" data-icon="➕" type="submit">Ajouter</button>
   </div>
 </form>
 <% if (!users.length) { %>
@@ -32,7 +45,9 @@
 <% } else { %>
   <div class="table-wrap mt-md">
     <table class="data-table">
-      <thead><tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Admin</th><th></th></tr></thead>
+      <thead>
+        <tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Admin</th><th>Modérateur</th><th></th></tr>
+      </thead>
       <tbody>
       <% users.forEach(u=>{ %>
         <tr>
@@ -53,6 +68,21 @@
             </form>
           </td>
           <td><%= u.is_admin ? 'Oui' : 'Non' %></td>
+          <td>
+            <div class="flex gap-sm items-center">
+              <span><%= u.is_moderator ? 'Oui' : 'Non' %></span>
+              <form method="post" action="/admin/users/<%= u.id %>/moderator">
+                <input type="hidden" name="enable" value="<%= u.is_moderator ? '0' : '1' %>" />
+                <button
+                  class="btn <%= u.is_moderator ? 'secondary' : 'success' %>"
+                  data-icon="<%= u.is_moderator ? '❎' : '⭐' %>"
+                  type="submit"
+                >
+                  <%= u.is_moderator ? 'Retirer' : 'Nommer' %>
+                </button>
+              </form>
+            </div>
+          </td>
           <td>
             <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
               <button class="btn danger" data-icon="🗑️">Supprimer</button>

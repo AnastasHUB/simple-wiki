@@ -91,11 +91,13 @@
     <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
       <li><a href="/profiles/ip/me">Mon profil IP</a></li>
     <% } %>
-    <% if (!currentUser || !currentUser.is_admin) { %>
+    <% const isAdminUser = currentUser && currentUser.is_admin; %>
+    <% const isModeratorUser = currentUser && currentUser.is_moderator; %>
+    <% if (!currentUser || !isAdminUser) { %>
       <li><a href="/new">Contribuer</a></li>
     <% } %>
     <li><a href="/account/submissions">Mes contributions</a></li>
-    <% if (currentUser && currentUser.is_admin) { %>
+    <% if (isAdminUser) { %>
       <li><a href="/new">Nouvelle page</a></li>
       <li>
         <a href="/admin/submissions">
@@ -130,6 +132,17 @@
       <li><a href="/admin/events">Événements</a></li>
       <li><a href="/admin/uploads">Images</a></li>
       <li><a href="/admin/settings">Paramètres</a></li>
+    <% } else if (isModeratorUser) { %>
+      <li>
+        <a href="/admin/submissions">
+          Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
+        </a>
+      </li>
+      <li>
+        <a href="/admin/comments">
+          Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
+        </a>
+      </li>
     <% } %>
   </ul>
 </nav>

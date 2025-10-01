@@ -58,14 +58,16 @@ app.use((req, res, next) => {
 // expose user + settings to views
 app.use(async (req, res, next) => {
   try {
-    res.locals.user = req.session.user || null;
+    const currentUser = req.session.user || null;
+    res.locals.user = currentUser;
     const settings = await getSiteSettings();
     res.locals.wikiName = settings.wikiName;
     res.locals.logoUrl = settings.logoUrl;
     res.locals.footerText = settings.footerText;
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
-    if (res.locals.user?.is_admin) {
+    const isStaff = Boolean(currentUser?.is_admin || currentUser?.is_moderator);
+    if (isStaff) {
       try {
         const counts = await getAdminActionCounts();
         res.locals.adminActionCounts = {
