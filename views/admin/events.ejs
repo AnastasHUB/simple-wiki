@@ -42,7 +42,7 @@
         <tbody>
           <% events.forEach(ev => { %>
             <tr>
-              <td><%= ev.id %></td>
+              <td><code><%= ev.snowflake_id || ev.id %></code></td>
               <td><strong><%= ev.type %></strong></td>
               <td><code><%= ev.channel %></code></td>
               <td><%= ev.username || '-' %></td>

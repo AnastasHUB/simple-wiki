@@ -275,6 +275,9 @@
             <div>
               <span class="highlight-label"><%= event.type %></span>
               <span class="text-muted text-sm">Canal : <%= event.channel %></span>
+              <% if (event.snowflake_id) { %>
+                <br /><small class="text-muted">ID : <code><%= event.snowflake_id %></code></small>
+              <% } %>
             </div>
             <div class="text-muted text-sm">
               <time datetime="<%= event.created_at %>"><%= new Date(event.created_at).toLocaleString('fr-FR') %></time>

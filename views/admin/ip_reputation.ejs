@@ -87,7 +87,12 @@
             <div>
               <code class="admin-risk-ip"><%= profile.ip %></code>
               <span class="status-pill suspicious">Suspecte</span>
-              <span class="text-muted">Profil #<%= profile.shortHash %></span>
+              <span class="text-muted">
+                Profil #<%= profile.shortHash %>
+                <% if (profile.id) { %>
+                  · ID : <code><%= profile.id %></code>
+                <% } %>
+              </span>
               <% if (profile.bot?.isBot) { %>
                 <span class="status-pill suspicious">Bot suspecté</span>
               <% } %>
@@ -151,7 +156,12 @@
           <div class="admin-cleared-header">
             <code><%= profile.ip %></code>
             <span class="status-pill safe">Sûre</span>
-            <span class="text-muted">Profil #<%= profile.shortHash %></span>
+            <span class="text-muted">
+              Profil #<%= profile.shortHash %>
+              <% if (profile.id) { %>
+                · ID : <code><%= profile.id %></code>
+              <% } %>
+            </span>
             <% if (profile.bot?.isBot) { %>
               <span class="status-pill suspicious">Bot suspecté</span>
             <% } %>
@@ -210,7 +220,12 @@
               <td>
                 <code><%= entry.ip %></code>
                 <br />
-                <small class="text-muted">Profil #<%= entry.shortHash %></small>
+                <small class="text-muted">
+                  Profil #<%= entry.shortHash %>
+                  <% if (entry.id) { %>
+                    <br />ID : <code><%= entry.id %></code>
+                  <% } %>
+                </small>
               </td>
               <td>
                 <span class="<%= getReputationStatusClass(entry.status) %>">
