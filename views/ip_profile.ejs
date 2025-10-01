@@ -69,7 +69,13 @@
         <% } %>
         <div>
           <dt>Identifiant</dt>
-          <dd><code>#<%= profile.shortHash %></code></dd>
+          <dd>
+            <code>#<%= profile.shortHash %></code>
+            <% if (profile.id) { %>
+              <br />
+              <small>ID : <code><%= profile.id %></code></small>
+            <% } %>
+          </dd>
         </div>
       </dl>
     </div>

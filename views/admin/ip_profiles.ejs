@@ -55,6 +55,10 @@
               <small class="text-muted">
                 Créé : <%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %>
               </small>
+              <% if (profile.id) { %>
+                <br />
+                <small class="text-muted">ID : <code><%= profile.id %></code></small>
+              <% } %>
             </td>
             <td><code><%= profile.ip %></code></td>
             <td>
