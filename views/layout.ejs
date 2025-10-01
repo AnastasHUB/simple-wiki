@@ -93,8 +93,11 @@
     <% } %>
     <% const isAdminUser = currentUser && currentUser.is_admin; %>
     <% const isModeratorUser = currentUser && currentUser.is_moderator; %>
-    <% if (!currentUser || !isAdminUser) { %>
+    <% const isContributorUser = currentUser && currentUser.is_contributor; %>
+    <% if (!currentUser || (!isAdminUser && !isContributorUser)) { %>
       <li><a href="/new">Contribuer</a></li>
+    <% } else if (isContributorUser) { %>
+      <li><a href="/new">Nouvelle page</a></li>
     <% } %>
     <li><a href="/account/submissions">Mes contributions</a></li>
     <% if (isAdminUser) { %>
