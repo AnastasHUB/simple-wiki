@@ -83,6 +83,11 @@ import {
 } from "../utils/roleService.js";
 import { buildSessionUser, ROLE_FLAG_FIELDS } from "../utils/roleFlags.js";
 import {
+  buildRoleColorPresentation,
+  extractRoleColorFromBody,
+  parseStoredRoleColor,
+} from "../utils/roleColors.js";
+import {
   countBanAppeals,
   fetchBanAppeals,
   getBanAppealBySnowflake,
@@ -2325,7 +2330,8 @@ r.post(
         : extractPermissionsFromBody(req.body);
 
     try {
-      const role = await createRole({ name, description, permissions });
+      const colorScheme = extractRoleColorFromBody(req.body);
+      const role = await createRole({ name, description, color: colorScheme, permissions });
       const ip = getClientIp(req);
       await sendAdminEvent(
         "Rôle créé",
@@ -2335,6 +2341,7 @@ r.post(
             ip,
             roleId: role.id,
             roleName: role.name,
+            roleColor: role.colorPresentation?.label || null,
             permissions: buildPermissionSnapshot(role),
           },
         },
@@ -2398,7 +2405,7 @@ r.post(
   "/roles/:id",
   requirePermission("can_manage_roles"),
   async (req, res) => {
-  const roleId = Number.parseInt(req.params.id, 10);
+  const roleId = req.params.id;
   const existing = await getRoleById(roleId);
   if (!existing) {
     pushNotification(req, {
@@ -2417,7 +2424,7 @@ r.post(
       return res.redirect("/admin/roles");
     }
     try {
-      await deleteRole(roleId);
+      await deleteRole(existing.id);
       const ip = getClientIp(req);
       await sendAdminEvent(
         "Rôle supprimé",
@@ -2425,7 +2432,7 @@ r.post(
           user: req.session.user?.username || null,
           extra: {
             ip,
-            roleId,
+            roleId: existing.id,
             roleName: existing.name,
           },
         },
@@ -2458,7 +2465,7 @@ r.post(
       if (!everyoneRole) {
         throw new Error("Rôle Everyone introuvable.");
       }
-      const { moved } = await reassignUsersToRole(roleId, everyoneRole);
+      const { moved } = await reassignUsersToRole(existing.id, everyoneRole);
       const ip = getClientIp(req);
       await sendAdminEvent(
         "Utilisateurs réassignés vers Everyone",
@@ -2466,7 +2473,7 @@ r.post(
           user: req.session.user?.username || null,
           extra: {
             ip,
-            sourceRoleId: roleId,
+            sourceRoleId: existing.id,
             sourceRoleName: existing.name,
             targetRoleId: everyoneRole.id,
             targetRoleName: everyoneRole.name,
@@ -2500,8 +2507,16 @@ r.post(
     return res.redirect("/admin/roles");
   }
   const permissions = extractPermissionsFromBody(req.body);
+  const colorKeys = ["color", "roleColor", "color_mode", "colorMode", "roleColorMode"];
+  const hasColorField = colorKeys.some((key) =>
+    Object.prototype.hasOwnProperty.call(req.body || {}, key),
+  );
+  const colorPayload = hasColorField ? extractRoleColorFromBody(req.body) : undefined;
   try {
-    const updated = await updateRolePermissions(roleId, { permissions });
+    const updated = await updateRolePermissions(existing.id, {
+      permissions,
+      color: colorPayload,
+    });
     const ip = getClientIp(req);
     await sendAdminEvent(
       "Permissions de rôle mises à jour",
@@ -2509,8 +2524,11 @@ r.post(
         user: req.session.user?.username || null,
         extra: {
           ip,
-          roleId: updated?.id || roleId,
+          roleId: updated?.id || existing.id,
           roleName: updated?.name || existing.name,
+          previousColor: existing.colorPresentation?.label || null,
+          newColor:
+            updated?.colorPresentation?.label || existing.colorPresentation?.label || null,
           previousPermissions: buildPermissionSnapshot(existing),
           newPermissions: buildPermissionSnapshot(
             updated ?? existing,
@@ -2523,11 +2541,36 @@ r.post(
       type: "success",
       message: `Permissions mises à jour pour ${updated?.name || existing.name}.`,
     });
+    const updatedRoleId = updated?.id || existing.id;
+    if (req.session?.user?.role_id === updatedRoleId) {
+      const refreshedSession = buildSessionUser(
+        {
+          ...req.session.user,
+          role_id: updatedRoleId,
+          role_snowflake_id: updatedRoleId,
+          role_numeric_id:
+            updated?.numeric_id ??
+            existing.numeric_id ??
+            req.session.user.role_numeric_id ??
+            null,
+          role_name: updated?.name || existing.name,
+          role_color_serialized:
+            updated?.colorSerialized ??
+            existing.colorSerialized ??
+            req.session.user.role_color_serialized ??
+            null,
+        },
+        updated ?? existing,
+      );
+      req.session.user = { ...req.session.user, ...refreshedSession };
+    }
   } catch (error) {
     console.error("Failed to update role", error);
     pushNotification(req, {
       type: "error",
-      message: "Impossible de mettre à jour les permissions du rôle.",
+      message:
+        error?.message ||
+        "Impossible de mettre à jour les permissions du rôle.",
     });
   }
   res.redirect("/admin/roles");
@@ -2558,7 +2601,7 @@ r.get(
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const users = await all(
-    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.can_comment, u.can_submit_pages, u.role_id, r.name AS role_name
+    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.can_comment, u.can_submit_pages, u.role_id, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      ${where}
@@ -2568,44 +2611,27 @@ r.get(
   );
   const availableRoles = await listRoles();
   const defaultRole =
-    availableRoles.find((role) => role.name === "Utilisateur") ||
-    availableRoles.find(
-      (role) =>
-        !role.is_admin &&
-        !role.is_moderator &&
-        !role.is_helper &&
-        !role.is_contributor,
-    ) ||
-    null;
+    availableRoles.find((role) => role.name === "Everyone") || null;
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
-    const isModerator = Boolean(user.is_moderator);
-    const isContributor = Boolean(user.is_contributor);
-    const isHelper = Boolean(user.is_helper);
     const canComment = Boolean(user.can_comment);
     const canSubmit = Boolean(user.can_submit_pages);
     const roleLabel =
       user.role_name ||
-      (isAdmin
-        ? "Administrateur"
-        : isModerator
-          ? "Modérateur"
-          : isContributor
-            ? "Contributeur"
-            : isHelper
-              ? "Helper"
-              : canSubmit
-                ? "Contributeur" // fallback label for legacy display
-                : "Utilisateur");
+      (isAdmin ? "Administrateur" : "Everyone");
+    const colorScheme = parseStoredRoleColor(user.role_color);
+    const colorPresentation = buildRoleColorPresentation(colorScheme);
     return {
       ...user,
       is_admin: isAdmin,
-      is_moderator: isModerator,
-      is_contributor: isContributor,
-      is_helper: isHelper,
       can_comment: canComment,
       can_submit_pages: canSubmit,
       role_label: roleLabel,
+      role_color: colorPresentation,
+      role_color_scheme: colorScheme,
+      role_color_serialized:
+        typeof user.role_color === "string" ? user.role_color : colorScheme ? JSON.stringify(colorScheme) : null,
+      role_snowflake_id: user.role_snowflake_id || null,
     };
   });
   const pagination = decoratePagination(req, basePagination);
@@ -2623,10 +2649,7 @@ r.post(
   requirePermission("can_manage_users"),
   async (req, res) => {
   const { username, password } = req.body;
-  const selectedRoleId = Number.parseInt(
-    req.body.roleId || req.body.role || "",
-    10,
-  );
+  const selectedRoleId = (req.body.roleId || req.body.role || "").trim();
   if (!username || !password) {
     pushNotification(req, {
       type: "error",
@@ -2654,25 +2677,26 @@ r.post(
         generateSnowflake(),
         sanitizedUsername,
         hashed,
-        role.id,
+        role.numeric_id,
         ...roleFlagValues,
       ],
     );
     const ip = getClientIp(req);
-    await sendAdminEvent(
-      "Utilisateur créé",
-      {
-        user: req.session.user?.username || null,
-        extra: {
-          ip,
-          newUser: sanitizedUsername,
-          userId: result?.lastID || null,
-          roleId: role.id,
-          roleName: role.name,
+      await sendAdminEvent(
+        "Utilisateur créé",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            newUser: sanitizedUsername,
+            userId: result?.lastID || null,
+            roleId: role.id,
+            roleName: role.name,
+            roleColor: role.colorPresentation?.label || null,
+          },
         },
-      },
-      { includeScreenshot: false },
-    );
+        { includeScreenshot: false },
+      );
     pushNotification(req, {
       type: "success",
       message: `Utilisateur ${sanitizedUsername} créé (${role.name}).`,
@@ -2766,7 +2790,7 @@ r.post(
   requirePermission("can_manage_users"),
   async (req, res) => {
   const target = await get(
-    `SELECT u.id, u.username, u.role_id, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, r.name AS role_name
+    `SELECT u.id, u.username, u.role_id, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, r.name AS role_name, r.color AS role_color, r.snowflake_id AS role_snowflake_id
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      WHERE u.id=?`,
@@ -2780,10 +2804,7 @@ r.post(
     return res.redirect("/admin/users");
   }
 
-  const requestedRoleId = Number.parseInt(
-    req.body?.roleId || req.body?.role || "",
-    10,
-  );
+  const requestedRoleId = (req.body?.roleId || req.body?.role || "").trim();
   const role = await getRoleById(requestedRoleId);
 
   if (!role) {
@@ -2795,18 +2816,12 @@ r.post(
   }
 
   const previousRole =
-    target.role_name ||
-    (target.is_admin
-      ? "Administrateur"
-      : target.is_moderator
-        ? "Modérateur"
-        : target.is_contributor
-          ? "Contributeur"
-          : target.is_helper
-            ? "Helper"
-            : "Utilisateur");
+    target.role_name || (target.is_admin ? "Administrateur" : "Everyone");
+  const previousRoleColorPresentation = buildRoleColorPresentation(
+    parseStoredRoleColor(target.role_color),
+  );
 
-  if (target.role_id === role.id) {
+  if (target.role_id === role.numeric_id) {
     pushNotification(req, {
       type: "info",
       message: `Aucun changement pour ${target.username}.`,
@@ -2822,7 +2837,10 @@ r.post(
         ...req.session.user,
         ...target,
         role_id: role.id,
+        role_numeric_id: role.numeric_id,
+        role_snowflake_id: role.id,
         role_name: role.name,
+        role_color_serialized: role.colorSerialized ?? null,
         is_admin: role.is_admin,
         is_moderator: role.is_moderator,
         is_helper: role.is_helper,
@@ -2847,6 +2865,8 @@ r.post(
         previousRole,
         newRoleId: role.id,
         newRoleName: role.name,
+        previousRoleColor: previousRoleColorPresentation?.label || null,
+        newRoleColor: role.colorPresentation?.label || null,
       },
     },
     { includeScreenshot: false },

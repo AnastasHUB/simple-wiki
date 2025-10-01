@@ -15,6 +15,10 @@ body {
   color: #1f2933;
 }
 
+.user-handle {
+  font-weight: 600;
+}
+
 a {
   color: #0b4cb8;
   text-decoration: none;
@@ -997,6 +1001,118 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+.role-color-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+}
+
+.role-color-preview.is-empty .role-color-chip {
+  display: none;
+}
+
+.role-color-chip {
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 999px;
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  background-color: var(--role-color-1, #1f2937);
+  background-image: var(--role-gradient, none);
+  background-size: var(--role-background-size, 100% 100%);
+  background-position: var(--role-background-position, 0% 50%);
+  animation: var(--role-animation, none);
+}
+
+.role-color-value {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: #52606d;
+}
+
+.role-color-visual {
+  background-color: var(--role-color-1, #1f2937);
+  background-image: var(--role-gradient, none);
+  background-size: var(--role-background-size, 100% 100%);
+  background-position: var(--role-background-position, 0% 50%);
+  animation: var(--role-animation, none);
+}
+
+.role-colored-text {
+  position: relative;
+  color: var(--role-fallback-color, var(--role-color-1, inherit));
+}
+
+.role-colored-text.role-color--gradient,
+.role-colored-text.role-color--rainbow {
+  background-image: var(--role-gradient, none);
+  background-size: var(--role-background-size, 100% 100%);
+  background-position: var(--role-background-position, 0% 50%);
+  animation: var(--role-animation, none);
+}
+
+@supports (-webkit-background-clip: text) or (background-clip: text) {
+  .role-colored-text.role-color--gradient,
+  .role-colored-text.role-color--rainbow {
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+  }
+}
+
+.role-metadata {
+  margin-bottom: 1rem;
+}
+
+.role-color-editor {
+  display: grid;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border: 1px solid #d9e2ec;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.role-color-editor legend {
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.role-color-mode select {
+  width: 100%;
+}
+
+.role-color-fields {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.role-color-fields[hidden] {
+  display: none !important;
+}
+
+.role-color-field input[type="text"] {
+  font-family: monospace;
+  text-transform: uppercase;
+}
+
+.role-color-hint {
+  margin: 0;
+}
+
+@keyframes role-rainbow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
 }
 
 .badge {

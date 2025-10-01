@@ -30,7 +30,7 @@ r.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const ip = getClientIp(req);
   const u = await get(
-    `SELECT u.*, r.name AS role_name, ${ROLE_FIELD_SELECT}
+    `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      WHERE u.username=?`,

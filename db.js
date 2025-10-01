@@ -34,6 +34,7 @@ export async function initDb() {
     snowflake_id TEXT UNIQUE,
     name TEXT UNIQUE NOT NULL,
     description TEXT,
+    color TEXT,
     is_system INTEGER NOT NULL DEFAULT 0,
     position INTEGER NOT NULL DEFAULT 0,
     is_admin INTEGER NOT NULL DEFAULT 0,
@@ -364,6 +365,7 @@ export async function initDb() {
   );
   await ensureColumn("roles", "is_system", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "position", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("roles", "color", "TEXT");
   await ensureColumn("roles", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
@@ -590,6 +592,7 @@ async function ensureDefaultRoles() {
       snowflake_id TEXT UNIQUE,
       name TEXT UNIQUE NOT NULL,
       description TEXT,
+      color TEXT,
       is_admin INTEGER NOT NULL DEFAULT 0,
       is_moderator INTEGER NOT NULL DEFAULT 0,
       is_helper INTEGER NOT NULL DEFAULT 0,
@@ -604,6 +607,7 @@ async function ensureDefaultRoles() {
     {
       name: "Everyone",
       description: "Permissions de base accordées à tous les visiteurs.",
+      color: null,
       is_system: 1,
       flags: buildRoleFlags({
         can_comment: true,
@@ -613,68 +617,26 @@ async function ensureDefaultRoles() {
     {
       name: "Administrateur",
       description: "Accès complet à toutes les fonctionnalités.",
+      color: "#DC2626",
       is_system: 1,
       flags: buildRoleFlags(ALL_ROLE_FLAGS_TRUE),
-    },
-    {
-      name: "Modérateur",
-      description: "Peut gérer les commentaires et les soumissions.",
-      is_system: 1,
-      flags: buildRoleFlags({
-        is_moderator: true,
-        can_comment: true,
-        can_submit_pages: true,
-        can_moderate_comments: true,
-        can_review_submissions: true,
-        can_review_ban_appeals: true,
-        can_manage_likes: true,
-        can_manage_trash: true,
-        can_view_stats: true,
-      }),
-    },
-    {
-      name: "Contributeur",
-      description: "Peut publier des articles immédiatement.",
-      is_system: 1,
-      flags: buildRoleFlags({
-        is_contributor: true,
-        can_comment: true,
-        can_submit_pages: true,
-      }),
-    },
-    {
-      name: "Helper",
-      description: "Peut commenter sans modération.",
-      is_system: 1,
-      flags: buildRoleFlags({
-        is_helper: true,
-        can_comment: true,
-        can_submit_pages: true,
-      }),
-    },
-    {
-      name: "Utilisateur",
-      description: "Accès standard sans permissions supplémentaires.",
-      is_system: 1,
-      flags: buildRoleFlags({
-        can_comment: true,
-        can_submit_pages: true,
-      }),
     },
   ].map((role, index) => ({ ...role, position: index + 1 }));
 
   for (const role of defaultRoles) {
     await db.run(
-      `INSERT INTO roles(name, description, is_system, position, ${ROLE_FLAG_COLUMN_LIST})
-       VALUES(?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})
+      `INSERT INTO roles(name, description, color, is_system, position, ${ROLE_FLAG_COLUMN_LIST})
+       VALUES(?,?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})
        ON CONFLICT(name) DO UPDATE SET
          description=excluded.description,
+         color=COALESCE(roles.color, excluded.color),
          is_system=excluded.is_system,
          ${ROLE_FLAG_UPDATE_ASSIGNMENTS},
          updated_at=CURRENT_TIMESTAMP`,
       [
         role.name,
         role.description,
+        role.color,
         role.is_system || 0,
         role.position,
         ...getRoleFlagValues(role.flags),
@@ -693,10 +655,7 @@ async function synchronizeUserRoles() {
 
   const roleByName = new Map(roles.map((role) => [role.name, role]));
   const adminRoleId = roleByName.get("Administrateur")?.id ?? null;
-  const moderatorRoleId = roleByName.get("Modérateur")?.id ?? null;
-  const contributorRoleId = roleByName.get("Contributeur")?.id ?? null;
-  const helperRoleId = roleByName.get("Helper")?.id ?? null;
-  const userRoleId = roleByName.get("Utilisateur")?.id ?? null;
+  const everyoneRoleId = roleByName.get("Everyone")?.id ?? null;
 
   if (adminRoleId) {
     await db.run(
@@ -704,27 +663,9 @@ async function synchronizeUserRoles() {
       [adminRoleId],
     );
   }
-  if (moderatorRoleId) {
-    await db.run(
-      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=0 AND is_moderator=1",
-      [moderatorRoleId],
-    );
-  }
-  if (contributorRoleId) {
-    await db.run(
-      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=0 AND is_moderator=0 AND is_contributor=1",
-      [contributorRoleId],
-    );
-  }
-  if (helperRoleId) {
-    await db.run(
-      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=0 AND is_moderator=0 AND is_contributor=0 AND is_helper=1",
-      [helperRoleId],
-    );
-  }
-  if (userRoleId) {
+  if (everyoneRoleId) {
     await db.run("UPDATE users SET role_id=? WHERE role_id IS NULL", [
-      userRoleId,
+      everyoneRoleId,
     ]);
   }
 

@@ -162,11 +162,27 @@
     <div class="role-detail">
       <% roles.forEach((role, index) => { %>
         <article class="card role-detail-panel" data-role-id="<%= role.id %>" <%= index === 0 ? '' : 'hidden' %>>
+          <% const roleColorScheme = role.color || null; %>
+          <% const roleColorPresentation = role.colorPresentation; %>
+          <% const roleColorValues = Array.isArray(roleColorScheme && roleColorScheme.colors) ? roleColorScheme.colors : []; %>
+          <% const roleColorMode = roleColorScheme ? roleColorScheme.mode : ''; %>
           <div class="role-editor">
             <div class="role-summary">
               <div class="role-summary-header">
                 <h2 class="h3"><%= role.name %></h2>
                 <span class="badge"><%= role.userCount || 0 %> utilisateur<%= (role.userCount || 0) > 1 ? 's' : '' %></span>
+              </div>
+              <% const hasRoleColor = roleColorPresentation && roleColorPresentation.hasColor; %>
+              <% const previewClasses = ['role-color-preview']; if (!hasRoleColor) { previewClasses.push('is-empty'); } %>
+              <div class="<%= previewClasses.join(' ') %>" data-role-color-preview aria-hidden="true">
+                <span
+                  class="role-color-chip role-color-visual <%= hasRoleColor ? roleColorPresentation.className : '' %>"
+                  data-role-color-chip
+                  style="<%= hasRoleColor ? roleColorPresentation.style : '' %>"
+                ></span>
+                <span class="role-color-value" data-role-color-label>
+                  <%= hasRoleColor ? roleColorPresentation.label : 'Couleur par défaut' %>
+                </span>
               </div>
               <% if (role.description) { %>
                 <p class="text-muted"><%= role.description %></p>
@@ -195,6 +211,83 @@
               <% } %>
             </div>
             <form method="post" action="/admin/roles/<%= role.id %>" class="role-permissions-column" aria-label="Mettre à jour les permissions pour <%= role.name %>">
+              <div class="role-metadata">
+                <fieldset class="role-color-editor" data-role-color-editor>
+                  <legend>Style du pseudo</legend>
+                  <label class="stack-form role-color-mode">
+                    <span class="text-sm text-muted">Type de couleur</span>
+                    <select name="color_mode" data-role-color-mode>
+                      <option value="" <%= roleColorMode ? '' : 'selected' %>>Couleur par défaut</option>
+                      <option value="solid" <%= roleColorMode === 'solid' ? 'selected' : '' %>>Couleur unie</option>
+                      <option value="gradient" <%= roleColorMode === 'gradient' ? 'selected' : '' %>>Dégradé (2 couleurs)</option>
+                      <option value="rainbow" <%= roleColorMode === 'rainbow' ? 'selected' : '' %>>Arc-en-ciel animé (5 couleurs)</option>
+                    </select>
+                  </label>
+                  <div class="role-color-fields" data-role-color-fields="solid" <%= roleColorMode === 'solid' ? '' : 'hidden' %>>
+                    <label class="stack-form role-color-field">
+                      <span>Couleur</span>
+                      <input
+                        type="text"
+                        name="color_solid"
+                        value="<%= roleColorMode === 'solid' ? (roleColorValues[0] || '') : '' %>"
+                        placeholder="#3498DB"
+                        pattern="^#?[0-9a-fA-F]{6}$"
+                        inputmode="text"
+                        autocomplete="off"
+                        data-role-color-input
+                      />
+                    </label>
+                  </div>
+                  <div class="role-color-fields" data-role-color-fields="gradient" <%= roleColorMode === 'gradient' ? '' : 'hidden' %>>
+                    <label class="stack-form role-color-field">
+                      <span>Couleur 1</span>
+                      <input
+                        type="text"
+                        name="color_gradient_start"
+                        value="<%= roleColorMode === 'gradient' ? (roleColorValues[0] || '') : '' %>"
+                        placeholder="#8B5CF6"
+                        pattern="^#?[0-9a-fA-F]{6}$"
+                        inputmode="text"
+                        autocomplete="off"
+                        data-role-color-input
+                      />
+                    </label>
+                    <label class="stack-form role-color-field">
+                      <span>Couleur 2</span>
+                      <input
+                        type="text"
+                        name="color_gradient_end"
+                        value="<%= roleColorMode === 'gradient' ? (roleColorValues[1] || '') : '' %>"
+                        placeholder="#EC4899"
+                        pattern="^#?[0-9a-fA-F]{6}$"
+                        inputmode="text"
+                        autocomplete="off"
+                        data-role-color-input
+                      />
+                    </label>
+                  </div>
+                  <div class="role-color-fields" data-role-color-fields="rainbow" <%= roleColorMode === 'rainbow' ? '' : 'hidden' %>>
+                    <% for (let colorIndex = 0; colorIndex < 5; colorIndex += 1) { %>
+                      <label class="stack-form role-color-field">
+                        <span>Couleur <%= colorIndex + 1 %></span>
+                        <input
+                          type="text"
+                          name="color_rainbow_<%= colorIndex + 1 %>"
+                          value="<%= roleColorMode === 'rainbow' ? (roleColorValues[colorIndex] || '') : '' %>"
+                          placeholder="#FF5733"
+                          pattern="^#?[0-9a-fA-F]{6}$"
+                          inputmode="text"
+                          autocomplete="off"
+                          data-role-color-input
+                        />
+                      </label>
+                    <% } %>
+                  </div>
+                  <p class="role-color-hint text-xs text-muted">
+                    Utilisez des codes hexadécimaux (#RRGGBB). Sélectionnez «Couleur par défaut» pour revenir au style neutre.
+                  </p>
+                </fieldset>
+              </div>
               <fieldset class="role-permissions">
                 <legend>Permissions</legend>
                 <div class="role-permissions-grid">
@@ -230,7 +323,6 @@
       return;
     }
 
-    const permissionSchema = <%- JSON.stringify(permissionOptions) %>;
     const list = manager.querySelector('.role-selector');
     const detailContainer = manager.querySelector('.role-detail');
     let panels = Array.from(manager.querySelectorAll('.role-detail-panel'));
@@ -250,56 +342,6 @@
       return panels;
     };
 
-    const createElement = (tagName, { className, textContent, dataset, attributes } = {}, children = []) => {
-      const element = document.createElement(tagName);
-      if (className) {
-        element.className = className;
-      }
-      if (textContent !== undefined) {
-        element.textContent = textContent;
-      }
-      if (dataset) {
-        Object.entries(dataset).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            element.dataset[key] = String(value);
-          }
-        });
-      }
-      if (attributes) {
-        Object.entries(attributes).forEach(([key, value]) => {
-          if (value !== undefined && value !== null) {
-            element.setAttribute(key, value);
-          }
-        });
-      }
-      const childNodes = Array.isArray(children) ? children : [children];
-      childNodes.forEach((child) => {
-        if (!child && child !== 0) {
-          return;
-        }
-        if (typeof child === "string" || typeof child === "number") {
-          element.appendChild(document.createTextNode(String(child)));
-        } else {
-          element.appendChild(child);
-        }
-      });
-      return element;
-    };
-
-    const formatUserCount = (count) => {
-      const value = Number.parseInt(count, 10) || 0;
-      return `${value} utilisateur${value > 1 ? 's' : ''}`;
-    };
-
-    const attachRoleButton = (button) => {
-      if (!button) {
-        return;
-      }
-      button.addEventListener('click', () => {
-        setActive(button.dataset.roleId);
-      });
-    };
-
     const setActive = (roleId) => {
       refreshButtons().forEach((button) => {
         const isActive = button.dataset.roleId === roleId;
@@ -312,235 +354,213 @@
       });
     };
 
-    const createRoleButton = manager.querySelector('[data-action="create-role"]');
-
-    const integrateRoleIntoList = (role) => {
-      if (!role?.id) {
+    const attachRoleButton = (button) => {
+      if (!button) {
         return;
       }
-      const normalizedRole = {
-        ...role,
-        userCount: Number.parseInt(role?.userCount, 10) || 0,
-      };
-
-      const listItem = createElement(
-        'li',
-        {
-          className: 'role-selector-item',
-          dataset: { roleId: normalizedRole.id },
-          attributes: { draggable: 'true' },
-        },
-      );
-      listItem.id = `role-${normalizedRole.id}`;
-      listItem.draggable = true;
-      const choiceButton = createElement(
-        'button',
-        {
-          className: 'role-choice',
-          dataset: { roleId: normalizedRole.id },
-          attributes: { type: 'button', 'aria-pressed': 'false' },
-        },
-        [
-          createElement('span', {
-            className: 'role-choice-name',
-            textContent: normalizedRole.name || 'Nouveau rôle',
-          }),
-          createElement('span', {
-            className: 'badge',
-            textContent: formatUserCount(normalizedRole.userCount),
-          }),
-        ],
-      );
-      listItem.appendChild(choiceButton);
-      list.appendChild(listItem);
-
-      attachRoleButton(choiceButton);
-      refreshButtons();
-
-      const panel = createElement(
-        'article',
-        {
-          className: 'card role-detail-panel',
-          dataset: { roleId: normalizedRole.id },
-        },
-      );
-
-      const editor = createElement('div', { className: 'role-editor' });
-      const summary = createElement('div', { className: 'role-summary' });
-      const summaryHeader = createElement('div', { className: 'role-summary-header' });
-      summaryHeader.appendChild(
-        createElement('h2', {
-          className: 'h3',
-          textContent: normalizedRole.name || 'Nouveau rôle',
-        }),
-      );
-      summaryHeader.appendChild(
-        createElement('span', {
-          className: 'badge',
-          textContent: formatUserCount(normalizedRole.userCount),
-        }),
-      );
-      summary.appendChild(summaryHeader);
-
-      if (normalizedRole.description) {
-        summary.appendChild(
-          createElement('p', {
-            className: 'text-muted',
-            textContent: normalizedRole.description,
-          }),
-        );
-      }
-
-      if (normalizedRole.is_system) {
-        summary.appendChild(
-          createElement('p', {
-            className: 'text-xs text-muted',
-            textContent: 'Rôle système protégé',
-          }),
-        );
-      }
-
-      const lowerName = (normalizedRole.name || '').toLowerCase();
-      if (!normalizedRole.is_system && lowerName !== 'everyone') {
-        const summaryFooter = createElement('div', { className: 'role-summary-footer' });
-        if (normalizedRole.userCount === 0) {
-          const deleteForm = createElement(
-            'form',
-            {
-              attributes: {
-                method: 'post',
-                action: `/admin/roles/${normalizedRole.id}`,
-                'aria-label': `Supprimer le rôle ${normalizedRole.name || ''}`,
-              },
-            },
-          );
-          deleteForm.appendChild(
-            createElement('input', {
-              attributes: { type: 'hidden', name: '_action', value: 'delete' },
-            }),
-          );
-          const deleteButton = createElement(
-            'button',
-            {
-              className: 'btn danger',
-              textContent: 'Supprimer le rôle',
-              dataset: { icon: '🗑️' },
-              attributes: { type: 'submit' },
-            },
-          );
-          deleteButton.addEventListener('click', (event) => {
-            if (!window.confirm('Supprimer définitivement ce rôle ?')) {
-              event.preventDefault();
-            }
-          });
-          deleteForm.appendChild(deleteButton);
-          summaryFooter.appendChild(deleteForm);
-        } else {
-          summaryFooter.appendChild(
-            createElement('p', {
-              className: 'text-sm text-muted',
-              textContent: `Ce rôle est actuellement attribué à ${normalizedRole.userCount} utilisateur${normalizedRole.userCount > 1 ? 's' : ''}. Réassignez-les vers Everyone pour pouvoir supprimer ce rôle.`,
-            }),
-          );
-          const reassignForm = createElement(
-            'form',
-            {
-              className: 'role-reassign-form',
-              attributes: {
-                method: 'post',
-                action: `/admin/roles/${normalizedRole.id}`,
-                'aria-label': `Réassigner les utilisateurs de ${normalizedRole.name || ''} vers Everyone`,
-              },
-            },
-          );
-          reassignForm.appendChild(
-            createElement('input', {
-              attributes: { type: 'hidden', name: '_action', value: 'reassign_to_everyone' },
-            }),
-          );
-          reassignForm.appendChild(
-            createElement('button', {
-              className: 'btn secondary',
-              textContent: 'Réassigner tous les utilisateurs vers Everyone',
-              dataset: { icon: '🔁' },
-              attributes: { type: 'submit' },
-            }),
-          );
-          summaryFooter.appendChild(reassignForm);
-        }
-        summary.appendChild(summaryFooter);
-      }
-
-      editor.appendChild(summary);
-
-      const permissionForm = createElement(
-        'form',
-        {
-          className: 'role-permissions-column',
-          attributes: {
-            method: 'post',
-            action: `/admin/roles/${normalizedRole.id}`,
-            'aria-label': `Mettre à jour les permissions pour ${normalizedRole.name || ''}`,
-          },
-        },
-      );
-      const fieldset = createElement('fieldset', { className: 'role-permissions' });
-      fieldset.appendChild(createElement('legend', { textContent: 'Permissions' }));
-      const permissionGrid = createElement('div', { className: 'role-permissions-grid' });
-      permissionSchema.forEach((option) => {
-        const checkbox = createElement('label', { className: 'checkbox role-permission' });
-        const input = createElement('input', {
-          attributes: {
-            type: 'checkbox',
-            name: option.field,
-            value: '1',
-          },
-        });
-        if (normalizedRole[option.field]) {
-          input.checked = true;
-        }
-        checkbox.appendChild(input);
-        checkbox.appendChild(
-          createElement('span', {
-            className: 'permission-title',
-            textContent: option.label,
-          }),
-        );
-        checkbox.appendChild(
-          createElement('span', {
-            className: 'permission-description',
-            textContent: option.description,
-          }),
-        );
-        permissionGrid.appendChild(checkbox);
+      button.addEventListener('click', () => {
+        setActive(button.dataset.roleId);
       });
-      fieldset.appendChild(permissionGrid);
-      permissionForm.appendChild(fieldset);
-      const actionRow = createElement('div', { className: 'role-actions' });
-      actionRow.appendChild(
-        createElement('button', {
-          className: 'btn secondary',
-          textContent: 'Enregistrer',
-          dataset: { icon: '💾' },
-          attributes: { type: 'submit' },
-        }),
-      );
-      permissionForm.appendChild(actionRow);
-      editor.appendChild(permissionForm);
+    };
 
-      panel.appendChild(editor);
-      panel.hidden = true;
-      detailContainer.appendChild(panel);
-      refreshPanels();
+    refreshButtons().forEach((button) => {
+      attachRoleButton(button);
+    });
 
-      setActive(String(normalizedRole.id));
-      const target = document.getElementById(`role-${normalizedRole.id}`);
-      if (target) {
-        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const HEX_COLOR_PATTERN = /^#?([0-9a-fA-F]{6})$/;
+    const COLOR_CLASS_LIST = ['role-color--solid', 'role-color--gradient', 'role-color--rainbow'];
+
+    const sanitizeHex = (value) => {
+      if (typeof value !== 'string') {
+        return '';
+      }
+      const trimmed = value.trim();
+      const match = trimmed.match(HEX_COLOR_PATTERN);
+      return match ? `#${match[1].toUpperCase()}` : '';
+    };
+
+    const buildGradient = (mode, colors) => {
+      if (mode === 'gradient' && colors.length >= 2) {
+        return `linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`;
+      }
+      if (mode === 'rainbow' && colors.length >= 5) {
+        return `linear-gradient(120deg, ${colors[0]} 0%, ${colors[1]} 20%, ${colors[2]} 40%, ${colors[3]} 60%, ${colors[4]} 80%, ${colors[0]} 100%)`;
+      }
+      return null;
+    };
+
+    const buildPresentation = (scheme) => {
+      if (!scheme || !scheme.mode || !Array.isArray(scheme.colors)) {
+        return {
+          mode: null,
+          colors: [],
+          className: '',
+          style: '',
+          label: 'Couleur par défaut',
+          hasColor: false,
+        };
+      }
+      const { mode } = scheme;
+      const colors = scheme.colors.slice();
+      const fallback = colors[0] || null;
+      const gradient = buildGradient(mode, colors);
+      const styleParts = [];
+      colors.forEach((color, index) => {
+        styleParts.push(`--role-color-${index + 1}: ${color}`);
+      });
+      if (fallback) {
+        styleParts.push(`--role-fallback-color: ${fallback}`);
+      }
+      if (gradient) {
+        styleParts.push(`--role-gradient: ${gradient}`);
+      }
+      styleParts.push('--role-background-position: 0% 50%');
+      if (mode === 'gradient') {
+        styleParts.push('--role-background-size: 200% 200%');
+        styleParts.push('--role-animation: none');
+      } else if (mode === 'rainbow') {
+        styleParts.push('--role-background-size: 400% 100%');
+        styleParts.push('--role-animation: role-rainbow 8s linear infinite');
+      } else {
+        styleParts.push('--role-background-size: 100% 100%');
+        styleParts.push('--role-animation: none');
+      }
+      let label = '';
+      if (mode === 'solid') {
+        label = fallback || '';
+      } else if (mode === 'gradient' && colors.length >= 2) {
+        label = `Dégradé ${colors[0]} → ${colors[1]}`;
+      } else if (mode === 'rainbow' && colors.length >= 5) {
+        label = `Arc-en-ciel ${colors.join(' → ')}`;
+      }
+      return {
+        mode,
+        colors,
+        className: `role-color--${mode}`,
+        style: styleParts.join('; '),
+        label,
+        hasColor: true,
+      };
+    };
+
+    const collectSchemeFromForm = (form) => {
+      if (!form) {
+        return null;
+      }
+      const editor = form.querySelector('[data-role-color-editor]');
+      if (!editor) {
+        return null;
+      }
+      const modeSelect = editor.querySelector('[data-role-color-mode]');
+      const mode = (modeSelect?.value || '').trim().toLowerCase();
+      if (!mode || mode === 'default') {
+        return null;
+      }
+      if (mode === 'solid') {
+        const solidInput = editor.querySelector('input[name="color_solid"]');
+        const color = sanitizeHex(solidInput?.value || '');
+        return color ? { mode: 'solid', colors: [color] } : null;
+      }
+      if (mode === 'gradient') {
+        const startInput = editor.querySelector('input[name="color_gradient_start"]');
+        const endInput = editor.querySelector('input[name="color_gradient_end"]');
+        const start = sanitizeHex(startInput?.value || '');
+        const end = sanitizeHex(endInput?.value || '');
+        return start && end ? { mode: 'gradient', colors: [start, end] } : null;
+      }
+      if (mode === 'rainbow') {
+        const colors = [];
+        for (let index = 1; index <= 5; index += 1) {
+          const input = editor.querySelector(`input[name="color_rainbow_${index}"]`);
+          const value = sanitizeHex(input?.value || '');
+          if (!value) {
+            return null;
+          }
+          colors.push(value);
+        }
+        return { mode: 'rainbow', colors };
+      }
+      return null;
+    };
+
+    const applyPresentationToPreview = (preview, presentation) => {
+      if (!preview) {
+        return;
+      }
+      const chip = preview.querySelector('[data-role-color-chip]');
+      const label = preview.querySelector('[data-role-color-label]');
+      preview.classList.toggle('is-empty', !presentation.hasColor);
+      if (chip) {
+        COLOR_CLASS_LIST.forEach((className) => chip.classList.remove(className));
+        if (presentation.hasColor && presentation.className) {
+          chip.classList.add(presentation.className);
+        }
+        chip.setAttribute('style', presentation.hasColor ? presentation.style : '');
+      }
+      if (label) {
+        label.textContent = presentation.hasColor ? presentation.label : 'Couleur par défaut';
       }
     };
 
-    const createRole = async ({ name, description }) => {
+    const initColorEditor = (panel) => {
+      const form = panel.querySelector('.role-permissions-column');
+      if (!form) {
+        return;
+      }
+      const editor = form.querySelector('[data-role-color-editor]');
+      if (!editor) {
+        return;
+      }
+      const modeSelect = editor.querySelector('[data-role-color-mode]');
+      const fieldGroups = Array.from(editor.querySelectorAll('[data-role-color-fields]'));
+      const inputs = Array.from(editor.querySelectorAll('[data-role-color-input]'));
+      const previews = Array.from(panel.querySelectorAll('[data-role-color-preview]'));
+
+      const updateVisibility = () => {
+        const activeMode = (modeSelect?.value || '').trim().toLowerCase();
+        fieldGroups.forEach((group) => {
+          const groupMode = (group.dataset.roleColorFields || '').toLowerCase();
+          group.hidden = groupMode !== activeMode;
+        });
+      };
+
+      const updatePreview = () => {
+        const scheme = collectSchemeFromForm(form);
+        const presentation = buildPresentation(scheme);
+        previews.forEach((preview) => applyPresentationToPreview(preview, presentation));
+      };
+
+      const handleBlur = (event) => {
+        if (!(event.target instanceof HTMLInputElement)) {
+          return;
+        }
+        const sanitized = sanitizeHex(event.target.value || '');
+        if (sanitized) {
+          event.target.value = sanitized;
+        }
+      };
+
+      if (modeSelect) {
+        modeSelect.addEventListener('change', () => {
+          updateVisibility();
+          updatePreview();
+        });
+      }
+
+      inputs.forEach((input) => {
+        input.addEventListener('input', updatePreview);
+        input.addEventListener('blur', handleBlur);
+      });
+
+      updateVisibility();
+      updatePreview();
+    };
+
+    panels.forEach(initColorEditor);
+
+    const createRoleButton = manager.querySelector('[data-action="create-role"]');
+
+    const requestCreateRole = async ({ name, description, color }) => {
       const response = await fetch('/admin/roles', {
         method: 'POST',
         headers: {
@@ -549,7 +569,7 @@
           'X-Requested-With': 'XMLHttpRequest',
         },
         credentials: 'same-origin',
-        body: JSON.stringify({ name, description }),
+        body: JSON.stringify({ name, description, color }),
       });
       let payload = null;
       try {
@@ -558,31 +578,31 @@
         payload = null;
       }
       if (!response.ok || !payload?.success) {
-        const message = payload?.message || 'Impossible de créer le rôle. Merci de réessayer.';
+        const message =
+          payload?.message || 'Impossible de créer le rôle. Merci de réessayer.';
         throw new Error(message);
       }
       return payload;
     };
 
-    const nextDefaultName = () => {
-      const baseName = 'Nouveau rôle';
-      const existingNames = new Set(
-        refreshButtons().map((button) => button.querySelector('.role-choice-name')?.textContent?.trim() || ''),
-      );
-      if (!existingNames.has(baseName)) {
-        return baseName;
-      }
-      let index = 2;
-      while (existingNames.has(`${baseName} ${index}`)) {
-        index += 1;
-      }
-      return `${baseName} ${index}`;
-    };
-
     if (createRoleButton) {
       createRoleButton.addEventListener('click', async () => {
-        const suggestedName = nextDefaultName();
-        let name = window.prompt('Nom du nouveau rôle', suggestedName);
+        const existingNames = new Set(
+          refreshButtons().map(
+            (button) =>
+              button.querySelector('.role-choice-name')?.textContent?.trim() || '',
+          ),
+        );
+        const baseName = 'Nouveau rôle';
+        let suggested = baseName;
+        if (existingNames.has(baseName)) {
+          let index = 2;
+          while (existingNames.has(`${baseName} ${index}`)) {
+            index += 1;
+          }
+          suggested = `${baseName} ${index}`;
+        }
+        let name = window.prompt('Nom du nouveau rôle', suggested);
         if (!name) {
           return;
         }
@@ -591,32 +611,35 @@
           return;
         }
         const description = window.prompt('Description du rôle (facultatif)', '') || '';
+        const color = (window.prompt('Couleur hex du pseudo (facultatif)', '') || '').trim();
         createRoleButton.disabled = true;
+        const originalIcon = createRoleButton.dataset.icon;
         createRoleButton.dataset.icon = '…';
         try {
-          const result = await createRole({ name, description: description.trim() });
+          const result = await requestCreateRole({
+            name,
+            description: description.trim(),
+            color,
+          });
           if (result?.success && result?.role?.id) {
-            integrateRoleIntoList(result.role);
-            lastOrder = getOrder().join(',');
+            window.location.href = `/admin/roles#role-${result.role.id}`;
           } else {
             throw new Error(result?.message || 'Impossible de créer le rôle.');
           }
         } catch (error) {
           console.error('Impossible de créer le rôle', error);
-          window.alert(error?.message || 'Impossible de créer le rôle. Merci de réessayer.');
+          window.alert(
+            error?.message || 'Impossible de créer le rôle. Merci de réessayer.',
+          );
         } finally {
           createRoleButton.disabled = false;
-          createRoleButton.dataset.icon = '➕';
+          if (originalIcon !== undefined) {
+            createRoleButton.dataset.icon = originalIcon;
+          } else {
+            delete createRoleButton.dataset.icon;
+          }
         }
       });
-    }
-
-    refreshButtons().forEach((button) => {
-      attachRoleButton(button);
-    });
-
-    if (!list) {
-      return;
     }
 
     const hash = window.location.hash || '';
@@ -726,3 +749,4 @@
     });
   })();
 </script>
+

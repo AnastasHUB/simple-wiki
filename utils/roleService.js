@@ -6,9 +6,14 @@ import {
   getRoleFlagValues,
   mergeRoleFlags,
 } from "./roleFlags.js";
+import {
+  buildRoleColorPresentation,
+  parseStoredRoleColor,
+  serializeRoleColorScheme,
+} from "./roleColors.js";
 
 const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
-const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, is_system, position, ${ROLE_FLAG_COLUMN_LIST}, created_at, updated_at`;
+const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, color, is_system, position, ${ROLE_FLAG_COLUMN_LIST}, created_at, updated_at`;
 const ROLE_UPDATE_ASSIGNMENTS = ROLE_FLAG_FIELDS.map((field) => `${field}=?`).join(", ");
 const EVERYONE_ROLE_NAME = "Everyone";
 
@@ -37,16 +42,38 @@ function normalizePermissions(raw = {}) {
   return normalized;
 }
 
+function resolveSnowflake(row) {
+  if (row?.snowflake_id) {
+    return row.snowflake_id;
+  }
+  if (row?.id) {
+    return String(row.id);
+  }
+  return null;
+}
+
 function mapRoleRow(row) {
   if (!row) {
     return null;
   }
+  const numericId = Number.parseInt(row.id, 10) || null;
+  const snowflakeId = resolveSnowflake(row);
+  const colorSerialized = typeof row.color === "string" ? row.color : null;
+  const colorScheme = parseStoredRoleColor(colorSerialized);
+  const colorPresentation = buildRoleColorPresentation(colorScheme);
   const normalizedFlags = {};
   for (const field of ROLE_FLAG_FIELDS) {
     normalizedFlags[field] = Boolean(row[field]);
   }
   return {
-    ...row,
+    id: snowflakeId,
+    numeric_id: numericId,
+    snowflake_id: snowflakeId,
+    name: row.name,
+    description: row.description,
+    color: colorScheme,
+    colorPresentation,
+    colorSerialized,
     is_system: Boolean(row.is_system),
     position: Number.parseInt(row.position, 10) || 0,
     ...normalizedFlags,
@@ -68,33 +95,63 @@ export async function listRolesWithUsage() {
     "SELECT role_id, COUNT(*) AS total FROM users WHERE role_id IS NOT NULL GROUP BY role_id",
   );
   const usageMap = new Map(
-    usage.map((row) => [row.role_id, Number(row.total) || 0]),
+    usage.map((row) => [Number.parseInt(row.role_id, 10) || null, Number(row.total) || 0]),
   );
   return roles.map((role) => ({
     ...role,
-    userCount: usageMap.get(role.id) || 0,
+    userCount: usageMap.get(role.numeric_id || null) || 0,
   }));
 }
 
 export async function countUsersWithRole(roleId) {
-  if (!roleId) {
+  const role = await getRoleById(roleId);
+  if (!role?.numeric_id) {
     return 0;
   }
   const row = await get("SELECT COUNT(*) AS total FROM users WHERE role_id=?", [
-    roleId,
+    role.numeric_id,
   ]);
   return Number(row?.total ?? 0);
 }
 
 export async function getRoleById(roleId) {
   if (!roleId) return null;
-  const row = await get(
-    `SELECT ${ROLE_SELECT_FIELDS}
-     FROM roles
-     WHERE id=?`,
-    [roleId],
-  );
-  return mapRoleRow(row);
+  if (typeof roleId === "string") {
+    const trimmed = roleId.trim();
+    if (!trimmed) {
+      return null;
+    }
+    let row = await get(
+      `SELECT ${ROLE_SELECT_FIELDS}
+       FROM roles
+       WHERE snowflake_id=?`,
+      [trimmed],
+    );
+    if (row) {
+      return mapRoleRow(row);
+    }
+    const numericId = Number.parseInt(trimmed, 10);
+    if (Number.isInteger(numericId)) {
+      row = await get(
+        `SELECT ${ROLE_SELECT_FIELDS}
+         FROM roles
+         WHERE id=?`,
+        [numericId],
+      );
+      return mapRoleRow(row);
+    }
+    return null;
+  }
+  if (typeof roleId === "number") {
+    const row = await get(
+      `SELECT ${ROLE_SELECT_FIELDS}
+       FROM roles
+       WHERE id=?`,
+      [roleId],
+    );
+    return mapRoleRow(row);
+  }
+  return null;
 }
 
 export async function getRoleByName(name) {
@@ -108,23 +165,30 @@ export async function getRoleByName(name) {
   return mapRoleRow(row);
 }
 
-export async function createRole({ name, description = "", permissions = {} }) {
+export async function createRole({
+  name,
+  description = "",
+  color = null,
+  permissions = {},
+}) {
   const trimmedName = (name || "").trim();
   if (!trimmedName) {
     throw new Error("Nom de rôle requis");
   }
   const trimmedDescription = description ? description.trim() : null;
+  const serializedColor = serializeRoleColorScheme(color);
   const perms = normalizePermissions(permissions);
   const row = await get("SELECT MAX(position) AS maxPosition FROM roles");
   const nextPosition = Number.parseInt(row?.maxPosition, 10) || 0;
   const result = await run(
-    `INSERT INTO roles(snowflake_id, name, description, is_system, position, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,?${",?".repeat(
+    `INSERT INTO roles(snowflake_id, name, description, color, is_system, position, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,?,?${",?".repeat(
       ROLE_FLAG_FIELDS.length,
     )})`,
     [
       generateSnowflake(),
       trimmedName,
       trimmedDescription,
+      serializedColor,
       0,
       nextPosition + 1,
       ...getRoleFlagValues(perms),
@@ -136,18 +200,28 @@ export async function createRole({ name, description = "", permissions = {} }) {
 
 export async function updateRoleOrdering(roleIds = []) {
   const allRoles = await all(
-    "SELECT id FROM roles ORDER BY position ASC, name COLLATE NOCASE",
+    "SELECT id, snowflake_id FROM roles ORDER BY position ASC, name COLLATE NOCASE",
   );
   if (!allRoles.length) {
     return { changed: false, order: [] };
   }
+  const idBySnowflake = new Map(
+    allRoles.map((role) => [resolveSnowflake(role), role.id]),
+  );
+  const snowflakeById = new Map(
+    allRoles.map((role) => [role.id, resolveSnowflake(role)]),
+  );
   const currentOrder = allRoles.map((role) => role.id);
   const currentSet = new Set(currentOrder);
   const seen = new Set();
   const finalOrder = [];
   for (const rawId of Array.isArray(roleIds) ? roleIds : []) {
-    const numericId = Number.parseInt(rawId, 10);
-    if (!Number.isInteger(numericId) || numericId < 1) {
+    const snowflakeId = typeof rawId === "string" ? rawId.trim() : String(rawId);
+    if (!snowflakeId) {
+      continue;
+    }
+    const numericId = idBySnowflake.get(snowflakeId);
+    if (!numericId) {
       continue;
     }
     if (seen.has(numericId)) {
@@ -178,26 +252,29 @@ export async function updateRoleOrdering(roleIds = []) {
     );
   }
   invalidateRoleCache();
-  return { changed: true, order: finalOrder };
+  const orderSnowflakes = finalOrder.map((id) => snowflakeById.get(id));
+  return { changed: true, order: orderSnowflakes };
 }
 
-export async function updateRolePermissions(roleId, { permissions = {} }) {
+export async function updateRolePermissions(roleId, { permissions = {}, color }) {
   const role = await getRoleById(roleId);
   if (!role) {
     return null;
   }
+  const serializedColor =
+    color === undefined ? role.colorSerialized : serializeRoleColorScheme(color);
   const perms = normalizePermissions(permissions);
   const flagValues = getRoleFlagValues(perms);
   await run(
-    `UPDATE roles SET ${ROLE_UPDATE_ASSIGNMENTS}, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
-    [...flagValues, roleId],
+    `UPDATE roles SET ${ROLE_UPDATE_ASSIGNMENTS}, color=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+    [...flagValues, serializedColor, role.numeric_id],
   );
   await run(
     `UPDATE users SET ${ROLE_UPDATE_ASSIGNMENTS} WHERE role_id=?`,
-    [...flagValues, roleId],
+    [...flagValues, role.numeric_id],
   );
   invalidateRoleCache();
-  return getRoleById(roleId);
+  return getRoleById(role.id || role.numeric_id);
 }
 
 export async function assignRoleToUser(userId, role) {
@@ -210,13 +287,14 @@ export async function assignRoleToUser(userId, role) {
   const mergedFlags = mergeRoleFlags(DEFAULT_ROLE_FLAGS, targetRole);
   await run(
     `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE id=?`,
-    [targetRole.id, ...getRoleFlagValues(mergedFlags), userId],
+    [targetRole.numeric_id, ...getRoleFlagValues(mergedFlags), userId],
   );
   return targetRole;
 }
 
 export async function reassignUsersToRole(sourceRoleId, targetRole) {
-  if (!sourceRoleId) {
+  const sourceRole = await getRoleById(sourceRoleId);
+  if (!sourceRole?.numeric_id) {
     return { targetRole: null, moved: 0 };
   }
   const destination =
@@ -226,23 +304,26 @@ export async function reassignUsersToRole(sourceRoleId, targetRole) {
   if (!destination) {
     throw new Error("Rôle de destination introuvable.");
   }
-  if (destination.id === sourceRoleId) {
+  if (destination.numeric_id === sourceRole.numeric_id) {
     return { targetRole: destination, moved: 0 };
   }
-  const usersToMove = await countUsersWithRole(sourceRoleId);
+  const usersToMove = await countUsersWithRole(sourceRole.numeric_id);
   if (usersToMove === 0) {
     return { targetRole: destination, moved: 0 };
   }
   const mergedFlags = mergeRoleFlags(DEFAULT_ROLE_FLAGS, destination);
   await run(
     `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE role_id=?`,
-    [destination.id, ...getRoleFlagValues(mergedFlags), sourceRoleId],
+    [
+      destination.numeric_id,
+      ...getRoleFlagValues(mergedFlags),
+      sourceRole.numeric_id,
+    ],
   );
   return { targetRole: destination, moved: usersToMove };
 }
 
 export async function deleteRole(roleId) {
-  if (!roleId) return false;
   const role = await getRoleById(roleId);
   if (!role) {
     return false;
@@ -253,13 +334,13 @@ export async function deleteRole(roleId) {
   ) {
     throw new Error("Impossible de supprimer ce rôle système.");
   }
-  const usage = await countUsersWithRole(roleId);
+  const usage = await countUsersWithRole(role.numeric_id);
   if (usage > 0) {
     throw new Error(
       "Impossible de supprimer un rôle attribué à des utilisateurs. Réassignez d'abord ces utilisateurs.",
     );
   }
-  await run("DELETE FROM roles WHERE id=?", [roleId]);
+  await run("DELETE FROM roles WHERE id=?", [role.numeric_id]);
   invalidateRoleCache();
   return true;
 }
