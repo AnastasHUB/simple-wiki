@@ -27,12 +27,20 @@
           <span>Modérateur (modération des contenus)</span>
         </label>
         <label class="checkbox">
+          <input type="checkbox" name="can_comment" value="1" />
+          <span>Commenter des articles</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_submit_pages" value="1" />
+          <span>Soumettre des contributions</span>
+        </label>
+        <label class="checkbox">
           <input type="checkbox" name="is_contributor" value="1" />
-          <span>Contributeur (création de contenu)</span>
+          <span>Publier directement des articles</span>
         </label>
         <label class="checkbox">
           <input type="checkbox" name="is_helper" value="1" />
-          <span>Helper (assistance aux contributeurs)</span>
+          <span>Commentaires sans modération</span>
         </label>
       </div>
     </fieldset>
@@ -52,6 +60,9 @@
             <% if (role.description) { %>
               <p class="text-muted"><%= role.description %></p>
             <% } %>
+            <% if (role.is_system) { %>
+              <p class="text-xs text-muted">Rôle système protégé</p>
+            <% } %>
           </div>
           <span class="badge"><%= role.userCount || 0 %> utilisateur<%= (role.userCount || 0) > 1 ? 's' : '' %></span>
         </div>
@@ -68,17 +79,45 @@
                 <span>Modérateur</span>
               </label>
               <label class="checkbox">
+                <input type="checkbox" name="can_comment" value="1" <%= role.can_comment ? 'checked' : '' %> />
+                <span>Commenter</span>
+              </label>
+              <label class="checkbox">
+                <input type="checkbox" name="can_submit_pages" value="1" <%= role.can_submit_pages ? 'checked' : '' %> />
+                <span>Soumettre des contenus</span>
+              </label>
+              <label class="checkbox">
                 <input type="checkbox" name="is_contributor" value="1" <%= role.is_contributor ? 'checked' : '' %> />
-                <span>Contributeur</span>
+                <span>Publier des articles</span>
               </label>
               <label class="checkbox">
                 <input type="checkbox" name="is_helper" value="1" <%= role.is_helper ? 'checked' : '' %> />
-                <span>Helper</span>
+                <span>Commentaires sans modération</span>
               </label>
             </div>
           </fieldset>
           <button class="btn secondary" type="submit" data-icon="💾">Enregistrer</button>
         </form>
+        <% if (!role.is_system && (role.name || '').toLowerCase() !== 'everyone') { %>
+          <div class="mt-xs"></div>
+          <% if ((role.userCount || 0) === 0) { %>
+            <form method="post" action="/admin/roles/<%= role.id %>" class="flex justify-end mt-xs" aria-label="Supprimer le rôle <%= role.name %>">
+              <input type="hidden" name="_action" value="delete" />
+              <button class="btn danger" type="submit" data-icon="🗑️" onclick="return confirm('Supprimer définitivement ce rôle ?');">Supprimer le rôle</button>
+            </form>
+          <% } else { %>
+            <div class="mt-xs">
+              <p class="text-sm text-muted">
+                Ce rôle est actuellement attribué à <strong><%= role.userCount %></strong>
+                utilisateur<%= role.userCount > 1 ? 's' : '' %>. Réassignez-les vers Everyone pour pouvoir supprimer ce rôle.
+              </p>
+              <form method="post" action="/admin/roles/<%= role.id %>" class="flex flex-wrap gap-sm mt-xs" aria-label="Réassigner les utilisateurs de <%= role.name %> vers Everyone">
+                <input type="hidden" name="_action" value="reassign_to_everyone" />
+                <button class="btn secondary" type="submit" data-icon="🔁">Réassigner tous les utilisateurs vers Everyone</button>
+              </form>
+            </div>
+          <% } %>
+        <% } %>
       </article>
     <% }) %>
   <% } %>

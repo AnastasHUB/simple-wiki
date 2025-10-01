@@ -203,23 +203,28 @@ r.get(
 r.get(
   "/new",
   asyncHandler(async (req, res) => {
-    const isAdmin = Boolean(req.session.user?.is_admin);
+    const permissions = req.permissionFlags || {};
+    if (!permissions.can_submit_pages) {
+      return res.status(403).render("error", {
+        message: "Vous n'avez pas la permission de contribuer pour le moment.",
+      });
+    }
     const canPublishDirectly = Boolean(
-      isAdmin || req.session.user?.is_contributor,
+      permissions.is_admin || permissions.is_contributor,
     );
-    if (!isAdmin) {
+    if (!permissions.is_admin) {
       const ban = await isIpBanned(req.clientIp, { action: "contribute" });
       if (ban) {
         return res.status(403).render("banned", { ban });
       }
     }
-    const uploads = isAdmin ? await listUploads() : [];
+    const uploads = permissions.is_admin ? await listUploads() : [];
     res.render("edit", {
       page: null,
       tags: "",
       uploads,
       submissionMode: !canPublishDirectly,
-      allowUploads: isAdmin,
+      allowUploads: permissions.is_admin,
     });
   }),
 );
@@ -227,12 +232,17 @@ r.get(
 r.post(
   "/new",
   asyncHandler(async (req, res) => {
+    const permissions = req.permissionFlags || {};
+    if (!permissions.can_submit_pages) {
+      return res.status(403).render("error", {
+        message: "Vous n'êtes pas autorisé à soumettre de contenu.",
+      });
+    }
     const { title, content, tags } = req.body;
-    const isAdmin = Boolean(req.session.user?.is_admin);
     const canPublishDirectly = Boolean(
-      isAdmin || req.session.user?.is_contributor,
+      permissions.is_admin || permissions.is_contributor,
     );
-    if (!isAdmin) {
+    if (!permissions.is_admin) {
       const ban = await isIpBanned(req.clientIp, { action: "contribute" });
       if (ban) {
         return res.status(403).render("banned", { ban });
@@ -407,8 +417,18 @@ r.post(
     );
     if (!page) return res.status(404).send("Page introuvable");
 
+    const permissions = req.permissionFlags || {};
+    if (!permissions.can_comment) {
+      pushNotification(req, {
+        type: "error",
+        message: "Vous n'êtes pas autorisé à publier des commentaires.",
+        timeout: 6000,
+      });
+      return res.redirect(`/wiki/${req.params.slugid}#comments`);
+    }
+
     const ip = req.clientIp;
-    const adminDisplayName = req.session.user?.is_admin
+    const adminDisplayName = permissions.is_admin
       ? getUserDisplayName(req.session.user)
       : null;
     const trimmedAuthorInput = (req.body.author || "").trim().slice(0, 80);
@@ -462,10 +482,10 @@ r.post(
     const token = generateSnowflake();
     const commentSnowflake = generateSnowflake();
     const privilegedCommenter = Boolean(
-      req.session.user?.is_admin ||
-        req.session.user?.is_moderator ||
-        req.session.user?.is_contributor ||
-        req.session.user?.is_helper,
+      permissions.is_admin ||
+        permissions.is_moderator ||
+        permissions.is_contributor ||
+        permissions.is_helper,
     );
     const commentStatus = privilegedCommenter ? "approved" : "pending";
     const insertResult = await run(
@@ -486,7 +506,7 @@ r.post(
         validation.body,
         ip || null,
         token,
-        req.session.user?.is_admin ? 1 : 0,
+        permissions.is_admin ? 1 : 0,
         commentStatus,
       ],
     );
@@ -795,11 +815,16 @@ r.get(
     ]);
     if (!page) return res.status(404).send("Page introuvable");
     const tagNames = await fetchPageTags(page.id);
-    const isAdmin = Boolean(req.session.user?.is_admin);
+    const permissions = req.permissionFlags || {};
+    if (!permissions.can_submit_pages) {
+      return res.status(403).render("error", {
+        message: "Vous n'avez pas la permission de proposer des modifications.",
+      });
+    }
     const canPublishDirectly = Boolean(
-      isAdmin || req.session.user?.is_contributor,
+      permissions.is_admin || permissions.is_contributor,
     );
-    if (!isAdmin) {
+    if (!permissions.is_admin) {
       const ban = await isIpBanned(req.clientIp, {
         action: "contribute",
         tags: tagNames,
@@ -808,13 +833,13 @@ r.get(
         return res.status(403).render("banned", { ban });
       }
     }
-    const uploads = isAdmin ? await listUploads() : [];
+    const uploads = permissions.is_admin ? await listUploads() : [];
     res.render("edit", {
       page,
       tags: tagNames.join(", "),
       uploads,
       submissionMode: !canPublishDirectly,
-      allowUploads: isAdmin,
+      allowUploads: permissions.is_admin,
     });
   }),
 );
@@ -828,11 +853,16 @@ r.post(
     ]);
     if (!page) return res.status(404).send("Page introuvable");
 
-    const isAdmin = Boolean(req.session.user?.is_admin);
+    const permissions = req.permissionFlags || {};
+    if (!permissions.can_submit_pages) {
+      return res.status(403).render("error", {
+        message: "Vous n'avez pas la permission de modifier cet article.",
+      });
+    }
     const canPublishDirectly = Boolean(
-      isAdmin || req.session.user?.is_contributor,
+      permissions.is_admin || permissions.is_contributor,
     );
-    if (!isAdmin) {
+    if (!permissions.is_admin) {
       const tagNames = await fetchPageTags(page.id);
       const ban = await isIpBanned(req.clientIp, {
         action: "contribute",

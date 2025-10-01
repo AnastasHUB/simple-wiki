@@ -76,6 +76,9 @@ import {
   createRole,
   updateRolePermissions,
   assignRoleToUser,
+  deleteRole,
+  reassignUsersToRole,
+  getEveryoneRole,
 } from "../utils/roleService.js";
 import { buildSessionUser } from "../utils/roleFlags.js";
 import {
@@ -2132,6 +2135,8 @@ r.post("/roles", async (req, res) => {
     is_moderator: req.body.is_moderator,
     is_helper: req.body.is_helper,
     is_contributor: req.body.is_contributor,
+    can_comment: req.body.can_comment,
+    can_submit_pages: req.body.can_submit_pages,
   };
   try {
     const role = await createRole({ name, description, permissions });
@@ -2149,6 +2154,8 @@ r.post("/roles", async (req, res) => {
             is_moderator: role.is_moderator,
             is_helper: role.is_helper,
             is_contributor: role.is_contributor,
+            can_comment: role.can_comment,
+            can_submit_pages: role.can_submit_pages,
           },
         },
       },
@@ -2180,11 +2187,105 @@ r.post("/roles/:id", async (req, res) => {
     });
     return res.redirect("/admin/roles");
   }
+  const action = req.body._action;
+  if (action === "delete") {
+    if (existing.is_system || existing.name?.toLowerCase() === "everyone") {
+      pushNotification(req, {
+        type: "error",
+        message: "Ce rôle ne peut pas être supprimé.",
+      });
+      return res.redirect("/admin/roles");
+    }
+    try {
+      await deleteRole(roleId);
+      const ip = getClientIp(req);
+      await sendAdminEvent(
+        "Rôle supprimé",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            roleId,
+            roleName: existing.name,
+          },
+        },
+        { includeScreenshot: false },
+      );
+      pushNotification(req, {
+        type: "success",
+        message: `Rôle ${existing.name} supprimé avec succès.`,
+      });
+    } catch (error) {
+      console.error("Failed to delete role", error);
+      pushNotification(req, {
+        type: "error",
+        message: error?.message || "Impossible de supprimer ce rôle.",
+      });
+    }
+    return res.redirect("/admin/roles");
+  }
+
+  if (action === "reassign_to_everyone") {
+    if (existing.name?.toLowerCase() === "everyone") {
+      pushNotification(req, {
+        type: "error",
+        message: "Ce rôle est déjà Everyone.",
+      });
+      return res.redirect("/admin/roles");
+    }
+    try {
+      const everyoneRole = await getEveryoneRole();
+      if (!everyoneRole) {
+        throw new Error("Rôle Everyone introuvable.");
+      }
+      const { moved } = await reassignUsersToRole(roleId, everyoneRole);
+      const ip = getClientIp(req);
+      await sendAdminEvent(
+        "Utilisateurs réassignés vers Everyone",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            sourceRoleId: roleId,
+            sourceRoleName: existing.name,
+            targetRoleId: everyoneRole.id,
+            targetRoleName: everyoneRole.name,
+            movedUsers: moved,
+          },
+        },
+        { includeScreenshot: false },
+      );
+      if (moved > 0) {
+        pushNotification(req, {
+          type: "success",
+          message: `${moved} utilisateur${moved > 1 ? "s" : ""} déplacé${
+            moved > 1 ? "s" : ""
+          } vers Everyone.`,
+        });
+      } else {
+        pushNotification(req, {
+          type: "info",
+          message: "Aucun utilisateur à réassigner pour ce rôle.",
+        });
+      }
+    } catch (error) {
+      console.error("Failed to reassign role users", error);
+      pushNotification(req, {
+        type: "error",
+        message:
+          error?.message ||
+          "Impossible de réassigner les utilisateurs vers Everyone.",
+      });
+    }
+    return res.redirect("/admin/roles");
+  }
   const permissions = {
     is_admin: req.body.is_admin,
     is_moderator: req.body.is_moderator,
     is_helper: req.body.is_helper,
     is_contributor: req.body.is_contributor,
+    can_comment: req.body.can_comment,
+    can_submit_pages: req.body.can_submit_pages,
   };
   try {
     const updated = await updateRolePermissions(roleId, { permissions });
@@ -2202,12 +2303,17 @@ r.post("/roles/:id", async (req, res) => {
             is_moderator: existing.is_moderator,
             is_helper: existing.is_helper,
             is_contributor: existing.is_contributor,
+            can_comment: existing.can_comment,
+            can_submit_pages: existing.can_submit_pages,
           },
           newPermissions: {
             is_admin: updated?.is_admin ?? existing.is_admin,
             is_moderator: updated?.is_moderator ?? existing.is_moderator,
             is_helper: updated?.is_helper ?? existing.is_helper,
             is_contributor: updated?.is_contributor ?? existing.is_contributor,
+            can_comment: updated?.can_comment ?? existing.can_comment,
+            can_submit_pages:
+              updated?.can_submit_pages ?? existing.can_submit_pages,
           },
         },
       },
@@ -2251,7 +2357,7 @@ r.get("/users", async (req, res) => {
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const users = await all(
-    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.role_id, r.name AS role_name
+    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.can_comment, u.can_submit_pages, u.role_id, r.name AS role_name
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      ${where}
@@ -2261,6 +2367,7 @@ r.get("/users", async (req, res) => {
   );
   const availableRoles = await listRoles();
   const defaultRole =
+    availableRoles.find((role) => role.name === "Utilisateur") ||
     availableRoles.find(
       (role) =>
         !role.is_admin &&
@@ -2273,6 +2380,8 @@ r.get("/users", async (req, res) => {
     const isModerator = Boolean(user.is_moderator);
     const isContributor = Boolean(user.is_contributor);
     const isHelper = Boolean(user.is_helper);
+    const canComment = Boolean(user.can_comment);
+    const canSubmit = Boolean(user.can_submit_pages);
     const roleLabel =
       user.role_name ||
       (isAdmin
@@ -2283,6 +2392,8 @@ r.get("/users", async (req, res) => {
         ? "Contributeur"
         : isHelper
         ? "Helper"
+        : canSubmit
+        ? "Contributeur" // fallback label for legacy display
         : "Utilisateur");
     return {
       ...user,
@@ -2290,6 +2401,8 @@ r.get("/users", async (req, res) => {
       is_moderator: isModerator,
       is_contributor: isContributor,
       is_helper: isHelper,
+      can_comment: canComment,
+      can_submit_pages: canSubmit,
       role_label: roleLabel,
     };
   });
@@ -2324,7 +2437,7 @@ r.post("/users", async (req, res) => {
   const hashed = await hashPassword(password);
   try {
     const result = await run(
-      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,?,?,?,?,?)",
+      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages) VALUES(?,?,?,?,?,?,?,?,?,?)",
       [
         generateSnowflake(),
         sanitizedUsername,
@@ -2334,6 +2447,8 @@ r.post("/users", async (req, res) => {
         role.is_moderator ? 1 : 0,
         role.is_helper ? 1 : 0,
         role.is_contributor ? 1 : 0,
+        role.can_comment ? 1 : 0,
+        role.can_submit_pages ? 1 : 0,
       ],
     );
     const ip = getClientIp(req);
@@ -2489,6 +2604,8 @@ r.post("/users/:id/role", async (req, res) => {
         is_moderator: role.is_moderator,
         is_helper: role.is_helper,
         is_contributor: role.is_contributor,
+        can_comment: role.can_comment,
+        can_submit_pages: role.can_submit_pages,
       },
       role,
     );

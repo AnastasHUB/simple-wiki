@@ -91,12 +91,15 @@
     <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
       <li><a href="/profiles/ip/me">Mon profil IP</a></li>
     <% } %>
-    <% const isAdminUser = currentUser && currentUser.is_admin; %>
-    <% const isModeratorUser = currentUser && currentUser.is_moderator; %>
-    <% const isContributorUser = currentUser && currentUser.is_contributor; %>
-    <% if (!currentUser || (!isAdminUser && !isContributorUser)) { %>
+    <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+    <% const isAdminUser = !!permissionFlags.is_admin; %>
+    <% const isModeratorUser = !!permissionFlags.is_moderator; %>
+    <% const isContributorUser = !!permissionFlags.is_contributor; %>
+    <% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
+    <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
+    <% if (canSubmitContent && !canPublishDirectly) { %>
       <li><a href="/new">Contribuer</a></li>
-    <% } else if (isContributorUser) { %>
+    <% } else if (canPublishDirectly) { %>
       <li><a href="/new">Nouvelle page</a></li>
     <% } %>
     <li><a href="/account/submissions">Mes contributions</a></li>
