@@ -8,7 +8,7 @@ import {
 } from "./roleFlags.js";
 
 const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
-const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, is_system, ${ROLE_FLAG_COLUMN_LIST}, created_at, updated_at`;
+const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, is_system, position, ${ROLE_FLAG_COLUMN_LIST}, created_at, updated_at`;
 const ROLE_UPDATE_ASSIGNMENTS = ROLE_FLAG_FIELDS.map((field) => `${field}=?`).join(", ");
 const EVERYONE_ROLE_NAME = "Everyone";
 
@@ -48,6 +48,7 @@ function mapRoleRow(row) {
   return {
     ...row,
     is_system: Boolean(row.is_system),
+    position: Number.parseInt(row.position, 10) || 0,
     ...normalizedFlags,
   };
 }
@@ -56,7 +57,7 @@ export async function listRoles() {
   const rows = await all(
     `SELECT ${ROLE_SELECT_FIELDS}
      FROM roles
-     ORDER BY name COLLATE NOCASE`,
+     ORDER BY position ASC, name COLLATE NOCASE`,
   );
   return rows.map(mapRoleRow);
 }
@@ -114,8 +115,10 @@ export async function createRole({ name, description = "", permissions = {} }) {
   }
   const trimmedDescription = description ? description.trim() : null;
   const perms = normalizePermissions(permissions);
+  const row = await get("SELECT MAX(position) AS maxPosition FROM roles");
+  const nextPosition = Number.parseInt(row?.maxPosition, 10) || 0;
   const result = await run(
-    `INSERT INTO roles(snowflake_id, name, description, is_system, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?${",?".repeat(
+    `INSERT INTO roles(snowflake_id, name, description, is_system, position, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,?${",?".repeat(
       ROLE_FLAG_FIELDS.length,
     )})`,
     [
@@ -123,11 +126,59 @@ export async function createRole({ name, description = "", permissions = {} }) {
       trimmedName,
       trimmedDescription,
       0,
+      nextPosition + 1,
       ...getRoleFlagValues(perms),
     ],
   );
   invalidateRoleCache();
   return getRoleById(result.lastID);
+}
+
+export async function updateRoleOrdering(roleIds = []) {
+  const allRoles = await all(
+    "SELECT id FROM roles ORDER BY position ASC, name COLLATE NOCASE",
+  );
+  if (!allRoles.length) {
+    return { changed: false, order: [] };
+  }
+  const currentOrder = allRoles.map((role) => role.id);
+  const currentSet = new Set(currentOrder);
+  const seen = new Set();
+  const finalOrder = [];
+  for (const rawId of Array.isArray(roleIds) ? roleIds : []) {
+    const numericId = Number.parseInt(rawId, 10);
+    if (!Number.isInteger(numericId) || numericId < 1) {
+      continue;
+    }
+    if (seen.has(numericId)) {
+      continue;
+    }
+    if (!currentSet.has(numericId)) {
+      continue;
+    }
+    finalOrder.push(numericId);
+    seen.add(numericId);
+  }
+  for (const id of currentOrder) {
+    if (!seen.has(id)) {
+      finalOrder.push(id);
+    }
+  }
+  const changed =
+    finalOrder.length !== currentOrder.length ||
+    finalOrder.some((id, index) => id !== currentOrder[index]);
+  if (!changed) {
+    return { changed: false, order: currentOrder };
+  }
+  for (let index = 0; index < finalOrder.length; index += 1) {
+    const roleId = finalOrder[index];
+    await run(
+      `UPDATE roles SET position=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
+      [index + 1, roleId],
+    );
+  }
+  invalidateRoleCache();
+  return { changed: true, order: finalOrder };
 }
 
 export async function updateRolePermissions(roleId, { permissions = {} }) {

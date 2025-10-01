@@ -35,6 +35,7 @@ export async function initDb() {
     name TEXT UNIQUE NOT NULL,
     description TEXT,
     is_system INTEGER NOT NULL DEFAULT 0,
+    position INTEGER NOT NULL DEFAULT 0,
     is_admin INTEGER NOT NULL DEFAULT 0,
     is_moderator INTEGER NOT NULL DEFAULT 0,
     is_helper INTEGER NOT NULL DEFAULT 0,
@@ -362,6 +363,7 @@ export async function initDb() {
     "INTEGER NOT NULL DEFAULT 0",
   );
   await ensureColumn("roles", "is_system", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("roles", "position", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
@@ -444,6 +446,7 @@ export async function initDb() {
     "can_view_snowflakes",
     "INTEGER NOT NULL DEFAULT 0",
   );
+  await ensureRolePositions();
   await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
   await ensureColumn(
     "ip_profiles",
@@ -540,6 +543,36 @@ async function ensureSnowflake(table, column = "snowflake_id") {
   );
 }
 
+async function ensureRolePositions() {
+  const roles = await db.all(
+    "SELECT id, position FROM roles ORDER BY position ASC, name COLLATE NOCASE",
+  );
+  if (!roles.length) {
+    return;
+  }
+  let needsUpdate = false;
+  let expected = 1;
+  for (const role of roles) {
+    const position = Number.parseInt(role.position, 10);
+    if (!Number.isInteger(position) || position < 1 || position !== expected) {
+      needsUpdate = true;
+      break;
+    }
+    expected += 1;
+  }
+  if (!needsUpdate) {
+    return;
+  }
+  const alphabetical = await db.all(
+    "SELECT id FROM roles ORDER BY name COLLATE NOCASE",
+  );
+  let index = 1;
+  for (const role of alphabetical) {
+    await db.run("UPDATE roles SET position=? WHERE id=?", [index, role.id]);
+    index += 1;
+  }
+}
+
 function buildRoleFlags(overrides = {}) {
   const flags = { ...DEFAULT_ROLE_FLAGS };
   for (const field of ROLE_FLAG_FIELDS) {
@@ -628,12 +661,12 @@ async function ensureDefaultRoles() {
         can_submit_pages: true,
       }),
     },
-  ];
+  ].map((role, index) => ({ ...role, position: index + 1 }));
 
   for (const role of defaultRoles) {
     await db.run(
-      `INSERT INTO roles(name, description, is_system, ${ROLE_FLAG_COLUMN_LIST})
-       VALUES(?,?,?,${ROLE_FLAG_PLACEHOLDERS})
+      `INSERT INTO roles(name, description, is_system, position, ${ROLE_FLAG_COLUMN_LIST})
+       VALUES(?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})
        ON CONFLICT(name) DO UPDATE SET
          description=excluded.description,
          is_system=excluded.is_system,
@@ -643,6 +676,7 @@ async function ensureDefaultRoles() {
         role.name,
         role.description,
         role.is_system || 0,
+        role.position,
         ...getRoleFlagValues(role.flags),
       ],
     );
