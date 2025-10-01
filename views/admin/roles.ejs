@@ -42,6 +42,70 @@
           <input type="checkbox" name="is_helper" value="1" />
           <span>Commentaires sans modération</span>
         </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_moderate_comments" value="1" />
+          <span>Modérer les commentaires</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_review_submissions" value="1" />
+          <span>Revoir les contributions</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_pages" value="1" />
+          <span>Gérer les articles</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_view_stats" value="1" />
+          <span>Voir les statistiques</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_users" value="1" />
+          <span>Gérer les utilisateurs</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_roles" value="1" />
+          <span>Gérer les rôles</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_likes" value="1" />
+          <span>Gérer les likes</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_trash" value="1" />
+          <span>Gérer la corbeille</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_uploads" value="1" />
+          <span>Gérer les images</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_settings" value="1" />
+          <span>Modifier les paramètres</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_ip_bans" value="1" />
+          <span>Gérer les blocages IP</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_ip_reputation" value="1" />
+          <span>Gérer la réputation IP</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_manage_ip_profiles" value="1" />
+          <span>Gérer les profils IP</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_review_ban_appeals" value="1" />
+          <span>Examiner les demandes de déban</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_view_events" value="1" />
+          <span>Voir les événements</span>
+        </label>
+        <label class="checkbox">
+          <input type="checkbox" name="can_view_snowflakes" value="1" />
+          <span>Voir les identifiants Snowflake</span>
+        </label>
       </div>
     </fieldset>
     <button class="btn success" type="submit" data-icon="➕">Créer le rôle</button>
@@ -90,12 +154,76 @@
                 <input type="checkbox" name="is_contributor" value="1" <%= role.is_contributor ? 'checked' : '' %> />
                 <span>Publier des articles</span>
               </label>
-              <label class="checkbox">
-                <input type="checkbox" name="is_helper" value="1" <%= role.is_helper ? 'checked' : '' %> />
-                <span>Commentaires sans modération</span>
-              </label>
-            </div>
-          </fieldset>
+            <label class="checkbox">
+              <input type="checkbox" name="is_helper" value="1" <%= role.is_helper ? 'checked' : '' %> />
+              <span>Commentaires sans modération</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_moderate_comments" value="1" <%= role.can_moderate_comments ? 'checked' : '' %> />
+              <span>Modérer les commentaires</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_review_submissions" value="1" <%= role.can_review_submissions ? 'checked' : '' %> />
+              <span>Revoir les contributions</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_pages" value="1" <%= role.can_manage_pages ? 'checked' : '' %> />
+              <span>Gérer les articles</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_view_stats" value="1" <%= role.can_view_stats ? 'checked' : '' %> />
+              <span>Voir les statistiques</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_users" value="1" <%= role.can_manage_users ? 'checked' : '' %> />
+              <span>Gérer les utilisateurs</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_roles" value="1" <%= role.can_manage_roles ? 'checked' : '' %> />
+              <span>Gérer les rôles</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_likes" value="1" <%= role.can_manage_likes ? 'checked' : '' %> />
+              <span>Gérer les likes</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_trash" value="1" <%= role.can_manage_trash ? 'checked' : '' %> />
+              <span>Gérer la corbeille</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_uploads" value="1" <%= role.can_manage_uploads ? 'checked' : '' %> />
+              <span>Gérer les images</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_settings" value="1" <%= role.can_manage_settings ? 'checked' : '' %> />
+              <span>Modifier les paramètres</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_ip_bans" value="1" <%= role.can_manage_ip_bans ? 'checked' : '' %> />
+              <span>Gérer les blocages IP</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_ip_reputation" value="1" <%= role.can_manage_ip_reputation ? 'checked' : '' %> />
+              <span>Gérer la réputation IP</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_manage_ip_profiles" value="1" <%= role.can_manage_ip_profiles ? 'checked' : '' %> />
+              <span>Gérer les profils IP</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_review_ban_appeals" value="1" <%= role.can_review_ban_appeals ? 'checked' : '' %> />
+              <span>Examiner les demandes de déban</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_view_events" value="1" <%= role.can_view_events ? 'checked' : '' %> />
+              <span>Voir les événements</span>
+            </label>
+            <label class="checkbox">
+              <input type="checkbox" name="can_view_snowflakes" value="1" <%= role.can_view_snowflakes ? 'checked' : '' %> />
+              <span>Voir les identifiants Snowflake</span>
+            </label>
+          </div>
+        </fieldset>
           <button class="btn secondary" type="submit" data-icon="💾">Enregistrer</button>
         </form>
         <% if (!role.is_system && (role.name || '').toLowerCase() !== 'everyone') { %>

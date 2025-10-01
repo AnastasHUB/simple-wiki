@@ -5,7 +5,35 @@ export const ROLE_FLAG_FIELDS = [
   "is_contributor",
   "can_comment",
   "can_submit_pages",
+  "can_moderate_comments",
+  "can_review_ban_appeals",
+  "can_manage_ip_bans",
+  "can_manage_ip_reputation",
+  "can_manage_ip_profiles",
+  "can_review_submissions",
+  "can_manage_pages",
+  "can_view_stats",
+  "can_manage_uploads",
+  "can_manage_settings",
+  "can_manage_roles",
+  "can_manage_users",
+  "can_manage_likes",
+  "can_manage_trash",
+  "can_view_events",
+  "can_view_snowflakes",
 ];
+
+export const ADMIN_ACTION_FLAGS = ROLE_FLAG_FIELDS.filter(
+  (field) =>
+    ![
+      "is_admin",
+      "is_moderator",
+      "is_helper",
+      "is_contributor",
+      "can_comment",
+      "can_submit_pages",
+    ].includes(field),
+);
 
 export const DEFAULT_ROLE_FLAGS = ROLE_FLAG_FIELDS.reduce((acc, field) => {
   acc[field] = false;
@@ -37,6 +65,12 @@ function applyRoleDerivations(flags) {
     derived.is_contributor = true;
     derived.can_comment = true;
     derived.can_submit_pages = true;
+    derived.can_moderate_comments = true;
+    derived.can_review_submissions = true;
+    derived.can_review_ban_appeals = true;
+    derived.can_manage_likes = true;
+    derived.can_manage_trash = true;
+    derived.can_view_stats = true;
   }
 
   if (derived.is_contributor) {

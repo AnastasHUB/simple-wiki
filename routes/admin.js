@@ -80,7 +80,7 @@ import {
   reassignUsersToRole,
   getEveryoneRole,
 } from "../utils/roleService.js";
-import { buildSessionUser } from "../utils/roleFlags.js";
+import { buildSessionUser, ROLE_FLAG_FIELDS } from "../utils/roleFlags.js";
 import {
   countBanAppeals,
   fetchBanAppeals,
@@ -118,35 +118,56 @@ const upload = multer({
 
 const r = Router();
 
-const MODERATOR_ALLOWED_PREFIXES = ["/comments", "/submissions"];
-
-function isModeratorAllowedPath(pathname = "") {
-  return MODERATOR_ALLOWED_PREFIXES.some((prefix) => {
-    if (!pathname) return false;
-    if (pathname === prefix) {
-      return true;
-    }
-    return pathname.startsWith(`${prefix}/`);
-  });
-}
+const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
+const ROLE_FLAG_VALUE_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
 
 r.use((req, res, next) => {
   const user = req.session.user;
   if (!user) {
     return res.redirect("/login");
   }
-  const isAdmin = Boolean(user.is_admin);
-  const isModerator = Boolean(user.is_moderator);
-  if (isAdmin) {
-    res.locals.isModeratorUser = isModerator;
-    return next();
-  }
-  if (isModerator && isModeratorAllowedPath(req.path || "")) {
-    res.locals.isModeratorUser = true;
-    return next();
-  }
-  return res.redirect("/login");
+  const permissions = req.permissionFlags || user;
+  res.locals.isModeratorUser = Boolean(
+    permissions.is_moderator || permissions.can_moderate_comments,
+  );
+  return next();
 });
+
+function requirePermission(flag) {
+  return (req, res, next) => {
+    const permissions = req.permissionFlags || req.session.user || {};
+    if (permissions.is_admin || permissions[flag]) {
+      return next();
+    }
+    const preferredType = req.accepts(["html", "json"]);
+    if (preferredType === "json") {
+      return res.status(403).json({
+        error: "forbidden",
+        message: "Vous n'avez pas la permission d'effectuer cette action.",
+      });
+    }
+    return res.status(403).render("error", {
+      message: "Vous n'avez pas la permission d'accéder à cette page.",
+    });
+  };
+}
+
+function extractPermissionsFromBody(body = {}) {
+  const permissions = {};
+  for (const field of ROLE_FLAG_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(body, field)) {
+      permissions[field] = body[field];
+    }
+  }
+  return permissions;
+}
+
+function buildPermissionSnapshot(role = {}) {
+  return ROLE_FLAG_FIELDS.reduce((acc, field) => {
+    acc[field] = Boolean(role[field]);
+    return acc;
+  }, {});
+}
 
 const LIVE_VISITOR_PAGE_SIZES = [5, 10, 25, 50];
 const LIVE_VISITOR_DEFAULT_PAGE_SIZE = 10;
@@ -188,7 +209,7 @@ function redirectToComments(req, res) {
   return res.redirect(fallback);
 }
 
-r.get("/comments", async (req, res) => {
+r.get("/comments", requirePermission("can_moderate_comments"), async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const like = searchTerm ? `%${searchTerm}%` : null;
 
@@ -270,7 +291,10 @@ r.get("/comments", async (req, res) => {
   });
 });
 
-r.post("/comments/:id/approve", async (req, res) => {
+r.post(
+  "/comments/:id/approve",
+  requirePermission("can_moderate_comments"),
+  async (req, res) => {
   const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
     pushNotification(req, {
@@ -308,9 +332,13 @@ r.post("/comments/:id/approve", async (req, res) => {
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   return redirectToComments(req, res);
-});
+  },
+);
 
-r.post("/comments/:id/reject", async (req, res) => {
+r.post(
+  "/comments/:id/reject",
+  requirePermission("can_moderate_comments"),
+  async (req, res) => {
   const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
     pushNotification(req, {
@@ -348,7 +376,8 @@ r.post("/comments/:id/reject", async (req, res) => {
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
   });
   return redirectToComments(req, res);
-});
+  },
+);
 
 async function handleCommentDeletion(req, res) {
   const { comment } = await fetchModeratableComment(req.params.id);
@@ -380,8 +409,16 @@ async function handleCommentDeletion(req, res) {
   return redirectToComments(req, res);
 }
 
-r.delete("/comments/:id", handleCommentDeletion);
-r.post("/comments/:id/delete", handleCommentDeletion);
+r.delete(
+  "/comments/:id",
+  requirePermission("can_moderate_comments"),
+  handleCommentDeletion,
+);
+r.post(
+  "/comments/:id/delete",
+  requirePermission("can_moderate_comments"),
+  handleCommentDeletion,
+);
 
 async function fetchModeratableComment(rawId) {
   const identifier = typeof rawId === "string" ? rawId.trim() : "";
@@ -453,7 +490,10 @@ function buildCommentSummary(comment = {}) {
   };
 }
 
-r.get("/ban-appeals", async (req, res) => {
+r.get(
+  "/ban-appeals",
+  requirePermission("can_review_ban_appeals"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const requestedStatus = (req.query.status || "all").toLowerCase();
   const allowedStatuses = new Set(["pending", "accepted", "rejected"]);
@@ -481,9 +521,13 @@ r.get("/ban-appeals", async (req, res) => {
     searchTerm,
     statusFilter,
   });
-});
+  },
+);
 
-r.post("/ban-appeals/:id/accept", async (req, res) => {
+r.post(
+  "/ban-appeals/:id/accept",
+  requirePermission("can_review_ban_appeals"),
+  async (req, res) => {
   const appealId = req.params.id;
   const appeal = await getBanAppealBySnowflake(appealId);
   if (!appeal) {
@@ -538,9 +582,13 @@ r.post("/ban-appeals/:id/accept", async (req, res) => {
   }
 
   res.redirect("/admin/ban-appeals");
-});
+  },
+);
 
-r.post("/ban-appeals/:id/reject", async (req, res) => {
+r.post(
+  "/ban-appeals/:id/reject",
+  requirePermission("can_review_ban_appeals"),
+  async (req, res) => {
   const appealId = req.params.id;
   const appeal = await getBanAppealBySnowflake(appealId);
   if (!appeal) {
@@ -595,9 +643,13 @@ r.post("/ban-appeals/:id/reject", async (req, res) => {
   }
 
   res.redirect("/admin/ban-appeals");
-});
+  },
+);
 
-r.post("/ban-appeals/:id/delete", async (req, res) => {
+r.post(
+  "/ban-appeals/:id/delete",
+  requirePermission("can_review_ban_appeals"),
+  async (req, res) => {
   const appealId = req.params.id;
   const appeal = await getBanAppealBySnowflake(appealId);
   if (!appeal) {
@@ -648,9 +700,10 @@ r.post("/ban-appeals/:id/delete", async (req, res) => {
   }
 
   res.redirect("/admin/ban-appeals");
-});
+  },
+);
 
-r.get("/ip-bans", async (req, res) => {
+r.get("/ip-bans", requirePermission("can_manage_ip_bans"), async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const like = searchTerm ? `%${searchTerm}%` : null;
 
@@ -721,7 +774,10 @@ r.get("/ip-bans", async (req, res) => {
   });
 });
 
-r.post("/ip-bans", async (req, res) => {
+r.post(
+  "/ip-bans",
+  requirePermission("can_manage_ip_bans"),
+  async (req, res) => {
   const ip = (req.body.ip || "").trim();
   const scopeInput = (req.body.scope || "").trim();
   const reason = (req.body.reason || "").trim();
@@ -759,9 +815,13 @@ r.post("/ip-bans", async (req, res) => {
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
-});
+  },
+);
 
-r.post("/ip-bans/:id/lift", async (req, res) => {
+r.post(
+  "/ip-bans/:id/lift",
+  requirePermission("can_manage_ip_bans"),
+  async (req, res) => {
   const ban = await getBan(req.params.id);
   if (!ban) {
     pushNotification(req, {
@@ -785,9 +845,13 @@ r.post("/ip-bans/:id/lift", async (req, res) => {
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
-});
+  },
+);
 
-r.post("/ip-bans/:id/delete", async (req, res) => {
+r.post(
+  "/ip-bans/:id/delete",
+  requirePermission("can_manage_ip_bans"),
+  async (req, res) => {
   const ban = await getBan(req.params.id);
   if (!ban) {
     pushNotification(req, {
@@ -812,9 +876,13 @@ r.post("/ip-bans/:id/delete", async (req, res) => {
     user: req.session.user?.username || null,
   });
   res.redirect("/admin/ip-bans");
-});
+  },
+);
 
-r.get("/ip-reputation", async (req, res) => {
+r.get(
+  "/ip-reputation",
+  requirePermission("can_manage_ip_reputation"),
+  async (req, res) => {
   const [reviewTotal, clearedTotal, historyTotal] = await Promise.all([
     countIpProfilesForReview(),
     countClearedIpProfiles(),
@@ -885,9 +953,13 @@ r.get("/ip-reputation", async (req, res) => {
     refreshIntervalHours,
     providerName: "ipapi.is",
   });
-});
+  },
+);
 
-r.post("/ip-reputation/manual-check", async (req, res) => {
+r.post(
+  "/ip-reputation/manual-check",
+  requirePermission("can_manage_ip_reputation"),
+  async (req, res) => {
   const rawIp = typeof req.body?.ip === "string" ? req.body.ip.trim() : "";
   if (!rawIp) {
     pushNotification(req, {
@@ -925,9 +997,13 @@ r.post("/ip-reputation/manual-check", async (req, res) => {
   }
 
   res.redirect("/admin/ip-reputation");
-});
+  },
+);
 
-r.post("/ip-reputation/:hash/mark-safe", async (req, res) => {
+r.post(
+  "/ip-reputation/:hash/mark-safe",
+  requirePermission("can_manage_ip_reputation"),
+  async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
   if (!profile?.hash) {
@@ -952,9 +1028,13 @@ r.post("/ip-reputation/:hash/mark-safe", async (req, res) => {
       : "Impossible de marquer ce profil comme sûr.",
   });
   res.redirect("/admin/ip-reputation");
-});
+  },
+);
 
-r.post("/ip-reputation/:hash/clear-safe", async (req, res) => {
+r.post(
+  "/ip-reputation/:hash/clear-safe",
+  requirePermission("can_manage_ip_reputation"),
+  async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
   if (!profile?.hash) {
@@ -972,9 +1052,13 @@ r.post("/ip-reputation/:hash/clear-safe", async (req, res) => {
       : "Impossible de retirer cette validation.",
   });
   res.redirect("/admin/ip-reputation");
-});
+  },
+);
 
-r.post("/ip-reputation/:hash/recheck", async (req, res) => {
+r.post(
+  "/ip-reputation/:hash/recheck",
+  requirePermission("can_manage_ip_reputation"),
+  async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
   if (!profile?.ip) {
@@ -998,9 +1082,13 @@ r.post("/ip-reputation/:hash/recheck", async (req, res) => {
     });
   }
   res.redirect("/admin/ip-reputation");
-});
+  },
+);
 
-r.post("/ip-reputation/:hash/ban", async (req, res) => {
+r.post(
+  "/ip-reputation/:hash/ban",
+  requirePermission("can_manage_ip_reputation"),
+  async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
   if (!profile?.ip) {
@@ -1036,9 +1124,13 @@ r.post("/ip-reputation/:hash/ban", async (req, res) => {
     });
   }
   res.redirect("/admin/ip-reputation");
-});
+  },
+);
 
-r.get("/ip-profiles", async (req, res) => {
+r.get(
+  "/ip-profiles",
+  requirePermission("can_manage_ip_profiles"),
+  async (req, res) => {
   const searchTerm =
     typeof req.query.search === "string" ? req.query.search.trim() : "";
   const paginationOptions = {
@@ -1066,7 +1158,8 @@ r.get("/ip-profiles", async (req, res) => {
     searchTerm,
     pagination,
   });
-});
+  },
+);
 
 async function handleIpProfileDeletion(req, res) {
   const deleted = await deleteIpProfileByHash(req.params.hash);
@@ -1094,9 +1187,16 @@ async function handleIpProfileDeletion(req, res) {
 }
 
 r.delete("/ip-profiles/:hash", handleIpProfileDeletion);
-r.post("/ip-profiles/:hash/delete", handleIpProfileDeletion);
+r.post(
+  "/ip-profiles/:hash/delete",
+  requirePermission("can_manage_ip_profiles"),
+  handleIpProfileDeletion,
+);
 
-r.get("/submissions", async (req, res) => {
+r.get(
+  "/submissions",
+  requirePermission("can_review_submissions"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const search = searchTerm || null;
 
@@ -1159,9 +1259,13 @@ r.get("/submissions", async (req, res) => {
     recentPagination,
     searchTerm,
   });
-});
+  },
+);
 
-r.get("/submissions/:id", async (req, res) => {
+r.get(
+  "/submissions/:id",
+  requirePermission("can_review_submissions"),
+  async (req, res) => {
   const submission = await getPageSubmissionById(req.params.id);
   if (!submission) {
     pushNotification(req, {
@@ -1198,9 +1302,13 @@ r.get("/submissions/:id", async (req, res) => {
     proposedHtml,
     currentHtml,
   });
-});
+  },
+);
 
-r.post("/submissions/:id/approve", async (req, res) => {
+r.post(
+  "/submissions/:id/approve",
+  requirePermission("can_review_submissions"),
+  async (req, res) => {
   const submission = await getPageSubmissionById(req.params.id);
   if (!submission) {
     pushNotification(req, {
@@ -1356,9 +1464,13 @@ r.post("/submissions/:id/approve", async (req, res) => {
   }
 
   res.redirect("/admin/submissions");
-});
+  },
+);
 
-r.post("/submissions/:id/reject", async (req, res) => {
+r.post(
+  "/submissions/:id/reject",
+  requirePermission("can_review_submissions"),
+  async (req, res) => {
   const submission = await getPageSubmissionById(req.params.id);
   if (!submission) {
     pushNotification(req, {
@@ -1408,9 +1520,13 @@ r.post("/submissions/:id/reject", async (req, res) => {
   });
 
   res.redirect("/admin/submissions");
-});
+  },
+);
 
-r.get("/pages", async (req, res) => {
+r.get(
+  "/pages",
+  requirePermission("can_manage_pages"),
+  async (req, res) => {
   const countRow = await get("SELECT COUNT(*) AS c FROM pages");
   const latest = await get(`
     SELECT title, slug_id,
@@ -1425,9 +1541,10 @@ r.get("/pages", async (req, res) => {
       latest,
     },
   });
-});
+  },
+);
 
-r.get("/stats", async (req, res) => {
+r.get("/stats", requirePermission("can_view_stats"), async (req, res) => {
   const periods = [
     {
       key: "day",
@@ -1910,7 +2027,10 @@ r.get("/stats", async (req, res) => {
   });
 });
 
-r.get("/stats/live", (req, res) => {
+r.get(
+  "/stats/live",
+  requirePermission("can_view_stats"),
+  (req, res) => {
   const now = Date.now();
   const allLiveVisitors = serializeLiveVisitors(now);
   const windowSeconds = Math.round(ACTIVE_VISITOR_TTL_MS / 1000);
@@ -1937,9 +2057,14 @@ r.get("/stats/live", (req, res) => {
     },
     liveVisitorsWindowSeconds: windowSeconds,
   });
-});
+  },
+);
 
-r.post("/uploads", upload.single("image"), async (req, res, next) => {
+r.post(
+  "/uploads",
+  requirePermission("can_manage_uploads"),
+  upload.single("image"),
+  async (req, res, next) => {
   try {
     const ip = getClientIp(req);
     if (!req.file) {
@@ -2010,7 +2135,8 @@ r.post("/uploads", upload.single("image"), async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+  },
+);
 
 r.use((err, req, res, next) => {
   if (req.path === "/uploads" && req.method === "POST") {
@@ -2029,7 +2155,10 @@ r.use((err, req, res, next) => {
   next(err);
 });
 
-r.get("/uploads", async (req, res) => {
+r.get(
+  "/uploads",
+  requirePermission("can_manage_uploads"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const normalizedSearch = searchTerm.toLowerCase();
   const uploadsList = await listUploads();
@@ -2058,9 +2187,13 @@ r.get("/uploads", async (req, res) => {
   const pagination = decoratePagination(req, basePagination);
 
   res.render("admin/uploads", { uploads, pagination, searchTerm });
-});
+  },
+);
 
-r.post("/uploads/:id/name", async (req, res) => {
+r.post(
+  "/uploads/:id/name",
+  requirePermission("can_manage_uploads"),
+  async (req, res) => {
   const displayName = normalizeDisplayName(req.body?.displayName);
   await updateUploadName(req.params.id, displayName);
   const ip = getClientIp(req);
@@ -2081,9 +2214,13 @@ r.post("/uploads/:id/name", async (req, res) => {
     message: "Nom du fichier mis à jour.",
   });
   res.redirect("/admin/uploads");
-});
+  },
+);
 
-r.post("/uploads/:id/delete", async (req, res) => {
+r.post(
+  "/uploads/:id/delete",
+  requirePermission("can_manage_uploads"),
+  async (req, res) => {
   const upload = await get(
     "SELECT id, original_name, display_name FROM uploads WHERE id=?",
     [req.params.id],
@@ -2108,14 +2245,22 @@ r.post("/uploads/:id/delete", async (req, res) => {
     message: "Fichier supprimé.",
   });
   res.redirect("/admin/uploads");
-});
+  },
+);
 
 // settings
-r.get("/settings", async (_req, res) => {
+r.get(
+  "/settings",
+  requirePermission("can_manage_settings"),
+  async (_req, res) => {
   const s = await getSiteSettingsForForm();
   res.render("admin/settings", { s });
-});
-r.post("/settings", async (req, res) => {
+  },
+);
+r.post(
+  "/settings",
+  requirePermission("can_manage_settings"),
+  async (req, res) => {
   try {
     const updated = await updateSiteSettingsFromForm(req.body);
     const ip = getClientIp(req);
@@ -2150,23 +2295,24 @@ r.post("/settings", async (req, res) => {
     });
   }
   res.redirect("/admin/settings");
-});
+  },
+);
 
 // roles
-r.get("/roles", async (_req, res) => {
+r.get(
+  "/roles",
+  requirePermission("can_manage_roles"),
+  async (_req, res) => {
   const roles = await listRolesWithUsage();
   res.render("admin/roles", { roles });
-});
-r.post("/roles", async (req, res) => {
+  },
+);
+r.post(
+  "/roles",
+  requirePermission("can_manage_roles"),
+  async (req, res) => {
   const { name, description } = req.body;
-  const permissions = {
-    is_admin: req.body.is_admin,
-    is_moderator: req.body.is_moderator,
-    is_helper: req.body.is_helper,
-    is_contributor: req.body.is_contributor,
-    can_comment: req.body.can_comment,
-    can_submit_pages: req.body.can_submit_pages,
-  };
+  const permissions = extractPermissionsFromBody(req.body);
   try {
     const role = await createRole({ name, description, permissions });
     const ip = getClientIp(req);
@@ -2178,14 +2324,7 @@ r.post("/roles", async (req, res) => {
           ip,
           roleId: role.id,
           roleName: role.name,
-          permissions: {
-            is_admin: role.is_admin,
-            is_moderator: role.is_moderator,
-            is_helper: role.is_helper,
-            is_contributor: role.is_contributor,
-            can_comment: role.can_comment,
-            can_submit_pages: role.can_submit_pages,
-          },
+          permissions: buildPermissionSnapshot(role),
         },
       },
       { includeScreenshot: false },
@@ -2204,8 +2343,12 @@ r.post("/roles", async (req, res) => {
     });
   }
   res.redirect("/admin/roles");
-});
-r.post("/roles/:id", async (req, res) => {
+  },
+);
+r.post(
+  "/roles/:id",
+  requirePermission("can_manage_roles"),
+  async (req, res) => {
   const roleId = Number.parseInt(req.params.id, 10);
   const existing = await getRoleById(roleId);
   if (!existing) {
@@ -2307,14 +2450,7 @@ r.post("/roles/:id", async (req, res) => {
     }
     return res.redirect("/admin/roles");
   }
-  const permissions = {
-    is_admin: req.body.is_admin,
-    is_moderator: req.body.is_moderator,
-    is_helper: req.body.is_helper,
-    is_contributor: req.body.is_contributor,
-    can_comment: req.body.can_comment,
-    can_submit_pages: req.body.can_submit_pages,
-  };
+  const permissions = extractPermissionsFromBody(req.body);
   try {
     const updated = await updateRolePermissions(roleId, { permissions });
     const ip = getClientIp(req);
@@ -2326,23 +2462,10 @@ r.post("/roles/:id", async (req, res) => {
           ip,
           roleId: updated?.id || roleId,
           roleName: updated?.name || existing.name,
-          previousPermissions: {
-            is_admin: existing.is_admin,
-            is_moderator: existing.is_moderator,
-            is_helper: existing.is_helper,
-            is_contributor: existing.is_contributor,
-            can_comment: existing.can_comment,
-            can_submit_pages: existing.can_submit_pages,
-          },
-          newPermissions: {
-            is_admin: updated?.is_admin ?? existing.is_admin,
-            is_moderator: updated?.is_moderator ?? existing.is_moderator,
-            is_helper: updated?.is_helper ?? existing.is_helper,
-            is_contributor: updated?.is_contributor ?? existing.is_contributor,
-            can_comment: updated?.can_comment ?? existing.can_comment,
-            can_submit_pages:
-              updated?.can_submit_pages ?? existing.can_submit_pages,
-          },
+          previousPermissions: buildPermissionSnapshot(existing),
+          newPermissions: buildPermissionSnapshot(
+            updated ?? existing,
+          ),
         },
       },
       { includeScreenshot: false },
@@ -2359,10 +2482,14 @@ r.post("/roles/:id", async (req, res) => {
     });
   }
   res.redirect("/admin/roles");
-});
+  },
+);
 
 // users
-r.get("/users", async (req, res) => {
+r.get(
+  "/users",
+  requirePermission("can_manage_users"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
   const params = [];
@@ -2440,8 +2567,12 @@ r.get("/users", async (req, res) => {
     roles: availableRoles,
     defaultRoleId: defaultRole?.id || null,
   });
-});
-r.post("/users", async (req, res) => {
+  },
+);
+r.post(
+  "/users",
+  requirePermission("can_manage_users"),
+  async (req, res) => {
   const { username, password } = req.body;
   const selectedRoleId = Number.parseInt(
     req.body.roleId || req.body.role || "",
@@ -2465,19 +2596,17 @@ r.post("/users", async (req, res) => {
   }
   const hashed = await hashPassword(password);
   try {
+    const roleFlagValues = ROLE_FLAG_FIELDS.map((field) =>
+      (role && role[field] ? 1 : 0),
+    );
     const result = await run(
-      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      `INSERT INTO users(snowflake_id, username, password, role_id, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?, ?, ${ROLE_FLAG_VALUE_PLACEHOLDERS})`,
       [
         generateSnowflake(),
         sanitizedUsername,
         hashed,
         role.id,
-        role.is_admin ? 1 : 0,
-        role.is_moderator ? 1 : 0,
-        role.is_helper ? 1 : 0,
-        role.is_contributor ? 1 : 0,
-        role.can_comment ? 1 : 0,
-        role.can_submit_pages ? 1 : 0,
+        ...roleFlagValues,
       ],
     );
     const ip = getClientIp(req);
@@ -2518,8 +2647,12 @@ r.post("/users", async (req, res) => {
     return res.redirect("/admin/users");
   }
   res.redirect("/admin/users");
-});
-r.post("/users/:id/display-name", async (req, res) => {
+  },
+);
+r.post(
+  "/users/:id/display-name",
+  requirePermission("can_manage_users"),
+  async (req, res) => {
   const target = await get(
     "SELECT id, username, display_name FROM users WHERE id=?",
     [req.params.id],
@@ -2577,8 +2710,12 @@ r.post("/users/:id/display-name", async (req, res) => {
   });
 
   res.redirect("/admin/users");
-});
-r.post("/users/:id/role", async (req, res) => {
+  },
+);
+r.post(
+  "/users/:id/role",
+  requirePermission("can_manage_users"),
+  async (req, res) => {
   const target = await get(
     `SELECT u.id, u.username, u.role_id, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, r.name AS role_name
      FROM users u
@@ -2672,8 +2809,12 @@ r.post("/users/:id/role", async (req, res) => {
   });
 
   res.redirect("/admin/users");
-});
-r.post("/users/:id/delete", async (req, res) => {
+  },
+);
+r.post(
+  "/users/:id/delete",
+  requirePermission("can_manage_users"),
+  async (req, res) => {
   const target = await get(
     "SELECT id, username, display_name FROM users WHERE id=?",
     [req.params.id],
@@ -2699,10 +2840,14 @@ r.post("/users/:id/delete", async (req, res) => {
       : "Utilisateur supprimé.",
   });
   res.redirect("/admin/users");
-});
+  },
+);
 
 // likes table improved
-r.get("/likes", async (req, res) => {
+r.get(
+  "/likes",
+  requirePermission("can_manage_likes"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
   const params = [];
@@ -2740,8 +2885,12 @@ r.get("/likes", async (req, res) => {
   const pagination = decoratePagination(req, basePagination);
 
   res.render("admin/likes", { rows, pagination, searchTerm });
-});
-r.post("/likes/:id/delete", async (req, res) => {
+  },
+);
+r.post(
+  "/likes/:id/delete",
+  requirePermission("can_manage_likes"),
+  async (req, res) => {
   const like = await get(
     `SELECT l.id, l.ip, p.title, p.slug_id
      FROM likes l JOIN pages p ON p.id = l.page_id
@@ -2768,9 +2917,13 @@ r.post("/likes/:id/delete", async (req, res) => {
     message: "Like supprimé.",
   });
   res.redirect("/admin/likes");
-});
+  },
+);
 
-r.get("/trash", async (req, res) => {
+r.get(
+  "/trash",
+  requirePermission("can_manage_trash"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
   const params = [];
@@ -2820,9 +2973,13 @@ r.get("/trash", async (req, res) => {
     pagination,
     searchTerm,
   });
-});
+  },
+);
 
-r.post("/trash/:id/restore", async (req, res) => {
+r.post(
+  "/trash/:id/restore",
+  requirePermission("can_manage_trash"),
+  async (req, res) => {
   const trashed = await get(
     `SELECT * FROM deleted_pages WHERE snowflake_id = ?`,
     [req.params.id],
@@ -2974,9 +3131,13 @@ r.post("/trash/:id/restore", async (req, res) => {
   });
 
   res.redirect(`/wiki/${trashed.slug_id}`);
-});
+  },
+);
 
-r.post("/trash/:id/delete", async (req, res) => {
+r.post(
+  "/trash/:id/delete",
+  requirePermission("can_manage_trash"),
+  async (req, res) => {
   const trashed = await get(
     `SELECT id, title, slug_id FROM deleted_pages WHERE snowflake_id = ?`,
     [req.params.id],
@@ -3009,9 +3170,13 @@ r.post("/trash/:id/delete", async (req, res) => {
   });
 
   res.redirect("/admin/trash");
-});
+  },
+);
 
-r.post("/trash/empty", async (req, res) => {
+r.post(
+  "/trash/empty",
+  requirePermission("can_manage_trash"),
+  async (req, res) => {
   const totalRow = await get("SELECT COUNT(*) AS total FROM deleted_pages");
   const total = Number(totalRow?.total || 0);
 
@@ -3038,9 +3203,13 @@ r.post("/trash/empty", async (req, res) => {
   });
 
   res.redirect("/admin/trash");
-});
+  },
+);
 
-r.get("/snowflakes", (req, res) => {
+r.get(
+  "/snowflakes",
+  requirePermission("can_view_snowflakes"),
+  (req, res) => {
   const queryId = typeof req.query.id === "string" ? req.query.id.trim() : "";
   let decoded = null;
   let error = null;
@@ -3082,9 +3251,13 @@ r.get("/snowflakes", (req, res) => {
     },
     structure: SNOWFLAKE_STRUCTURE,
   });
-});
+  },
+);
 
-r.get("/events", async (req, res) => {
+r.get(
+  "/events",
+  requirePermission("can_view_events"),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
   const params = [];
@@ -3119,7 +3292,8 @@ r.get("/events", async (req, res) => {
     pagination,
     searchTerm,
   });
-});
+  },
+);
 
 export default r;
 

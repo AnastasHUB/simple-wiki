@@ -18,7 +18,11 @@ import { getClientIp, getClientUserAgent } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
 import { trackLiveVisitor } from "./utils/liveStats.js";
 import { getEveryoneRole } from "./utils/roleService.js";
-import { DEFAULT_ROLE_FLAGS, mergeRoleFlags } from "./utils/roleFlags.js";
+import {
+  ADMIN_ACTION_FLAGS,
+  DEFAULT_ROLE_FLAGS,
+  mergeRoleFlags,
+} from "./utils/roleFlags.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -88,7 +92,14 @@ app.use(async (req, res, next) => {
     };
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
-    const isStaff = Boolean(currentUser?.is_admin || currentUser?.is_moderator);
+    const hasAdminActionPermission = currentUser
+      ? ADMIN_ACTION_FLAGS.some((flag) => currentUser[flag])
+      : false;
+    const isStaff = Boolean(
+      currentUser?.is_admin ||
+        currentUser?.is_moderator ||
+        hasAdminActionPermission,
+    );
     if (isStaff) {
       try {
         const counts = await getAdminActionCounts();

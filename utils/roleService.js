@@ -7,7 +7,9 @@ import {
   mergeRoleFlags,
 } from "./roleFlags.js";
 
-const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, is_system, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages, created_at, updated_at`;
+const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
+const ROLE_SELECT_FIELDS = `id, snowflake_id, name, description, is_system, ${ROLE_FLAG_COLUMN_LIST}, created_at, updated_at`;
+const ROLE_UPDATE_ASSIGNMENTS = ROLE_FLAG_FIELDS.map((field) => `${field}=?`).join(", ");
 const EVERYONE_ROLE_NAME = "Everyone";
 
 let cachedEveryoneRole = null;
@@ -113,7 +115,9 @@ export async function createRole({ name, description = "", permissions = {} }) {
   const trimmedDescription = description ? description.trim() : null;
   const perms = normalizePermissions(permissions);
   const result = await run(
-    "INSERT INTO roles(snowflake_id, name, description, is_system, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages) VALUES(?,?,?,?,?,?,?,?,?,?)",
+    `INSERT INTO roles(snowflake_id, name, description, is_system, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?${",?".repeat(
+      ROLE_FLAG_FIELDS.length,
+    )})`,
     [
       generateSnowflake(),
       trimmedName,
@@ -134,11 +138,11 @@ export async function updateRolePermissions(roleId, { permissions = {} }) {
   const perms = normalizePermissions(permissions);
   const flagValues = getRoleFlagValues(perms);
   await run(
-    "UPDATE roles SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+    `UPDATE roles SET ${ROLE_UPDATE_ASSIGNMENTS}, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
     [...flagValues, roleId],
   );
   await run(
-    "UPDATE users SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=? WHERE role_id=?",
+    `UPDATE users SET ${ROLE_UPDATE_ASSIGNMENTS} WHERE role_id=?`,
     [...flagValues, roleId],
   );
   invalidateRoleCache();
@@ -152,20 +156,10 @@ export async function assignRoleToUser(userId, role) {
   if (!targetRole) {
     return null;
   }
-  const flagValues = getRoleFlagValues(targetRole);
   const mergedFlags = mergeRoleFlags(DEFAULT_ROLE_FLAGS, targetRole);
   await run(
-    "UPDATE users SET role_id=?, is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=? WHERE id=?",
-    [
-      targetRole.id,
-      mergedFlags.is_admin ? 1 : 0,
-      mergedFlags.is_moderator ? 1 : 0,
-      mergedFlags.is_helper ? 1 : 0,
-      mergedFlags.is_contributor ? 1 : 0,
-      mergedFlags.can_comment ? 1 : 0,
-      mergedFlags.can_submit_pages ? 1 : 0,
-      userId,
-    ],
+    `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE id=?`,
+    [targetRole.id, ...getRoleFlagValues(mergedFlags), userId],
   );
   return targetRole;
 }
@@ -190,17 +184,8 @@ export async function reassignUsersToRole(sourceRoleId, targetRole) {
   }
   const mergedFlags = mergeRoleFlags(DEFAULT_ROLE_FLAGS, destination);
   await run(
-    "UPDATE users SET role_id=?, is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=? WHERE role_id=?",
-    [
-      destination.id,
-      mergedFlags.is_admin ? 1 : 0,
-      mergedFlags.is_moderator ? 1 : 0,
-      mergedFlags.is_helper ? 1 : 0,
-      mergedFlags.is_contributor ? 1 : 0,
-      mergedFlags.can_comment ? 1 : 0,
-      mergedFlags.can_submit_pages ? 1 : 0,
-      sourceRoleId,
-    ],
+    `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE role_id=?`,
+    [destination.id, ...getRoleFlagValues(mergedFlags), sourceRoleId],
   );
   return { targetRole: destination, moved: usersToMove };
 }
