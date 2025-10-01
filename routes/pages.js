@@ -4,7 +4,7 @@ import {
   get,
   run,
   all,
-  randSlugId,
+  randId,
   incrementView,
   savePageFts,
   removePageFts,
@@ -266,7 +266,7 @@ r.post(
     }
 
     const base = slugify(title);
-    const slug_id = randSlugId(base);
+    const slug_id = randId();
     const pageSnowflake = generateSnowflake();
     const result = await run(
       "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content) VALUES(?,?,?,?,?)",
