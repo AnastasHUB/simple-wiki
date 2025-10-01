@@ -2608,9 +2608,9 @@ r.get("/events", async (req, res) => {
   if (searchTerm) {
     const like = `%${searchTerm}%`;
     filters.push(
-      "(CAST(id AS TEXT) LIKE ? OR COALESCE(channel,'') LIKE ? OR COALESCE(type,'') LIKE ? OR COALESCE(username,'') LIKE ? OR COALESCE(ip,'') LIKE ? OR COALESCE(payload,'') LIKE ?)",
+      "(COALESCE(snowflake_id,'') LIKE ? OR CAST(id AS TEXT) LIKE ? OR COALESCE(channel,'') LIKE ? OR COALESCE(type,'') LIKE ? OR COALESCE(username,'') LIKE ? OR COALESCE(ip,'') LIKE ? OR COALESCE(payload,'') LIKE ?)",
     );
-    params.push(like, like, like, like, like, like);
+    params.push(like, like, like, like, like, like, like);
   }
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
@@ -2622,7 +2622,7 @@ r.get("/events", async (req, res) => {
   const basePagination = buildPagination(req, totalEvents);
   const offset = (basePagination.page - 1) * basePagination.perPage;
   const events = await all(
-    `SELECT id, channel, type, payload, ip, username, created_at
+    `SELECT snowflake_id, id, channel, type, payload, ip, username, created_at
        FROM event_logs
        ${where}
       ORDER BY created_at DESC

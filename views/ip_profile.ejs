@@ -1,4 +1,5 @@
-<% const displayTitle = `Profil IP #${profile.shortHash}`; %>
+<% const displayIdentifier = profile.snowflakeId || `#${profile.shortHash}`; %>
+<% const displayTitle = `Profil IP ${displayIdentifier}`; %>
 <% title = displayTitle; %>
 <% const rep = profile.reputation || {}; %>
 <% const repStatus = rep.status || 'unknown'; %>
@@ -69,7 +70,12 @@
         <% } %>
         <div>
           <dt>Identifiant</dt>
-          <dd><code>#<%= profile.shortHash %></code></dd>
+          <dd>
+            <code><%= displayIdentifier %></code>
+            <% if (profile.snowflakeId && profile.shortHash) { %>
+              <br /><small class="text-muted">Legacy : #<%= profile.shortHash %></small>
+            <% } %>
+          </dd>
         </div>
       </dl>
     </div>

@@ -368,7 +368,7 @@ export async function getIpProfileByHash(hash) {
   }
 
   const profile = await get(
-    `SELECT id, ip, hash, created_at, last_seen_at,
+    `SELECT id, snowflake_id, ip, hash, created_at, last_seen_at,
             reputation_status, reputation_auto_status, reputation_override,
             reputation_summary, reputation_checked_at,
             is_vpn, is_proxy, is_datacenter, is_abuser, is_tor,
@@ -477,6 +477,7 @@ export async function getIpProfileByHash(hash) {
   return {
     hash: profile.hash,
     shortHash: formatIpProfileLabel(profile.hash),
+    snowflakeId: profile.snowflake_id || null,
     createdAt: profile.created_at || null,
     lastSeenAt: profile.last_seen_at || null,
     reputation: {
@@ -567,8 +568,8 @@ export async function countIpProfiles({ search = null } = {}) {
   const normalizedSearch = typeof search === "string" ? search.trim() : "";
   if (normalizedSearch) {
     const like = `%${normalizedSearch}%`;
-    clauses.push("(hash LIKE ? OR ip LIKE ?)");
-    params.push(like, like);
+    clauses.push("(hash LIKE ? OR ip LIKE ? OR snowflake_id LIKE ?)");
+    params.push(like, like, like);
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const row = await get(
@@ -588,8 +589,8 @@ export async function fetchIpProfiles({
   const normalizedSearch = typeof search === "string" ? search.trim() : "";
   if (normalizedSearch) {
     const like = `%${normalizedSearch}%`;
-    clauses.push("(ipr.hash LIKE ? OR ipr.ip LIKE ?)");
-    params.push(like, like);
+    clauses.push("(ipr.hash LIKE ? OR ipr.ip LIKE ? OR ipr.snowflake_id LIKE ?)");
+    params.push(like, like, like);
   }
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
 
@@ -599,6 +600,7 @@ export async function fetchIpProfiles({
   const rows = await all(
     `SELECT
         ipr.id,
+        ipr.snowflake_id,
         ipr.hash,
         ipr.ip,
         ipr.created_at,
@@ -629,6 +631,7 @@ export async function fetchIpProfiles({
 
   return rows.map((row) => ({
     id: row.id,
+    snowflakeId: row.snowflake_id || null,
     hash: row.hash,
     shortHash: formatIpProfileLabel(row.hash),
     ip: row.ip,
@@ -714,7 +717,7 @@ export async function listIpProfilesForReview({ limit = 50, offset = 0 } = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 50;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
-    `SELECT hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
+    `SELECT snowflake_id, hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
             reputation_status, reputation_auto_status, reputation_override,
             is_vpn, is_proxy, is_tor, is_datacenter, is_abuser,
             last_user_agent, is_bot, bot_reason
@@ -726,6 +729,7 @@ export async function listIpProfilesForReview({ limit = 50, offset = 0 } = {}) {
     [safeLimit, safeOffset],
   );
   return rows.map((row) => ({
+    snowflakeId: row.snowflake_id || null,
     hash: row.hash,
     shortHash: formatIpProfileLabel(row.hash),
     ip: row.ip,
@@ -764,7 +768,7 @@ export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } =
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 20;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
-    `SELECT hash, ip, reputation_status, reputation_auto_status, reputation_override,
+    `SELECT snowflake_id, hash, ip, reputation_status, reputation_auto_status, reputation_override,
             reputation_summary, reputation_checked_at, last_seen_at,
             last_user_agent, is_bot, bot_reason
        FROM ip_profiles
@@ -775,6 +779,7 @@ export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } =
   );
 
   return rows.map((row) => ({
+    snowflakeId: row.snowflake_id || null,
     hash: row.hash,
     shortHash: formatIpProfileLabel(row.hash),
     ip: row.ip,
@@ -805,7 +810,7 @@ export async function fetchRecentlyClearedProfiles({ limit = 10, offset = 0 } = 
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
-    `SELECT hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
+    `SELECT snowflake_id, hash, ip, created_at, last_seen_at, reputation_summary, reputation_checked_at,
             reputation_status, reputation_auto_status, last_user_agent, is_bot, bot_reason
        FROM ip_profiles
       WHERE reputation_override='safe'
@@ -814,6 +819,7 @@ export async function fetchRecentlyClearedProfiles({ limit = 10, offset = 0 } = 
     [safeLimit, safeOffset],
   );
   return rows.map((row) => ({
+    snowflakeId: row.snowflake_id || null,
     hash: row.hash,
     shortHash: formatIpProfileLabel(row.hash),
     ip: row.ip,

@@ -9,7 +9,7 @@
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="Hash, IP…"
+        placeholder="ID Snowflake, hash, IP…"
         class="flex-basis-260"
       />
     </label>
@@ -48,12 +48,15 @@
             <td>
               <strong>
                 <a href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">
-                  Profil #<%= profile.shortHash %>
+                  Profil <code><%= profile.snowflakeId || `#${profile.shortHash}` %></code>
                 </a>
               </strong>
               <br />
               <small class="text-muted">
                 Créé : <%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %>
+                <% if (!profile.snowflakeId && profile.shortHash) { %>
+                  <br />Identifiant legacy : <code>#<%= profile.shortHash %></code>
+                <% } %>
               </small>
             </td>
             <td><code><%= profile.ip %></code></td>
