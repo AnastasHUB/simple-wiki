@@ -1090,6 +1090,114 @@ textarea {
   gap: 0.5rem;
 }
 
+.role-color-collection {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.role-color-collection--single {
+  justify-content: flex-start;
+}
+
+.role-color-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.role-color-picker {
+  display: grid;
+  gap: 0.25rem;
+  justify-items: center;
+  text-align: center;
+}
+
+.role-color-picker-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #52606d;
+}
+
+.role-color-picker-value {
+  font-family: monospace;
+  font-size: 0.75rem;
+  color: #334155;
+}
+
+.role-color-picker input[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  border: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 999px;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.12);
+}
+
+.role-color-picker input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+  border-radius: 999px;
+}
+
+.role-color-picker input[type="color"]::-webkit-color-swatch {
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 999px;
+}
+
+.role-color-picker input[type="color"]::-moz-color-swatch {
+  border: 1px solid rgba(15, 23, 42, 0.15);
+  border-radius: 999px;
+}
+
+.role-color-remove {
+  border: none;
+  background: none;
+  color: #94a3b8;
+  width: 1.75rem;
+  height: 1.75rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.role-color-remove:hover,
+.role-color-remove:focus {
+  background: #fee2e2;
+  color: #ef4444;
+}
+
+.role-color-remove.is-disabled,
+.role-color-remove:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background: none;
+  color: #cbd5e1;
+}
+
+.role-color-collection-actions {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.role-color-add-button {
+  font-size: 0.85rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.role-color-add-button.is-disabled,
+.role-color-add-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .role-color-fields[hidden] {
   display: none !important;
 }
