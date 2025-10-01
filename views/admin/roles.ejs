@@ -227,52 +227,88 @@
                 <% if (!permissionGroups.length) { %>
                   <p class="text-sm text-muted">Aucune permission disponible pour le moment.</p>
                 <% } else { %>
-                  <% permissionGroups.forEach((category) => { %>
-                    <% const groups = Array.isArray(category.groups) ? category.groups : []; %>
-                    <section class="permission-category">
-                      <div class="permission-category-header">
-                        <h3 class="permission-category-title"><%= category.label %></h3>
-                        <% if (category.description) { %>
-                          <p class="text-sm text-muted"><%= category.description %></p>
-                        <% } %>
+                  <div class="permission-manager">
+                    <aside class="permission-sidebar card" aria-label="Catégories de permissions">
+                      <div class="permission-sidebar-header">
+                        <h3 class="h4">Catégories</h3>
+                        <p class="text-sm text-muted">Sélectionnez une catégorie pour afficher ses permissions.</p>
                       </div>
-                      <% groups.forEach((group) => { %>
-                        <% const options = Array.isArray(group.permissions) ? group.permissions : []; %>
-                        <div class="permission-group">
-                          <% if (group.label) { %>
-                            <h4 class="permission-group-title"><%= group.label %></h4>
-                          <% } %>
-                          <div class="role-permissions-grid">
-                            <% options.forEach((option) => { %>
-                              <% if (!option || typeof option.field !== 'string') { return; } %>
-                              <% const isLockedAdminPermission = isAdministratorRole && option.field === 'is_admin'; %>
-                              <label class="checkbox role-permission <%= option.isAggregate ? 'is-aggregate' : '' %>">
-                                <input
-                                  type="checkbox"
-                                  name="<%= option.field %>"
-                                  value="1"
-                                  <%= role[option.field] ? 'checked' : '' %>
-                                  <%= isLockedAdminPermission ? 'disabled' : '' %>
-                                />
-                                <% if (isLockedAdminPermission) { %>
-                                  <input type="hidden" name="<%= option.field %>" value="1" />
-                                <% } %>
-                                <span class="permission-title">
-                                  <%= option.label %>
-                                  <% if (option.isAggregate) { %>
-                                    <span class="badge badge-aggregate" aria-label="Permission globale">Macro</span>
-                                  <% } %>
-                                </span>
-                                <% if (option.description) { %>
-                                  <span class="permission-description"><%= option.description %></span>
-                                <% } %>
-                              </label>
-                            <% }) %>
+                      <ul class="permission-selector" data-permission-selector role="list">
+                        <% permissionGroups.forEach((category, categoryIndex) => { %>
+                          <% const groups = Array.isArray(category.groups) ? category.groups : []; %>
+                          <% const permissionCount = groups.reduce((total, group) => {
+                            const options = Array.isArray(group.permissions) ? group.permissions : [];
+                            return total + options.length;
+                          }, 0); %>
+                          <li class="permission-selector-item">
+                            <button
+                              type="button"
+                              class="permission-choice <%= categoryIndex === 0 ? 'is-active' : '' %>"
+                              data-permission-category="<%= category.key %>"
+                              aria-pressed="<%= categoryIndex === 0 ? 'true' : 'false' %>"
+                              aria-controls="permission-panel-<%= role.id %>-<%= category.key %>"
+                            >
+                              <span class="permission-choice-name"><%= category.label %></span>
+                              <span class="badge"><%= permissionCount %> permission<%= permissionCount > 1 ? 's' : '' %></span>
+                            </button>
+                          </li>
+                        <% }) %>
+                      </ul>
+                    </aside>
+                    <div class="permission-detail" data-permission-detail>
+                      <% permissionGroups.forEach((category, categoryIndex) => { %>
+                        <% const groups = Array.isArray(category.groups) ? category.groups : []; %>
+                        <section
+                          class="permission-category permission-category-panel"
+                          id="permission-panel-<%= role.id %>-<%= category.key %>"
+                          data-permission-category-panel="<%= category.key %>"
+                          <%= categoryIndex === 0 ? '' : 'hidden' %>
+                        >
+                          <div class="permission-category-header">
+                            <h3 class="permission-category-title"><%= category.label %></h3>
+                            <% if (category.description) { %>
+                              <p class="text-sm text-muted"><%= category.description %></p>
+                            <% } %>
                           </div>
-                        </div>
+                          <% groups.forEach((group) => { %>
+                            <% const options = Array.isArray(group.permissions) ? group.permissions : []; %>
+                            <div class="permission-group">
+                              <% if (group.label) { %>
+                                <h4 class="permission-group-title"><%= group.label %></h4>
+                              <% } %>
+                              <div class="role-permissions-grid">
+                                <% options.forEach((option) => { %>
+                                  <% if (!option || typeof option.field !== 'string') { return; } %>
+                                  <% const isLockedAdminPermission = isAdministratorRole && option.field === 'is_admin'; %>
+                                  <label class="checkbox role-permission <%= option.isAggregate ? 'is-aggregate' : '' %>">
+                                    <input
+                                      type="checkbox"
+                                      name="<%= option.field %>"
+                                      value="1"
+                                      <%= role[option.field] ? 'checked' : '' %>
+                                      <%= isLockedAdminPermission ? 'disabled' : '' %>
+                                    />
+                                    <% if (isLockedAdminPermission) { %>
+                                      <input type="hidden" name="<%= option.field %>" value="1" />
+                                    <% } %>
+                                    <span class="permission-title">
+                                      <%= option.label %>
+                                      <% if (option.isAggregate) { %>
+                                        <span class="badge badge-aggregate" aria-label="Permission globale">Macro</span>
+                                      <% } %>
+                                    </span>
+                                    <% if (option.description) { %>
+                                      <span class="permission-description"><%= option.description %></span>
+                                    <% } %>
+                                  </label>
+                                <% }) %>
+                              </div>
+                            </div>
+                          <% }) %>
+                        </section>
                       <% }) %>
-                    </section>
-                  <% }) %>
+                    </div>
+                  </div>
                 <% } %>
               </fieldset>
               <div class="role-actions">
@@ -736,6 +772,62 @@
     };
 
     panels.forEach(initColorEditor);
+
+    const initPermissionManager = (panel) => {
+      if (!panel) {
+        return;
+      }
+      const selector = panel.querySelector('[data-permission-selector]');
+      const detail = panel.querySelector('[data-permission-detail]');
+      if (!selector || !detail) {
+        return;
+      }
+
+      const buttons = Array.from(
+        selector.querySelectorAll('[data-permission-category]'),
+      );
+      const categoryPanels = Array.from(
+        detail.querySelectorAll('[data-permission-category-panel]'),
+      );
+
+      if (!buttons.length || !categoryPanels.length) {
+        return;
+      }
+
+      const activate = (categoryKey) => {
+        let key = categoryKey;
+        const hasMatchingPanel = categoryPanels.some(
+          (section) => section.dataset.permissionCategoryPanel === key,
+        );
+        if (!key || !hasMatchingPanel) {
+          key = categoryPanels[0].dataset.permissionCategoryPanel || '';
+        }
+
+        categoryPanels.forEach((section) => {
+          section.hidden = section.dataset.permissionCategoryPanel !== key;
+        });
+
+        buttons.forEach((button) => {
+          const isActive = button.dataset.permissionCategory === key;
+          button.classList.toggle('is-active', isActive);
+          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+        });
+      };
+
+      buttons.forEach((button) => {
+        button.addEventListener('click', () => {
+          activate(button.dataset.permissionCategory || '');
+        });
+      });
+
+      const initiallyActive =
+        buttons.find((button) => button.classList.contains('is-active'))?.dataset
+          .permissionCategory || buttons[0].dataset.permissionCategory;
+
+      activate(initiallyActive);
+    };
+
+    panels.forEach(initPermissionManager);
 
     const createRoleButton = manager.querySelector('[data-action="create-role"]');
 
