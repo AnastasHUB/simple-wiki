@@ -536,6 +536,12 @@ textarea {
   max-width: 100%;
 }
 
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  margin-right: 0.5rem;
+}
+
 textarea {
   resize: vertical;
 }
@@ -800,6 +806,49 @@ textarea {
 .alert.success {
   border-color: #a3d6a4;
   background: #eff8f2;
+}
+
+.alert.warning {
+  border-color: #f6c177;
+  background: #fff7e8;
+}
+
+.data-type-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.data-type-item {
+  list-style: none;
+}
+
+.data-type-option {
+  display: block;
+  font-weight: 400;
+}
+
+.data-type-option .option-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 600;
+}
+
+.data-type-option .option-description {
+  margin-left: 1.75rem;
+  color: #52606d;
+  font-size: 0.9rem;
+}
+
+.data-scope-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 400;
+  margin-bottom: 0.5rem;
 }
 
 
