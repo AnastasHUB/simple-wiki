@@ -57,7 +57,13 @@
       <% users.forEach(u=>{ %>
         <tr>
           <td><%= u.id %></td>
-          <td><%= u.username %></td>
+          <% const usernameColor = u.role_color || null; %>
+          <% const usernameClasses = ['user-handle']; %>
+          <% const usernameStyle = usernameColor && usernameColor.hasColor ? usernameColor.style : ''; %>
+          <% if (usernameColor && usernameColor.hasColor) { usernameClasses.push('role-colored-text'); usernameClasses.push(usernameColor.className); } %>
+          <td>
+            <strong class="<%= usernameClasses.join(' ') %>" style="<%= usernameStyle %>"><%= u.username %></strong>
+          </td>
           <td>
             <form method="post" action="/admin/users/<%= u.id %>/display-name" class="flex gap-sm items-center">
               <input
@@ -80,7 +86,7 @@
                 <% if (Array.isArray(roles) && roles.length) { %>
                   <select id="role-<%= u.id %>" name="roleId">
                     <% roles.forEach(role => { %>
-                      <option value="<%= role.id %>" <%= u.role_id === role.id ? 'selected' : '' %>><%= role.name %></option>
+                      <option value="<%= role.id %>" <%= Number(u.role_id) === role.numeric_id ? 'selected' : '' %>><%= role.name %></option>
                     <% }) %>
                   </select>
                 <% } else { %>

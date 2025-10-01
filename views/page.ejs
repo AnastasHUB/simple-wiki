@@ -58,14 +58,18 @@
   </div>
 <% } %>
 
-<% const commentUser = typeof user !== 'undefined' && user ? user : null; %>
-<% const commentPermissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
-<% const canComment = !!commentPermissionFlags.can_comment; %>
-<% const adminPreferredName = commentUser && commentPermissionFlags.is_admin
-  ? (commentUser.display_name || commentUser.username)
-  : null; %>
-<% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
-<% const commentAuthorValue = adminPreferredName || commentValues.author || ''; %>
+  <% const commentUser = typeof user !== 'undefined' && user ? user : null; %>
+  <% const commentPermissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+  <% const canComment = !!commentPermissionFlags.can_comment; %>
+  <% const adminPreferredName = commentUser && commentPermissionFlags.is_admin
+    ? (commentUser.display_name || commentUser.username)
+    : null; %>
+  <% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
+  <% const commentAuthorValue = adminPreferredName || commentValues.author || ''; %>
+  <% const commentRole = commentUser && commentUser.role_color ? commentUser.role_color : null; %>
+  <% const commentRoleClasses = ['user-handle']; %>
+  <% const commentRoleStyle = commentRole && commentRole.hasColor ? commentRole.style : ''; %>
+  <% if (commentRole && commentRole.hasColor) { commentRoleClasses.push('role-colored-text'); commentRoleClasses.push(commentRole.className); } %>
 <section class="card comments" id="comments">
   <h2 class="mt-0">Commentaires</h2>
   <% if (comments && comments.length) { %>
@@ -143,7 +147,7 @@
     <% if (adminPreferredName) { %>
       <div class="field">
         <p class="text-muted">
-          Vous commentez en tant que <strong><%= commentAuthorValue %></strong>.
+          Vous commentez en tant que <strong class="<%= commentRoleClasses.join(' ') %>" style="<%= commentRoleStyle %>"><%= commentAuthorValue %></strong>.
         </p>
         <input type="hidden" name="author" value="<%= commentAuthorValue %>">
       </div>

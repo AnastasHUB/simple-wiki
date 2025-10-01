@@ -1,3 +1,5 @@
+import { buildRoleColorPresentation, parseStoredRoleColor } from "./roleColors.js";
+
 export const ROLE_FLAG_FIELDS = [
   "is_admin",
   "is_moderator",
@@ -114,12 +116,35 @@ export function buildSessionUser(rawUser, overrides = null) {
   const mergedFlags = overrides
     ? mergeRoleFlags(baseFlags, overrides)
     : baseFlags;
+  const numericRoleId =
+    typeof rawUser.role_numeric_id === "number"
+      ? rawUser.role_numeric_id
+      : typeof rawUser.role_id === "number"
+        ? rawUser.role_id
+        : null;
+  const snowflakeRoleId =
+    rawUser.role_snowflake_id ||
+    (typeof rawUser.role_id === "string" ? rawUser.role_id : null) ||
+    (numericRoleId !== null ? String(numericRoleId) : null);
+  const rawColorValue =
+    rawUser.role_color_serialized ||
+    rawUser.colorSerialized ||
+    rawUser.role_color ||
+    rawUser.color ||
+    null;
+  const colorScheme = parseStoredRoleColor(rawColorValue);
+  const colorPresentation = buildRoleColorPresentation(colorScheme);
   return {
     id: rawUser.id,
     username: rawUser.username,
     display_name: rawUser.display_name || null,
-    role_id: rawUser.role_id || null,
+    role_id: snowflakeRoleId,
+    role_numeric_id: numericRoleId,
     role_name: rawUser.role_name || null,
+    role_color: colorPresentation,
+    role_color_scheme: colorScheme,
+    role_color_serialized:
+      typeof rawColorValue === "string" ? rawColorValue : colorScheme ? JSON.stringify(colorScheme) : null,
     ...mergedFlags,
   };
 }

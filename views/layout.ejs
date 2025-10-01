@@ -74,7 +74,12 @@
   </form>
   <div class="auth-links">
     <% if (currentUser) { %>
-      <span>Connecté·e : <strong><%= currentUser.display_name || currentUser.username %></strong></span>
+      <% const headerDisplayName = currentUser.display_name || currentUser.username; %>
+      <% const headerColor = currentUser.role_color || null; %>
+      <% const headerClasses = ['user-handle']; %>
+      <% const headerStyle = headerColor && headerColor.hasColor ? headerColor.style : ''; %>
+      <% if (headerColor && headerColor.hasColor) { headerClasses.push('role-colored-text'); headerClasses.push(headerColor.className); } %>
+      <span>Connecté·e : <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong></span>
       <form action="/logout" method="post">
         <button class="btn" type="submit">Déconnexion</button>
       </form>
