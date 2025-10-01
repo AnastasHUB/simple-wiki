@@ -499,40 +499,6 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
-    key: "data",
-    label: "Données",
-    description: "Import et export des informations du wiki.",
-    groups: [
-      {
-        label: "Accès global",
-        permissions: [
-          {
-            field: "can_manage_data_portability",
-            label: "Gestion complète",
-            description:
-              "Autorise toutes les opérations d'import et d'export.",
-            isAggregate: true,
-          },
-        ],
-      },
-      {
-        label: "Actions détaillées",
-        permissions: [
-          {
-            field: "can_export_data",
-            label: "Exporter",
-            description: "Télécharger les jeux de données au format JSON.",
-          },
-          {
-            field: "can_import_data",
-            label: "Importer",
-            description: "Charger un fichier JSON et remplacer les données.",
-          },
-        ],
-      },
-    ],
-  },
-  {
     key: "roles",
     label: "Rôles",
     description: "Création et maintenance des rôles personnalisés.",
@@ -1117,7 +1083,6 @@ export const PERMISSION_DEPENDENCIES = {
     "can_replace_files",
     "can_delete_files",
   ],
-  can_manage_data_portability: ["can_export_data", "can_import_data"],
   can_manage_settings: [
     "can_update_general_settings",
     "can_manage_integrations",
