@@ -7,6 +7,11 @@ import {
   DEFAULT_ROLE_FLAGS,
   getRoleFlagValues,
 } from "./utils/roleFlags.js";
+import {
+  DEFAULT_ROLE_DEFINITIONS,
+  ADMINISTRATOR_ROLE_SNOWFLAKE,
+  EVERYONE_ROLE_SNOWFLAKE,
+} from "./utils/defaultRoles.js";
 
 let db;
 let ftsAvailable = null;
@@ -584,37 +589,34 @@ async function ensureDefaultRoles() {
   `);
   await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
 
-  const defaultRoles = [
-    {
-      name: "Everyone",
-      description: "Permissions de base accordées à tous les visiteurs.",
-      color: null,
-      is_system: 1,
-      flags: buildRoleFlags({
-        can_comment: true,
-        can_submit_pages: true,
-      }),
-    },
-    {
-      name: "Administrateur",
-      description: "Accès complet à toutes les fonctionnalités.",
-      color: "#DC2626",
-      is_system: 1,
-      flags: buildRoleFlags(ALL_ROLE_FLAGS_TRUE),
-    },
-  ].map((role, index) => ({ ...role, position: index + 1 }));
+  const defaultRoles = DEFAULT_ROLE_DEFINITIONS.map((definition, index) => {
+    const overrides = definition.grantAllPermissions
+      ? ALL_ROLE_FLAGS_TRUE
+      : definition.permissionOverrides;
+    return {
+      snowflake_id: definition.snowflake,
+      name: definition.name,
+      description: definition.description,
+      color: definition.color,
+      is_system: definition.isSystem ? 1 : 0,
+      position: index + 1,
+      flags: buildRoleFlags(overrides),
+    };
+  });
 
   for (const role of defaultRoles) {
     await db.run(
-      `INSERT INTO roles(name, description, color, is_system, position, ${ROLE_FLAG_COLUMN_LIST})
-       VALUES(?,?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})
+      `INSERT INTO roles(snowflake_id, name, description, color, is_system, position, ${ROLE_FLAG_COLUMN_LIST})
+       VALUES(?,?,?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})
        ON CONFLICT(name) DO UPDATE SET
+         snowflake_id=excluded.snowflake_id,
          description=excluded.description,
          color=COALESCE(roles.color, excluded.color),
          is_system=excluded.is_system,
          ${ROLE_FLAG_UPDATE_ASSIGNMENTS},
          updated_at=CURRENT_TIMESTAMP`,
       [
+        role.snowflake_id,
         role.name,
         role.description,
         role.color,
@@ -628,15 +630,31 @@ async function ensureDefaultRoles() {
 
 async function synchronizeUserRoles() {
   const roles = await db.all(
-    `SELECT id, name, ${ROLE_FLAG_COLUMN_LIST} FROM roles`,
+    `SELECT id, name, snowflake_id, ${ROLE_FLAG_COLUMN_LIST} FROM roles`,
   );
   if (!roles.length) {
     return;
   }
 
-  const roleByName = new Map(roles.map((role) => [role.name, role]));
-  const adminRoleId = roleByName.get("Administrateur")?.id ?? null;
-  const everyoneRoleId = roleByName.get("Everyone")?.id ?? null;
+  const roleByName = new Map();
+  const roleBySnowflake = new Map();
+  for (const role of roles) {
+    if (role.name) {
+      roleByName.set(role.name, role);
+    }
+    if (role.snowflake_id) {
+      roleBySnowflake.set(String(role.snowflake_id), role);
+    }
+  }
+
+  const adminRoleId =
+    roleBySnowflake.get(ADMINISTRATOR_ROLE_SNOWFLAKE)?.id ??
+    roleByName.get("Administrateur")?.id ??
+    null;
+  const everyoneRoleId =
+    roleBySnowflake.get(EVERYONE_ROLE_SNOWFLAKE)?.id ??
+    roleByName.get("Everyone")?.id ??
+    null;
 
   if (adminRoleId) {
     await db.run(

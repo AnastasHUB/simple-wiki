@@ -81,6 +81,7 @@ import {
   getEveryoneRole,
   updateRoleOrdering,
 } from "../utils/roleService.js";
+import { ADMINISTRATOR_ROLE_SNOWFLAKE } from "../utils/defaultRoles.js";
 import {
   ADMIN_ACTION_FLAGS,
   buildSessionUser,
@@ -2466,7 +2467,7 @@ r.post(
   }
   const action = req.body._action;
   if (action === "delete") {
-    if (existing.is_system || existing.name?.toLowerCase() === "everyone") {
+    if (existing.is_system || existing.isEveryone) {
       pushNotification(req, {
         type: "error",
         message: "Ce rôle ne peut pas être supprimé.",
@@ -2503,22 +2504,23 @@ r.post(
   }
 
   if (action === "reassign_to_everyone") {
-    if (existing.name?.toLowerCase() === "everyone") {
+    const everyoneRole = await getEveryoneRole();
+    const everyoneRoleName = everyoneRole?.name || "Everyone";
+    if (existing.isEveryone) {
       pushNotification(req, {
         type: "error",
-        message: "Ce rôle est déjà Everyone.",
+        message: `Ce rôle est déjà ${everyoneRoleName}.`,
       });
       return res.redirect("/admin/roles");
     }
     try {
-      const everyoneRole = await getEveryoneRole();
       if (!everyoneRole) {
-        throw new Error("Rôle Everyone introuvable.");
+        throw new Error(`Rôle ${everyoneRoleName} introuvable.`);
       }
       const { moved } = await reassignUsersToRole(existing.id, everyoneRole);
       const ip = getClientIp(req);
       await sendAdminEvent(
-        "Utilisateurs réassignés vers Everyone",
+        `Utilisateurs réassignés vers ${everyoneRoleName}`,
         {
           user: req.session.user?.username || null,
           extra: {
@@ -2533,11 +2535,10 @@ r.post(
         { includeScreenshot: false },
       );
       if (moved > 0) {
+        const plural = moved > 1 ? "s" : "";
         pushNotification(req, {
           type: "success",
-          message: `${moved} utilisateur${moved > 1 ? "s" : ""} déplacé${
-            moved > 1 ? "s" : ""
-          } vers Everyone.`,
+          message: `${moved} utilisateur${plural} déplacé${plural} vers ${everyoneRoleName}.`,
         });
       } else {
         pushNotification(req, {
@@ -2551,7 +2552,7 @@ r.post(
         type: "error",
         message:
           error?.message ||
-          "Impossible de réassigner les utilisateurs vers Everyone.",
+          `Impossible de réassigner les utilisateurs vers ${everyoneRoleName}.`,
       });
     }
     return res.redirect("/admin/roles");
@@ -2660,15 +2661,19 @@ r.get(
     [...params, basePagination.perPage, offset],
   );
   const availableRoles = await listRoles();
-  const defaultRole =
-    availableRoles.find((role) => role.name === "Everyone") || null;
+  const everyoneRole =
+    availableRoles.find((role) => role.isEveryone) || null;
+  const administratorRole =
+    availableRoles.find((role) => role.isAdministrator) || null;
+  const fallbackEveryoneName = everyoneRole?.name || "Everyone";
+  const fallbackAdministratorName = administratorRole?.name || "Administrateur";
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
     const canComment = Boolean(user.can_comment);
     const canSubmit = Boolean(user.can_submit_pages);
     const roleLabel =
       user.role_name ||
-      (isAdmin ? "Administrateur" : "Everyone");
+      (isAdmin ? fallbackAdministratorName : fallbackEveryoneName);
     const colorScheme = parseStoredRoleColor(user.role_color);
     const colorPresentation = buildRoleColorPresentation(colorScheme);
     return {
@@ -2690,7 +2695,7 @@ r.get(
     pagination,
     searchTerm,
     roles: availableRoles,
-    defaultRoleId: defaultRole?.id || null,
+    defaultRoleId: everyoneRole?.id || null,
   });
   },
 );
@@ -2869,8 +2874,15 @@ r.post(
     return res.redirect("/admin/users");
   }
 
+  const [everyoneRole, administratorRole] = await Promise.all([
+    getEveryoneRole(),
+    getRoleById(ADMINISTRATOR_ROLE_SNOWFLAKE),
+  ]);
+  const fallbackEveryoneName = everyoneRole?.name || "Everyone";
+  const fallbackAdministratorName = administratorRole?.name || "Administrateur";
   const previousRole =
-    target.role_name || (target.is_admin ? "Administrateur" : "Everyone");
+    target.role_name ||
+    (target.is_admin ? fallbackAdministratorName : fallbackEveryoneName);
   const previousRoleColorPresentation = buildRoleColorPresentation(
     parseStoredRoleColor(target.role_color),
   );

@@ -12,6 +12,8 @@
   <% if (!roles || !roles.length) { %>
     <p class="card">Aucun rôle défini pour le moment.</p>
   <% } else { %>
+    <% const everyoneRole = roles.find((role) => role.isEveryone); %>
+    <% const everyoneRoleName = everyoneRole ? everyoneRole.name : 'Everyone'; %>
     <aside class="role-sidebar card" aria-label="Rôles disponibles">
       <div class="role-sidebar-header">
         <div class="role-sidebar-header-text">
@@ -57,7 +59,7 @@
           <% const roleColorPresentation = role.colorPresentation; %>
           <% const roleColorValues = Array.isArray(roleColorScheme && roleColorScheme.colors) ? roleColorScheme.colors : []; %>
           <% const roleColorMode = roleColorScheme ? roleColorScheme.mode : ''; %>
-          <% const isAdministratorRole = (role.name || '').toLowerCase() === 'administrateur'; %>
+          <% const isAdministratorRole = Boolean(role.isAdministrator); %>
           <div class="role-editor">
             <div class="role-summary">
               <div class="role-summary-header">
@@ -82,7 +84,7 @@
               <% if (role.is_system) { %>
                 <p class="text-xs text-muted">Rôle système protégé</p>
               <% } %>
-              <% if (!role.is_system && (role.name || '').toLowerCase() !== 'everyone') { %>
+              <% if (!role.is_system && !role.isEveryone) { %>
                 <div class="role-summary-footer">
                   <% if ((role.userCount || 0) === 0) { %>
                     <form method="post" action="/admin/roles/<%= role.id %>" aria-label="Supprimer le rôle <%= role.name %>">
@@ -92,11 +94,11 @@
                   <% } else { %>
                     <p class="text-sm text-muted">
                       Ce rôle est actuellement attribué à <strong><%= role.userCount %></strong>
-                      utilisateur<%= role.userCount > 1 ? 's' : '' %>. Réassignez-les vers Everyone pour pouvoir supprimer ce rôle.
+                      utilisateur<%= role.userCount > 1 ? 's' : '' %>. Réassignez-les vers <%= everyoneRoleName %> pour pouvoir supprimer ce rôle.
                     </p>
-                    <form method="post" action="/admin/roles/<%= role.id %>" class="role-reassign-form" aria-label="Réassigner les utilisateurs de <%= role.name %> vers Everyone">
+                    <form method="post" action="/admin/roles/<%= role.id %>" class="role-reassign-form" aria-label="Réassigner les utilisateurs de <%= role.name %> vers <%= everyoneRoleName %>">
                       <input type="hidden" name="_action" value="reassign_to_everyone" />
-                      <button class="btn secondary" type="submit" data-icon="🔁">Réassigner tous les utilisateurs vers Everyone</button>
+                      <button class="btn secondary" type="submit" data-icon="🔁">Réassigner tous les utilisateurs vers <%= everyoneRoleName %></button>
                     </form>
                   <% } %>
                 </div>
