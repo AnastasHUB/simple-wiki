@@ -36,6 +36,7 @@
             <th>#</th>
             <th>Type</th>
             <th>Titre</th>
+            <th>Auteur proposé</th>
             <th>Page liée</th>
             <th>Tags</th>
             <th>IP</th>
@@ -49,6 +50,7 @@
               <td><code><%= item.snowflake_id %></code></td>
               <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
               <td><strong><%= item.title %></strong></td>
+              <td><%= item.author_name || item.submitted_by || '–' %></td>
               <td>
                 <% if (item.current_slug) { %>
                   <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
@@ -95,6 +97,7 @@
             <th>#</th>
             <th>Type</th>
             <th>Titre</th>
+            <th>Auteur proposé</th>
             <th>Statut</th>
             <th>Validé par</th>
             <th>Revue</th>
@@ -112,6 +115,7 @@
                   <div><a href="/wiki/<%= item.result_slug_id %>"><code><%= item.result_slug_id %></code></a></div>
                 <% } %>
               </td>
+              <td><%= item.author_name || item.submitted_by || '–' %></td>
               <td class="status <%= item.status %>"><%= item.status === 'approved' ? 'Approuvée' : 'Rejetée' %></td>
               <td><%= item.reviewer_username || '–' %></td>
               <td>

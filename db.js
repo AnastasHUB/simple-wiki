@@ -70,6 +70,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     slug_id TEXT UNIQUE NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    author TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -82,6 +83,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     slug_base TEXT NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    author TEXT,
     tags_json TEXT,
     created_at DATETIME,
     updated_at DATETIME,
@@ -169,6 +171,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
       CHECK(status IN ('pending','approved','rejected')),
     ip TEXT,
     submitted_by TEXT,
+    author_name TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     reviewer_id INTEGER REFERENCES users(id),
     review_note TEXT,
@@ -224,8 +227,11 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureRoleFlagColumns("roles");
   await ensureRoleFlagColumns("users");
   await ensureFts();
+  await ensureColumn("pages", "author", "TEXT");
   await ensureColumn("deleted_pages", "comments_json", "TEXT");
   await ensureColumn("deleted_pages", "stats_json", "TEXT");
+  await ensureColumn("deleted_pages", "author", "TEXT");
+  await ensureColumn("page_submissions", "author_name", "TEXT");
   await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
   await ensureColumn(
     "settings",

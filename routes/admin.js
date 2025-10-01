@@ -1373,8 +1373,15 @@ r.post(
       const slugId = randId();
       const pageSnowflake = generateSnowflake();
       const insertResult = await run(
-        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content) VALUES(?,?,?,?,?)",
-        [pageSnowflake, base, slugId, submission.title, submission.content],
+        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author) VALUES(?,?,?,?,?,?)",
+        [
+          pageSnowflake,
+          base,
+          slugId,
+          submission.title,
+          submission.content,
+          submission.author_name || submission.submitted_by || null,
+        ],
       );
       const pageId = insertResult?.lastID;
       if (!pageId) {
@@ -1419,6 +1426,7 @@ r.post(
           submission: submission.snowflake_id,
           ip: submission.ip || null,
           type: submission.type,
+          author: submission.author_name || submission.submitted_by || null,
         },
       });
       await sendFeedEvent(
@@ -1429,7 +1437,10 @@ r.post(
             slug_id: slugId,
             snowflake_id: pageSnowflake,
           },
-          author: submission.submitted_by || null,
+          author:
+            submission.author_name ||
+            submission.submitted_by ||
+            "Anonyme",
           url: pageUrl,
           tags: submission.tags,
         },
@@ -1448,9 +1459,11 @@ r.post(
       }
       await recordRevision(page.id, page.title, page.content, reviewerId);
       const base = slugify(submission.title);
+      const nextAuthor =
+        submission.author_name || page.author || submission.submitted_by || null;
       await run(
-        "UPDATE pages SET title=?, content=?, slug_base=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-        [submission.title, submission.content, base, page.id],
+        "UPDATE pages SET title=?, content=?, slug_base=?, author=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+        [submission.title, submission.content, base, nextAuthor, page.id],
       );
       await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
       const tagNames = await upsertTags(page.id, submission.tags || "");
@@ -1490,6 +1503,7 @@ r.post(
           submission: submission.snowflake_id,
           ip: submission.ip || null,
           type: submission.type,
+          author: nextAuthor,
         },
       });
     }
@@ -3039,9 +3053,9 @@ r.get(
   if (searchTerm) {
     const like = `%${searchTerm}%`;
     filters.push(
-      "(COALESCE(title,'') LIKE ? OR COALESCE(slug_id,'') LIKE ? OR COALESCE(deleted_by,'') LIKE ?)",
+      "(COALESCE(title,'') LIKE ? OR COALESCE(slug_id,'') LIKE ? OR COALESCE(deleted_by,'') LIKE ? OR COALESCE(author,'') LIKE ?)",
     );
-    params.push(like, like, like);
+    params.push(like, like, like, like);
   }
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
 
@@ -3054,7 +3068,7 @@ r.get(
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const trashedRows = await all(
-    `SELECT id, snowflake_id, slug_id, slug_base, title, deleted_at, deleted_by, created_at, updated_at, tags_json
+    `SELECT id, snowflake_id, slug_id, slug_base, title, author, deleted_at, deleted_by, created_at, updated_at, tags_json
        FROM deleted_pages
        ${where}
       ORDER BY deleted_at DESC
@@ -3068,6 +3082,7 @@ r.get(
     slug_id: row.slug_id,
     slug_base: row.slug_base,
     title: row.title,
+    author: row.author || null,
     deleted_at: row.deleted_at,
     deleted_by: row.deleted_by,
     created_at: row.created_at,
@@ -3124,14 +3139,15 @@ r.post(
   await run("BEGIN");
   try {
     const insert = await run(
-      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, created_at, updated_at)
-       VALUES(?,?,?,?,?,?,?)`,
+      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, created_at, updated_at)
+       VALUES(?,?,?,?,?,?,?,?)`,
       [
         snowflake,
         trashed.slug_base,
         trashed.slug_id,
         restoredTitle,
         trashed.content || "",
+        trashed.author || null,
         trashed.created_at || null,
         trashed.updated_at || null,
       ],

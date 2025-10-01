@@ -366,12 +366,14 @@ r.get(
       }
     }
     const uploads = permissions.is_admin ? await listUploads() : [];
+    const defaultAuthor = getUserDisplayName(req.session.user) || "";
     res.render("edit", {
       page: null,
       tags: "",
       uploads,
       submissionMode: !canPublishDirectly,
       allowUploads: permissions.is_admin,
+      authorName: defaultAuthor,
     });
   }),
 );
@@ -386,6 +388,11 @@ r.post(
       });
     }
     const { title, content, tags } = req.body;
+    const rawAuthorInput =
+      typeof req.body.author === "string" ? req.body.author : "";
+    const trimmedAuthorInput = rawAuthorInput.trim().slice(0, 80);
+    const sessionAuthorName = getUserDisplayName(req.session.user);
+    const authorToPersist = trimmedAuthorInput || sessionAuthorName || null;
     const canPublishDirectly = Boolean(
       permissions.is_admin || permissions.is_contributor,
     );
@@ -403,6 +410,7 @@ r.post(
         tags,
         ip: req.clientIp,
         submittedBy: req.session.user?.username || null,
+        authorName: authorToPersist,
       });
       await touchIpProfile(req.clientIp, {
         userAgent: req.clientUserAgent,
@@ -424,6 +432,7 @@ r.post(
           ip: req.clientIp || null,
           submission: submissionId,
           status: "pending",
+          author: authorToPersist,
         },
       });
       return res.redirect("/");
@@ -433,8 +442,8 @@ r.post(
     const slug_id = randId();
     const pageSnowflake = generateSnowflake();
     const result = await run(
-      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content) VALUES(?,?,?,?,?)",
-      [pageSnowflake, base, slug_id, title, content],
+      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author) VALUES(?,?,?,?,?,?)",
+      [pageSnowflake, base, slug_id, title, content, authorToPersist],
     );
     const tagNames = await upsertTags(result.lastID, tags);
     await recordRevision(
@@ -453,13 +462,13 @@ r.post(
     await sendAdminEvent("Page created", {
       user: req.session.user?.username,
       page: { title, slug_id, slug_base: base, snowflake_id: pageSnowflake },
-      extra: { tags },
+      extra: { tags, author: authorToPersist },
     });
     await sendFeedEvent(
       "Nouvel article",
       {
         page: { title, slug_id, snowflake_id: pageSnowflake },
-        author: req.session.user?.username,
+        author: authorToPersist || "Anonyme",
         url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
         tags,
       },
@@ -985,12 +994,15 @@ r.get(
       }
     }
     const uploads = permissions.is_admin ? await listUploads() : [];
+    const defaultAuthor =
+      page.author || getUserDisplayName(req.session.user) || "";
     res.render("edit", {
       page,
       tags: tagNames.join(", "),
       uploads,
       submissionMode: !canPublishDirectly,
       allowUploads: permissions.is_admin,
+      authorName: defaultAuthor,
     });
   }),
 );
@@ -1023,6 +1035,12 @@ r.post(
         return res.status(403).render("banned", { ban });
       }
     }
+    const rawAuthorInput =
+      typeof req.body.author === "string" ? req.body.author : "";
+    const trimmedAuthorInput = rawAuthorInput.trim().slice(0, 80);
+    const sessionAuthorName = getUserDisplayName(req.session.user);
+    const authorToPersist =
+      trimmedAuthorInput || page.author || sessionAuthorName || null;
     if (!canPublishDirectly) {
       const submissionId = await createPageSubmission({
         type: "edit",
@@ -1033,6 +1051,7 @@ r.post(
         ip: req.clientIp,
         submittedBy: req.session.user?.username || null,
         targetSlugId: page.slug_id,
+        authorName: authorToPersist,
       });
       await touchIpProfile(req.clientIp, {
         userAgent: req.clientUserAgent,
@@ -1058,6 +1077,7 @@ r.post(
           ip: req.clientIp || null,
           submission: submissionId,
           status: "pending",
+          author: authorToPersist,
         },
       });
       return res.redirect("/wiki/" + page.slug_id);
@@ -1071,8 +1091,8 @@ r.post(
     );
     const base = slugify(title);
     await run(
-      "UPDATE pages SET title=?, content=?, slug_base=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
-      [title, content, base, req.params.slugid],
+      "UPDATE pages SET title=?, content=?, slug_base=?, author=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
+      [title, content, base, authorToPersist, req.params.slugid],
     );
     await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
     const tagNames = await upsertTags(page.id, tags);
@@ -1092,7 +1112,7 @@ r.post(
         slug_base: base,
         snowflake_id: page.snowflake_id,
       },
-      extra: { tags },
+      extra: { tags, author: authorToPersist },
     });
     pushNotification(req, {
       type: "success",
@@ -1104,7 +1124,7 @@ r.post(
 
 async function handlePageDeletion(req, res) {
   const page = await get(
-    `SELECT id, snowflake_id, title, content, slug_id, slug_base, created_at, updated_at
+    `SELECT id, snowflake_id, title, content, author, slug_id, slug_base, created_at, updated_at
        FROM pages
       WHERE slug_id=?`,
     [req.params.slugid],
@@ -1202,15 +1222,16 @@ async function handlePageDeletion(req, res) {
          page_snowflake_id,
          slug_id,
          slug_base,
-        title,
-        content,
-        tags_json,
-        created_at,
-        updated_at,
-        deleted_by,
-        comments_json,
-        stats_json
-       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+         title,
+         content,
+         author,
+         tags_json,
+         created_at,
+         updated_at,
+         deleted_by,
+         comments_json,
+         stats_json
+       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         trashSnowflake,
         page.id,
@@ -1219,6 +1240,7 @@ async function handlePageDeletion(req, res) {
         page.slug_base,
         page.title,
         page.content,
+        page.author || null,
         tagsJson,
         page.created_at,
         page.updated_at,

@@ -1,6 +1,9 @@
 <% title = page ? 'Éditer' : 'Nouvelle page'; %>
 <h1><%= title %></h1>
 <% const isSubmission = typeof submissionMode !== 'undefined' ? submissionMode : false; %>
+<% const authorFieldValue = typeof authorName !== 'undefined'
+  ? authorName
+  : (page && page.author ? page.author : ''); %>
 <% if (isSubmission) { %>
   <div class="card card-highlight mb-md">
     <p class="mt-0 mb-0">
@@ -58,6 +61,18 @@
   </div>
   <p class="editor-hint">
     Astuce : utilisez <code>[[Titre de page]]</code> pour créer des liens internes rapides.
+  </p>
+  <label for="author-field">Auteur affiché</label>
+  <input
+    id="author-field"
+    type="text"
+    name="author"
+    maxlength="80"
+    value="<%= authorFieldValue %>"
+    placeholder="Votre nom ou pseudo"
+  />
+  <p class="editor-hint">
+    Ce nom sera affiché comme auteur de l’article. Si vous n’êtes pas connecté, choisissez le pseudo de votre choix.
   </p>
   <label>Tags (séparés par des virgules)</label>
   <input type="text" name="tags" value="<%= tags %>" />
