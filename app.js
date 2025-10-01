@@ -17,6 +17,8 @@ import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp, getClientUserAgent } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
 import { trackLiveVisitor } from "./utils/liveStats.js";
+import { getEveryoneRole } from "./utils/roleService.js";
+import { DEFAULT_ROLE_FLAGS, mergeRoleFlags } from "./utils/roleFlags.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,7 +61,20 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   try {
     const currentUser = req.session.user || null;
-    res.locals.user = currentUser;
+    const everyoneRole = await getEveryoneRole();
+    const basePermissions = everyoneRole
+      ? mergeRoleFlags(DEFAULT_ROLE_FLAGS, everyoneRole)
+      : { ...DEFAULT_ROLE_FLAGS };
+    let effectivePermissions = { ...basePermissions };
+    let normalizedUser = currentUser;
+    if (currentUser) {
+      effectivePermissions = mergeRoleFlags(basePermissions, currentUser);
+      normalizedUser = { ...currentUser, ...effectivePermissions };
+      req.session.user = normalizedUser;
+    }
+    req.permissionFlags = effectivePermissions;
+    res.locals.permissions = effectivePermissions;
+    res.locals.user = normalizedUser;
     const settings = await getSiteSettings();
     res.locals.wikiName = settings.wikiName;
     res.locals.logoUrl = settings.logoUrl;

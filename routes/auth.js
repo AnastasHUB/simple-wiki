@@ -19,7 +19,8 @@ r.post("/login", async (req, res) => {
   const ip = getClientIp(req);
   const u = await get(
     `SELECT u.*, r.name AS role_name, r.is_admin AS role_is_admin, r.is_moderator AS role_is_moderator,
-            r.is_helper AS role_is_helper, r.is_contributor AS role_is_contributor
+            r.is_helper AS role_is_helper, r.is_contributor AS role_is_contributor,
+            r.can_comment AS role_can_comment, r.can_submit_pages AS role_can_submit_pages
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      WHERE u.username=?`,
@@ -62,7 +63,7 @@ r.post("/login", async (req, res) => {
   const flags = deriveRoleFlags(u);
   if (needsRoleFlagSync(u)) {
     await run(
-      "UPDATE users SET is_admin=?, is_moderator=?, is_contributor=?, is_helper=? WHERE id=?",
+      "UPDATE users SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=? WHERE id=?",
       [...getRoleFlagValues(flags), u.id],
     );
   }

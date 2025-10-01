@@ -23,9 +23,11 @@
       </button>
     </form>
     <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')">Copier le lien</button>
+    <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
     <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
-    <% const isAdmin = currentUser && currentUser.is_admin; %>
-    <% const isContributor = currentUser && currentUser.is_contributor; %>
+    <% const isAdmin = !!permissionFlags.is_admin; %>
+    <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
+    <% const canSubmitEdits = !!permissionFlags.can_submit_pages; %>
     <% if (isAdmin) { %>
       <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Éditer</a>
       <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history">Historique</a>
@@ -33,9 +35,9 @@
         <input type="hidden" name="_method" value="DELETE" />
         <button class="btn danger" data-icon="🗑️">Supprimer</button>
       </form>
-    <% } else if (isContributor) { %>
+    <% } else if (canPublishDirectly) { %>
       <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Éditer</a>
-    <% } else { %>
+    <% } else if (canSubmitEdits) { %>
       <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Suggérer une modification</a>
     <% } %>
   </div>
@@ -57,7 +59,9 @@
 <% } %>
 
 <% const commentUser = typeof user !== 'undefined' && user ? user : null; %>
-<% const adminPreferredName = commentUser && commentUser.is_admin
+<% const commentPermissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+<% const canComment = !!commentPermissionFlags.can_comment; %>
+<% const adminPreferredName = commentUser && commentPermissionFlags.is_admin
   ? (commentUser.display_name || commentUser.username)
   : null; %>
 <% const commentValues = (commentFeedback && commentFeedback.values) || {}; %>
@@ -132,6 +136,9 @@
     </div>
   <% } %>
 
+  <% if (!canComment) { %>
+    <p class="text-muted">Les commentaires sont désactivés pour votre rôle.</p>
+  <% } else { %>
   <form class="comment-form" method="post" action="/wiki/<%= page.slug_id %>/comments">
     <% if (adminPreferredName) { %>
       <div class="field">
@@ -166,4 +173,5 @@
     </div>
     <button class="btn success" data-icon="📨" type="submit">Envoyer mon commentaire</button>
   </form>
+  <% } %>
 </section>

@@ -17,10 +17,13 @@ export async function initDb() {
     snowflake_id TEXT UNIQUE,
     name TEXT UNIQUE NOT NULL,
     description TEXT,
+    is_system INTEGER NOT NULL DEFAULT 0,
     is_admin INTEGER NOT NULL DEFAULT 0,
     is_moderator INTEGER NOT NULL DEFAULT 0,
     is_helper INTEGER NOT NULL DEFAULT 0,
     is_contributor INTEGER NOT NULL DEFAULT 0,
+    can_comment INTEGER NOT NULL DEFAULT 0,
+    can_submit_pages INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -34,6 +37,8 @@ export async function initDb() {
     is_moderator INTEGER NOT NULL DEFAULT 0,
     is_helper INTEGER NOT NULL DEFAULT 0,
     is_contributor INTEGER NOT NULL DEFAULT 0,
+    can_comment INTEGER NOT NULL DEFAULT 0,
+    can_submit_pages INTEGER NOT NULL DEFAULT 0,
     role_id INTEGER REFERENCES roles(id)
   );
   CREATE TABLE IF NOT EXISTS settings(
@@ -215,6 +220,11 @@ export async function initDb() {
   await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_helper", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_contributor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("roles", "is_system", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("roles", "can_comment", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("roles", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
   await ensureColumn("ip_profiles", "reputation_status", "TEXT NOT NULL DEFAULT 'unknown'");
   await ensureColumn(
@@ -326,65 +336,97 @@ async function ensureDefaultRoles() {
 
   const defaultRoles = [
     {
+      name: "Everyone",
+      description: "Permissions de base accordées à tous les visiteurs.",
+      is_system: 1,
+      is_admin: 0,
+      is_moderator: 0,
+      is_helper: 0,
+      is_contributor: 0,
+      can_comment: 1,
+      can_submit_pages: 1,
+    },
+    {
       name: "Administrateur",
       description: "Accès complet à toutes les fonctionnalités.",
+      is_system: 1,
       is_admin: 1,
       is_moderator: 0,
       is_helper: 0,
       is_contributor: 0,
+      can_comment: 1,
+      can_submit_pages: 1,
     },
     {
       name: "Modérateur",
       description: "Peut gérer les commentaires et les soumissions.",
+      is_system: 1,
       is_admin: 0,
       is_moderator: 1,
       is_helper: 0,
       is_contributor: 0,
+      can_comment: 1,
+      can_submit_pages: 1,
     },
     {
       name: "Contributeur",
-      description: "Peut créer de nouveaux contenus.",
+      description: "Peut publier des articles immédiatement.",
+      is_system: 1,
       is_admin: 0,
       is_moderator: 0,
       is_helper: 0,
       is_contributor: 1,
+      can_comment: 1,
+      can_submit_pages: 1,
     },
     {
       name: "Helper",
-      description: "Peut assister les contributeurs.",
+      description: "Peut commenter sans modération.",
+      is_system: 1,
       is_admin: 0,
       is_moderator: 0,
       is_helper: 1,
       is_contributor: 0,
+      can_comment: 1,
+      can_submit_pages: 1,
     },
     {
       name: "Utilisateur",
       description: "Accès standard sans permissions supplémentaires.",
+      is_system: 1,
       is_admin: 0,
       is_moderator: 0,
       is_helper: 0,
       is_contributor: 0,
+      can_comment: 1,
+      can_submit_pages: 1,
     },
   ];
 
   for (const role of defaultRoles) {
     await db.run(
-      `INSERT INTO roles(name, description, is_admin, is_moderator, is_helper, is_contributor)
-       VALUES(?,?,?,?,?,?)
+      `INSERT INTO roles(name, description, is_system, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages)
+       VALUES(?,?,?,?,?,?,?,?,?)
        ON CONFLICT(name) DO UPDATE SET
          description=excluded.description,
+         is_system=excluded.is_system,
          is_admin=excluded.is_admin,
          is_moderator=excluded.is_moderator,
          is_helper=excluded.is_helper,
          is_contributor=excluded.is_contributor,
+         can_comment=excluded.can_comment,
+         can_submit_pages=excluded.can_submit_pages,
          updated_at=CURRENT_TIMESTAMP`,
       [
         role.name,
         role.description,
+        role.is_system || 0,
         role.is_admin,
         role.is_moderator,
         role.is_helper,
         role.is_contributor,
+        role.can_comment || 0,
+        role.can_submit_pages || 0,
       ],
     );
   }
@@ -392,7 +434,7 @@ async function ensureDefaultRoles() {
 
 async function synchronizeUserRoles() {
   const roles = await db.all(
-    "SELECT id, name, is_admin, is_moderator, is_helper, is_contributor FROM roles",
+    "SELECT id, name, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages FROM roles",
   );
   if (!roles.length) {
     return;
@@ -438,12 +480,14 @@ async function synchronizeUserRoles() {
 
   for (const role of roles) {
     await db.run(
-      "UPDATE users SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=? WHERE role_id=?",
+      "UPDATE users SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=? WHERE role_id=?",
       [
         role.is_admin ? 1 : 0,
         role.is_moderator ? 1 : 0,
         role.is_helper ? 1 : 0,
         role.is_contributor ? 1 : 0,
+        role.can_comment ? 1 : 0,
+        role.can_submit_pages ? 1 : 0,
         role.id,
       ],
     );
@@ -457,16 +501,18 @@ export async function ensureDefaultAdmin() {
     const hashed = await hashPassword("admin");
     const adminRole =
       (await db.get(
-        "SELECT id, is_admin, is_moderator, is_helper, is_contributor FROM roles WHERE is_admin=1 LIMIT 1",
+        "SELECT id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages FROM roles WHERE is_admin=1 LIMIT 1",
       )) || {
         id: null,
         is_admin: 1,
         is_moderator: 0,
         is_helper: 0,
         is_contributor: 0,
+        can_comment: 1,
+        can_submit_pages: 1,
       };
     await db.run(
-      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,?,?,?,?,?)",
+      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages) VALUES(?,?,?,?,?,?,?,?,?,?)",
       [
         generateSnowflake(),
         "admin",
@@ -476,6 +522,8 @@ export async function ensureDefaultAdmin() {
         adminRole.is_moderator ? 1 : 0,
         adminRole.is_helper ? 1 : 0,
         adminRole.is_contributor ? 1 : 0,
+        adminRole.can_comment ? 1 : 0,
+        adminRole.can_submit_pages ? 1 : 0,
       ],
     );
     console.log("Default admin created: admin / (mot de passe haché)");
