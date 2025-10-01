@@ -4,6 +4,12 @@ import { hashPassword, isBcryptHash, verifyPassword } from "../utils/passwords.j
 import { sendAdminEvent } from "../utils/webhook.js";
 import { getClientIp } from "../utils/ip.js";
 import { pushNotification } from "../utils/notifications.js";
+import {
+  buildSessionUser,
+  deriveRoleFlags,
+  getRoleFlagValues,
+  needsRoleFlagSync,
+} from "../utils/roleFlags.js";
 
 const r = Router();
 
@@ -11,7 +17,14 @@ r.get("/login", (req, res) => res.render("login"));
 r.post("/login", async (req, res) => {
   const { username, password } = req.body;
   const ip = getClientIp(req);
-  const u = await get("SELECT * FROM users WHERE username=?", [username]);
+  const u = await get(
+    `SELECT u.*, r.name AS role_name, r.is_admin AS role_is_admin, r.is_moderator AS role_is_moderator,
+            r.is_helper AS role_is_helper, r.is_contributor AS role_is_contributor
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE u.username=?`,
+    [username],
+  );
   if (!u) {
     await sendAdminEvent(
       "Connexion échouée",
@@ -46,44 +59,15 @@ r.post("/login", async (req, res) => {
     const newHash = await hashPassword(password);
     await run("UPDATE users SET password=? WHERE id=?", [newHash, u.id]);
   }
-  const isAdmin = !!u.is_admin;
-  const isModerator = !isAdmin && !!u.is_moderator;
-  const isContributor = !isAdmin && !isModerator && !!u.is_contributor;
-  const isHelper =
-    !isAdmin && !isModerator && !isContributor && !!u.is_helper;
-
-  const desiredAdmin = isAdmin ? 1 : 0;
-  const desiredModerator = isModerator ? 1 : 0;
-  const desiredContributor = isContributor ? 1 : 0;
-  const desiredHelper = isHelper ? 1 : 0;
-
-  if (
-    u.is_admin !== desiredAdmin ||
-    u.is_moderator !== desiredModerator ||
-    u.is_contributor !== desiredContributor ||
-    u.is_helper !== desiredHelper
-  ) {
+  const flags = deriveRoleFlags(u);
+  if (needsRoleFlagSync(u)) {
     await run(
       "UPDATE users SET is_admin=?, is_moderator=?, is_contributor=?, is_helper=? WHERE id=?",
-      [
-        desiredAdmin,
-        desiredModerator,
-        desiredContributor,
-        desiredHelper,
-        u.id,
-      ],
+      [...getRoleFlagValues(flags), u.id],
     );
   }
 
-  req.session.user = {
-    id: u.id,
-    username: u.username,
-    is_admin: isAdmin,
-    is_moderator: isModerator,
-    is_contributor: isContributor,
-    is_helper: isHelper,
-    display_name: u.display_name || null,
-  };
+  req.session.user = buildSessionUser(u, flags);
   await sendAdminEvent(
     "Connexion réussie",
     {

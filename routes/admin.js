@@ -45,6 +45,11 @@ import {
 } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
 import {
+  formatDateTimeLocalized,
+  formatRelativeDurationMs,
+  formatSecondsAgo,
+} from "../utils/time.js";
+import {
   buildPagination,
   decoratePagination,
   DEFAULT_PAGE_SIZE,
@@ -64,6 +69,15 @@ import {
   updateSiteSettingsFromForm,
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
+import {
+  listRoles,
+  listRolesWithUsage,
+  getRoleById,
+  createRole,
+  updateRolePermissions,
+  assignRoleToUser,
+} from "../utils/roleService.js";
+import { buildSessionUser } from "../utils/roleFlags.js";
 import {
   countBanAppeals,
   fetchBanAppeals,
@@ -139,59 +153,6 @@ const LIVE_VISITOR_PAGINATION_OPTIONS = {
   defaultPageSize: LIVE_VISITOR_DEFAULT_PAGE_SIZE,
   pageSizeOptions: LIVE_VISITOR_PAGE_SIZES,
 };
-
-function formatSecondsAgo(seconds) {
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) {
-    return minutes === 1 ? "1 min" : `${minutes} min`;
-  }
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) {
-    return hours === 1 ? "1 h" : `${hours} h`;
-  }
-  const days = Math.floor(hours / 24);
-  return days === 1 ? "1 j" : `${days} j`;
-}
-
-function formatRelativeDurationMs(ms) {
-  const isFuture = ms < 0;
-  const absSeconds = Math.floor(Math.abs(ms) / 1000);
-  const prefix = isFuture ? "dans" : "il y a";
-  if (absSeconds <= 0) {
-    return isFuture ? "dans moins d’une seconde" : "il y a moins d’une seconde";
-  }
-  if (absSeconds < 60) {
-    const unit = absSeconds === 1 ? "seconde" : "secondes";
-    return `${prefix} ${absSeconds} ${unit}`;
-  }
-  if (absSeconds < 3600) {
-    const minutes = Math.round(absSeconds / 60);
-    const unit = minutes === 1 ? "minute" : "minutes";
-    return `${prefix} ${minutes} ${unit}`;
-  }
-  if (absSeconds < 86400) {
-    const hours = Math.round(absSeconds / 3600);
-    const unit = hours === 1 ? "heure" : "heures";
-    return `${prefix} ${hours} ${unit}`;
-  }
-  const days = Math.round(absSeconds / 86400);
-  const unit = days === 1 ? "jour" : "jours";
-  return `${prefix} ${days} ${unit}`;
-}
-
-function formatDateTimeLocalized(date) {
-  try {
-    return new Intl.DateTimeFormat("fr-FR", {
-      dateStyle: "full",
-      timeStyle: "long",
-    }).format(date);
-  } catch (error) {
-    return date.toISOString();
-  }
-}
 
 function serializeLiveVisitors(now = Date.now()) {
   return getActiveVisitors({ now }).map((visitor) => {
@@ -2159,6 +2120,113 @@ r.post("/settings", async (req, res) => {
   res.redirect("/admin/settings");
 });
 
+// roles
+r.get("/roles", async (_req, res) => {
+  const roles = await listRolesWithUsage();
+  res.render("admin/roles", { roles });
+});
+r.post("/roles", async (req, res) => {
+  const { name, description } = req.body;
+  const permissions = {
+    is_admin: req.body.is_admin,
+    is_moderator: req.body.is_moderator,
+    is_helper: req.body.is_helper,
+    is_contributor: req.body.is_contributor,
+  };
+  try {
+    const role = await createRole({ name, description, permissions });
+    const ip = getClientIp(req);
+    await sendAdminEvent(
+      "Rôle créé",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          roleId: role.id,
+          roleName: role.name,
+          permissions: {
+            is_admin: role.is_admin,
+            is_moderator: role.is_moderator,
+            is_helper: role.is_helper,
+            is_contributor: role.is_contributor,
+          },
+        },
+      },
+      { includeScreenshot: false },
+    );
+    pushNotification(req, {
+      type: "success",
+      message: `Rôle ${role.name} créé avec succès.`,
+    });
+  } catch (error) {
+    console.error("Failed to create role", error);
+    pushNotification(req, {
+      type: "error",
+      message:
+        error?.message?.includes("UNIQUE")
+          ? "Ce nom de rôle existe déjà."
+          : "Impossible de créer le rôle. Merci de réessayer.",
+    });
+  }
+  res.redirect("/admin/roles");
+});
+r.post("/roles/:id", async (req, res) => {
+  const roleId = Number.parseInt(req.params.id, 10);
+  const existing = await getRoleById(roleId);
+  if (!existing) {
+    pushNotification(req, {
+      type: "error",
+      message: "Rôle introuvable.",
+    });
+    return res.redirect("/admin/roles");
+  }
+  const permissions = {
+    is_admin: req.body.is_admin,
+    is_moderator: req.body.is_moderator,
+    is_helper: req.body.is_helper,
+    is_contributor: req.body.is_contributor,
+  };
+  try {
+    const updated = await updateRolePermissions(roleId, { permissions });
+    const ip = getClientIp(req);
+    await sendAdminEvent(
+      "Permissions de rôle mises à jour",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          roleId: updated?.id || roleId,
+          roleName: updated?.name || existing.name,
+          previousPermissions: {
+            is_admin: existing.is_admin,
+            is_moderator: existing.is_moderator,
+            is_helper: existing.is_helper,
+            is_contributor: existing.is_contributor,
+          },
+          newPermissions: {
+            is_admin: updated?.is_admin ?? existing.is_admin,
+            is_moderator: updated?.is_moderator ?? existing.is_moderator,
+            is_helper: updated?.is_helper ?? existing.is_helper,
+            is_contributor: updated?.is_contributor ?? existing.is_contributor,
+          },
+        },
+      },
+      { includeScreenshot: false },
+    );
+    pushNotification(req, {
+      type: "success",
+      message: `Permissions mises à jour pour ${updated?.name || existing.name}.`,
+    });
+  } catch (error) {
+    console.error("Failed to update role", error);
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible de mettre à jour les permissions du rôle.",
+    });
+  }
+  res.redirect("/admin/roles");
+});
+
 // users
 r.get("/users", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
@@ -2167,13 +2235,13 @@ r.get("/users", async (req, res) => {
   if (searchTerm) {
     const like = `%${searchTerm}%`;
     filters.push(
-      "(CAST(id AS TEXT) LIKE ? OR username LIKE ? OR COALESCE(display_name,'') LIKE ?)",
+      "(CAST(u.id AS TEXT) LIKE ? OR u.username LIKE ? OR COALESCE(u.display_name,'') LIKE ?)",
     );
     params.push(like, like, like);
   }
   const where = filters.length ? `WHERE ${filters.join(" AND ")}` : "";
   const totalRow = await get(
-    `SELECT COUNT(*) AS total FROM users ${where}`,
+    `SELECT COUNT(*) AS total FROM users u ${where}`,
     params,
   );
   const basePagination = buildPagination(
@@ -2182,45 +2250,61 @@ r.get("/users", async (req, res) => {
   );
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
-  await run(
-    "UPDATE users SET is_moderator=0 WHERE is_admin=1 AND is_moderator=1",
-  );
-  await run(
-    "UPDATE users SET is_helper=0 WHERE is_admin=1 AND is_helper=1",
-  );
-  await run(
-    "UPDATE users SET is_contributor=0 WHERE is_admin=1 AND is_contributor=1",
-  );
-  await run(
-    "UPDATE users SET is_helper=0, is_contributor=0 WHERE is_moderator=1 AND (is_helper=1 OR is_contributor=1)",
-  );
-  await run(
-    "UPDATE users SET is_contributor=0 WHERE is_helper=1 AND is_contributor=1",
-  );
-
   const users = await all(
-    `SELECT id, username, display_name, is_admin, is_moderator, is_helper, is_contributor FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
+    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.role_id, r.name AS role_name
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     ${where}
+     ORDER BY u.id
+     LIMIT ? OFFSET ?`,
     [...params, basePagination.perPage, offset],
   );
+  const availableRoles = await listRoles();
+  const defaultRole =
+    availableRoles.find(
+      (role) =>
+        !role.is_admin &&
+        !role.is_moderator &&
+        !role.is_helper &&
+        !role.is_contributor,
+    ) || null;
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
-    const isModerator = !isAdmin && Boolean(user.is_moderator);
-    const isContributor = !isAdmin && !isModerator && Boolean(user.is_contributor);
-    const isHelper =
-      !isAdmin && !isModerator && !isContributor && Boolean(user.is_helper);
+    const isModerator = Boolean(user.is_moderator);
+    const isContributor = Boolean(user.is_contributor);
+    const isHelper = Boolean(user.is_helper);
+    const roleLabel =
+      user.role_name ||
+      (isAdmin
+        ? "Administrateur"
+        : isModerator
+        ? "Modérateur"
+        : isContributor
+        ? "Contributeur"
+        : isHelper
+        ? "Helper"
+        : "Utilisateur");
     return {
       ...user,
-      is_admin: isAdmin ? 1 : 0,
-      is_moderator: isModerator ? 1 : 0,
-      is_contributor: isContributor ? 1 : 0,
-      is_helper: isHelper ? 1 : 0,
+      is_admin: isAdmin,
+      is_moderator: isModerator,
+      is_contributor: isContributor,
+      is_helper: isHelper,
+      role_label: roleLabel,
     };
   });
   const pagination = decoratePagination(req, basePagination);
-  res.render("admin/users", { users: normalizedUsers, pagination, searchTerm });
+  res.render("admin/users", {
+    users: normalizedUsers,
+    pagination,
+    searchTerm,
+    roles: availableRoles,
+    defaultRoleId: defaultRole?.id || null,
+  });
 });
 r.post("/users", async (req, res) => {
-  const { username, password, role } = req.body;
+  const { username, password } = req.body;
+  const selectedRoleId = Number.parseInt(req.body.roleId || req.body.role || "", 10);
   if (!username || !password) {
     pushNotification(req, {
       type: "error",
@@ -2228,32 +2312,28 @@ r.post("/users", async (req, res) => {
     });
     return res.redirect("/admin/users");
   }
-  const allowedRoles = new Set(["admin", "moderator", "helper", "contributor", "user"]);
-  const normalizedRole = allowedRoles.has(role) ? role : "user";
-  const roleLabelMap = {
-    user: "Utilisateur",
-    admin: "Administrateur",
-    moderator: "Modérateur",
-    helper: "Helper",
-    contributor: "Contributeur",
-  };
-  const roleLabel = roleLabelMap[normalizedRole] || normalizedRole;
-  const isAdmin = normalizedRole === "admin";
-  const isModerator = normalizedRole === "moderator";
-  const isHelper = normalizedRole === "helper";
-  const isContributor = normalizedRole === "contributor";
+  const sanitizedUsername = username.trim();
+  const role = await getRoleById(selectedRoleId);
+  if (!role) {
+    pushNotification(req, {
+      type: "error",
+      message: "Rôle invalide sélectionné.",
+    });
+    return res.redirect("/admin/users");
+  }
   const hashed = await hashPassword(password);
   try {
     const result = await run(
-      "INSERT INTO users(snowflake_id, username,password,is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,?,?,?,?)",
+      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,?,?,?,?,?)",
       [
         generateSnowflake(),
-        username.trim(),
+        sanitizedUsername,
         hashed,
-        isAdmin ? 1 : 0,
-        isModerator ? 1 : 0,
-        isHelper ? 1 : 0,
-        isContributor ? 1 : 0,
+        role.id,
+        role.is_admin ? 1 : 0,
+        role.is_moderator ? 1 : 0,
+        role.is_helper ? 1 : 0,
+        role.is_contributor ? 1 : 0,
       ],
     );
     const ip = getClientIp(req);
@@ -2263,16 +2343,17 @@ r.post("/users", async (req, res) => {
         user: req.session.user?.username || null,
         extra: {
           ip,
-          newUser: username.trim(),
+          newUser: sanitizedUsername,
           userId: result?.lastID || null,
-          role: normalizedRole,
+          roleId: role.id,
+          roleName: role.name,
         },
       },
       { includeScreenshot: false },
     );
     pushNotification(req, {
       type: "success",
-      message: `Utilisateur ${username.trim()} créé (${roleLabel}).`,
+      message: `Utilisateur ${sanitizedUsername} créé (${role.name}).`,
     });
   } catch (error) {
     if (error?.code === "SQLITE_CONSTRAINT" || error?.code === "SQLITE_CONSTRAINT_UNIQUE") {
@@ -2352,7 +2433,10 @@ r.post("/users/:id/display-name", async (req, res) => {
 });
 r.post("/users/:id/role", async (req, res) => {
   const target = await get(
-    "SELECT id, username, is_admin, is_moderator, is_helper, is_contributor FROM users WHERE id=?",
+    `SELECT u.id, u.username, u.role_id, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, r.name AS role_name
+     FROM users u
+     LEFT JOIN roles r ON r.id = u.role_id
+     WHERE u.id=?`,
     [req.params.id],
   );
   if (!target) {
@@ -2363,11 +2447,10 @@ r.post("/users/:id/role", async (req, res) => {
     return res.redirect("/admin/users");
   }
 
-  const requestedRole = req.body?.role;
-  const allowedRoles = new Set(["admin", "moderator", "helper", "contributor", "user"]);
-  const normalizedRole = allowedRoles.has(requestedRole) ? requestedRole : null;
+  const requestedRoleId = Number.parseInt(req.body?.roleId || req.body?.role || "", 10);
+  const role = await getRoleById(requestedRoleId);
 
-  if (!normalizedRole) {
+  if (!role) {
     pushNotification(req, {
       type: "error",
       message: "Rôle invalide sélectionné.",
@@ -2375,34 +2458,17 @@ r.post("/users/:id/role", async (req, res) => {
     return res.redirect("/admin/users");
   }
 
-  const sanitizedTargetIsAdmin = Boolean(target.is_admin);
-  const sanitizedTargetIsModerator =
-    !sanitizedTargetIsAdmin && Boolean(target.is_moderator);
-  const sanitizedTargetIsContributor =
-    !sanitizedTargetIsAdmin &&
-    !sanitizedTargetIsModerator &&
-    Boolean(target.is_contributor);
-  const sanitizedTargetIsHelper =
-    !sanitizedTargetIsAdmin &&
-    !sanitizedTargetIsModerator &&
-    !sanitizedTargetIsContributor &&
-    Boolean(target.is_helper);
+  const previousRole = target.role_name || (target.is_admin
+    ? "Administrateur"
+    : target.is_moderator
+    ? "Modérateur"
+    : target.is_contributor
+    ? "Contributeur"
+    : target.is_helper
+    ? "Helper"
+    : "Utilisateur");
 
-  const isAdmin = normalizedRole === "admin";
-  const isModerator = normalizedRole === "moderator";
-  const isContributor = normalizedRole === "contributor";
-  const isHelper = normalizedRole === "helper";
-  const previousRole = sanitizedTargetIsAdmin
-    ? "admin"
-    : sanitizedTargetIsModerator
-    ? "moderator"
-    : sanitizedTargetIsContributor
-    ? "contributor"
-    : sanitizedTargetIsHelper
-    ? "helper"
-    : "user";
-
-  if (previousRole === normalizedRole) {
+  if (target.role_id === role.id) {
     pushNotification(req, {
       type: "info",
       message: `Aucun changement pour ${target.username}.`,
@@ -2410,22 +2476,23 @@ r.post("/users/:id/role", async (req, res) => {
     return res.redirect("/admin/users");
   }
 
-  await run(
-    "UPDATE users SET is_admin=?, is_moderator=?, is_contributor=?, is_helper=? WHERE id=?",
-    [
-      isAdmin ? 1 : 0,
-      isModerator ? 1 : 0,
-      isContributor ? 1 : 0,
-      isHelper ? 1 : 0,
-      target.id,
-    ],
-  );
+  await assignRoleToUser(target.id, role);
 
   if (req.session.user?.id === target.id) {
-    req.session.user.is_admin = isAdmin;
-    req.session.user.is_moderator = isModerator;
-    req.session.user.is_contributor = isContributor;
-    req.session.user.is_helper = isHelper;
+    const updatedSession = buildSessionUser(
+      {
+        ...req.session.user,
+        ...target,
+        role_id: role.id,
+        role_name: role.name,
+        is_admin: role.is_admin,
+        is_moderator: role.is_moderator,
+        is_helper: role.is_helper,
+        is_contributor: role.is_contributor,
+      },
+      role,
+    );
+    req.session.user = { ...req.session.user, ...updatedSession };
   }
 
   const ip = getClientIp(req);
@@ -2438,23 +2505,16 @@ r.post("/users/:id/role", async (req, res) => {
         targetId: target.id,
         targetUsername: target.username,
         previousRole,
-        newRole: normalizedRole,
+        newRoleId: role.id,
+        newRoleName: role.name,
       },
     },
     { includeScreenshot: false },
   );
 
-  const roleLabelMap = {
-    user: "Utilisateur",
-    admin: "Administrateur",
-    moderator: "Modérateur",
-    helper: "Helper",
-    contributor: "Contributeur",
-  };
-  const roleLabel = roleLabelMap[normalizedRole] || normalizedRole;
   pushNotification(req, {
     type: "success",
-    message: `Rôle mis à jour pour ${target.username} (${roleLabel}).`,
+    message: `Rôle mis à jour pour ${target.username} (${role.name}).`,
   });
 
   res.redirect("/admin/users");
