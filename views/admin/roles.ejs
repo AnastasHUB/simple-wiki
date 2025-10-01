@@ -230,17 +230,74 @@
       return;
     }
 
-    const panels = Array.from(manager.querySelectorAll('.role-detail-panel'));
+    const permissionSchema = <%- JSON.stringify(permissionOptions) %>;
     const list = manager.querySelector('.role-selector');
+    const detailContainer = manager.querySelector('.role-detail');
+    let panels = Array.from(manager.querySelectorAll('.role-detail-panel'));
     let buttons = Array.from(manager.querySelectorAll('.role-choice'));
 
-    if (!buttons.length || !panels.length) {
+    if (!list || !detailContainer || !buttons.length || !panels.length) {
       return;
     }
 
     const refreshButtons = () => {
       buttons = Array.from(manager.querySelectorAll('.role-choice'));
       return buttons;
+    };
+
+    const refreshPanels = () => {
+      panels = Array.from(manager.querySelectorAll('.role-detail-panel'));
+      return panels;
+    };
+
+    const createElement = (tagName, { className, textContent, dataset, attributes } = {}, children = []) => {
+      const element = document.createElement(tagName);
+      if (className) {
+        element.className = className;
+      }
+      if (textContent !== undefined) {
+        element.textContent = textContent;
+      }
+      if (dataset) {
+        Object.entries(dataset).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            element.dataset[key] = String(value);
+          }
+        });
+      }
+      if (attributes) {
+        Object.entries(attributes).forEach(([key, value]) => {
+          if (value !== undefined && value !== null) {
+            element.setAttribute(key, value);
+          }
+        });
+      }
+      const childNodes = Array.isArray(children) ? children : [children];
+      childNodes.forEach((child) => {
+        if (!child && child !== 0) {
+          return;
+        }
+        if (typeof child === "string" || typeof child === "number") {
+          element.appendChild(document.createTextNode(String(child)));
+        } else {
+          element.appendChild(child);
+        }
+      });
+      return element;
+    };
+
+    const formatUserCount = (count) => {
+      const value = Number.parseInt(count, 10) || 0;
+      return `${value} utilisateur${value > 1 ? 's' : ''}`;
+    };
+
+    const attachRoleButton = (button) => {
+      if (!button) {
+        return;
+      }
+      button.addEventListener('click', () => {
+        setActive(button.dataset.roleId);
+      });
     };
 
     const setActive = (roleId) => {
@@ -250,12 +307,239 @@
         button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
       });
 
-      panels.forEach((panel) => {
+      refreshPanels().forEach((panel) => {
         panel.hidden = panel.dataset.roleId !== roleId;
       });
     };
 
     const createRoleButton = manager.querySelector('[data-action="create-role"]');
+
+    const integrateRoleIntoList = (role) => {
+      if (!role?.id) {
+        return;
+      }
+      const normalizedRole = {
+        ...role,
+        userCount: Number.parseInt(role?.userCount, 10) || 0,
+      };
+
+      const listItem = createElement(
+        'li',
+        {
+          className: 'role-selector-item',
+          dataset: { roleId: normalizedRole.id },
+          attributes: { draggable: 'true' },
+        },
+      );
+      listItem.id = `role-${normalizedRole.id}`;
+      listItem.draggable = true;
+      const choiceButton = createElement(
+        'button',
+        {
+          className: 'role-choice',
+          dataset: { roleId: normalizedRole.id },
+          attributes: { type: 'button', 'aria-pressed': 'false' },
+        },
+        [
+          createElement('span', {
+            className: 'role-choice-name',
+            textContent: normalizedRole.name || 'Nouveau rôle',
+          }),
+          createElement('span', {
+            className: 'badge',
+            textContent: formatUserCount(normalizedRole.userCount),
+          }),
+        ],
+      );
+      listItem.appendChild(choiceButton);
+      list.appendChild(listItem);
+
+      attachRoleButton(choiceButton);
+      refreshButtons();
+
+      const panel = createElement(
+        'article',
+        {
+          className: 'card role-detail-panel',
+          dataset: { roleId: normalizedRole.id },
+        },
+      );
+
+      const editor = createElement('div', { className: 'role-editor' });
+      const summary = createElement('div', { className: 'role-summary' });
+      const summaryHeader = createElement('div', { className: 'role-summary-header' });
+      summaryHeader.appendChild(
+        createElement('h2', {
+          className: 'h3',
+          textContent: normalizedRole.name || 'Nouveau rôle',
+        }),
+      );
+      summaryHeader.appendChild(
+        createElement('span', {
+          className: 'badge',
+          textContent: formatUserCount(normalizedRole.userCount),
+        }),
+      );
+      summary.appendChild(summaryHeader);
+
+      if (normalizedRole.description) {
+        summary.appendChild(
+          createElement('p', {
+            className: 'text-muted',
+            textContent: normalizedRole.description,
+          }),
+        );
+      }
+
+      if (normalizedRole.is_system) {
+        summary.appendChild(
+          createElement('p', {
+            className: 'text-xs text-muted',
+            textContent: 'Rôle système protégé',
+          }),
+        );
+      }
+
+      const lowerName = (normalizedRole.name || '').toLowerCase();
+      if (!normalizedRole.is_system && lowerName !== 'everyone') {
+        const summaryFooter = createElement('div', { className: 'role-summary-footer' });
+        if (normalizedRole.userCount === 0) {
+          const deleteForm = createElement(
+            'form',
+            {
+              attributes: {
+                method: 'post',
+                action: `/admin/roles/${normalizedRole.id}`,
+                'aria-label': `Supprimer le rôle ${normalizedRole.name || ''}`,
+              },
+            },
+          );
+          deleteForm.appendChild(
+            createElement('input', {
+              attributes: { type: 'hidden', name: '_action', value: 'delete' },
+            }),
+          );
+          const deleteButton = createElement(
+            'button',
+            {
+              className: 'btn danger',
+              textContent: 'Supprimer le rôle',
+              dataset: { icon: '🗑️' },
+              attributes: { type: 'submit' },
+            },
+          );
+          deleteButton.addEventListener('click', (event) => {
+            if (!window.confirm('Supprimer définitivement ce rôle ?')) {
+              event.preventDefault();
+            }
+          });
+          deleteForm.appendChild(deleteButton);
+          summaryFooter.appendChild(deleteForm);
+        } else {
+          summaryFooter.appendChild(
+            createElement('p', {
+              className: 'text-sm text-muted',
+              textContent: `Ce rôle est actuellement attribué à ${normalizedRole.userCount} utilisateur${normalizedRole.userCount > 1 ? 's' : ''}. Réassignez-les vers Everyone pour pouvoir supprimer ce rôle.`,
+            }),
+          );
+          const reassignForm = createElement(
+            'form',
+            {
+              className: 'role-reassign-form',
+              attributes: {
+                method: 'post',
+                action: `/admin/roles/${normalizedRole.id}`,
+                'aria-label': `Réassigner les utilisateurs de ${normalizedRole.name || ''} vers Everyone`,
+              },
+            },
+          );
+          reassignForm.appendChild(
+            createElement('input', {
+              attributes: { type: 'hidden', name: '_action', value: 'reassign_to_everyone' },
+            }),
+          );
+          reassignForm.appendChild(
+            createElement('button', {
+              className: 'btn secondary',
+              textContent: 'Réassigner tous les utilisateurs vers Everyone',
+              dataset: { icon: '🔁' },
+              attributes: { type: 'submit' },
+            }),
+          );
+          summaryFooter.appendChild(reassignForm);
+        }
+        summary.appendChild(summaryFooter);
+      }
+
+      editor.appendChild(summary);
+
+      const permissionForm = createElement(
+        'form',
+        {
+          className: 'role-permissions-column',
+          attributes: {
+            method: 'post',
+            action: `/admin/roles/${normalizedRole.id}`,
+            'aria-label': `Mettre à jour les permissions pour ${normalizedRole.name || ''}`,
+          },
+        },
+      );
+      const fieldset = createElement('fieldset', { className: 'role-permissions' });
+      fieldset.appendChild(createElement('legend', { textContent: 'Permissions' }));
+      const permissionGrid = createElement('div', { className: 'role-permissions-grid' });
+      permissionSchema.forEach((option) => {
+        const checkbox = createElement('label', { className: 'checkbox role-permission' });
+        const input = createElement('input', {
+          attributes: {
+            type: 'checkbox',
+            name: option.field,
+            value: '1',
+          },
+        });
+        if (normalizedRole[option.field]) {
+          input.checked = true;
+        }
+        checkbox.appendChild(input);
+        checkbox.appendChild(
+          createElement('span', {
+            className: 'permission-title',
+            textContent: option.label,
+          }),
+        );
+        checkbox.appendChild(
+          createElement('span', {
+            className: 'permission-description',
+            textContent: option.description,
+          }),
+        );
+        permissionGrid.appendChild(checkbox);
+      });
+      fieldset.appendChild(permissionGrid);
+      permissionForm.appendChild(fieldset);
+      const actionRow = createElement('div', { className: 'role-actions' });
+      actionRow.appendChild(
+        createElement('button', {
+          className: 'btn secondary',
+          textContent: 'Enregistrer',
+          dataset: { icon: '💾' },
+          attributes: { type: 'submit' },
+        }),
+      );
+      permissionForm.appendChild(actionRow);
+      editor.appendChild(permissionForm);
+
+      panel.appendChild(editor);
+      panel.hidden = true;
+      detailContainer.appendChild(panel);
+      refreshPanels();
+
+      setActive(String(normalizedRole.id));
+      const target = document.getElementById(`role-${normalizedRole.id}`);
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    };
+
     const createRole = async ({ name, description }) => {
       const response = await fetch('/admin/roles', {
         method: 'POST',
@@ -312,7 +596,8 @@
         try {
           const result = await createRole({ name, description: description.trim() });
           if (result?.success && result?.role?.id) {
-            window.location.href = `/admin/roles#role-${result.role.id}`;
+            integrateRoleIntoList(result.role);
+            lastOrder = getOrder().join(',');
           } else {
             throw new Error(result?.message || 'Impossible de créer le rôle.');
           }
@@ -327,9 +612,7 @@
     }
 
     refreshButtons().forEach((button) => {
-      button.addEventListener('click', () => {
-        setActive(button.dataset.roleId);
-      });
+      attachRoleButton(button);
     });
 
     if (!list) {
