@@ -461,6 +461,13 @@ r.post(
 
     const token = generateSnowflake();
     const commentSnowflake = generateSnowflake();
+    const privilegedCommenter = Boolean(
+      req.session.user?.is_admin ||
+        req.session.user?.is_moderator ||
+        req.session.user?.is_contributor ||
+        req.session.user?.is_helper,
+    );
+    const commentStatus = privilegedCommenter ? "approved" : "pending";
     const insertResult = await run(
       `INSERT INTO comments(
          snowflake_id,
@@ -469,8 +476,9 @@ r.post(
          body,
          ip,
          edit_token,
-         author_is_admin
-       ) VALUES(?,?,?,?,?,?,?)`,
+         author_is_admin,
+         status
+       ) VALUES(?,?,?,?,?,?,?,?)`,
       [
         commentSnowflake,
         page.id,
@@ -479,6 +487,7 @@ r.post(
         ip || null,
         token,
         req.session.user?.is_admin ? 1 : 0,
+        commentStatus,
       ],
     );
 
@@ -491,10 +500,12 @@ r.post(
     }
 
     delete req.session.commentFeedback;
+    const successMessage = privilegedCommenter
+      ? "Merci ! Votre commentaire a été publié immédiatement."
+      : "Merci ! Votre commentaire a été enregistré et sera publié après validation.";
     pushNotification(req, {
       type: "success",
-      message:
-        "Merci ! Votre commentaire a été enregistré et sera publié après validation.",
+      message: successMessage,
       timeout: 6000,
     });
 
@@ -508,7 +519,7 @@ r.post(
       user: req.session.user?.username || null,
       extra: {
         ip,
-        status: "pending",
+        status: commentStatus,
       },
     });
 
