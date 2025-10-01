@@ -48,7 +48,9 @@ export async function initDb() {
     logo_url TEXT DEFAULT '',
     admin_webhook_url TEXT DEFAULT '',
     feed_webhook_url TEXT DEFAULT '',
-    footer_text TEXT DEFAULT ''
+    footer_text TEXT DEFAULT '',
+    github_repo TEXT DEFAULT '',
+    changelog_source TEXT NOT NULL DEFAULT 'commits'
   );
   INSERT OR IGNORE INTO settings(id) VALUES(1);
   CREATE TABLE IF NOT EXISTS pages(
@@ -220,6 +222,12 @@ export async function initDb() {
   await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_helper", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_contributor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
+  await ensureColumn(
+    "settings",
+    "changelog_source",
+    "TEXT NOT NULL DEFAULT 'commits'",
+  );
   await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "is_system", "INTEGER NOT NULL DEFAULT 0");

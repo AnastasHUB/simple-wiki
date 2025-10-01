@@ -1,0 +1,110 @@
+<% title = 'Changelog'; %>
+<section class="card changelog-header">
+  <h1 class="mt-0">Changelog</h1>
+  <% if (repo && repo.slug) { %>
+    <p>
+      Dernières mises à jour
+      <strong><%= repo.source === 'pulls' ? 'des pull requests' : 'des commits' %></strong>
+      du dépôt
+      <% if (repo.url) { %>
+        <a href="<%= repo.url %>" target="_blank" rel="noopener"><%= repo.slug %></a>
+      <% } else { %>
+        <strong><%= repo.slug %></strong>
+      <% } %>.
+    </p>
+  <% } else { %>
+    <p>Dernières mises à jour synchronisées depuis GitHub.</p>
+  <% } %>
+  <form method="get" class="changelog-controls" aria-label="Options d'affichage du changelog">
+    <input type="hidden" name="page" value="1" />
+    <label for="changelogPerPage">Éléments par page</label>
+    <select id="changelogPerPage" name="perPage" onchange="this.form.submit()">
+      <% (perPageOptions || []).forEach((option) => { %>
+        <option value="<%= option %>" <%= option === selectedPerPage ? 'selected' : '' %>>
+          <%= option %>
+        </option>
+      <% }) %>
+    </select>
+    <noscript><button class="btn" type="submit">Mettre à jour</button></noscript>
+  </form>
+</section>
+
+<% if (errorMessage) { %>
+  <div class="alert error"><%= errorMessage %></div>
+<% } %>
+
+<% if (!entries.length && !errorMessage) { %>
+  <div class="card">
+    <p class="mt-0">Aucune mise à jour GitHub à afficher pour le moment.</p>
+  </div>
+<% } %>
+
+<% entries.forEach((entry) => { %>
+  <article class="card changelog-entry">
+    <header class="changelog-entry-header">
+      <div class="changelog-entry-title">
+        <span class="changelog-entry-type">
+          <%= entry.type === 'pull_request' ? 'Pull request' : 'Commit' %>
+        </span>
+        <h2 class="mt-0">
+          <% if (entry.url) { %>
+            <a href="<%= entry.url %>" target="_blank" rel="noopener"><%= entry.title %></a>
+          <% } else { %>
+            <%= entry.title %>
+          <% } %>
+        </h2>
+      </div>
+      <% if (entry.number) { %>
+        <span class="changelog-entry-ref">#<%= entry.number %></span>
+      <% } else if (entry.shortSha) { %>
+        <span class="changelog-entry-ref"><%= entry.shortSha %></span>
+      <% } %>
+    </header>
+    <div class="changelog-entry-meta">
+      <% if (entry.author) { %>
+        <span>
+          Par
+          <% if (entry.authorUrl) { %>
+            <a href="<%= entry.authorUrl %>" target="_blank" rel="noopener"><%= entry.author %></a>
+          <% } else { %>
+            <strong><%= entry.author %></strong>
+          <% } %>
+        </span>
+      <% } %>
+      <% if (entry.formattedDate) { %>
+        <span>
+          le
+          <% if (entry.isoDate) { %>
+            <time datetime="<%= entry.isoDate %>"><%= entry.formattedDate %></time>
+          <% } else { %>
+            <%= entry.formattedDate %>
+          <% } %>
+        </span>
+      <% } %>
+      <% if (entry.type === 'pull_request') { %>
+        <span class="changelog-entry-state changelog-entry-state-<%= entry.isMerged ? 'merged' : entry.state %>">
+          <%= entry.isMerged ? 'Fusionnée' : (entry.state === 'closed' ? 'Fermée' : 'Ouverte') %>
+        </span>
+      <% } %>
+    </div>
+    <% if (entry.description && entry.type === 'commit') { %>
+      <p class="changelog-entry-description"><%= entry.description %></p>
+    <% } %>
+  </article>
+<% }) %>
+
+<% if (entries.length && (pagination.hasNext || pagination.hasPrev)) { %>
+  <nav class="pagination-nav" aria-label="Pagination du changelog">
+    <% if (pagination.hasPrev) { %>
+      <a class="btn secondary" href="?page=<%= pagination.page - 1 %>&perPage=<%= pagination.perPage %>">&laquo; Page précédente</a>
+    <% } else { %>
+      <span class="btn secondary" aria-disabled="true">&laquo; Page précédente</span>
+    <% } %>
+    <span class="pagination-status">Page <%= pagination.page %></span>
+    <% if (pagination.hasNext) { %>
+      <a class="btn secondary" href="?page=<%= pagination.page + 1 %>&perPage=<%= pagination.perPage %>">Page suivante &raquo;</a>
+    <% } else { %>
+      <span class="btn secondary" aria-disabled="true">Page suivante &raquo;</span>
+    <% } %>
+  </nav>
+<% } %>

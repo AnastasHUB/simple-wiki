@@ -7,7 +7,31 @@ const DEFAULT_SETTINGS = {
   adminWebhook: "",
   feedWebhook: "",
   footerText: "",
+  githubRepo: "",
+  changelogSource: "commits",
 };
+
+const VALID_CHANGELOG_SOURCES = new Set(["commits", "pulls"]);
+
+function normalizeGithubRepo(value) {
+  if (typeof value !== "string") {
+    return DEFAULT_SETTINGS.githubRepo;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return "";
+  }
+  const isValid = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(trimmed);
+  return isValid ? trimmed : "";
+}
+
+function normalizeChangelogSource(value) {
+  const normalized = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (VALID_CHANGELOG_SOURCES.has(normalized)) {
+    return normalized;
+  }
+  return DEFAULT_SETTINGS.changelogSource;
+}
 
 const CACHE_STATE = {
   value: null,
@@ -26,6 +50,14 @@ function normalizeSettings(row = {}) {
       row.feed_webhook_url ?? row.feedWebhook ?? DEFAULT_SETTINGS.feedWebhook,
     footerText:
       row.footer_text ?? row.footerText ?? DEFAULT_SETTINGS.footerText,
+    githubRepo: normalizeGithubRepo(
+      row.github_repo ?? row.githubRepo ?? DEFAULT_SETTINGS.githubRepo,
+    ),
+    changelogSource: normalizeChangelogSource(
+      row.changelog_source ??
+        row.changelogSource ??
+        DEFAULT_SETTINGS.changelogSource,
+    ),
   };
 }
 
@@ -37,6 +69,8 @@ function denormalizeSettings(settings) {
     admin_webhook_url: normalized.adminWebhook,
     feed_webhook_url: normalized.feedWebhook,
     footer_text: normalized.footerText,
+    github_repo: normalized.githubRepo,
+    changelog_source: normalized.changelogSource,
   };
 }
 
@@ -52,7 +86,13 @@ export async function getSiteSettings({ forceRefresh = false } = {}) {
   }
 
   const row = await get(
-    `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text
+    `SELECT wiki_name,
+            logo_url,
+            admin_webhook_url,
+            feed_webhook_url,
+            footer_text,
+            github_repo,
+            changelog_source
        FROM settings
       WHERE id=1`,
   );
@@ -82,11 +122,23 @@ export async function updateSiteSettingsFromForm(input = {}) {
         : null,
     footer_text:
       typeof input.footer_text === "string" ? input.footer_text.trim() : null,
+    github_repo:
+      typeof input.github_repo === "string" ? input.github_repo.trim() : null,
+    changelog_source:
+      typeof input.changelog_source === "string"
+        ? input.changelog_source.trim()
+        : null,
   });
 
   await run(
     `UPDATE settings
-        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?
+        SET wiki_name=?,
+            logo_url=?,
+            admin_webhook_url=?,
+            feed_webhook_url=?,
+            footer_text=?,
+            github_repo=?,
+            changelog_source=?
       WHERE id=1`,
     [
       normalized.wikiName,
@@ -94,6 +146,8 @@ export async function updateSiteSettingsFromForm(input = {}) {
       normalized.adminWebhook,
       normalized.feedWebhook,
       normalized.footerText,
+      normalized.githubRepo,
+      normalized.changelogSource,
     ],
   );
 
@@ -103,3 +157,6 @@ export async function updateSiteSettingsFromForm(input = {}) {
 
 export { normalizeSettings as mapSiteSettingsToCamelCase };
 export { denormalizeSettings as mapSiteSettingsToForm };
+export const CHANGELOG_SOURCE_OPTIONS = Object.freeze(
+  Array.from(VALID_CHANGELOG_SOURCES),
+);

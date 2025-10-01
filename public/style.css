@@ -359,6 +359,11 @@ textarea {
   color: #52606d;
 }
 
+.form-hint {
+  margin: -0.25rem 0 1rem;
+  font-size: 0.9rem;
+}
+
 .text-required {
   color: #c81e1e;
 }
@@ -609,6 +614,126 @@ textarea {
 .alert.success {
   border-color: #a3d6a4;
   background: #eff8f2;
+}
+
+.changelog-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.changelog-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.changelog-controls select {
+  width: auto;
+  min-width: 80px;
+}
+
+.changelog-entry {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.changelog-entry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.changelog-entry-title {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.changelog-entry-type {
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #52606d;
+}
+
+.changelog-entry-ref {
+  font-family:
+    "SFMono-Regular",
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
+  background: #f1f5f9;
+  border-radius: 4px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.85rem;
+  color: #364152;
+}
+
+.changelog-entry-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  color: #364152;
+  font-size: 0.95rem;
+}
+
+.changelog-entry-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.changelog-entry-state {
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background: #f1f5f9;
+  border: 1px solid #cbd2d9;
+  color: #364152;
+}
+
+.changelog-entry-state-merged {
+  background: #e7f5e9;
+  border-color: #a3d6a4;
+  color: #276738;
+}
+
+.changelog-entry-state-open {
+  background: #edf2ff;
+  border-color: #c3d1ff;
+  color: #1e3a8a;
+}
+
+.changelog-entry-state-closed {
+  background: #fdecec;
+  border-color: #e5a6aa;
+  color: #a41c1c;
+}
+
+.changelog-entry-description {
+  margin: 0;
+  color: #364152;
+  white-space: pre-line;
+}
+
+.pagination-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.pagination-nav .btn[aria-disabled="true"] {
+  pointer-events: none;
 }
 
 .mt-0 {

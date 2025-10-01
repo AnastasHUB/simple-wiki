@@ -52,6 +52,14 @@ import {
   hasRejectedBanAppeal,
 } from "../utils/banAppeals.js";
 import { buildPageMeta } from "../utils/meta.js";
+import {
+  fetchChangelogEntries,
+  getChangelogPageSizeOptions,
+  sanitizeChangelogPage,
+  sanitizeChangelogPerPage,
+} from "../utils/changelogService.js";
+import { getSiteSettings } from "../utils/settingsService.js";
+import { formatDateTimeLocalized } from "../utils/time.js";
 
 const r = Router();
 
@@ -83,6 +91,109 @@ function appendNotification(res, notif) {
   });
   res.locals.notifications = existing;
 }
+
+function formatChangelogEntry(entry) {
+  const base = { ...entry };
+  let isoDate = null;
+  if (entry.type === "pull_request") {
+    isoDate = entry.mergedAt || entry.updatedAt || entry.createdAt || null;
+  } else {
+    isoDate = entry.committedAt || null;
+  }
+  const dateObj = isoDate ? new Date(isoDate) : null;
+  return {
+    ...base,
+    isoDate,
+    formattedDate: dateObj ? formatDateTimeLocalized(dateObj) : null,
+  };
+}
+
+r.get(
+  "/changelog",
+  asyncHandler(async (req, res) => {
+    const settings = await getSiteSettings();
+    if (!settings.githubRepo) {
+      return res.status(404).render("page404");
+    }
+
+    const page = sanitizeChangelogPage(req.query.page);
+    const perPage = sanitizeChangelogPerPage(req.query.perPage);
+    const perPageOptions = getChangelogPageSizeOptions();
+
+    let changelog = null;
+    let errorMessage = null;
+    try {
+      changelog = await fetchChangelogEntries({
+        page,
+        perPage,
+        settings,
+      });
+    } catch (err) {
+      console.error("Unable to fetch changelog entries", err);
+      if (err.status === 404) {
+        errorMessage =
+          "Le dépôt GitHub configuré est introuvable ou privé. Vérifiez le nom saisi.";
+      } else if (err.status === 403) {
+        errorMessage =
+          "GitHub a refusé la requête (quota atteint ou accès restreint). Réessayez plus tard.";
+      } else {
+        errorMessage = "Impossible de charger les mises à jour GitHub pour le moment.";
+      }
+    }
+
+    const effective = changelog || {
+      entries: [],
+      repo: settings.githubRepo,
+      owner: null,
+      name: null,
+      repoUrl: settings.githubRepo
+        ? `https://github.com/${settings.githubRepo}`
+        : null,
+      source: settings.changelogSource,
+      page,
+      perPage,
+      hasNext: false,
+      hasPrev: page > 1,
+    };
+
+    const entries = effective.entries.map(formatChangelogEntry);
+    const pagination = {
+      page: effective.page,
+      perPage: effective.perPage,
+      hasNext: effective.hasNext,
+      hasPrev: effective.hasPrev,
+      options: perPageOptions,
+    };
+
+    const repoMeta = {
+      slug: effective.repo,
+      owner: effective.owner,
+      name: effective.name,
+      url: effective.repoUrl,
+      source: effective.source,
+    };
+
+    const meta = buildPageMeta({
+      title: "Changelog",
+      description: `Dernières mises à jour ${
+        repoMeta.source === "pulls" ? "(pull requests)" : "(commits)"
+      } pour ${repoMeta.slug || "le projet"}.`,
+      url: req.protocol + "://" + req.get("host") + req.originalUrl,
+      siteName: res.locals.wikiName,
+    });
+
+    res.render("changelog", {
+      title: "Changelog",
+      entries,
+      pagination,
+      repo: repoMeta,
+      errorMessage,
+      perPageOptions,
+      selectedPerPage: pagination.perPage,
+      meta,
+    });
+  }),
+);
 
 async function resolveAppealContext(req, { requestedScope = null, requestedValue = null } = {}) {
   const ip = req.clientIp || getClientIp(req);

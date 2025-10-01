@@ -11,5 +11,31 @@
   <input type="url" name="feed_webhook_url" value="<%= s.feed_webhook_url %>" />
   <label>Pied de page</label>
   <input type="text" name="footer_text" value="<%= s.footer_text %>" />
+  <label>Référentiel GitHub (owner/repo)</label>
+  <input
+    type="text"
+    name="github_repo"
+    value="<%= s.github_repo %>"
+    placeholder="organisation/projet"
+    autocomplete="off"
+    spellcheck="false"
+  />
+  <p class="text-muted form-hint">
+    Exemple&nbsp;: <code>openai/simple-wiki</code>. Laissez vide pour désactiver le changelog public.
+  </p>
+  <label>Source du changelog</label>
+  <select name="changelog_source">
+    <% const sourceValue = (s.changelog_source || 'commits').toLowerCase(); %>
+    <% const sourceChoices = Array.isArray(changelogSourceOptions) && changelogSourceOptions.length ? changelogSourceOptions : ['commits', 'pulls']; %>
+    <% sourceChoices.forEach((option) => { %>
+      <% const value = String(option).toLowerCase(); %>
+      <option value="<%= value %>" <%= sourceValue === value ? 'selected' : '' %>>
+        <%= value === 'pulls' ? 'Pull requests' : 'Commits' %>
+      </option>
+    <% }) %>
+  </select>
+  <p class="text-muted form-hint">
+    Choisissez si le changelog doit lister les commits individuels ou les pull requests fusionnées.
+  </p>
   <div class="actions"><button class="btn success" data-icon="💾">Enregistrer</button></div>
 </form>

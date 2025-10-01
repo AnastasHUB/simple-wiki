@@ -67,6 +67,7 @@ import { upsertTags, recordRevision } from "../utils/pageEditing.js";
 import {
   getSiteSettingsForForm,
   updateSiteSettingsFromForm,
+  CHANGELOG_SOURCE_OPTIONS,
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
 import {
@@ -2096,7 +2097,10 @@ r.post("/uploads/:id/delete", async (req, res) => {
 // settings
 r.get("/settings", async (_req, res) => {
   const s = await getSiteSettingsForForm();
-  res.render("admin/settings", { s });
+  res.render("admin/settings", {
+    s,
+    changelogSourceOptions: CHANGELOG_SOURCE_OPTIONS,
+  });
 });
 r.post("/settings", async (req, res) => {
   const updated = await updateSiteSettingsFromForm(req.body);
@@ -2112,6 +2116,8 @@ r.post("/settings", async (req, res) => {
         footerText: updated.footerText,
         adminWebhookConfigured: !!updated.adminWebhook,
         feedWebhookConfigured: !!updated.feedWebhook,
+        githubRepo: updated.githubRepo || null,
+        changelogSource: updated.changelogSource,
       },
     },
     { includeScreenshot: false },
