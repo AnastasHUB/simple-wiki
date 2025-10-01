@@ -1,5 +1,4 @@
 import { Router } from "express";
-import { randomUUID } from "crypto";
 import {
   get,
   run,
@@ -452,7 +451,7 @@ r.post(
       return res.redirect(`/wiki/${page.slug_id}#comments`);
     }
 
-    const token = randomUUID();
+    const token = generateSnowflake();
     const commentSnowflake = generateSnowflake();
     const insertResult = await run(
       `INSERT INTO comments(
@@ -554,7 +553,7 @@ r.post(
     const bodyValidation = validateCommentBody(req.body.body);
     if (bodyValidation.errors.length) {
       const inlineNotifications = bodyValidation.errors.map((message) => ({
-        id: randomUUID(),
+        id: generateSnowflake(),
         type: "error",
         message,
         timeout: 6000,

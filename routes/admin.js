@@ -2,7 +2,6 @@ import fs from "fs/promises";
 import { Router } from "express";
 import multer from "multer";
 import path from "path";
-import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randId, savePageFts } from "../db.js";
 import {
@@ -84,7 +83,7 @@ const storage = multer.diskStorage({
   destination: (_req, _file, cb) => cb(null, uploadDir),
   filename: (_req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
-    const id = randomUUID();
+    const id = generateSnowflake();
     cb(null, `${id}${ext}`);
   },
 });

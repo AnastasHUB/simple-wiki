@@ -3,8 +3,8 @@
 <div class="card mb-md">
   <h2>Ajouter une image</h2>
   <p class="mt-xs">
-    Chaque image reçoit un identifiant unique (UUID). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
-    Vous pouvez définir un nom personnalisé sans changer l’UUID. Laissez le champ vide pour effacer le nom personnalisé.
+    Chaque image reçoit un identifiant unique (snowflake). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
+    Vous pouvez définir un nom personnalisé sans changer le snowflake. Laissez le champ vide pour effacer le nom personnalisé.
   </p>
   <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" class="flex flex-wrap gap-sm mt-sm">
     <div class="flex-basis-220">
@@ -28,7 +28,7 @@
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="UUID, nom de fichier…"
+        placeholder="Snowflake, nom de fichier…"
         class="flex-basis-260"
       />
     </label>
@@ -62,7 +62,7 @@
               <img src="<%= upload.url %>" alt="" class="upload-thumb" />
             </td>
           <td class="leading-snug">
-            <div><strong>UUID :</strong> <code><%= upload.id %></code></div>
+            <div><strong>Snowflake :</strong> <code><%= upload.id %></code></div>
             <div><strong>Nom original :</strong> <%= upload.originalName %></div>
             <div><strong>Nom affiché :</strong> <%= displayName || '—' %></div>
             <div><strong>Taille :</strong> <%= sizeLabel %></div>
@@ -167,7 +167,7 @@
         <img src="${safeUrl}" alt="" class="upload-thumb" />
       </td>
       <td class="leading-snug">
-        <div><strong>UUID :</strong> <code>${safeId}</code></div>
+        <div><strong>Snowflake :</strong> <code>${safeId}</code></div>
         <div><strong>Nom original :</strong> ${escapeHtml(originalName)}</div>
         <div><strong>Nom affiché :</strong> ${displayName ? escapeHtml(displayName) : '—'}</div>
         <div><strong>Taille :</strong> ${Math.max(1, Math.round((data.size || 0) / 1024))} Ko</div>
