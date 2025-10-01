@@ -814,8 +814,22 @@ textarea {
 
 .role-sidebar-header {
   display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.role-sidebar-header-text {
+  display: flex;
   flex-direction: column;
   gap: 0.25rem;
+}
+
+.role-sidebar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
 }
 
 .role-selector {
@@ -825,6 +839,24 @@ textarea {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.role-selector-item {
+  margin: 0;
+  cursor: grab;
+  border-radius: 6px;
+}
+
+.role-selector-item:active {
+  cursor: grabbing;
+}
+
+.role-selector-item.is-dragging {
+  opacity: 0.6;
+}
+
+.role-selector-item.is-dragging .role-choice {
+  pointer-events: none;
 }
 
 .role-selector li {
@@ -929,6 +961,30 @@ textarea {
   gap: 0.75rem;
 }
 
+.role-permission {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.role-permission input[type='checkbox'] {
+  margin-top: 0.2rem;
+}
+
+.role-permission .permission-title {
+  display: block;
+  font-weight: 600;
+  color: #0b1f33;
+}
+
+.role-permission .permission-description {
+  display: block;
+  font-size: 0.85rem;
+  color: #52606d;
+  line-height: 1.35;
+}
+
 .role-actions {
   display: flex;
   justify-content: flex-end;
@@ -983,6 +1039,20 @@ textarea {
 
   .role-sidebar {
     order: 1;
+  }
+
+  .role-sidebar-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .role-sidebar-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .role-sidebar-actions .btn {
+    width: 100%;
   }
 
   .role-editor {

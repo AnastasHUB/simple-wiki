@@ -79,6 +79,7 @@ import {
   deleteRole,
   reassignUsersToRole,
   getEveryoneRole,
+  updateRoleOrdering,
 } from "../utils/roleService.js";
 import { buildSessionUser, ROLE_FLAG_FIELDS } from "../utils/roleFlags.js";
 import {
@@ -2311,38 +2312,86 @@ r.post(
   "/roles",
   requirePermission("can_manage_roles"),
   async (req, res) => {
-  const { name, description } = req.body;
-  const permissions = extractPermissionsFromBody(req.body);
-  try {
-    const role = await createRole({ name, description, permissions });
-    const ip = getClientIp(req);
-    await sendAdminEvent(
-      "Rôle créé",
-      {
-        user: req.session.user?.username || null,
-        extra: {
-          ip,
-          roleId: role.id,
-          roleName: role.name,
-          permissions: buildPermissionSnapshot(role),
+    const wantsJson =
+      req.xhr ||
+      req.accepts(["json", "html"]) === "json" ||
+      (req.get("accept") || "").includes("application/json") ||
+      (req.get("content-type") || "").includes("application/json");
+
+    const { name, description } = req.body;
+    const permissions =
+      typeof req.body.permissions === "object" && req.body.permissions
+        ? req.body.permissions
+        : extractPermissionsFromBody(req.body);
+
+    try {
+      const role = await createRole({ name, description, permissions });
+      const ip = getClientIp(req);
+      await sendAdminEvent(
+        "Rôle créé",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            roleId: role.id,
+            roleName: role.name,
+            permissions: buildPermissionSnapshot(role),
+          },
         },
-      },
-      { includeScreenshot: false },
-    );
-    pushNotification(req, {
-      type: "success",
-      message: `Rôle ${role.name} créé avec succès.`,
-    });
-  } catch (error) {
-    console.error("Failed to create role", error);
-    pushNotification(req, {
-      type: "error",
-      message: error?.message?.includes("UNIQUE")
+        { includeScreenshot: false },
+      );
+      pushNotification(req, {
+        type: "success",
+        message: `Rôle ${role.name} créé avec succès.`,
+      });
+      if (wantsJson) {
+        return res.json({ success: true, role });
+      }
+    } catch (error) {
+      console.error("Failed to create role", error);
+      const message = error?.message?.includes("UNIQUE")
         ? "Ce nom de rôle existe déjà."
-        : "Impossible de créer le rôle. Merci de réessayer.",
-    });
-  }
-  res.redirect("/admin/roles");
+        : error?.message || "Impossible de créer le rôle. Merci de réessayer.";
+      pushNotification(req, {
+        type: "error",
+        message,
+      });
+      if (wantsJson) {
+        return res.status(400).json({ success: false, message });
+      }
+    }
+
+    return res.redirect("/admin/roles");
+  },
+);
+r.post(
+  "/roles/reorder",
+  requirePermission("can_manage_roles"),
+  async (req, res) => {
+    try {
+      const rawOrder = req.body?.order;
+      let desiredOrder = [];
+      if (Array.isArray(rawOrder)) {
+        desiredOrder = rawOrder;
+      } else if (typeof rawOrder === "string") {
+        desiredOrder = rawOrder
+          .split(",")
+          .map((value) => value.trim())
+          .filter(Boolean);
+      }
+      const result = await updateRoleOrdering(desiredOrder);
+      res.json({
+        success: true,
+        changed: result.changed,
+        order: result.order,
+      });
+    } catch (error) {
+      console.error("Failed to reorder roles", error);
+      res.status(500).json({
+        success: false,
+        message: "Impossible de sauvegarder le nouvel ordre des rôles.",
+      });
+    }
   },
 );
 r.post(

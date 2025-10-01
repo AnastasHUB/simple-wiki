@@ -37,6 +37,7 @@ app.set("layout", "layout");
 
 // Allow larger rich-text form submissions (e.g. with embedded images).
 const urlencodedBodyLimit = process.env.URLENCODED_BODY_LIMIT || "10mb";
+app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: urlencodedBodyLimit }));
 app.use(methodOverride("_method"));
 app.use(morgan("dev"));
