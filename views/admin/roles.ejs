@@ -219,72 +219,114 @@
                     <select name="color_mode" data-role-color-mode>
                       <option value="" <%= roleColorMode ? '' : 'selected' %>>Couleur par défaut</option>
                       <option value="solid" <%= roleColorMode === 'solid' ? 'selected' : '' %>>Couleur unie</option>
-                      <option value="gradient" <%= roleColorMode === 'gradient' ? 'selected' : '' %>>Dégradé (2 couleurs)</option>
-                      <option value="rainbow" <%= roleColorMode === 'rainbow' ? 'selected' : '' %>>Arc-en-ciel animé (5 couleurs)</option>
+                      <option value="gradient" <%= roleColorMode === 'gradient' ? 'selected' : '' %>>Dégradé (2 à 5 couleurs)</option>
+                      <option value="rainbow" <%= roleColorMode === 'rainbow' ? 'selected' : '' %>>Arc-en-ciel animé (2 à 5 couleurs)</option>
                     </select>
                   </label>
                   <div class="role-color-fields" data-role-color-fields="solid" <%= roleColorMode === 'solid' ? '' : 'hidden' %>>
-                    <label class="stack-form role-color-field">
-                      <span>Couleur</span>
-                      <input
-                        type="text"
-                        name="color_solid"
-                        value="<%= roleColorMode === 'solid' ? (roleColorValues[0] || '') : '' %>"
-                        placeholder="#3498DB"
-                        pattern="^#?[0-9a-fA-F]{6}$"
-                        inputmode="text"
-                        autocomplete="off"
-                        data-role-color-input
-                      />
-                    </label>
+                    <div class="role-color-collection role-color-collection--single">
+                      <div class="role-color-item" data-role-color-item>
+                        <label class="role-color-picker">
+                          <input
+                            type="color"
+                            name="color_solid"
+                            value="<%= roleColorMode === 'solid' ? (roleColorValues[0] || '#4F46E5') : '#4F46E5' %>"
+                            data-role-color-input
+                          />
+                          <span class="role-color-picker-label">Couleur</span>
+                          <span class="role-color-picker-value" data-role-color-hex>
+                            <%= roleColorMode === 'solid' ? (roleColorValues[0] || '#4F46E5') : '#4F46E5' %>
+                          </span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                   <div class="role-color-fields" data-role-color-fields="gradient" <%= roleColorMode === 'gradient' ? '' : 'hidden' %>>
-                    <label class="stack-form role-color-field">
-                      <span>Couleur 1</span>
-                      <input
-                        type="text"
-                        name="color_gradient_start"
-                        value="<%= roleColorMode === 'gradient' ? (roleColorValues[0] || '') : '' %>"
-                        placeholder="#8B5CF6"
-                        pattern="^#?[0-9a-fA-F]{6}$"
-                        inputmode="text"
-                        autocomplete="off"
-                        data-role-color-input
-                      />
-                    </label>
-                    <label class="stack-form role-color-field">
-                      <span>Couleur 2</span>
-                      <input
-                        type="text"
-                        name="color_gradient_end"
-                        value="<%= roleColorMode === 'gradient' ? (roleColorValues[1] || '') : '' %>"
-                        placeholder="#EC4899"
-                        pattern="^#?[0-9a-fA-F]{6}$"
-                        inputmode="text"
-                        autocomplete="off"
-                        data-role-color-input
-                      />
-                    </label>
+                    <div
+                      class="role-color-collection"
+                      data-role-color-collection="gradient"
+                      data-role-color-min="2"
+                      data-role-color-max="5"
+                    >
+                      <% const gradientDefaults = roleColorMode === 'gradient' && roleColorValues.length ? roleColorValues : ['#8B5CF6', '#EC4899']; %>
+                      <% gradientDefaults.slice(0, 5).forEach((color, colorIndex) => { %>
+                        <div class="role-color-item" data-role-color-item>
+                          <label class="role-color-picker">
+                            <input
+                              type="color"
+                              name="color_gradient[]"
+                              value="<%= color %>"
+                              data-role-color-input
+                            />
+                            <span class="role-color-picker-label" data-role-color-item-label>Couleur <%= colorIndex + 1 %></span>
+                            <span class="role-color-picker-value" data-role-color-hex><%= color %></span>
+                          </label>
+                          <button
+                            type="button"
+                            class="role-color-remove"
+                            data-role-color-remove
+                            aria-label="Retirer cette couleur"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      <% }) %>
+                    </div>
+                    <div class="role-color-collection-actions">
+                      <button
+                        type="button"
+                        class="btn secondary role-color-add-button"
+                        data-role-color-add="gradient"
+                        data-icon="➕"
+                      >
+                        Ajouter une couleur
+                      </button>
+                    </div>
                   </div>
                   <div class="role-color-fields" data-role-color-fields="rainbow" <%= roleColorMode === 'rainbow' ? '' : 'hidden' %>>
-                    <% for (let colorIndex = 0; colorIndex < 5; colorIndex += 1) { %>
-                      <label class="stack-form role-color-field">
-                        <span>Couleur <%= colorIndex + 1 %></span>
-                        <input
-                          type="text"
-                          name="color_rainbow_<%= colorIndex + 1 %>"
-                          value="<%= roleColorMode === 'rainbow' ? (roleColorValues[colorIndex] || '') : '' %>"
-                          placeholder="#FF5733"
-                          pattern="^#?[0-9a-fA-F]{6}$"
-                          inputmode="text"
-                          autocomplete="off"
-                          data-role-color-input
-                        />
-                      </label>
-                    <% } %>
+                    <div
+                      class="role-color-collection"
+                      data-role-color-collection="rainbow"
+                      data-role-color-min="2"
+                      data-role-color-max="5"
+                    >
+                      <% const rainbowDefaults = roleColorMode === 'rainbow' && roleColorValues.length ? roleColorValues : ['#EF4444', '#F97316', '#FBBF24', '#22C55E', '#3B82F6']; %>
+                      <% rainbowDefaults.slice(0, 5).forEach((color, colorIndex) => { %>
+                        <div class="role-color-item" data-role-color-item>
+                          <label class="role-color-picker">
+                            <input
+                              type="color"
+                              name="color_rainbow[]"
+                              value="<%= color %>"
+                              data-role-color-input
+                            />
+                            <span class="role-color-picker-label" data-role-color-item-label>Couleur <%= colorIndex + 1 %></span>
+                            <span class="role-color-picker-value" data-role-color-hex><%= color %></span>
+                          </label>
+                          <button
+                            type="button"
+                            class="role-color-remove"
+                            data-role-color-remove
+                            aria-label="Retirer cette couleur"
+                          >
+                            &times;
+                          </button>
+                        </div>
+                      <% }) %>
+                    </div>
+                    <div class="role-color-collection-actions">
+                      <button
+                        type="button"
+                        class="btn secondary role-color-add-button"
+                        data-role-color-add="rainbow"
+                        data-icon="➕"
+                      >
+                        Ajouter une couleur
+                      </button>
+                    </div>
                   </div>
                   <p class="role-color-hint text-xs text-muted">
-                    Utilisez des codes hexadécimaux (#RRGGBB). Sélectionnez «Couleur par défaut» pour revenir au style neutre.
+                    Sélectionnez entre 2 et 5 couleurs pour les dégradés et arc-en-ciel. Choisissez «Couleur par défaut» pour revenir au style neutre.
                   </p>
                 </fieldset>
               </div>
@@ -381,10 +423,18 @@
 
     const buildGradient = (mode, colors) => {
       if (mode === 'gradient' && colors.length >= 2) {
-        return `linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`;
+        const stopCount = colors.length - 1;
+        const stops = colors.map((color, index) => {
+          const position = stopCount > 0 ? Math.round((index / stopCount) * 100) : 0;
+          return `${color} ${position}%`;
+        });
+        return `linear-gradient(135deg, ${stops.join(', ')})`;
       }
-      if (mode === 'rainbow' && colors.length >= 5) {
-        return `linear-gradient(120deg, ${colors[0]} 0%, ${colors[1]} 20%, ${colors[2]} 40%, ${colors[3]} 60%, ${colors[4]} 80%, ${colors[0]} 100%)`;
+      if (mode === 'rainbow' && colors.length >= 2) {
+        const step = 100 / Math.max(colors.length, 1);
+        const stops = colors.map((color, index) => `${color} ${Math.round(index * step)}%`);
+        stops.push(`${colors[0]} 100%`);
+        return `linear-gradient(120deg, ${stops.join(', ')})`;
       }
       return null;
     };
@@ -429,8 +479,8 @@
       if (mode === 'solid') {
         label = fallback || '';
       } else if (mode === 'gradient' && colors.length >= 2) {
-        label = `Dégradé ${colors[0]} → ${colors[1]}`;
-      } else if (mode === 'rainbow' && colors.length >= 5) {
+        label = `Dégradé ${colors.join(' → ')}`;
+      } else if (mode === 'rainbow' && colors.length >= 2) {
         label = `Arc-en-ciel ${colors.join(' → ')}`;
       }
       return {
@@ -456,29 +506,43 @@
       if (!mode || mode === 'default') {
         return null;
       }
+      const getCollectionColors = (collection) => {
+        if (!collection) {
+          return [];
+        }
+        const inputs = Array.from(
+          collection.querySelectorAll('[data-role-color-input]'),
+        );
+        const colors = [];
+        for (const input of inputs) {
+          const value = sanitizeHex(input?.value || '');
+          if (!value) {
+            return [];
+          }
+          colors.push(value);
+        }
+        return colors;
+      };
+
       if (mode === 'solid') {
         const solidInput = editor.querySelector('input[name="color_solid"]');
         const color = sanitizeHex(solidInput?.value || '');
         return color ? { mode: 'solid', colors: [color] } : null;
       }
-      if (mode === 'gradient') {
-        const startInput = editor.querySelector('input[name="color_gradient_start"]');
-        const endInput = editor.querySelector('input[name="color_gradient_end"]');
-        const start = sanitizeHex(startInput?.value || '');
-        const end = sanitizeHex(endInput?.value || '');
-        return start && end ? { mode: 'gradient', colors: [start, end] } : null;
-      }
-      if (mode === 'rainbow') {
-        const colors = [];
-        for (let index = 1; index <= 5; index += 1) {
-          const input = editor.querySelector(`input[name="color_rainbow_${index}"]`);
-          const value = sanitizeHex(input?.value || '');
-          if (!value) {
-            return null;
-          }
-          colors.push(value);
+      if (mode === 'gradient' || mode === 'rainbow') {
+        const collection = editor.querySelector(
+          `[data-role-color-collection="${mode}"]`,
+        );
+        if (!collection) {
+          return null;
         }
-        return { mode: 'rainbow', colors };
+        const min = Number.parseInt(collection.dataset.roleColorMin || '2', 10) || 2;
+        const max = Number.parseInt(collection.dataset.roleColorMax || '5', 10) || 5;
+        const colors = getCollectionColors(collection);
+        if (colors.length < min) {
+          return null;
+        }
+        return { mode, colors: colors.slice(0, max) };
       }
       return null;
     };
@@ -513,8 +577,10 @@
       }
       const modeSelect = editor.querySelector('[data-role-color-mode]');
       const fieldGroups = Array.from(editor.querySelectorAll('[data-role-color-fields]'));
-      const inputs = Array.from(editor.querySelectorAll('[data-role-color-input]'));
       const previews = Array.from(panel.querySelectorAll('[data-role-color-preview]'));
+
+      const getCollections = () =>
+        Array.from(editor.querySelectorAll('[data-role-color-collection]'));
 
       const updateVisibility = () => {
         const activeMode = (modeSelect?.value || '').trim().toLowerCase();
@@ -530,14 +596,137 @@
         previews.forEach((preview) => applyPresentationToPreview(preview, presentation));
       };
 
-      const handleBlur = (event) => {
-        if (!(event.target instanceof HTMLInputElement)) {
+      const updateHexLabel = (input) => {
+        const wrapper = input.closest('[data-role-color-item]');
+        if (!wrapper) {
           return;
         }
-        const sanitized = sanitizeHex(event.target.value || '');
-        if (sanitized) {
-          event.target.value = sanitized;
+        const display = wrapper.querySelector('[data-role-color-hex]');
+        if (!display) {
+          return;
         }
+        const sanitized = sanitizeHex(input.value || '');
+        if (sanitized) {
+          display.textContent = sanitized;
+        }
+      };
+
+      const getBound = (collection, key, fallback) => {
+        if (!collection) {
+          return fallback;
+        }
+        const raw = collection.dataset[key];
+        const parsed = Number.parseInt(raw || '', 10);
+        return Number.isNaN(parsed) ? fallback : parsed;
+      };
+
+      const addColorItem = (collection, value) => {
+        const sanitized = sanitizeHex(value || '') || '#4F46E5';
+        const item = document.createElement('div');
+        item.className = 'role-color-item';
+        item.dataset.roleColorItem = '';
+
+        const picker = document.createElement('label');
+        picker.className = 'role-color-picker';
+
+        const input = document.createElement('input');
+        input.type = 'color';
+        input.value = sanitized;
+        input.dataset.roleColorInput = '';
+        picker.appendChild(input);
+
+        const label = document.createElement('span');
+        label.className = 'role-color-picker-label';
+        label.dataset.roleColorItemLabel = '';
+        picker.appendChild(label);
+
+        const valueDisplay = document.createElement('span');
+        valueDisplay.className = 'role-color-picker-value';
+        valueDisplay.dataset.roleColorHex = '';
+        valueDisplay.textContent = sanitized;
+        picker.appendChild(valueDisplay);
+
+        item.appendChild(picker);
+
+        const remove = document.createElement('button');
+        remove.type = 'button';
+        remove.className = 'role-color-remove';
+        remove.dataset.roleColorRemove = '';
+        remove.setAttribute('aria-label', 'Retirer cette couleur');
+        remove.innerHTML = '&times;';
+        item.appendChild(remove);
+
+        collection.appendChild(item);
+        return item;
+      };
+
+      const ensureMinimumColors = (collection) => {
+        if (!collection) {
+          return;
+        }
+        const min = getBound(collection, 'roleColorMin', 0);
+        const items = Array.from(collection.querySelectorAll('[data-role-color-item]'));
+        if (items.length >= min) {
+          return;
+        }
+        const lastInput =
+          items[items.length - 1]?.querySelector('[data-role-color-input]');
+        const fallback = lastInput?.value || '#4F46E5';
+        for (let index = items.length; index < min; index += 1) {
+          addColorItem(collection, fallback);
+        }
+      };
+
+      const updateCollectionState = (collection) => {
+        if (!collection) {
+          return;
+        }
+        const items = Array.from(collection.querySelectorAll('[data-role-color-item]'));
+        const min = getBound(collection, 'roleColorMin', 0);
+        items.forEach((item, index) => {
+          const label = item.querySelector('[data-role-color-item-label]');
+          if (label) {
+            label.textContent = `Couleur ${index + 1}`;
+          }
+          const removeButton = item.querySelector('[data-role-color-remove]');
+          if (removeButton) {
+            const disabled = items.length <= min;
+            removeButton.disabled = disabled;
+            removeButton.classList.toggle('is-disabled', disabled);
+          }
+          const input = item.querySelector('[data-role-color-input]');
+          if (input) {
+            updateHexLabel(input);
+          }
+        });
+      };
+
+      const updateAddButtons = () => {
+        getCollections().forEach((collection) => {
+          const mode = collection.dataset.roleColorCollection;
+          if (!mode) {
+            return;
+          }
+          const addButton = editor.querySelector(
+            `[data-role-color-add="${mode}"]`,
+          );
+          if (!addButton) {
+            return;
+          }
+          const max = getBound(collection, 'roleColorMax', Infinity);
+          const count = collection.querySelectorAll('[data-role-color-item]').length;
+          const disabled = count >= max;
+          addButton.disabled = disabled;
+          addButton.classList.toggle('is-disabled', disabled);
+        });
+      };
+
+      const refreshCollections = () => {
+        getCollections().forEach((collection) => {
+          ensureMinimumColors(collection);
+          updateCollectionState(collection);
+        });
+        updateAddButtons();
       };
 
       if (modeSelect) {
@@ -547,11 +736,73 @@
         });
       }
 
-      inputs.forEach((input) => {
-        input.addEventListener('input', updatePreview);
-        input.addEventListener('blur', handleBlur);
+      editor.addEventListener('input', (event) => {
+        const target = event.target;
+        if (!(target instanceof HTMLInputElement)) {
+          return;
+        }
+        if (!target.matches('[data-role-color-input]')) {
+          return;
+        }
+        updateHexLabel(target);
+        updatePreview();
       });
 
+      editor.addEventListener(
+        'blur',
+        (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLInputElement)) {
+            return;
+          }
+          if (!target.matches('[data-role-color-input]')) {
+            return;
+          }
+          const sanitized = sanitizeHex(target.value || '');
+          if (sanitized) {
+            target.value = sanitized;
+          }
+          updateHexLabel(target);
+        },
+        true,
+      );
+
+      editor.addEventListener('click', (event) => {
+        const addButton = event.target.closest('[data-role-color-add]');
+        if (addButton instanceof HTMLButtonElement) {
+          const mode = addButton.dataset.roleColorAdd;
+          const collection = editor.querySelector(
+            `[data-role-color-collection="${mode}"]`,
+          );
+          if (collection) {
+            const items = Array.from(
+              collection.querySelectorAll('[data-role-color-item]'),
+            );
+            const lastInput =
+              items[items.length - 1]?.querySelector('[data-role-color-input]');
+            addColorItem(collection, lastInput?.value || '#4F46E5');
+            refreshCollections();
+            updatePreview();
+          }
+          return;
+        }
+        const removeButton = event.target.closest('[data-role-color-remove]');
+        if (removeButton instanceof HTMLButtonElement) {
+          const item = removeButton.closest('[data-role-color-item]');
+          const collection = item?.closest('[data-role-color-collection]');
+          if (item && collection) {
+            const min = getBound(collection, 'roleColorMin', 0);
+            const items = collection.querySelectorAll('[data-role-color-item]');
+            if (items.length > min) {
+              item.remove();
+              refreshCollections();
+              updatePreview();
+            }
+          }
+        }
+      });
+
+      refreshCollections();
       updateVisibility();
       updatePreview();
     };

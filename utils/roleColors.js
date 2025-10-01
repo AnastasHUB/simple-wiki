@@ -113,9 +113,11 @@ export function normalizeRoleColorScheme(raw) {
         }
       }
     }
-    const requiredCounts = { solid: 1, gradient: 2, rainbow: 5 };
-    const required = requiredCounts[mode] || 0;
-    if (sanitizedColors.length < required) {
+    const minimumCounts = { solid: 1, gradient: 2, rainbow: 2 };
+    const maximumCounts = { gradient: 5, rainbow: 5 };
+    const minimum = minimumCounts[mode] || 0;
+    const maximum = maximumCounts[mode] || sanitizedColors.length;
+    if (sanitizedColors.length < minimum) {
       if (sanitizedColors.length === 0) {
         return null;
       }
@@ -123,12 +125,12 @@ export function normalizeRoleColorScheme(raw) {
         mode === "solid"
           ? "Indiquez une couleur hexadécimale pour ce rôle."
           : mode === "gradient"
-            ? "Un dégradé nécessite deux couleurs hexadécimales."
-            : "Un arc-en-ciel animé nécessite cinq couleurs hexadécimales.",
+            ? "Un dégradé nécessite au moins deux couleurs hexadécimales."
+            : "Un arc-en-ciel animé nécessite au moins deux couleurs hexadécimales.",
       );
     }
-    const capped = sanitizedColors.slice(0, required);
-    return { mode, colors: capped };
+    const limited = sanitizedColors.slice(0, maximum || sanitizedColors.length);
+    return { mode, colors: limited };
   }
   return null;
 }
@@ -175,10 +177,18 @@ export function parseStoredRoleColor(value) {
 
 function buildGradient(mode, colors) {
   if (mode === "gradient" && colors.length >= 2) {
-    return `linear-gradient(135deg, ${colors[0]} 0%, ${colors[1]} 100%)`;
+    const stopCount = colors.length - 1;
+    const stops = colors.map((color, index) => {
+      const position = stopCount > 0 ? Math.round((index / stopCount) * 100) : 0;
+      return `${color} ${position}%`;
+    });
+    return `linear-gradient(135deg, ${stops.join(", ")})`;
   }
-  if (mode === "rainbow" && colors.length >= 5) {
-    return `linear-gradient(120deg, ${colors[0]} 0%, ${colors[1]} 20%, ${colors[2]} 40%, ${colors[3]} 60%, ${colors[4]} 80%, ${colors[0]} 100%)`;
+  if (mode === "rainbow" && colors.length >= 2) {
+    const step = 100 / Math.max(colors.length, 1);
+    const stops = colors.map((color, index) => `${color} ${Math.round(index * step)}%`);
+    stops.push(`${colors[0]} 100%`);
+    return `linear-gradient(120deg, ${stops.join(", ")})`;
   }
   return null;
 }
@@ -224,7 +234,7 @@ export function buildRoleColorPresentation(scheme) {
   if (mode === "solid" && fallbackColor) {
     label = fallbackColor;
   } else if (mode === "gradient") {
-    label = `Dégradé ${colors[0]} → ${colors[1]}`;
+    label = `Dégradé ${colors.join(" → ")}`;
   } else if (mode === "rainbow") {
     label = `Arc-en-ciel ${colors.join(" → ")}`;
   }
@@ -264,30 +274,52 @@ export function extractRoleColorFromBody(body = {}) {
     return normalizeRoleColorScheme({ mode: "solid", colors: [rawColor] });
   }
   if (mode === "gradient") {
-    const start =
-      body.color_gradient_start ||
-      body.colorGradientStart ||
-      body.color_start ||
-      body.color_primary ||
-      body.colorPrimary;
-    const end =
-      body.color_gradient_end ||
-      body.colorGradientEnd ||
-      body.color_end ||
-      body.color_secondary ||
-      body.colorSecondary;
-    return normalizeRoleColorScheme({ mode: "gradient", colors: [start, end] });
+    let values =
+      body.color_gradient ||
+      body.colorGradient ||
+      body.gradient_colors ||
+      body.gradientColors;
+    if (!values || (typeof values === "string" && !values.trim())) {
+      const start =
+        body.color_gradient_start ||
+        body.colorGradientStart ||
+        body.color_start ||
+        body.color_primary ||
+        body.colorPrimary;
+      const end =
+        body.color_gradient_end ||
+        body.colorGradientEnd ||
+        body.color_end ||
+        body.color_secondary ||
+        body.colorSecondary;
+      values = [start, end];
+    }
+    if (!Array.isArray(values)) {
+      values = [values];
+    }
+    return normalizeRoleColorScheme({ mode: "gradient", colors: values });
   }
   if (mode === "rainbow") {
-    const values = [];
-    for (let index = 1; index <= 5; index += 1) {
-      const value =
-        body[`color_rainbow_${index}`] ||
-        body[`colorRainbow${index}`] ||
-        body[`colorRainbow_${index}`] ||
-        body[`rainbow_color_${index}`] ||
-        body[`rainbowColor${index}`];
-      values.push(value);
+    let values =
+      body.color_rainbow ||
+      body.colorRainbow ||
+      body.rainbow_colors ||
+      body.rainbowColors;
+    if (!values || (typeof values === "string" && !values.trim())) {
+      const collected = [];
+      for (let index = 1; index <= 5; index += 1) {
+        const value =
+          body[`color_rainbow_${index}`] ||
+          body[`colorRainbow${index}`] ||
+          body[`colorRainbow_${index}`] ||
+          body[`rainbow_color_${index}`] ||
+          body[`rainbowColor${index}`];
+        collected.push(value);
+      }
+      values = collected;
+    }
+    if (!Array.isArray(values)) {
+      values = [values];
     }
     return normalizeRoleColorScheme({ mode: "rainbow", colors: values });
   }
