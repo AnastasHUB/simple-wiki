@@ -4,249 +4,313 @@
 
 <section class="card mb-lg">
   <h2 class="h3">Nouveau rôle</h2>
-  <form method="post" class="grid gap-md" aria-label="Créer un nouveau rôle">
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-md">
-      <label class="stack-form">
-        <span class="text-sm text-muted">Nom du rôle <span aria-hidden="true">*</span></span>
+  <form method="post" class="role-editor" aria-label="Créer un nouveau rôle">
+    <div class="role-summary">
+      <label class="form-field">
+        <span class="field-label">Nom du rôle <span aria-hidden="true">*</span></span>
         <input type="text" name="name" placeholder="Nom" required maxlength="80" />
       </label>
-      <label class="stack-form">
-        <span class="text-sm text-muted">Description</span>
+      <label class="form-field">
+        <span class="field-label">Description</span>
         <input type="text" name="description" placeholder="Description courte" maxlength="160" />
       </label>
     </div>
-    <fieldset class="stack-form">
-      <legend class="text-sm text-muted">Permissions</legend>
-      <div class="flex flex-wrap gap-md">
-        <label class="checkbox">
-          <input type="checkbox" name="is_admin" value="1" />
-          <span>Administrateur (accès complet)</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="is_moderator" value="1" />
-          <span>Modérateur (modération des contenus)</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_comment" value="1" />
-          <span>Commenter des articles</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_submit_pages" value="1" />
-          <span>Soumettre des contributions</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="is_contributor" value="1" />
-          <span>Publier directement des articles</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="is_helper" value="1" />
-          <span>Commentaires sans modération</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_moderate_comments" value="1" />
-          <span>Modérer les commentaires</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_review_submissions" value="1" />
-          <span>Revoir les contributions</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_pages" value="1" />
-          <span>Gérer les articles</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_view_stats" value="1" />
-          <span>Voir les statistiques</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_users" value="1" />
-          <span>Gérer les utilisateurs</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_roles" value="1" />
-          <span>Gérer les rôles</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_likes" value="1" />
-          <span>Gérer les likes</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_trash" value="1" />
-          <span>Gérer la corbeille</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_uploads" value="1" />
-          <span>Gérer les images</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_settings" value="1" />
-          <span>Modifier les paramètres</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_ip_bans" value="1" />
-          <span>Gérer les blocages IP</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_ip_reputation" value="1" />
-          <span>Gérer la réputation IP</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_manage_ip_profiles" value="1" />
-          <span>Gérer les profils IP</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_review_ban_appeals" value="1" />
-          <span>Examiner les demandes de déban</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_view_events" value="1" />
-          <span>Voir les événements</span>
-        </label>
-        <label class="checkbox">
-          <input type="checkbox" name="can_view_snowflakes" value="1" />
-          <span>Voir les identifiants Snowflake</span>
-        </label>
+    <div class="role-permissions-column">
+      <fieldset class="role-permissions">
+        <legend>Permissions</legend>
+        <div class="role-permissions-grid">
+          <label class="checkbox">
+            <input type="checkbox" name="is_admin" value="1" />
+            <span>Administrateur (accès complet)</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="is_moderator" value="1" />
+            <span>Modérateur (modération des contenus)</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_comment" value="1" />
+            <span>Commenter des articles</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_submit_pages" value="1" />
+            <span>Soumettre des contributions</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="is_contributor" value="1" />
+            <span>Publier directement des articles</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="is_helper" value="1" />
+            <span>Commentaires sans modération</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_moderate_comments" value="1" />
+            <span>Modérer les commentaires</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_review_submissions" value="1" />
+            <span>Revoir les contributions</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_pages" value="1" />
+            <span>Gérer les articles</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_view_stats" value="1" />
+            <span>Voir les statistiques</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_users" value="1" />
+            <span>Gérer les utilisateurs</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_roles" value="1" />
+            <span>Gérer les rôles</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_likes" value="1" />
+            <span>Gérer les likes</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_trash" value="1" />
+            <span>Gérer la corbeille</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_uploads" value="1" />
+            <span>Gérer les images</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_settings" value="1" />
+            <span>Modifier les paramètres</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_ip_bans" value="1" />
+            <span>Gérer les blocages IP</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_ip_reputation" value="1" />
+            <span>Gérer la réputation IP</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_manage_ip_profiles" value="1" />
+            <span>Gérer les profils IP</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_review_ban_appeals" value="1" />
+            <span>Examiner les demandes de déban</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_view_events" value="1" />
+            <span>Voir les événements</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="can_view_snowflakes" value="1" />
+            <span>Voir les identifiants Snowflake</span>
+          </label>
+        </div>
+      </fieldset>
+      <div class="role-actions">
+        <button class="btn success" type="submit" data-icon="➕">Créer le rôle</button>
       </div>
-    </fieldset>
-    <button class="btn success" type="submit" data-icon="➕">Créer le rôle</button>
+    </div>
   </form>
 </section>
 
-<section class="grid gap-md">
+<section class="role-manager">
   <% if (!roles || !roles.length) { %>
     <p class="card">Aucun rôle défini pour le moment.</p>
   <% } else { %>
-    <% roles.forEach(role => { %>
-      <article class="card">
-        <div class="flex flex-wrap items-center justify-between gap-sm">
-          <div>
-            <h2 class="h3"><%= role.name %></h2>
-            <% if (role.description) { %>
-              <p class="text-muted"><%= role.description %></p>
-            <% } %>
-            <% if (role.is_system) { %>
-              <p class="text-xs text-muted">Rôle système protégé</p>
-            <% } %>
-          </div>
-          <span class="badge"><%= role.userCount || 0 %> utilisateur<%= (role.userCount || 0) > 1 ? 's' : '' %></span>
-        </div>
-        <form method="post" action="/admin/roles/<%= role.id %>" class="mt-md" aria-label="Mettre à jour les permissions pour <%= role.name %>">
-          <fieldset class="stack-form">
-            <legend class="text-sm text-muted">Permissions</legend>
-            <div class="flex flex-wrap gap-md">
-              <label class="checkbox">
-                <input type="checkbox" name="is_admin" value="1" <%= role.is_admin ? 'checked' : '' %> />
-                <span>Administrateur</span>
-              </label>
-              <label class="checkbox">
-                <input type="checkbox" name="is_moderator" value="1" <%= role.is_moderator ? 'checked' : '' %> />
-                <span>Modérateur</span>
-              </label>
-              <label class="checkbox">
-                <input type="checkbox" name="can_comment" value="1" <%= role.can_comment ? 'checked' : '' %> />
-                <span>Commenter</span>
-              </label>
-              <label class="checkbox">
-                <input type="checkbox" name="can_submit_pages" value="1" <%= role.can_submit_pages ? 'checked' : '' %> />
-                <span>Soumettre des contenus</span>
-              </label>
-              <label class="checkbox">
-                <input type="checkbox" name="is_contributor" value="1" <%= role.is_contributor ? 'checked' : '' %> />
-                <span>Publier des articles</span>
-              </label>
-            <label class="checkbox">
-              <input type="checkbox" name="is_helper" value="1" <%= role.is_helper ? 'checked' : '' %> />
-              <span>Commentaires sans modération</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_moderate_comments" value="1" <%= role.can_moderate_comments ? 'checked' : '' %> />
-              <span>Modérer les commentaires</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_review_submissions" value="1" <%= role.can_review_submissions ? 'checked' : '' %> />
-              <span>Revoir les contributions</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_pages" value="1" <%= role.can_manage_pages ? 'checked' : '' %> />
-              <span>Gérer les articles</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_view_stats" value="1" <%= role.can_view_stats ? 'checked' : '' %> />
-              <span>Voir les statistiques</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_users" value="1" <%= role.can_manage_users ? 'checked' : '' %> />
-              <span>Gérer les utilisateurs</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_roles" value="1" <%= role.can_manage_roles ? 'checked' : '' %> />
-              <span>Gérer les rôles</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_likes" value="1" <%= role.can_manage_likes ? 'checked' : '' %> />
-              <span>Gérer les likes</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_trash" value="1" <%= role.can_manage_trash ? 'checked' : '' %> />
-              <span>Gérer la corbeille</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_uploads" value="1" <%= role.can_manage_uploads ? 'checked' : '' %> />
-              <span>Gérer les images</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_settings" value="1" <%= role.can_manage_settings ? 'checked' : '' %> />
-              <span>Modifier les paramètres</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_ip_bans" value="1" <%= role.can_manage_ip_bans ? 'checked' : '' %> />
-              <span>Gérer les blocages IP</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_ip_reputation" value="1" <%= role.can_manage_ip_reputation ? 'checked' : '' %> />
-              <span>Gérer la réputation IP</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_manage_ip_profiles" value="1" <%= role.can_manage_ip_profiles ? 'checked' : '' %> />
-              <span>Gérer les profils IP</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_review_ban_appeals" value="1" <%= role.can_review_ban_appeals ? 'checked' : '' %> />
-              <span>Examiner les demandes de déban</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_view_events" value="1" <%= role.can_view_events ? 'checked' : '' %> />
-              <span>Voir les événements</span>
-            </label>
-            <label class="checkbox">
-              <input type="checkbox" name="can_view_snowflakes" value="1" <%= role.can_view_snowflakes ? 'checked' : '' %> />
-              <span>Voir les identifiants Snowflake</span>
-            </label>
-          </div>
-        </fieldset>
-          <button class="btn secondary" type="submit" data-icon="💾">Enregistrer</button>
-        </form>
-        <% if (!role.is_system && (role.name || '').toLowerCase() !== 'everyone') { %>
-          <div class="mt-xs"></div>
-          <% if ((role.userCount || 0) === 0) { %>
-            <form method="post" action="/admin/roles/<%= role.id %>" class="flex justify-end mt-xs" aria-label="Supprimer le rôle <%= role.name %>">
-              <input type="hidden" name="_action" value="delete" />
-              <button class="btn danger" type="submit" data-icon="🗑️" onclick="return confirm('Supprimer définitivement ce rôle ?');">Supprimer le rôle</button>
-            </form>
-          <% } else { %>
-            <div class="mt-xs">
-              <p class="text-sm text-muted">
-                Ce rôle est actuellement attribué à <strong><%= role.userCount %></strong>
-                utilisateur<%= role.userCount > 1 ? 's' : '' %>. Réassignez-les vers Everyone pour pouvoir supprimer ce rôle.
-              </p>
-              <form method="post" action="/admin/roles/<%= role.id %>" class="flex flex-wrap gap-sm mt-xs" aria-label="Réassigner les utilisateurs de <%= role.name %> vers Everyone">
-                <input type="hidden" name="_action" value="reassign_to_everyone" />
-                <button class="btn secondary" type="submit" data-icon="🔁">Réassigner tous les utilisateurs vers Everyone</button>
-              </form>
+    <aside class="role-sidebar card" aria-label="Rôles disponibles">
+      <div class="role-sidebar-header">
+        <h2 class="h3">Rôles existants</h2>
+        <p class="text-sm text-muted">Sélectionnez un rôle pour afficher et modifier ses permissions.</p>
+      </div>
+      <ul class="role-selector" role="list">
+        <% roles.forEach((role, index) => { %>
+          <li>
+            <button
+              type="button"
+              class="role-choice <%= index === 0 ? 'is-active' : '' %>"
+              data-role-id="<%= role.id %>"
+              aria-pressed="<%= index === 0 ? 'true' : 'false' %>"
+            >
+              <span class="role-choice-name"><%= role.name %></span>
+              <span class="badge"><%= role.userCount || 0 %> utilisateur<%= (role.userCount || 0) > 1 ? 's' : '' %></span>
+            </button>
+          </li>
+        <% }) %>
+      </ul>
+    </aside>
+    <div class="role-detail">
+      <% roles.forEach((role, index) => { %>
+        <article class="card role-detail-panel" data-role-id="<%= role.id %>" <%= index === 0 ? '' : 'hidden' %>>
+          <div class="role-editor">
+            <div class="role-summary">
+              <div class="role-summary-header">
+                <h2 class="h3"><%= role.name %></h2>
+                <span class="badge"><%= role.userCount || 0 %> utilisateur<%= (role.userCount || 0) > 1 ? 's' : '' %></span>
+              </div>
+              <% if (role.description) { %>
+                <p class="text-muted"><%= role.description %></p>
+              <% } %>
+              <% if (role.is_system) { %>
+                <p class="text-xs text-muted">Rôle système protégé</p>
+              <% } %>
+              <% if (!role.is_system && (role.name || '').toLowerCase() !== 'everyone') { %>
+                <div class="role-summary-footer">
+                  <% if ((role.userCount || 0) === 0) { %>
+                    <form method="post" action="/admin/roles/<%= role.id %>" aria-label="Supprimer le rôle <%= role.name %>">
+                      <input type="hidden" name="_action" value="delete" />
+                      <button class="btn danger" type="submit" data-icon="🗑️" onclick="return confirm('Supprimer définitivement ce rôle ?');">Supprimer le rôle</button>
+                    </form>
+                  <% } else { %>
+                    <p class="text-sm text-muted">
+                      Ce rôle est actuellement attribué à <strong><%= role.userCount %></strong>
+                      utilisateur<%= role.userCount > 1 ? 's' : '' %>. Réassignez-les vers Everyone pour pouvoir supprimer ce rôle.
+                    </p>
+                    <form method="post" action="/admin/roles/<%= role.id %>" class="role-reassign-form" aria-label="Réassigner les utilisateurs de <%= role.name %> vers Everyone">
+                      <input type="hidden" name="_action" value="reassign_to_everyone" />
+                      <button class="btn secondary" type="submit" data-icon="🔁">Réassigner tous les utilisateurs vers Everyone</button>
+                    </form>
+                  <% } %>
+                </div>
+              <% } %>
             </div>
-          <% } %>
-        <% } %>
-      </article>
-    <% }) %>
+            <form method="post" action="/admin/roles/<%= role.id %>" class="role-permissions-column" aria-label="Mettre à jour les permissions pour <%= role.name %>">
+              <fieldset class="role-permissions">
+                <legend>Permissions</legend>
+                <div class="role-permissions-grid">
+                  <label class="checkbox">
+                    <input type="checkbox" name="is_admin" value="1" <%= role.is_admin ? 'checked' : '' %> />
+                    <span>Administrateur</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="is_moderator" value="1" <%= role.is_moderator ? 'checked' : '' %> />
+                    <span>Modérateur</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_comment" value="1" <%= role.can_comment ? 'checked' : '' %> />
+                    <span>Commenter</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_submit_pages" value="1" <%= role.can_submit_pages ? 'checked' : '' %> />
+                    <span>Soumettre des contenus</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="is_contributor" value="1" <%= role.is_contributor ? 'checked' : '' %> />
+                    <span>Publier des articles</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="is_helper" value="1" <%= role.is_helper ? 'checked' : '' %> />
+                    <span>Commentaires sans modération</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_moderate_comments" value="1" <%= role.can_moderate_comments ? 'checked' : '' %> />
+                    <span>Modérer les commentaires</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_review_submissions" value="1" <%= role.can_review_submissions ? 'checked' : '' %> />
+                    <span>Revoir les contributions</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_pages" value="1" <%= role.can_manage_pages ? 'checked' : '' %> />
+                    <span>Gérer les articles</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_view_stats" value="1" <%= role.can_view_stats ? 'checked' : '' %> />
+                    <span>Voir les statistiques</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_users" value="1" <%= role.can_manage_users ? 'checked' : '' %> />
+                    <span>Gérer les utilisateurs</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_roles" value="1" <%= role.can_manage_roles ? 'checked' : '' %> />
+                    <span>Gérer les rôles</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_likes" value="1" <%= role.can_manage_likes ? 'checked' : '' %> />
+                    <span>Gérer les likes</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_trash" value="1" <%= role.can_manage_trash ? 'checked' : '' %> />
+                    <span>Gérer la corbeille</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_uploads" value="1" <%= role.can_manage_uploads ? 'checked' : '' %> />
+                    <span>Gérer les images</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_settings" value="1" <%= role.can_manage_settings ? 'checked' : '' %> />
+                    <span>Modifier les paramètres</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_ip_bans" value="1" <%= role.can_manage_ip_bans ? 'checked' : '' %> />
+                    <span>Gérer les blocages IP</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_ip_reputation" value="1" <%= role.can_manage_ip_reputation ? 'checked' : '' %> />
+                    <span>Gérer la réputation IP</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_manage_ip_profiles" value="1" <%= role.can_manage_ip_profiles ? 'checked' : '' %> />
+                    <span>Gérer les profils IP</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_review_ban_appeals" value="1" <%= role.can_review_ban_appeals ? 'checked' : '' %> />
+                    <span>Examiner les demandes de déban</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_view_events" value="1" <%= role.can_view_events ? 'checked' : '' %> />
+                    <span>Voir les événements</span>
+                  </label>
+                  <label class="checkbox">
+                    <input type="checkbox" name="can_view_snowflakes" value="1" <%= role.can_view_snowflakes ? 'checked' : '' %> />
+                    <span>Voir les identifiants Snowflake</span>
+                  </label>
+                </div>
+              </fieldset>
+              <div class="role-actions">
+                <button class="btn secondary" type="submit" data-icon="💾">Enregistrer</button>
+              </div>
+            </form>
+          </div>
+        </article>
+      <% }) %>
+    </div>
   <% } %>
 </section>
+
+<script>
+  (function () {
+    const manager = document.querySelector('.role-manager');
+    if (!manager) {
+      return;
+    }
+
+    const buttons = Array.from(manager.querySelectorAll('.role-choice'));
+    const panels = Array.from(manager.querySelectorAll('.role-detail-panel'));
+
+    if (!buttons.length || !panels.length) {
+      return;
+    }
+
+    const setActive = (roleId) => {
+      buttons.forEach((button) => {
+        const isActive = button.dataset.roleId === roleId;
+        button.classList.toggle('is-active', isActive);
+        button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+
+      panels.forEach((panel) => {
+        panel.hidden = panel.dataset.roleId !== roleId;
+      });
+    };
+
+    buttons.forEach((button) => {
+      button.addEventListener('click', () => {
+        setActive(button.dataset.roleId);
+      });
+    });
+  })();
+</script>
