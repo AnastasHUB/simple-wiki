@@ -1,0 +1,149 @@
+<% title = 'Snowflakes'; %>
+<h1>Décodeur de snowflakes</h1>
+
+<form method="get" class="card mb-md">
+  <div class="flex flex-wrap gap-sm items-end">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Identifiant snowflake</span>
+      <input
+        type="text"
+        name="id"
+        value="<%= typeof queryId === 'string' ? queryId : '' %>"
+        placeholder="Ex : 1952213762766886912"
+        class="flex-basis-320"
+        required
+      />
+    </label>
+    <button class="btn" data-icon="🔍" type="submit">Analyser</button>
+    <% if (queryId) { %>
+      <a class="btn secondary" href="/admin/snowflakes">Réinitialiser</a>
+    <% } %>
+  </div>
+  <p class="text-sm text-muted mt-sm">
+    Structure : <strong><%= structure.timeBits %>b</strong> temps ·
+    <strong><%= structure.randomBits %>b</strong> aléatoire ·
+    <strong><%= structure.sequenceBits %>b</strong> séquence.<br />
+    Epoch : <code><%= epoch.iso %></code> (<%= epoch.localized %>).
+  </p>
+</form>
+
+<% if (error) { %>
+  <div class="alert alert-error mb-md"><%= error %></div>
+<% } %>
+
+<% if (decoded && decoded.value) { %>
+  <% const binarySegments = [decoded.timestamp.binary, decoded.random.binary, decoded.sequence.binary]; %>
+  <section class="card mb-md">
+    <h2>Informations générales</h2>
+    <p class="text-sm text-muted">
+      Analyse effectuée le <strong><%= now.localized %></strong>
+      (<code><%= now.iso %></code>).
+    </p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Champ</th>
+            <th>Valeur</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Identifiant</th>
+            <td><code><%= decoded.value %></code></td>
+          </tr>
+          <tr>
+            <th scope="row">Hexadécimal</th>
+            <td><code>0x<%= decoded.hex %></code></td>
+          </tr>
+          <tr>
+            <th scope="row">Binaire (segmenté)</th>
+            <td>
+              <code>
+                <%= binarySegments[0] %>
+              </code>
+              <span aria-hidden="true"> | </span>
+              <code>
+                <%= binarySegments[1] %>
+              </code>
+              <span aria-hidden="true"> | </span>
+              <code>
+                <%= binarySegments[2] %>
+              </code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Créé le</th>
+            <td>
+              <strong><%= decoded.createdAtLocalized %></strong><br />
+              <code><%= decoded.timestamp.iso %></code>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">Horodatage UNIX</th>
+            <td><code><%= decoded.createdAtUnixSeconds %></code> secondes</td>
+          </tr>
+          <tr>
+            <th scope="row">Depuis l’epoch personnalisée</th>
+            <td><code><%= decoded.timestamp.sinceEpochMs %></code> ms</td>
+          </tr>
+          <tr>
+            <th scope="row">Âge</th>
+            <td>
+              <%= decoded.relativeAge %>
+              (<%= decoded.absoluteAgeSeconds %> s)
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Composition du snowflake</h2>
+    <div class="table-wrap">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>Segment</th>
+            <th>Bits</th>
+            <th>Binaire</th>
+            <th>Décimal</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <th scope="row">Temps</th>
+            <td><%= structure.timeBits %></td>
+            <td><code><%= decoded.timestamp.binary %></code></td>
+            <td><code><%= decoded.timestamp.sinceEpochMs %></code></td>
+          </tr>
+          <tr>
+            <th scope="row">Aléatoire</th>
+            <td><%= structure.randomBits %></td>
+            <td><code><%= decoded.random.binary %></code></td>
+            <td><code><%= decoded.random.value %></code></td>
+          </tr>
+          <tr>
+            <th scope="row">Séquence</th>
+            <td><%= structure.sequenceBits %></td>
+            <td><code><%= decoded.sequence.binary %></code></td>
+            <td><code><%= decoded.sequence.value %></code></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-sm text-muted mt-sm">
+      Les bits aléatoires permettent de réduire les collisions lors de la génération
+      simultanée, tandis que la séquence assure l’unicité au sein de la même milliseconde.
+    </p>
+  </section>
+<% } else if (!queryId) { %>
+  <div class="card">
+    <p class="text-muted">
+      Entrez un identifiant snowflake pour afficher sa date de création, ses segments binaires
+      et les métadonnées associées. Vous pouvez par exemple copier l’ID d’un commentaire,
+      d’un like ou d’une page depuis l’administration.
+    </p>
+  </div>
+<% } %>
