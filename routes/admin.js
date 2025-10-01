@@ -2182,12 +2182,24 @@ r.get("/users", async (req, res) => {
   );
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
+  await run(
+    "UPDATE users SET is_moderator=0 WHERE is_admin=1 AND is_moderator=1",
+  );
+
   const users = await all(
     `SELECT id, username, display_name, is_admin, is_moderator FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
     [...params, basePagination.perPage, offset],
   );
+  const normalizedUsers = users.map((user) => {
+    const isAdmin = Boolean(user.is_admin);
+    return {
+      ...user,
+      is_admin: isAdmin ? 1 : 0,
+      is_moderator: !isAdmin && user.is_moderator ? 1 : 0,
+    };
+  });
   const pagination = decoratePagination(req, basePagination);
-  res.render("admin/users", { users, pagination, searchTerm });
+  res.render("admin/users", { users: normalizedUsers, pagination, searchTerm });
 });
 r.post("/users", async (req, res) => {
   const { username, password, role } = req.body;
@@ -2307,9 +2319,9 @@ r.post("/users/:id/display-name", async (req, res) => {
 
   res.redirect("/admin/users");
 });
-r.post("/users/:id/moderator", async (req, res) => {
+r.post("/users/:id/role", async (req, res) => {
   const target = await get(
-    "SELECT id, username, is_moderator FROM users WHERE id=?",
+    "SELECT id, username, is_admin, is_moderator FROM users WHERE id=?",
     [req.params.id],
   );
   if (!target) {
@@ -2319,31 +2331,73 @@ r.post("/users/:id/moderator", async (req, res) => {
     });
     return res.redirect("/admin/users");
   }
-  const enable = req.body?.enable === "1";
-  await run("UPDATE users SET is_moderator=? WHERE id=?", [enable ? 1 : 0, target.id]);
-  if (req.session.user?.id === target.id) {
-    req.session.user.is_moderator = enable;
+
+  const requestedRole = req.body?.role;
+  const normalizedRole =
+    requestedRole === "admin" || requestedRole === "moderator"
+      ? requestedRole
+      : null;
+
+  if (!normalizedRole) {
+    pushNotification(req, {
+      type: "error",
+      message: "Rôle invalide sélectionné.",
+    });
+    return res.redirect("/admin/users");
   }
+
+  const sanitizedTargetIsAdmin = Boolean(target.is_admin);
+  const sanitizedTargetIsModerator = !sanitizedTargetIsAdmin && Boolean(target.is_moderator);
+
+  const isAdmin = normalizedRole === "admin";
+  const isModerator = normalizedRole === "moderator";
+  const previousRole = sanitizedTargetIsAdmin
+    ? "admin"
+    : sanitizedTargetIsModerator
+    ? "moderator"
+    : "user";
+
+  if (previousRole === normalizedRole) {
+    pushNotification(req, {
+      type: "info",
+      message: `Aucun changement pour ${target.username}.`,
+    });
+    return res.redirect("/admin/users");
+  }
+
+  await run("UPDATE users SET is_admin=?, is_moderator=? WHERE id=?", [
+    isAdmin ? 1 : 0,
+    isModerator ? 1 : 0,
+    target.id,
+  ]);
+
+  if (req.session.user?.id === target.id) {
+    req.session.user.is_admin = isAdmin;
+    req.session.user.is_moderator = isModerator;
+  }
+
   const ip = getClientIp(req);
   await sendAdminEvent(
-    enable ? "Rôle modérateur activé" : "Rôle modérateur désactivé",
+    "Rôle utilisateur mis à jour",
     {
       user: req.session.user?.username || null,
       extra: {
         ip,
         targetId: target.id,
         targetUsername: target.username,
-        enabled: enable,
+        previousRole,
+        newRole: normalizedRole,
       },
     },
     { includeScreenshot: false },
   );
+
+  const roleLabel = normalizedRole === "admin" ? "Administrateur" : "Modérateur";
   pushNotification(req, {
     type: "success",
-    message: enable
-      ? `Modérateur activé pour ${target.username}.`
-      : `Modérateur désactivé pour ${target.username}.`,
+    message: `Rôle mis à jour pour ${target.username} (${roleLabel}).`,
   });
+
   res.redirect("/admin/users");
 });
 r.post("/users/:id/delete", async (req, res) => {

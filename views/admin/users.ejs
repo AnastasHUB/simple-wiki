@@ -46,7 +46,7 @@
   <div class="table-wrap mt-md">
     <table class="data-table">
       <thead>
-        <tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Admin</th><th>Modérateur</th><th></th></tr>
+        <tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Rôle</th><th>Actions</th></tr>
       </thead>
       <tbody>
       <% users.forEach(u=>{ %>
@@ -67,26 +67,22 @@
               <button class="btn secondary" data-icon="💾" type="submit">Enregistrer</button>
             </form>
           </td>
-          <td><%= u.is_admin ? 'Oui' : 'Non' %></td>
+          <td><%= u.is_admin ? 'Admin' : (u.is_moderator ? 'Modérateur' : 'Utilisateur') %></td>
           <td>
-            <div class="flex gap-sm items-center">
-              <span><%= u.is_moderator ? 'Oui' : 'Non' %></span>
-              <form method="post" action="/admin/users/<%= u.id %>/moderator">
-                <input type="hidden" name="enable" value="<%= u.is_moderator ? '0' : '1' %>" />
-                <button
-                  class="btn <%= u.is_moderator ? 'secondary' : 'success' %>"
-                  data-icon="<%= u.is_moderator ? '❎' : '⭐' %>"
-                  type="submit"
-                >
-                  <%= u.is_moderator ? 'Retirer' : 'Nommer' %>
-                </button>
+            <div class="flex flex-wrap gap-sm items-center">
+              <form method="post" action="/admin/users/<%= u.id %>/role" class="flex gap-sm items-center">
+                <label class="sr-only" for="role-<%= u.id %>">Rôle</label>
+                <select id="role-<%= u.id %>" name="role">
+                  <option value="" disabled <%= !u.is_admin && !u.is_moderator ? 'selected' : '' %>>Sélectionner un rôle…</option>
+                  <option value="admin" <%= u.is_admin ? 'selected' : '' %>>Administrateur</option>
+                  <option value="moderator" <%= u.is_moderator && !u.is_admin ? 'selected' : '' %>>Modérateur</option>
+                </select>
+                <button class="btn secondary" data-icon="⭐" type="submit">Choisir le rôle</button>
+              </form>
+              <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
+                <button class="btn danger" data-icon="🗑️">Supprimer</button>
               </form>
             </div>
-          </td>
-          <td>
-            <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
-              <button class="btn danger" data-icon="🗑️">Supprimer</button>
-            </form>
           </td>
         </tr>
       <% }) %>
