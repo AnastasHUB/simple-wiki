@@ -35,6 +35,8 @@
       <select name="role">
         <option value="admin">Administrateur</option>
         <option value="moderator">Modérateur</option>
+        <option value="contributor">Contributeur</option>
+        <option value="helper">Helper</option>
       </select>
     </label>
     <button class="btn success" data-icon="➕" type="submit">Ajouter</button>
@@ -67,15 +69,26 @@
               <button class="btn secondary" data-icon="💾" type="submit">Enregistrer</button>
             </form>
           </td>
-          <td><%= u.is_admin ? 'Admin' : (u.is_moderator ? 'Modérateur' : 'Utilisateur') %></td>
+          <td>
+            <%= u.is_admin
+              ? 'Admin'
+              : (u.is_moderator
+                ? 'Modérateur'
+                : (u.is_contributor
+                  ? 'Contributeur'
+                  : (u.is_helper ? 'Helper' : 'Utilisateur')))
+            %>
+          </td>
           <td>
             <div class="flex flex-wrap gap-sm items-center">
               <form method="post" action="/admin/users/<%= u.id %>/role" class="flex gap-sm items-center">
                 <label class="sr-only" for="role-<%= u.id %>">Rôle</label>
                 <select id="role-<%= u.id %>" name="role">
-                  <option value="" disabled <%= !u.is_admin && !u.is_moderator ? 'selected' : '' %>>Sélectionner un rôle…</option>
+                  <option value="" disabled <%= !u.is_admin && !u.is_moderator && !u.is_contributor && !u.is_helper ? 'selected' : '' %>>Sélectionner un rôle…</option>
                   <option value="admin" <%= u.is_admin ? 'selected' : '' %>>Administrateur</option>
                   <option value="moderator" <%= u.is_moderator && !u.is_admin ? 'selected' : '' %>>Modérateur</option>
+                  <option value="contributor" <%= u.is_contributor && !u.is_admin && !u.is_moderator ? 'selected' : '' %>>Contributeur</option>
+                  <option value="helper" <%= u.is_helper && !u.is_admin && !u.is_moderator && !u.is_contributor ? 'selected' : '' %>>Helper</option>
                 </select>
                 <button class="btn secondary" data-icon="⭐" type="submit">Choisir le rôle</button>
               </form>

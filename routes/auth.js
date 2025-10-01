@@ -48,8 +48,31 @@ r.post("/login", async (req, res) => {
   }
   const isAdmin = !!u.is_admin;
   const isModerator = !isAdmin && !!u.is_moderator;
-  if (isAdmin && u.is_moderator) {
-    await run("UPDATE users SET is_moderator=0 WHERE id=?", [u.id]);
+  const isContributor = !isAdmin && !isModerator && !!u.is_contributor;
+  const isHelper =
+    !isAdmin && !isModerator && !isContributor && !!u.is_helper;
+
+  const desiredAdmin = isAdmin ? 1 : 0;
+  const desiredModerator = isModerator ? 1 : 0;
+  const desiredContributor = isContributor ? 1 : 0;
+  const desiredHelper = isHelper ? 1 : 0;
+
+  if (
+    u.is_admin !== desiredAdmin ||
+    u.is_moderator !== desiredModerator ||
+    u.is_contributor !== desiredContributor ||
+    u.is_helper !== desiredHelper
+  ) {
+    await run(
+      "UPDATE users SET is_admin=?, is_moderator=?, is_contributor=?, is_helper=? WHERE id=?",
+      [
+        desiredAdmin,
+        desiredModerator,
+        desiredContributor,
+        desiredHelper,
+        u.id,
+      ],
+    );
   }
 
   req.session.user = {
@@ -57,6 +80,8 @@ r.post("/login", async (req, res) => {
     username: u.username,
     is_admin: isAdmin,
     is_moderator: isModerator,
+    is_contributor: isContributor,
+    is_helper: isHelper,
     display_name: u.display_name || null,
   };
   await sendAdminEvent(

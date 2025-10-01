@@ -204,6 +204,9 @@ r.get(
   "/new",
   asyncHandler(async (req, res) => {
     const isAdmin = Boolean(req.session.user?.is_admin);
+    const canPublishDirectly = Boolean(
+      isAdmin || req.session.user?.is_contributor,
+    );
     if (!isAdmin) {
       const ban = await isIpBanned(req.clientIp, { action: "contribute" });
       if (ban) {
@@ -215,7 +218,7 @@ r.get(
       page: null,
       tags: "",
       uploads,
-      submissionMode: !isAdmin,
+      submissionMode: !canPublishDirectly,
       allowUploads: isAdmin,
     });
   }),
@@ -226,11 +229,16 @@ r.post(
   asyncHandler(async (req, res) => {
     const { title, content, tags } = req.body;
     const isAdmin = Boolean(req.session.user?.is_admin);
+    const canPublishDirectly = Boolean(
+      isAdmin || req.session.user?.is_contributor,
+    );
     if (!isAdmin) {
       const ban = await isIpBanned(req.clientIp, { action: "contribute" });
       if (ban) {
         return res.status(403).render("banned", { ban });
       }
+    }
+    if (!canPublishDirectly) {
       const submissionId = await createPageSubmission({
         type: "create",
         title,
@@ -777,6 +785,9 @@ r.get(
     if (!page) return res.status(404).send("Page introuvable");
     const tagNames = await fetchPageTags(page.id);
     const isAdmin = Boolean(req.session.user?.is_admin);
+    const canPublishDirectly = Boolean(
+      isAdmin || req.session.user?.is_contributor,
+    );
     if (!isAdmin) {
       const ban = await isIpBanned(req.clientIp, {
         action: "contribute",
@@ -791,7 +802,7 @@ r.get(
       page,
       tags: tagNames.join(", "),
       uploads,
-      submissionMode: !isAdmin,
+      submissionMode: !canPublishDirectly,
       allowUploads: isAdmin,
     });
   }),
@@ -807,6 +818,9 @@ r.post(
     if (!page) return res.status(404).send("Page introuvable");
 
     const isAdmin = Boolean(req.session.user?.is_admin);
+    const canPublishDirectly = Boolean(
+      isAdmin || req.session.user?.is_contributor,
+    );
     if (!isAdmin) {
       const tagNames = await fetchPageTags(page.id);
       const ban = await isIpBanned(req.clientIp, {
@@ -816,6 +830,8 @@ r.post(
       if (ban) {
         return res.status(403).render("banned", { ban });
       }
+    }
+    if (!canPublishDirectly) {
       const submissionId = await createPageSubmission({
         type: "edit",
         pageId: page.id,

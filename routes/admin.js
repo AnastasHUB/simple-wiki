@@ -2185,17 +2185,35 @@ r.get("/users", async (req, res) => {
   await run(
     "UPDATE users SET is_moderator=0 WHERE is_admin=1 AND is_moderator=1",
   );
+  await run(
+    "UPDATE users SET is_helper=0 WHERE is_admin=1 AND is_helper=1",
+  );
+  await run(
+    "UPDATE users SET is_contributor=0 WHERE is_admin=1 AND is_contributor=1",
+  );
+  await run(
+    "UPDATE users SET is_helper=0, is_contributor=0 WHERE is_moderator=1 AND (is_helper=1 OR is_contributor=1)",
+  );
+  await run(
+    "UPDATE users SET is_contributor=0 WHERE is_helper=1 AND is_contributor=1",
+  );
 
   const users = await all(
-    `SELECT id, username, display_name, is_admin, is_moderator FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
+    `SELECT id, username, display_name, is_admin, is_moderator, is_helper, is_contributor FROM users ${where} ORDER BY id LIMIT ? OFFSET ?`,
     [...params, basePagination.perPage, offset],
   );
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
+    const isModerator = !isAdmin && Boolean(user.is_moderator);
+    const isContributor = !isAdmin && !isModerator && Boolean(user.is_contributor);
+    const isHelper =
+      !isAdmin && !isModerator && !isContributor && Boolean(user.is_helper);
     return {
       ...user,
       is_admin: isAdmin ? 1 : 0,
-      is_moderator: !isAdmin && user.is_moderator ? 1 : 0,
+      is_moderator: isModerator ? 1 : 0,
+      is_contributor: isContributor ? 1 : 0,
+      is_helper: isHelper ? 1 : 0,
     };
   });
   const pagination = decoratePagination(req, basePagination);
@@ -2210,19 +2228,31 @@ r.post("/users", async (req, res) => {
     });
     return res.redirect("/admin/users");
   }
-  const normalizedRole = role === "moderator" ? "moderator" : "admin";
+  const allowedRoles = new Set(["admin", "moderator", "helper", "contributor"]);
+  const normalizedRole = allowedRoles.has(role) ? role : "admin";
+  const roleLabelMap = {
+    admin: "Administrateur",
+    moderator: "Modérateur",
+    helper: "Helper",
+    contributor: "Contributeur",
+  };
+  const roleLabel = roleLabelMap[normalizedRole] || normalizedRole;
   const isAdmin = normalizedRole === "admin";
   const isModerator = normalizedRole === "moderator";
+  const isHelper = normalizedRole === "helper";
+  const isContributor = normalizedRole === "contributor";
   const hashed = await hashPassword(password);
   try {
     const result = await run(
-      "INSERT INTO users(snowflake_id, username,password,is_admin, is_moderator) VALUES(?,?,?,?,?)",
+      "INSERT INTO users(snowflake_id, username,password,is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,?,?,?,?)",
       [
         generateSnowflake(),
         username.trim(),
         hashed,
         isAdmin ? 1 : 0,
         isModerator ? 1 : 0,
+        isHelper ? 1 : 0,
+        isContributor ? 1 : 0,
       ],
     );
     const ip = getClientIp(req);
@@ -2241,7 +2271,7 @@ r.post("/users", async (req, res) => {
     );
     pushNotification(req, {
       type: "success",
-      message: `Utilisateur ${username.trim()} créé (${normalizedRole}).`,
+      message: `Utilisateur ${username.trim()} créé (${roleLabel}).`,
     });
   } catch (error) {
     if (error?.code === "SQLITE_CONSTRAINT" || error?.code === "SQLITE_CONSTRAINT_UNIQUE") {
@@ -2321,7 +2351,7 @@ r.post("/users/:id/display-name", async (req, res) => {
 });
 r.post("/users/:id/role", async (req, res) => {
   const target = await get(
-    "SELECT id, username, is_admin, is_moderator FROM users WHERE id=?",
+    "SELECT id, username, is_admin, is_moderator, is_helper, is_contributor FROM users WHERE id=?",
     [req.params.id],
   );
   if (!target) {
@@ -2333,10 +2363,8 @@ r.post("/users/:id/role", async (req, res) => {
   }
 
   const requestedRole = req.body?.role;
-  const normalizedRole =
-    requestedRole === "admin" || requestedRole === "moderator"
-      ? requestedRole
-      : null;
+  const allowedRoles = new Set(["admin", "moderator", "helper", "contributor"]);
+  const normalizedRole = allowedRoles.has(requestedRole) ? requestedRole : null;
 
   if (!normalizedRole) {
     pushNotification(req, {
@@ -2347,14 +2375,30 @@ r.post("/users/:id/role", async (req, res) => {
   }
 
   const sanitizedTargetIsAdmin = Boolean(target.is_admin);
-  const sanitizedTargetIsModerator = !sanitizedTargetIsAdmin && Boolean(target.is_moderator);
+  const sanitizedTargetIsModerator =
+    !sanitizedTargetIsAdmin && Boolean(target.is_moderator);
+  const sanitizedTargetIsContributor =
+    !sanitizedTargetIsAdmin &&
+    !sanitizedTargetIsModerator &&
+    Boolean(target.is_contributor);
+  const sanitizedTargetIsHelper =
+    !sanitizedTargetIsAdmin &&
+    !sanitizedTargetIsModerator &&
+    !sanitizedTargetIsContributor &&
+    Boolean(target.is_helper);
 
   const isAdmin = normalizedRole === "admin";
   const isModerator = normalizedRole === "moderator";
+  const isContributor = normalizedRole === "contributor";
+  const isHelper = normalizedRole === "helper";
   const previousRole = sanitizedTargetIsAdmin
     ? "admin"
     : sanitizedTargetIsModerator
     ? "moderator"
+    : sanitizedTargetIsContributor
+    ? "contributor"
+    : sanitizedTargetIsHelper
+    ? "helper"
     : "user";
 
   if (previousRole === normalizedRole) {
@@ -2365,15 +2409,22 @@ r.post("/users/:id/role", async (req, res) => {
     return res.redirect("/admin/users");
   }
 
-  await run("UPDATE users SET is_admin=?, is_moderator=? WHERE id=?", [
-    isAdmin ? 1 : 0,
-    isModerator ? 1 : 0,
-    target.id,
-  ]);
+  await run(
+    "UPDATE users SET is_admin=?, is_moderator=?, is_contributor=?, is_helper=? WHERE id=?",
+    [
+      isAdmin ? 1 : 0,
+      isModerator ? 1 : 0,
+      isContributor ? 1 : 0,
+      isHelper ? 1 : 0,
+      target.id,
+    ],
+  );
 
   if (req.session.user?.id === target.id) {
     req.session.user.is_admin = isAdmin;
     req.session.user.is_moderator = isModerator;
+    req.session.user.is_contributor = isContributor;
+    req.session.user.is_helper = isHelper;
   }
 
   const ip = getClientIp(req);
@@ -2392,7 +2443,13 @@ r.post("/users/:id/role", async (req, res) => {
     { includeScreenshot: false },
   );
 
-  const roleLabel = normalizedRole === "admin" ? "Administrateur" : "Modérateur";
+  const roleLabelMap = {
+    admin: "Administrateur",
+    moderator: "Modérateur",
+    helper: "Helper",
+    contributor: "Contributeur",
+  };
+  const roleLabel = roleLabelMap[normalizedRole] || normalizedRole;
   pushNotification(req, {
     type: "success",
     message: `Rôle mis à jour pour ${target.username} (${roleLabel}).`,
