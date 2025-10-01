@@ -12,16 +12,29 @@ export async function initDb() {
   db = await open({ filename: "./data.sqlite", driver: sqlite3.Database });
   await db.exec(`
   PRAGMA foreign_keys=ON;
+  CREATE TABLE IF NOT EXISTS roles(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    is_admin INTEGER NOT NULL DEFAULT 0,
+    is_moderator INTEGER NOT NULL DEFAULT 0,
+    is_helper INTEGER NOT NULL DEFAULT 0,
+    is_contributor INTEGER NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME
+  );
   CREATE TABLE IF NOT EXISTS users(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     display_name TEXT,
-    is_admin INTEGER NOT NULL DEFAULT 1,
+    is_admin INTEGER NOT NULL DEFAULT 0,
     is_moderator INTEGER NOT NULL DEFAULT 0,
     is_helper INTEGER NOT NULL DEFAULT 0,
-    is_contributor INTEGER NOT NULL DEFAULT 0
+    is_contributor INTEGER NOT NULL DEFAULT 0,
+    role_id INTEGER REFERENCES roles(id)
   );
   CREATE TABLE IF NOT EXISTS settings(
     id INTEGER PRIMARY KEY CHECK (id=1),
@@ -202,6 +215,7 @@ export async function initDb() {
   await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_helper", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_contributor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
   await ensureColumn("ip_profiles", "reputation_status", "TEXT NOT NULL DEFAULT 'unknown'");
   await ensureColumn(
     "ip_profiles",
@@ -232,6 +246,7 @@ export async function initDb() {
   await ensureColumn("ban_appeals", "resolved_at", "DATETIME");
   await ensureColumn("ban_appeals", "resolved_by", "TEXT");
   await ensureSnowflake("settings");
+  await ensureSnowflake("roles");
   await ensureSnowflake("users");
   await ensureSnowflake("pages");
   await ensureSnowflake("deleted_pages");
@@ -251,6 +266,8 @@ export async function initDb() {
   await db.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_ban_appeals_pending_ip ON ban_appeals(ip) WHERE ip IS NOT NULL AND status='pending'",
   );
+  await ensureDefaultRoles();
+  await synchronizeUserRoles();
   return db;
 }
 
@@ -290,14 +307,176 @@ async function ensureSnowflake(table, column = "snowflake_id") {
   );
 }
 
+async function ensureDefaultRoles() {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS roles(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      snowflake_id TEXT UNIQUE,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      is_admin INTEGER NOT NULL DEFAULT 0,
+      is_moderator INTEGER NOT NULL DEFAULT 0,
+      is_helper INTEGER NOT NULL DEFAULT 0,
+      is_contributor INTEGER NOT NULL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME
+    );
+  `);
+  await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
+
+  const defaultRoles = [
+    {
+      name: "Administrateur",
+      description: "Accès complet à toutes les fonctionnalités.",
+      is_admin: 1,
+      is_moderator: 0,
+      is_helper: 0,
+      is_contributor: 0,
+    },
+    {
+      name: "Modérateur",
+      description: "Peut gérer les commentaires et les soumissions.",
+      is_admin: 0,
+      is_moderator: 1,
+      is_helper: 0,
+      is_contributor: 0,
+    },
+    {
+      name: "Contributeur",
+      description: "Peut créer de nouveaux contenus.",
+      is_admin: 0,
+      is_moderator: 0,
+      is_helper: 0,
+      is_contributor: 1,
+    },
+    {
+      name: "Helper",
+      description: "Peut assister les contributeurs.",
+      is_admin: 0,
+      is_moderator: 0,
+      is_helper: 1,
+      is_contributor: 0,
+    },
+    {
+      name: "Utilisateur",
+      description: "Accès standard sans permissions supplémentaires.",
+      is_admin: 0,
+      is_moderator: 0,
+      is_helper: 0,
+      is_contributor: 0,
+    },
+  ];
+
+  for (const role of defaultRoles) {
+    await db.run(
+      `INSERT INTO roles(name, description, is_admin, is_moderator, is_helper, is_contributor)
+       VALUES(?,?,?,?,?,?)
+       ON CONFLICT(name) DO UPDATE SET
+         description=excluded.description,
+         is_admin=excluded.is_admin,
+         is_moderator=excluded.is_moderator,
+         is_helper=excluded.is_helper,
+         is_contributor=excluded.is_contributor,
+         updated_at=CURRENT_TIMESTAMP`,
+      [
+        role.name,
+        role.description,
+        role.is_admin,
+        role.is_moderator,
+        role.is_helper,
+        role.is_contributor,
+      ],
+    );
+  }
+}
+
+async function synchronizeUserRoles() {
+  const roles = await db.all(
+    "SELECT id, name, is_admin, is_moderator, is_helper, is_contributor FROM roles",
+  );
+  if (!roles.length) {
+    return;
+  }
+
+  const roleByName = new Map(roles.map((role) => [role.name, role]));
+  const adminRoleId = roleByName.get("Administrateur")?.id ?? null;
+  const moderatorRoleId = roleByName.get("Modérateur")?.id ?? null;
+  const contributorRoleId = roleByName.get("Contributeur")?.id ?? null;
+  const helperRoleId = roleByName.get("Helper")?.id ?? null;
+  const userRoleId = roleByName.get("Utilisateur")?.id ?? null;
+
+  if (adminRoleId) {
+    await db.run(
+      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=1",
+      [adminRoleId],
+    );
+  }
+  if (moderatorRoleId) {
+    await db.run(
+      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=0 AND is_moderator=1",
+      [moderatorRoleId],
+    );
+  }
+  if (contributorRoleId) {
+    await db.run(
+      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=0 AND is_moderator=0 AND is_contributor=1",
+      [contributorRoleId],
+    );
+  }
+  if (helperRoleId) {
+    await db.run(
+      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=0 AND is_moderator=0 AND is_contributor=0 AND is_helper=1",
+      [helperRoleId],
+    );
+  }
+  if (userRoleId) {
+    await db.run(
+      "UPDATE users SET role_id=? WHERE role_id IS NULL",
+      [userRoleId],
+    );
+  }
+
+  for (const role of roles) {
+    await db.run(
+      "UPDATE users SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=? WHERE role_id=?",
+      [
+        role.is_admin ? 1 : 0,
+        role.is_moderator ? 1 : 0,
+        role.is_helper ? 1 : 0,
+        role.is_contributor ? 1 : 0,
+        role.id,
+      ],
+    );
+  }
+}
+
 export async function ensureDefaultAdmin() {
   await initDb();
   const admin = await db.get("SELECT 1 FROM users WHERE username=?", ["admin"]);
   if (!admin) {
     const hashed = await hashPassword("admin");
+    const adminRole =
+      (await db.get(
+        "SELECT id, is_admin, is_moderator, is_helper, is_contributor FROM roles WHERE is_admin=1 LIMIT 1",
+      )) || {
+        id: null,
+        is_admin: 1,
+        is_moderator: 0,
+        is_helper: 0,
+        is_contributor: 0,
+      };
     await db.run(
-      "INSERT INTO users(snowflake_id, username,password,is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,1,0,0,0)",
-      [generateSnowflake(), "admin", hashed],
+      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor) VALUES(?,?,?,?,?,?,?,?)",
+      [
+        generateSnowflake(),
+        "admin",
+        hashed,
+        adminRole.id,
+        adminRole.is_admin ? 1 : 0,
+        adminRole.is_moderator ? 1 : 0,
+        adminRole.is_helper ? 1 : 0,
+        adminRole.is_contributor ? 1 : 0,
+      ],
     );
     console.log("Default admin created: admin / (mot de passe haché)");
   }

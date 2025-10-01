@@ -32,13 +32,15 @@
     </label>
     <label class="stack-form">
       <span class="text-sm text-muted">Rôle</span>
-      <select name="role">
-        <option value="user" selected>Utilisateur</option>
-        <option value="admin">Administrateur</option>
-        <option value="moderator">Modérateur</option>
-        <option value="contributor">Contributeur</option>
-        <option value="helper">Helper</option>
-      </select>
+      <% if (Array.isArray(roles) && roles.length) { %>
+        <select name="roleId">
+          <% roles.forEach(role => { %>
+            <option value="<%= role.id %>" <%= defaultRoleId && role.id === defaultRoleId ? 'selected' : '' %>><%= role.name %></option>
+          <% }) %>
+        </select>
+      <% } else { %>
+        <span class="text-danger">Aucun rôle disponible</span>
+      <% } %>
     </label>
     <button class="btn success" data-icon="➕" type="submit">Ajouter</button>
   </div>
@@ -70,27 +72,20 @@
               <button class="btn secondary" data-icon="💾" type="submit">Enregistrer</button>
             </form>
           </td>
-          <td>
-            <%= u.is_admin
-              ? 'Admin'
-              : (u.is_moderator
-                ? 'Modérateur'
-                : (u.is_contributor
-                  ? 'Contributeur'
-                  : (u.is_helper ? 'Helper' : 'Utilisateur')))
-            %>
-          </td>
+          <td><%= u.role_label %></td>
           <td>
             <div class="flex flex-wrap gap-sm items-center">
               <form method="post" action="/admin/users/<%= u.id %>/role" class="flex gap-sm items-center">
                 <label class="sr-only" for="role-<%= u.id %>">Rôle</label>
-                <select id="role-<%= u.id %>" name="role">
-                  <option value="user" <%= !u.is_admin && !u.is_moderator && !u.is_contributor && !u.is_helper ? 'selected' : '' %>>Utilisateur</option>
-                  <option value="admin" <%= u.is_admin ? 'selected' : '' %>>Administrateur</option>
-                  <option value="moderator" <%= u.is_moderator && !u.is_admin ? 'selected' : '' %>>Modérateur</option>
-                  <option value="contributor" <%= u.is_contributor && !u.is_admin && !u.is_moderator ? 'selected' : '' %>>Contributeur</option>
-                  <option value="helper" <%= u.is_helper && !u.is_admin && !u.is_moderator && !u.is_contributor ? 'selected' : '' %>>Helper</option>
-                </select>
+                <% if (Array.isArray(roles) && roles.length) { %>
+                  <select id="role-<%= u.id %>" name="roleId">
+                    <% roles.forEach(role => { %>
+                      <option value="<%= role.id %>" <%= u.role_id === role.id ? 'selected' : '' %>><%= role.name %></option>
+                    <% }) %>
+                  </select>
+                <% } else { %>
+                  <span class="text-danger">Aucun rôle</span>
+                <% } %>
                 <button class="btn secondary" data-icon="⭐" type="submit">Choisir le rôle</button>
               </form>
               <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
