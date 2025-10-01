@@ -103,22 +103,120 @@
     <% const isAdminUser = !!permissionFlags.is_admin; %>
     <% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
     <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
-    <% const canModerateComments = !!permissionFlags.can_moderate_comments; %>
-    <% const canReviewSubmissions = !!permissionFlags.can_review_submissions; %>
-    <% const canManagePages = !!permissionFlags.can_manage_pages; %>
-    <% const canViewStats = !!permissionFlags.can_view_stats; %>
-    <% const canManageUsers = !!permissionFlags.can_manage_users; %>
-    <% const canManageRoles = !!permissionFlags.can_manage_roles; %>
-    <% const canManageLikes = !!permissionFlags.can_manage_likes; %>
-    <% const canManageTrash = !!permissionFlags.can_manage_trash; %>
-    <% const canManageUploads = !!permissionFlags.can_manage_uploads; %>
-    <% const canManageSettings = !!permissionFlags.can_manage_settings; %>
-    <% const canManageIpBans = !!permissionFlags.can_manage_ip_bans; %>
-    <% const canManageIpReputation = !!permissionFlags.can_manage_ip_reputation; %>
-    <% const canManageIpProfiles = !!permissionFlags.can_manage_ip_profiles; %>
-    <% const canReviewBanAppeals = !!permissionFlags.can_review_ban_appeals; %>
-    <% const canViewEvents = !!permissionFlags.can_view_events; %>
-    <% const canViewSnowflakes = !!permissionFlags.can_view_snowflakes; %>
+    <% const canModerateComments = !!(
+      permissionFlags.can_moderate_comments ||
+      permissionFlags.can_view_comment_queue ||
+      permissionFlags.can_approve_comments ||
+      permissionFlags.can_reject_comments ||
+      permissionFlags.can_delete_comments
+    ); %>
+    <% const canReviewSubmissions = !!(
+      permissionFlags.can_review_submissions ||
+      permissionFlags.can_view_submission_queue ||
+      permissionFlags.can_accept_submissions ||
+      permissionFlags.can_reject_submissions ||
+      permissionFlags.can_comment_on_submissions
+    ); %>
+    <% const canManagePages = !!(
+      permissionFlags.can_manage_pages ||
+      permissionFlags.can_view_page_overview ||
+      permissionFlags.can_edit_pages ||
+      permissionFlags.can_publish_pages ||
+      permissionFlags.can_unpublish_pages ||
+      permissionFlags.can_delete_pages ||
+      permissionFlags.can_restore_pages ||
+      permissionFlags.can_schedule_pages ||
+      permissionFlags.can_manage_page_tags ||
+      permissionFlags.can_view_page_history ||
+      permissionFlags.can_revert_page_history
+    ); %>
+    <% const canViewStats = !!(
+      permissionFlags.can_view_stats ||
+      permissionFlags.can_view_stats_basic ||
+      permissionFlags.can_view_stats_detailed ||
+      permissionFlags.can_export_stats
+    ); %>
+    <% const canManageUsers = !!(
+      permissionFlags.can_manage_users ||
+      permissionFlags.can_view_users ||
+      permissionFlags.can_invite_users ||
+      permissionFlags.can_edit_users ||
+      permissionFlags.can_suspend_users ||
+      permissionFlags.can_delete_users ||
+      permissionFlags.can_reset_passwords ||
+      permissionFlags.can_impersonate_users ||
+      permissionFlags.can_assign_roles
+    ); %>
+    <% const canManageRoles = !!(
+      permissionFlags.can_manage_roles ||
+      permissionFlags.can_view_roles ||
+      permissionFlags.can_create_roles ||
+      permissionFlags.can_edit_roles ||
+      permissionFlags.can_delete_roles ||
+      permissionFlags.can_assign_roles
+    ); %>
+    <% const canManageLikes = !!(
+      permissionFlags.can_manage_likes ||
+      permissionFlags.can_view_likes ||
+      permissionFlags.can_remove_likes
+    ); %>
+    <% const canManageTrash = !!(
+      permissionFlags.can_manage_trash ||
+      permissionFlags.can_view_trash ||
+      permissionFlags.can_restore_trash ||
+      permissionFlags.can_purge_trash
+    ); %>
+    <% const canManageUploads = !!(
+      permissionFlags.can_manage_uploads ||
+      permissionFlags.can_view_uploads ||
+      permissionFlags.can_upload_files ||
+      permissionFlags.can_replace_files ||
+      permissionFlags.can_delete_files
+    ); %>
+    <% const canManageSettings = !!(
+      permissionFlags.can_manage_settings ||
+      permissionFlags.can_update_general_settings ||
+      permissionFlags.can_manage_integrations ||
+      permissionFlags.can_manage_navigation ||
+      permissionFlags.can_manage_features
+    ); %>
+    <% const canManageIpBans = !!(
+      permissionFlags.can_manage_ip_bans ||
+      permissionFlags.can_view_ip_bans ||
+      permissionFlags.can_create_ip_bans ||
+      permissionFlags.can_update_ip_bans ||
+      permissionFlags.can_delete_ip_bans ||
+      permissionFlags.can_lift_ip_bans
+    ); %>
+    <% const canManageIpReputation = !!(
+      permissionFlags.can_manage_ip_reputation ||
+      permissionFlags.can_view_ip_reputation ||
+      permissionFlags.can_tag_ip_reputation ||
+      permissionFlags.can_clear_ip_reputation ||
+      permissionFlags.can_import_ip_reputation
+    ); %>
+    <% const canManageIpProfiles = !!(
+      permissionFlags.can_manage_ip_profiles ||
+      permissionFlags.can_view_ip_profiles ||
+      permissionFlags.can_merge_ip_profiles ||
+      permissionFlags.can_delete_ip_profiles
+    ); %>
+    <% const canReviewBanAppeals = !!(
+      permissionFlags.can_review_ban_appeals ||
+      permissionFlags.can_view_ban_appeals ||
+      permissionFlags.can_accept_ban_appeals ||
+      permissionFlags.can_reject_ban_appeals ||
+      permissionFlags.can_delete_ban_appeals
+    ); %>
+    <% const canViewEvents = !!(
+      permissionFlags.can_view_events ||
+      permissionFlags.can_view_event_log ||
+      permissionFlags.can_export_event_log
+    ); %>
+    <% const canViewSnowflakes = !!(
+      permissionFlags.can_view_snowflakes ||
+      permissionFlags.can_lookup_snowflake_history
+    ); %>
     <% const hasAdminMenu =
       isAdminUser ||
       canModerateComments ||
