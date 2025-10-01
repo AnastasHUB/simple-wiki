@@ -16,6 +16,15 @@ const MAX_RETRIES = 3;
 const BASE_RETRY_DELAY_MS = 1500;
 const RETRYABLE_STATUS = new Set([429, 500, 502, 503, 504]);
 
+const CHANNEL_DEFAULTS = {
+  admin: {
+    embedColor: 0x5865f2,
+  },
+  feed: {
+    embedColor: 0x57f287,
+  },
+};
+
 function sleep(ms = 0) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -158,6 +167,47 @@ function createRequestInit(payload, attachments) {
   };
 }
 
+function normalizeChannelName(channel) {
+  if (typeof channel !== "string") return "feed";
+  const normalized = channel.trim();
+  return normalized.length ? normalized : "feed";
+}
+
+function getWebhookUrlForChannel(channel, settings = {}) {
+  switch (channel) {
+    case "admin":
+      return settings.adminWebhook || "";
+    case "feed":
+      return settings.feedWebhook || "";
+    default:
+      return "";
+  }
+}
+
+function resolveChannelTargets(channel, settings, options = {}) {
+  const normalizedChannel = normalizeChannelName(channel);
+  const targets = [];
+  const seen = new Set();
+
+  function addTarget(name) {
+    if (!name || seen.has(name)) return;
+    seen.add(name);
+    targets.push({ channel: name, url: getWebhookUrlForChannel(name, settings) });
+  }
+
+  addTarget(normalizedChannel);
+
+  const shouldForwardToAdmin =
+    normalizedChannel !== "admin" &&
+    (options.forwardToAdmin === true || options.forwardToAdmin !== false);
+
+  if (shouldForwardToAdmin) {
+    addTarget("admin");
+  }
+
+  return { normalizedChannel, targets };
+}
+
 function parseRetryAfter(headers) {
   const retryAfterHeader = headers?.get?.("retry-after");
   if (!retryAfterHeader) return null;
@@ -245,8 +295,12 @@ async function dispatch(url, payload, attachments = [], options = {}) {
 
 async function sendEvent(channel, title, data = {}, options = {}) {
   const settings = await getSiteSettings();
-  const url =
-    channel === "admin" ? settings.adminWebhook : settings.feedWebhook;
+  const { normalizedChannel, targets } = resolveChannelTargets(
+    channel,
+    settings,
+    options,
+  );
+
   const meta = { ...(data?.extra || {}) };
   for (const [key, value] of Object.entries(data || {})) {
     if (["page", "comment", "user", "description", "extra"].includes(key))
@@ -257,13 +311,13 @@ async function sendEvent(channel, title, data = {}, options = {}) {
   const descriptionSeed =
     typeof data?.description === "string" && data.description.trim().length
       ? data.description.trim()
-      : channel === "feed" && data?.page?.title
+      : normalizedChannel === "feed" && data?.page?.title
         ? `**${data.page.title}**`
         : data?.description || "";
 
-  const sections = [];
+  const baseSections = [];
   if (descriptionSeed) {
-    sections.push(descriptionSeed);
+    baseSections.push(descriptionSeed);
   }
 
   const normalizedDescription =
@@ -284,125 +338,177 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     includeLink: !descriptionContainsUrl,
   });
   if (pageSummary) {
-    sections.push(pageSummary);
+    baseSections.push(pageSummary);
   }
 
-  const metaLines = formatMetaLines(meta);
-  if (metaLines.length) {
-    sections.push(metaLines.join("\n"));
-  }
-
-  const description = clampText(
-    sections.filter(Boolean).join("\n\n"),
-    MAX_EMBED_DESCRIPTION_LENGTH,
-  );
-
-  const baseEmbed = {
-    timestamp: new Date().toISOString(),
-    color:
-      typeof options.embedColor === "number"
-        ? options.embedColor
-        : channel === "admin"
-          ? 0x5865f2
-          : 0x57f287,
-    description,
-    fields: buildFields({
-      Commentaire: data.comment,
-      Utilisateur: data.user,
-    }),
+  const baseFieldsInput = {
+    Commentaire: data.comment,
+    Utilisateur: data.user,
   };
-
-  const embedTitle = clampText(String(title ?? "").trim(), MAX_EMBED_TITLE_LENGTH);
-  if (embedTitle) {
-    baseEmbed.title = embedTitle;
-  }
-
-  if (!description) {
-    delete baseEmbed.description;
-  }
-
-  if (!baseEmbed.fields?.length) {
-    delete baseEmbed.fields;
-  }
-
-  if (settings.footerText || options.embedFooterText) {
-    baseEmbed.footer = {
-      text: clampText(
-        options.embedFooterText || settings.footerText,
-        MAX_EMBED_FOOTER_LENGTH,
-      ),
-    };
-  }
-
-  if (isRecord(options.embedAuthor)) {
-    baseEmbed.author = {
-      name: clampText(options.embedAuthor.name ?? "", 256),
-      url: options.embedAuthor.url,
-      icon_url: options.embedAuthor.icon_url || options.embedAuthor.iconUrl,
-    };
-    if (!baseEmbed.author.name) {
-      delete baseEmbed.author;
-    }
-  }
 
   const normalizedContent =
     typeof options.content === "string"
       ? clampText(options.content, MAX_MESSAGE_CONTENT_LENGTH)
       : undefined;
 
-  const payload = {
-    content: normalizedContent,
-    username:
-      typeof options.username === "string" && options.username.trim().length
-        ? clampText(options.username.trim(), 80)
-        : undefined,
-    avatar_url:
-      typeof options.avatarUrl === "string" && options.avatarUrl.trim().length
-        ? options.avatarUrl.trim()
-        : undefined,
-    allowed_mentions: isRecord(options.allowedMentions)
-      ? options.allowedMentions
-      : undefined,
-    components: Array.isArray(options.components) ? options.components : undefined,
-    embeds: [baseEmbed],
-  };
-
   const embedImageName =
     typeof options.embedImage === "string" && options.embedImage.trim().length
       ? options.embedImage.trim()
       : null;
-  if (embedImageName) {
-    baseEmbed.image = { url: `attachment://${embedImageName}` };
-  }
-
-  if (Array.isArray(options.extraEmbeds) && options.extraEmbeds.length) {
-    const extraEmbeds = options.extraEmbeds
-      .filter(isRecord)
-      .map((embed) => ({ ...embed }));
-    if (extraEmbeds.length) {
-      payload.embeds.push(
-        ...extraEmbeds.slice(0, Math.max(0, MAX_EMBEDS - payload.embeds.length)),
-      );
-    }
-  }
-
-  payload.embeds = payload.embeds.slice(0, MAX_EMBEDS);
 
   const attachments = Array.isArray(options.attachments)
     ? options.attachments
     : [];
 
-  await logEvent({
-    channel,
-    type: title,
-    payload: { data, options },
-    ip: data?.extra?.ip || null,
-    username: data?.user || null,
-  });
-  await dispatch(url, payload, attachments, {
-    threadId: options.threadId,
-    waitForDelivery: Boolean(options.waitForDelivery),
-  });
+  const allowedMentions = isRecord(options.allowedMentions)
+    ? options.allowedMentions
+    : undefined;
+
+  const extraEmbeds = Array.isArray(options.extraEmbeds)
+    ? options.extraEmbeds.filter(isRecord).map((embed) => ({ ...embed }))
+    : [];
+
+  function composeDescription(metaForChannel) {
+    const sections = baseSections.slice();
+    const metaLines = formatMetaLines(metaForChannel);
+    if (metaLines.length) {
+      sections.push(metaLines.join("\n"));
+    }
+    const description = sections.filter(Boolean).join("\n\n");
+    return clampText(description, MAX_EMBED_DESCRIPTION_LENGTH);
+  }
+
+  function resolveEmbedColor(targetChannel) {
+    if (typeof options.embedColor === "number") {
+      return options.embedColor;
+    }
+    return (
+      CHANNEL_DEFAULTS[targetChannel]?.embedColor ??
+      CHANNEL_DEFAULTS[normalizedChannel]?.embedColor ??
+      0x5865f2
+    );
+  }
+
+  function buildMetaForChannel(targetChannel) {
+    if (targetChannel === normalizedChannel) {
+      return meta;
+    }
+    const extended = { ...meta };
+    if (!Object.prototype.hasOwnProperty.call(extended, "Canal source")) {
+      extended["Canal source"] = normalizedChannel;
+    }
+    return extended;
+  }
+
+  function buildPayloadForChannel(targetChannel) {
+    const metaForChannel = buildMetaForChannel(targetChannel);
+    const embedDescription = composeDescription(metaForChannel);
+    const embed = {
+      timestamp: new Date().toISOString(),
+      color: resolveEmbedColor(targetChannel),
+      description: embedDescription,
+      fields: buildFields(baseFieldsInput),
+    };
+
+    const embedTitle = clampText(
+      String(title ?? "").trim(),
+      MAX_EMBED_TITLE_LENGTH,
+    );
+    if (embedTitle) {
+      embed.title = embedTitle;
+    }
+
+    if (!embed.description) {
+      delete embed.description;
+    }
+
+    if (!embed.fields?.length) {
+      delete embed.fields;
+    }
+
+    if (settings.footerText || options.embedFooterText) {
+      embed.footer = {
+        text: clampText(
+          options.embedFooterText || settings.footerText,
+          MAX_EMBED_FOOTER_LENGTH,
+        ),
+      };
+    }
+
+    if (isRecord(options.embedAuthor)) {
+      const author = {
+        name: clampText(options.embedAuthor.name ?? "", 256),
+        url: options.embedAuthor.url,
+        icon_url: options.embedAuthor.icon_url || options.embedAuthor.iconUrl,
+      };
+      if (author.name) {
+        embed.author = author;
+      }
+    }
+
+    if (embedImageName) {
+      embed.image = { url: `attachment://${embedImageName}` };
+    }
+
+    const payload = {
+      content: normalizedContent,
+      username:
+        typeof options.username === "string" && options.username.trim().length
+          ? clampText(options.username.trim(), 80)
+          : undefined,
+      avatar_url:
+        typeof options.avatarUrl === "string" && options.avatarUrl.trim().length
+          ? options.avatarUrl.trim()
+          : undefined,
+      embeds: [embed],
+    };
+
+    if (allowedMentions) {
+      payload.allowed_mentions = allowedMentions;
+    }
+
+    if (Array.isArray(options.components) && options.components.length) {
+      payload.components = options.components;
+    }
+
+    if (extraEmbeds.length) {
+      payload.embeds.push(
+        ...extraEmbeds.slice(0, Math.max(0, MAX_EMBEDS - payload.embeds.length)),
+      );
+    }
+
+    payload.embeds = payload.embeds.slice(0, MAX_EMBEDS);
+
+    return payload;
+  }
+
+  for (const target of targets) {
+    await logEvent({
+      channel: target.channel,
+      type: title,
+      payload: {
+        data,
+        options,
+        sourceChannel: normalizedChannel,
+        forwarded: target.channel !== normalizedChannel,
+      },
+      ip: data?.extra?.ip || null,
+      username: data?.user || null,
+    });
+
+    if (!isValidDiscordWebhookUrl(target.url)) {
+      continue;
+    }
+
+    const payload = buildPayloadForChannel(target.channel);
+    const shouldUseThreadOptions = target.channel === normalizedChannel;
+    await dispatch(target.url, payload, attachments, {
+      threadId: shouldUseThreadOptions ? options.threadId : undefined,
+      waitForDelivery: shouldUseThreadOptions
+        ? Boolean(options.waitForDelivery)
+        : false,
+    });
+  }
 }
 
 export async function sendAdminEvent(title, data = {}, options = {}) {

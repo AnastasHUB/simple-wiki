@@ -46,7 +46,7 @@ Les mots de passe créés avant la migration vers bcrypt sont automatiquement r�
 - 💬 Modération des commentaires avec tokens d’édition temporaires et identifiants snowflake.
 - 🔍 Recherche plein texte grâce à SQLite FTS (si disponible).
 - 📊 Statistiques de vues et likes par page.
-- 📡 Webhooks Discord pour les flux « admin » et « feed » avec validation des URL, retries automatiques et options de personnalisation (contenu, auteur, composants, pièces jointes).
+- 📡 Webhooks Discord pour les flux « admin » et « feed » avec validation des URL, retries automatiques, duplication systématique des événements vers l’équipe admin et options de personnalisation (contenu, auteur, composants, pièces jointes).
 
 ## 📚 Documentation
 
