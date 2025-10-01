@@ -5,7 +5,12 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
 import { all, get, run, randId, savePageFts } from "../db.js";
-import { generateSnowflake } from "../utils/snowflake.js";
+import {
+  generateSnowflake,
+  decomposeSnowflake,
+  SNOWFLAKE_EPOCH_MS,
+  SNOWFLAKE_STRUCTURE,
+} from "../utils/snowflake.js";
 import { slugify, linkifyInternal } from "../utils/linkify.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { hashPassword } from "../utils/passwords.js";
@@ -123,6 +128,43 @@ function formatSecondsAgo(seconds) {
   }
   const days = Math.floor(hours / 24);
   return days === 1 ? "1 j" : `${days} j`;
+}
+
+function formatRelativeDurationMs(ms) {
+  const isFuture = ms < 0;
+  const absSeconds = Math.floor(Math.abs(ms) / 1000);
+  const prefix = isFuture ? "dans" : "il y a";
+  if (absSeconds <= 0) {
+    return isFuture ? "dans moins d’une seconde" : "il y a moins d’une seconde";
+  }
+  if (absSeconds < 60) {
+    const unit = absSeconds === 1 ? "seconde" : "secondes";
+    return `${prefix} ${absSeconds} ${unit}`;
+  }
+  if (absSeconds < 3600) {
+    const minutes = Math.round(absSeconds / 60);
+    const unit = minutes === 1 ? "minute" : "minutes";
+    return `${prefix} ${minutes} ${unit}`;
+  }
+  if (absSeconds < 86400) {
+    const hours = Math.round(absSeconds / 3600);
+    const unit = hours === 1 ? "heure" : "heures";
+    return `${prefix} ${hours} ${unit}`;
+  }
+  const days = Math.round(absSeconds / 86400);
+  const unit = days === 1 ? "jour" : "jours";
+  return `${prefix} ${days} ${unit}`;
+}
+
+function formatDateTimeLocalized(date) {
+  try {
+    return new Intl.DateTimeFormat("fr-FR", {
+      dateStyle: "full",
+      timeStyle: "long",
+    }).format(date);
+  } catch (error) {
+    return date.toISOString();
+  }
 }
 
 function serializeLiveVisitors(now = Date.now()) {
@@ -2599,6 +2641,50 @@ r.post("/trash/empty", async (req, res) => {
   });
 
   res.redirect("/admin/trash");
+});
+
+r.get("/snowflakes", (req, res) => {
+  const queryId = typeof req.query.id === "string" ? req.query.id.trim() : "";
+  let decoded = null;
+  let error = null;
+  const now = Date.now();
+  const nowDate = new Date(now);
+  const nowInfo = {
+    iso: nowDate.toISOString(),
+    localized: formatDateTimeLocalized(nowDate),
+  };
+
+  if (queryId) {
+    const details = decomposeSnowflake(queryId, { now });
+    if (!details) {
+      error =
+        "Impossible de décoder cet identifiant. Vérifiez qu’il s’agit bien d’un snowflake valide.";
+    } else {
+      const createdAt = new Date(details.timestamp.milliseconds);
+      decoded = {
+        ...details,
+        createdAtLocalized: formatDateTimeLocalized(createdAt),
+        createdAtUnixSeconds: Math.floor(details.timestamp.milliseconds / 1000),
+        relativeAge: formatRelativeDurationMs(details.ageMs),
+        absoluteAgeSeconds: Math.round(Math.abs(details.ageMs) / 1000),
+        isFuture: details.ageMs < 0,
+      };
+    }
+  }
+
+  res.render("admin/snowflakes", {
+    title: "Décodeur de snowflakes",
+    queryId,
+    decoded,
+    error,
+    now: nowInfo,
+    epoch: {
+      ms: SNOWFLAKE_EPOCH_MS,
+      iso: new Date(SNOWFLAKE_EPOCH_MS).toISOString(),
+      localized: formatDateTimeLocalized(new Date(SNOWFLAKE_EPOCH_MS)),
+    },
+    structure: SNOWFLAKE_STRUCTURE,
+  });
 });
 
 r.get("/events", async (req, res) => {
