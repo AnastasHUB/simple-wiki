@@ -4,7 +4,7 @@ import multer from "multer";
 import path from "path";
 import { randomUUID } from "crypto";
 import { requireAdmin } from "../middleware/auth.js";
-import { all, get, run, randSlugId, savePageFts } from "../db.js";
+import { all, get, run, randId, savePageFts } from "../db.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import { slugify, linkifyInternal } from "../utils/linkify.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
@@ -1198,7 +1198,7 @@ r.post("/submissions/:id/approve", async (req, res) => {
   try {
     if (submission.type === "create") {
       const base = slugify(submission.title);
-      const slugId = randSlugId(base);
+      const slugId = randId();
       const pageSnowflake = generateSnowflake();
       const insertResult = await run(
         "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content) VALUES(?,?,?,?,?)",

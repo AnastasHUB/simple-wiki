@@ -137,9 +137,9 @@
       <ul>
         <li><strong>users</strong> : comptes administrateurs et contributeurs.</li>
         <li>
-          <strong>pages</strong> : contenu principal du wiki avec
-          <code>slug_id</code> unique et historique dans
-          <code>page_revisions</code>.
+          <strong>pages</strong> : contenu principal du wiki avec des identifiants
+          <code>id</code> et <code>slug_id</code> générés via snowflake, plus un
+          historique dans <code>page_revisions</code>.
         </li>
         <li>
           <strong>comments</strong> : commentaires publics, modérés via un statut

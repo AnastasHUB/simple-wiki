@@ -297,10 +297,11 @@ export async function ensureDefaultAdmin() {
   }
 }
 
-export function randSlugId(base) {
-  const id = Math.random().toString(36).slice(2, 8);
-  return `${base}-${id}`;
+export function randId() {
+  return generateSnowflake();
 }
+
+export const randSlugId = randId;
 
 export async function incrementView(pageId, ip = null) {
   if (!pageId) return;
