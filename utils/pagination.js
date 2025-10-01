@@ -124,7 +124,9 @@ export function decoratePagination(req, pagination, options = {}) {
     ...pagination,
     pageParam,
     perPageParam,
-    previousUrl: pagination.hasPrevious ? buildUrl(pagination.previousPage) : null,
+    previousUrl: pagination.hasPrevious
+      ? buildUrl(pagination.previousPage)
+      : null,
     nextUrl: pagination.hasNext ? buildUrl(pagination.nextPage) : null,
     perPageOptionLinks,
     preservedQuery,

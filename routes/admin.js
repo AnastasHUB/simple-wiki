@@ -228,11 +228,10 @@ r.get("/comments", async (req, res) => {
       LIMIT ? OFFSET ?`,
     [...pendingFilters.params, pendingBase.perPage, pendingOffset],
   );
-  const pendingPagination = decoratePagination(
-    req,
-    pendingBase,
-    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
-  );
+  const pendingPagination = decoratePagination(req, pendingBase, {
+    pageParam: "pendingPage",
+    perPageParam: "pendingPerPage",
+  });
 
   const recentFilters = buildFilters("c.status<>'pending'");
   const recentCountRow = await get(
@@ -242,11 +241,10 @@ r.get("/comments", async (req, res) => {
       WHERE ${recentFilters.where}`,
     recentFilters.params,
   );
-  const recentBase = buildPagination(
-    req,
-    Number(recentCountRow?.total ?? 0),
-    { pageParam: "recentPage", perPageParam: "recentPerPage" },
-  );
+  const recentBase = buildPagination(req, Number(recentCountRow?.total ?? 0), {
+    pageParam: "recentPage",
+    perPageParam: "recentPerPage",
+  });
   const recentOffset = (recentBase.page - 1) * recentBase.perPage;
   const recent = await all(
     `SELECT c.id, c.snowflake_id, c.author, c.body, c.created_at, c.updated_at, c.status, c.ip,
@@ -258,11 +256,10 @@ r.get("/comments", async (req, res) => {
       LIMIT ? OFFSET ?`,
     [...recentFilters.params, recentBase.perPage, recentOffset],
   );
-  const recentPagination = decoratePagination(
-    req,
-    recentBase,
-    { pageParam: "recentPage", perPageParam: "recentPerPage" },
-  );
+  const recentPagination = decoratePagination(req, recentBase, {
+    pageParam: "recentPage",
+    perPageParam: "recentPerPage",
+  });
 
   res.render("admin/comments", {
     pending,
@@ -419,7 +416,11 @@ async function fetchModeratableComment(rawId) {
     ]);
   }
 
-  if (!comment && numericIdentifier !== null && Number.isSafeInteger(numericIdentifier)) {
+  if (
+    !comment &&
+    numericIdentifier !== null &&
+    Number.isSafeInteger(numericIdentifier)
+  ) {
     comment = await get(baseSelect.replace("%WHERE%", "c.id=?"), [
       numericIdentifier,
     ]);
@@ -670,11 +671,10 @@ r.get("/ip-bans", async (req, res) => {
     `SELECT COUNT(*) AS total FROM ip_bans WHERE ${activeFilters.where}`,
     activeFilters.params,
   );
-  const activeBase = buildPagination(
-    req,
-    Number(activeCountRow?.total ?? 0),
-    { pageParam: "activePage", perPageParam: "activePerPage" },
-  );
+  const activeBase = buildPagination(req, Number(activeCountRow?.total ?? 0), {
+    pageParam: "activePage",
+    perPageParam: "activePerPage",
+  });
   const activeOffset = (activeBase.page - 1) * activeBase.perPage;
   const activeBans = await all(
     `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
@@ -684,22 +684,20 @@ r.get("/ip-bans", async (req, res) => {
       LIMIT ? OFFSET ?`,
     [...activeFilters.params, activeBase.perPage, activeOffset],
   );
-  const activePagination = decoratePagination(
-    req,
-    activeBase,
-    { pageParam: "activePage", perPageParam: "activePerPage" },
-  );
+  const activePagination = decoratePagination(req, activeBase, {
+    pageParam: "activePage",
+    perPageParam: "activePerPage",
+  });
 
   const liftedFilters = buildFilters("lifted_at IS NOT NULL");
   const liftedCountRow = await get(
     `SELECT COUNT(*) AS total FROM ip_bans WHERE ${liftedFilters.where}`,
     liftedFilters.params,
   );
-  const liftedBase = buildPagination(
-    req,
-    Number(liftedCountRow?.total ?? 0),
-    { pageParam: "liftedPage", perPageParam: "liftedPerPage" },
-  );
+  const liftedBase = buildPagination(req, Number(liftedCountRow?.total ?? 0), {
+    pageParam: "liftedPage",
+    perPageParam: "liftedPerPage",
+  });
   const liftedOffset = (liftedBase.page - 1) * liftedBase.perPage;
   const liftedBans = await all(
     `SELECT snowflake_id, ip, scope, value, reason, created_at, lifted_at
@@ -709,11 +707,10 @@ r.get("/ip-bans", async (req, res) => {
       LIMIT ? OFFSET ?`,
     [...liftedFilters.params, liftedBase.perPage, liftedOffset],
   );
-  const liftedPagination = decoratePagination(
-    req,
-    liftedBase,
-    { pageParam: "liftedPage", perPageParam: "liftedPerPage" },
-  );
+  const liftedPagination = decoratePagination(req, liftedBase, {
+    pageParam: "liftedPage",
+    perPageParam: "liftedPerPage",
+  });
 
   res.render("admin/ip_bans", {
     activeBans,
@@ -848,7 +845,10 @@ r.get("/ip-reputation", async (req, res) => {
   const historyOffset = (historyBase.page - 1) * historyBase.perPage;
 
   const [suspicious, cleared, history] = await Promise.all([
-    listIpProfilesForReview({ limit: reviewBase.perPage, offset: reviewOffset }),
+    listIpProfilesForReview({
+      limit: reviewBase.perPage,
+      offset: reviewOffset,
+    }),
     fetchRecentlyClearedProfiles({
       limit: clearedBase.perPage,
       offset: clearedOffset,
@@ -872,9 +872,9 @@ r.get("/ip-reputation", async (req, res) => {
     perPageParam: "historyPerPage",
   });
 
-  const refreshIntervalHours = Math.round(
-    (IP_REPUTATION_REFRESH_INTERVAL_MS / (60 * 60 * 1000)) * 10,
-  ) / 10;
+  const refreshIntervalHours =
+    Math.round((IP_REPUTATION_REFRESH_INTERVAL_MS / (60 * 60 * 1000)) * 10) /
+    10;
   res.render("admin/ip_reputation", {
     suspicious,
     cleared,
@@ -1013,7 +1013,7 @@ r.post("/ip-reputation/:hash/ban", async (req, res) => {
   const reasonBase = profile.reputation_summary
     ? `Suspicion VPN/Proxy : ${profile.reputation_summary}`
     : "Suspicion d'utilisation VPN/Proxy";
-  const reason = ((req.body.reason || reasonBase) || "")
+  const reason = (req.body.reason || reasonBase || "")
     .toString()
     .trim()
     .slice(0, 500);
@@ -1059,11 +1059,7 @@ r.get("/ip-profiles", async (req, res) => {
     limit: paginationBase.perPage,
     offset,
   });
-  const pagination = decoratePagination(
-    req,
-    paginationBase,
-    paginationOptions,
-  );
+  const pagination = decoratePagination(req, paginationBase, paginationOptions);
 
   res.render("admin/ip_profiles", {
     profiles,
@@ -1108,11 +1104,10 @@ r.get("/submissions", async (req, res) => {
     status: "pending",
     search,
   });
-  const pendingBase = buildPagination(
-    req,
-    pendingTotal,
-    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
-  );
+  const pendingBase = buildPagination(req, pendingTotal, {
+    pageParam: "pendingPage",
+    perPageParam: "pendingPerPage",
+  });
   const pendingOffset = (pendingBase.page - 1) * pendingBase.perPage;
   const pendingRows = await fetchPageSubmissions({
     status: "pending",
@@ -1126,21 +1121,19 @@ r.get("/submissions", async (req, res) => {
     ...item,
     tag_list: mapSubmissionTags(item),
   }));
-  const pendingPagination = decoratePagination(
-    req,
-    pendingBase,
-    { pageParam: "pendingPage", perPageParam: "pendingPerPage" },
-  );
+  const pendingPagination = decoratePagination(req, pendingBase, {
+    pageParam: "pendingPage",
+    perPageParam: "pendingPerPage",
+  });
 
   const recentTotal = await countPageSubmissions({
     status: ["approved", "rejected"],
     search,
   });
-  const recentBase = buildPagination(
-    req,
-    recentTotal,
-    { pageParam: "recentPage", perPageParam: "recentPerPage" },
-  );
+  const recentBase = buildPagination(req, recentTotal, {
+    pageParam: "recentPage",
+    perPageParam: "recentPerPage",
+  });
   const recentOffset = (recentBase.page - 1) * recentBase.perPage;
   const recentRows = await fetchPageSubmissions({
     status: ["approved", "rejected"],
@@ -1154,11 +1147,10 @@ r.get("/submissions", async (req, res) => {
     ...item,
     tag_list: mapSubmissionTags(item),
   }));
-  const recentPagination = decoratePagination(
-    req,
-    recentBase,
-    { pageParam: "recentPage", perPageParam: "recentPerPage" },
-  );
+  const recentPagination = decoratePagination(req, recentBase, {
+    pageParam: "recentPage",
+    perPageParam: "recentPerPage",
+  });
 
   res.render("admin/submissions", {
     pending,
@@ -1181,10 +1173,9 @@ r.get("/submissions/:id", async (req, res) => {
 
   let targetPage = null;
   if (submission.page_id) {
-    targetPage = await get(
-      "SELECT id, title, content FROM pages WHERE id=?",
-      [submission.page_id],
-    );
+    targetPage = await get("SELECT id, title, content FROM pages WHERE id=?", [
+      submission.page_id,
+    ]);
   }
   if (!targetPage && submission.current_slug) {
     targetPage = await get(
@@ -1196,7 +1187,9 @@ r.get("/submissions/:id", async (req, res) => {
   const proposedTags = mapSubmissionTags(submission);
   const currentTags = targetPage ? await fetchPageTags(targetPage.id) : [];
   const proposedHtml = linkifyInternal(submission.content || "");
-  const currentHtml = targetPage ? linkifyInternal(targetPage.content || "") : null;
+  const currentHtml = targetPage
+    ? linkifyInternal(targetPage.content || "")
+    : null;
 
   res.render("admin/submission_detail", {
     submission,
@@ -1241,7 +1234,12 @@ r.post("/submissions/:id/approve", async (req, res) => {
         throw new Error("Impossible de créer la page");
       }
       const tagNames = await upsertTags(pageId, submission.tags || "");
-      await recordRevision(pageId, submission.title, submission.content, reviewerId);
+      await recordRevision(
+        pageId,
+        submission.title,
+        submission.content,
+        reviewerId,
+      );
       await savePageFts({
         id: pageId,
         title: submission.title,
@@ -1261,9 +1259,14 @@ r.post("/submissions/:id/approve", async (req, res) => {
         type: "success",
         message: "Contribution approuvée et nouvel article publié.",
       });
-      const pageUrl = req.protocol + "://" + req.get("host") + "/wiki/" + slugId;
+      const pageUrl =
+        req.protocol + "://" + req.get("host") + "/wiki/" + slugId;
       await sendAdminEvent("Contribution approuvée", {
-        page: { title: submission.title, slug_id: slugId, snowflake_id: pageSnowflake },
+        page: {
+          title: submission.title,
+          slug_id: slugId,
+          snowflake_id: pageSnowflake,
+        },
         user: req.session.user?.username || null,
         extra: {
           submission: submission.snowflake_id,
@@ -1274,7 +1277,11 @@ r.post("/submissions/:id/approve", async (req, res) => {
       await sendFeedEvent(
         "Nouvel article",
         {
-          page: { title: submission.title, slug_id: slugId, snowflake_id: pageSnowflake },
+          page: {
+            title: submission.title,
+            slug_id: slugId,
+            snowflake_id: pageSnowflake,
+          },
           author: submission.submitted_by || null,
           url: pageUrl,
           tags: submission.tags,
@@ -1285,7 +1292,9 @@ r.post("/submissions/:id/approve", async (req, res) => {
       const page = submission.page_id
         ? await get("SELECT * FROM pages WHERE id=?", [submission.page_id])
         : submission.current_slug
-          ? await get("SELECT * FROM pages WHERE slug_id=?", [submission.current_slug])
+          ? await get("SELECT * FROM pages WHERE slug_id=?", [
+              submission.current_slug,
+            ])
           : null;
       if (!page) {
         throw new Error("Page cible introuvable");
@@ -1298,7 +1307,12 @@ r.post("/submissions/:id/approve", async (req, res) => {
       );
       await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
       const tagNames = await upsertTags(page.id, submission.tags || "");
-      await recordRevision(page.id, submission.title, submission.content, reviewerId);
+      await recordRevision(
+        page.id,
+        submission.title,
+        submission.content,
+        reviewerId,
+      );
       await savePageFts({
         id: page.id,
         title: submission.title,
@@ -1495,7 +1509,11 @@ r.get("/stats", async (req, res) => {
   `,
     [topLikedPagination.perPage, topLikedOffset],
   );
-  topLikedPagination = decoratePagination(req, topLikedPagination, topLikedOptions);
+  topLikedPagination = decoratePagination(
+    req,
+    topLikedPagination,
+    topLikedOptions,
+  );
 
   const topCommenterCount = await get(`
     SELECT COUNT(*) AS total
@@ -1902,10 +1920,7 @@ r.get("/stats/live", (req, res) => {
     LIVE_VISITOR_PAGINATION_OPTIONS,
   );
   const offset = (pagination.page - 1) * pagination.perPage;
-  const visitors = allLiveVisitors.slice(
-    offset,
-    offset + pagination.perPage,
-  );
+  const visitors = allLiveVisitors.slice(offset, offset + pagination.perPage);
 
   res.json({
     ok: true,
@@ -2018,7 +2033,9 @@ r.get("/uploads", async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const normalizedSearch = searchTerm.toLowerCase();
   const uploadsList = await listUploads();
-  const ordered = [...uploadsList].sort((a, b) => (b.mtime || 0) - (a.mtime || 0));
+  const ordered = [...uploadsList].sort(
+    (a, b) => (b.mtime || 0) - (a.mtime || 0),
+  );
   const filtered = normalizedSearch
     ? ordered.filter((entry) => {
         const haystack = [
@@ -2181,10 +2198,9 @@ r.post("/roles", async (req, res) => {
     console.error("Failed to create role", error);
     pushNotification(req, {
       type: "error",
-      message:
-        error?.message?.includes("UNIQUE")
-          ? "Ce nom de rôle existe déjà."
-          : "Impossible de créer le rôle. Merci de réessayer.",
+      message: error?.message?.includes("UNIQUE")
+        ? "Ce nom de rôle existe déjà."
+        : "Impossible de créer le rôle. Merci de réessayer.",
     });
   }
   res.redirect("/admin/roles");
@@ -2362,10 +2378,7 @@ r.get("/users", async (req, res) => {
     `SELECT COUNT(*) AS total FROM users u ${where}`,
     params,
   );
-  const basePagination = buildPagination(
-    req,
-    Number(totalRow?.total ?? 0),
-  );
+  const basePagination = buildPagination(req, Number(totalRow?.total ?? 0));
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const users = await all(
@@ -2386,7 +2399,8 @@ r.get("/users", async (req, res) => {
         !role.is_moderator &&
         !role.is_helper &&
         !role.is_contributor,
-    ) || null;
+    ) ||
+    null;
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
     const isModerator = Boolean(user.is_moderator);
@@ -2399,14 +2413,14 @@ r.get("/users", async (req, res) => {
       (isAdmin
         ? "Administrateur"
         : isModerator
-        ? "Modérateur"
-        : isContributor
-        ? "Contributeur"
-        : isHelper
-        ? "Helper"
-        : canSubmit
-        ? "Contributeur" // fallback label for legacy display
-        : "Utilisateur");
+          ? "Modérateur"
+          : isContributor
+            ? "Contributeur"
+            : isHelper
+              ? "Helper"
+              : canSubmit
+                ? "Contributeur" // fallback label for legacy display
+                : "Utilisateur");
     return {
       ...user,
       is_admin: isAdmin,
@@ -2429,7 +2443,10 @@ r.get("/users", async (req, res) => {
 });
 r.post("/users", async (req, res) => {
   const { username, password } = req.body;
-  const selectedRoleId = Number.parseInt(req.body.roleId || req.body.role || "", 10);
+  const selectedRoleId = Number.parseInt(
+    req.body.roleId || req.body.role || "",
+    10,
+  );
   if (!username || !password) {
     pushNotification(req, {
       type: "error",
@@ -2483,7 +2500,10 @@ r.post("/users", async (req, res) => {
       message: `Utilisateur ${sanitizedUsername} créé (${role.name}).`,
     });
   } catch (error) {
-    if (error?.code === "SQLITE_CONSTRAINT" || error?.code === "SQLITE_CONSTRAINT_UNIQUE") {
+    if (
+      error?.code === "SQLITE_CONSTRAINT" ||
+      error?.code === "SQLITE_CONSTRAINT_UNIQUE"
+    ) {
       pushNotification(req, {
         type: "error",
         message: "Ce nom d'utilisateur existe déjà.",
@@ -2574,7 +2594,10 @@ r.post("/users/:id/role", async (req, res) => {
     return res.redirect("/admin/users");
   }
 
-  const requestedRoleId = Number.parseInt(req.body?.roleId || req.body?.role || "", 10);
+  const requestedRoleId = Number.parseInt(
+    req.body?.roleId || req.body?.role || "",
+    10,
+  );
   const role = await getRoleById(requestedRoleId);
 
   if (!role) {
@@ -2585,15 +2608,17 @@ r.post("/users/:id/role", async (req, res) => {
     return res.redirect("/admin/users");
   }
 
-  const previousRole = target.role_name || (target.is_admin
-    ? "Administrateur"
-    : target.is_moderator
-    ? "Modérateur"
-    : target.is_contributor
-    ? "Contributeur"
-    : target.is_helper
-    ? "Helper"
-    : "Utilisateur");
+  const previousRole =
+    target.role_name ||
+    (target.is_admin
+      ? "Administrateur"
+      : target.is_moderator
+        ? "Modérateur"
+        : target.is_contributor
+          ? "Contributeur"
+          : target.is_helper
+            ? "Helper"
+            : "Utilisateur");
 
   if (target.role_id === role.id) {
     pushNotification(req, {
@@ -2651,9 +2676,7 @@ r.post("/users/:id/role", async (req, res) => {
 r.post("/users/:id/delete", async (req, res) => {
   const target = await get(
     "SELECT id, username, display_name FROM users WHERE id=?",
-    [
-      req.params.id,
-    ],
+    [req.params.id],
   );
   await run("DELETE FROM users WHERE id=?", [req.params.id]);
   const ip = getClientIp(req);
@@ -2813,10 +2836,9 @@ r.post("/trash/:id/restore", async (req, res) => {
     return res.redirect("/admin/trash");
   }
 
-  const slugConflict = await get(
-    `SELECT id FROM pages WHERE slug_id = ?`,
-    [trashed.slug_id],
-  );
+  const slugConflict = await get(`SELECT id FROM pages WHERE slug_id = ?`, [
+    trashed.slug_id,
+  ]);
   if (slugConflict?.id) {
     pushNotification(req, {
       type: "error",
@@ -2990,9 +3012,7 @@ r.post("/trash/:id/delete", async (req, res) => {
 });
 
 r.post("/trash/empty", async (req, res) => {
-  const totalRow = await get(
-    "SELECT COUNT(*) AS total FROM deleted_pages",
-  );
+  const totalRow = await get("SELECT COUNT(*) AS total FROM deleted_pages");
   const total = Number(totalRow?.total || 0);
 
   if (!total) {
@@ -3237,7 +3257,8 @@ function parseStatsJson(value) {
                   ? view.snowflake_id
                   : null,
               day,
-              views: Number.isFinite(views) && views > 0 ? Math.floor(views) : 0,
+              views:
+                Number.isFinite(views) && views > 0 ? Math.floor(views) : 0,
             };
           })
           .filter(Boolean)

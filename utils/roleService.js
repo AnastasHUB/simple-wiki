@@ -64,7 +64,9 @@ export async function listRolesWithUsage() {
   const usage = await all(
     "SELECT role_id, COUNT(*) AS total FROM users WHERE role_id IS NOT NULL GROUP BY role_id",
   );
-  const usageMap = new Map(usage.map((row) => [row.role_id, Number(row.total) || 0]));
+  const usageMap = new Map(
+    usage.map((row) => [row.role_id, Number(row.total) || 0]),
+  );
   return roles.map((role) => ({
     ...role,
     userCount: usageMap.get(role.id) || 0,
@@ -75,7 +77,9 @@ export async function countUsersWithRole(roleId) {
   if (!roleId) {
     return 0;
   }
-  const row = await get("SELECT COUNT(*) AS total FROM users WHERE role_id=?", [roleId]);
+  const row = await get("SELECT COUNT(*) AS total FROM users WHERE role_id=?", [
+    roleId,
+  ]);
   return Number(row?.total ?? 0);
 }
 
@@ -207,7 +211,10 @@ export async function deleteRole(roleId) {
   if (!role) {
     return false;
   }
-  if (role.is_system || role.name?.toLowerCase() === EVERYONE_ROLE_NAME.toLowerCase()) {
+  if (
+    role.is_system ||
+    role.name?.toLowerCase() === EVERYONE_ROLE_NAME.toLowerCase()
+  ) {
     throw new Error("Impossible de supprimer ce rôle système.");
   }
   const usage = await countUsersWithRole(roleId);
@@ -223,7 +230,11 @@ export async function deleteRole(roleId) {
 
 export async function getEveryoneRole({ forceRefresh = false } = {}) {
   const now = Date.now();
-  if (!forceRefresh && cachedEveryoneRole && now - cachedEveryoneFetchedAt < EVERYONE_CACHE_TTL_MS) {
+  if (
+    !forceRefresh &&
+    cachedEveryoneRole &&
+    now - cachedEveryoneFetchedAt < EVERYONE_CACHE_TTL_MS
+  ) {
     return cachedEveryoneRole;
   }
   const row = await get(

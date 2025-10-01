@@ -17,7 +17,11 @@ function resolveIdentity(req) {
   };
 }
 
-async function buildSection(req, identity, { status, pageParam, perPageParam, orderBy, direction }) {
+async function buildSection(
+  req,
+  identity,
+  { status, pageParam, perPageParam, orderBy, direction },
+) {
   const hasIdentity = Boolean(identity.submittedBy) || Boolean(identity.ip);
 
   if (!hasIdentity) {
@@ -32,7 +36,10 @@ async function buildSection(req, identity, { status, pageParam, perPageParam, or
     submittedBy: identity.submittedBy,
     ip: identity.ip,
   });
-  const pagination = buildPaginationView(req, total, { pageParam, perPageParam });
+  const pagination = buildPaginationView(req, total, {
+    pageParam,
+    perPageParam,
+  });
   let rows = [];
   if (total > 0) {
     const offset = (pagination.page - 1) * pagination.perPage;

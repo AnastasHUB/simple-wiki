@@ -44,14 +44,17 @@ export function normalizeGitHubRepo(rawValue) {
   candidate = candidate.replace(/\.git$/i, "");
 
   if (!GITHUB_REPO_PATTERN.test(candidate)) {
-    throw new Error("Le dépôt GitHub doit être au format owner/repo ou une URL valide.");
+    throw new Error(
+      "Le dépôt GitHub doit être au format owner/repo ou une URL valide.",
+    );
   }
 
   return candidate;
 }
 
 export function normalizeChangelogMode(rawValue) {
-  const value = typeof rawValue === "string" ? rawValue.trim().toLowerCase() : "";
+  const value =
+    typeof rawValue === "string" ? rawValue.trim().toLowerCase() : "";
   if (value === GITHUB_CHANGELOG_MODES.PULLS || value === "pull_requests") {
     return GITHUB_CHANGELOG_MODES.PULLS;
   }
@@ -108,7 +111,8 @@ function mapCommit(entry) {
     author: entry?.author?.login || entry?.commit?.author?.name || "Inconnu",
     avatarUrl: entry?.author?.avatar_url || null,
     url: entry?.html_url || null,
-    timestamp: entry?.commit?.author?.date || entry?.commit?.committer?.date || null,
+    timestamp:
+      entry?.commit?.author?.date || entry?.commit?.committer?.date || null,
     sha: entry?.sha || null,
   };
 }
@@ -118,7 +122,9 @@ function mapPullRequest(entry) {
     id: entry?.id ? String(entry.id) : entry?.node_id || entry?.html_url,
     type: "pull",
     number: entry?.number || null,
-    title: entry?.title || (entry?.number ? `Pull request #${entry.number}` : "Pull request"),
+    title:
+      entry?.title ||
+      (entry?.number ? `Pull request #${entry.number}` : "Pull request"),
     description: entry?.body || "",
     author: entry?.user?.login || "Inconnu",
     avatarUrl: entry?.user?.avatar_url || null,
@@ -191,14 +197,24 @@ export async function fetchGitHubChangelog({ repo, mode, perPage, page }) {
   const links = parseLinkHeader(linkHeader);
   const hasNext = Boolean(links.next);
   const rateLimit = {
-    limit: Number.parseInt(response.headers.get("x-ratelimit-limit") || "0", 10) || null,
-    remaining: Number.parseInt(response.headers.get("x-ratelimit-remaining") || "0", 10) || null,
-    reset: Number.parseInt(response.headers.get("x-ratelimit-reset") || "0", 10) || null,
+    limit:
+      Number.parseInt(response.headers.get("x-ratelimit-limit") || "0", 10) ||
+      null,
+    remaining:
+      Number.parseInt(
+        response.headers.get("x-ratelimit-remaining") || "0",
+        10,
+      ) || null,
+    reset:
+      Number.parseInt(response.headers.get("x-ratelimit-reset") || "0", 10) ||
+      null,
   };
 
   const entries = Array.isArray(raw)
     ? raw.map((item) =>
-        normalizedMode === GITHUB_CHANGELOG_MODES.PULLS ? mapPullRequest(item) : mapCommit(item),
+        normalizedMode === GITHUB_CHANGELOG_MODES.PULLS
+          ? mapPullRequest(item)
+          : mapCommit(item),
       )
     : [];
 

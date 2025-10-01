@@ -77,7 +77,9 @@ export function deriveRoleFlags(rawUser = {}) {
 
 export function buildSessionUser(rawUser, overrides = null) {
   const baseFlags = deriveRoleFlags(rawUser);
-  const mergedFlags = overrides ? mergeRoleFlags(baseFlags, overrides) : baseFlags;
+  const mergedFlags = overrides
+    ? mergeRoleFlags(baseFlags, overrides)
+    : baseFlags;
   return {
     id: rawUser.id,
     username: rawUser.username,

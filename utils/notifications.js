@@ -6,7 +6,10 @@ function normalizeAction(action) {
   if (!action || typeof action !== "object") {
     return null;
   }
-  const href = typeof action.href === "string" && action.href.trim() ? action.href.trim() : null;
+  const href =
+    typeof action.href === "string" && action.href.trim()
+      ? action.href.trim()
+      : null;
   if (!href) {
     return null;
   }
@@ -37,7 +40,10 @@ export function pushNotification(
 }
 
 export function consumeNotifications(req) {
-  if (!req?.session?.notifications || !Array.isArray(req.session.notifications)) {
+  if (
+    !req?.session?.notifications ||
+    !Array.isArray(req.session.notifications)
+  ) {
     return [];
   }
   const notifications = req.session.notifications.slice();

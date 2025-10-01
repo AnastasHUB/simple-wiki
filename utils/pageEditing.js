@@ -69,4 +69,3 @@ export async function recordRevision(pageId, title, content, authorId = null) {
   );
   return next;
 }
-

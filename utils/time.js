@@ -1,5 +1,7 @@
 export function formatSecondsAgo(seconds) {
-  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, Math.floor(seconds)) : 0;
+  const safeSeconds = Number.isFinite(seconds)
+    ? Math.max(0, Math.floor(seconds))
+    : 0;
   if (safeSeconds < 60) {
     return `${safeSeconds}s`;
   }

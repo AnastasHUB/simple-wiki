@@ -33,7 +33,8 @@ function normalizeSettings(row = {}) {
       row.feed_webhook_url ?? row.feedWebhook ?? DEFAULT_SETTINGS.feedWebhook,
     footerText:
       row.footer_text ?? row.footerText ?? DEFAULT_SETTINGS.footerText,
-    githubRepo: row.github_repo ?? row.githubRepo ?? DEFAULT_SETTINGS.githubRepo,
+    githubRepo:
+      row.github_repo ?? row.githubRepo ?? DEFAULT_SETTINGS.githubRepo,
     changelogMode: normalizeChangelogMode(
       row.github_changelog_mode ??
         row.changelogMode ??
@@ -86,13 +87,17 @@ export async function getSiteSettingsForForm() {
 export async function updateSiteSettingsFromForm(input = {}) {
   let githubRepo = "";
   try {
-    githubRepo = normalizeGitHubRepo(input.github_repo ?? input.githubRepo ?? "");
+    githubRepo = normalizeGitHubRepo(
+      input.github_repo ?? input.githubRepo ?? "",
+    );
   } catch (err) {
     throw new Error(err.message || "Le dépôt GitHub fourni est invalide.");
   }
 
   const changelogMode = normalizeChangelogMode(
-    input.github_changelog_mode ?? input.changelogMode ?? input.githubChangelogMode,
+    input.github_changelog_mode ??
+      input.changelogMode ??
+      input.githubChangelogMode,
   );
 
   if (githubRepo) {

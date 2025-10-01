@@ -67,7 +67,11 @@ function computeAutoStatus(flags) {
     return "unknown";
   }
   const suspicious =
-    flags.isVpn || flags.isProxy || flags.isTor || flags.isDatacenter || flags.isAbuser;
+    flags.isVpn ||
+    flags.isProxy ||
+    flags.isTor ||
+    flags.isDatacenter ||
+    flags.isAbuser;
   return suspicious ? "suspicious" : "clean";
 }
 
@@ -126,7 +130,10 @@ function scheduleIpReputationRefresh(ip, options = {}) {
 
 async function queryIpReputation(ip) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), IP_REPUTATION_TIMEOUT_MS);
+  const timeout = setTimeout(
+    () => controller.abort(),
+    IP_REPUTATION_TIMEOUT_MS,
+  );
   try {
     const endpoint = `${IP_REPUTATION_ENDPOINT}?q=${encodeURIComponent(ip)}`;
     const response = await fetch(endpoint, {
@@ -142,15 +149,12 @@ async function queryIpReputation(ip) {
   }
 }
 
-
 export function hashIp(ip) {
   const normalized = normalizeIp(ip);
   if (!normalized) {
     return null;
   }
-  return createHash("sha256")
-    .update(`${SALT}:${normalized}`)
-    .digest("hex");
+  return createHash("sha256").update(`${SALT}:${normalized}`).digest("hex");
 }
 
 export function formatIpProfileLabel(hash, length = 10) {
@@ -191,10 +195,10 @@ export async function touchIpProfile(
         botDetection.reason || null,
       );
     }
-    await run(
-      `UPDATE ip_profiles SET ${updates.join(", ")} WHERE id=?`,
-      [...params, existing.id],
-    );
+    await run(`UPDATE ip_profiles SET ${updates.join(", ")} WHERE id=?`, [
+      ...params,
+      existing.id,
+    ]);
     if (!skipRefresh) {
       scheduleIpReputationRefresh(normalized);
     }
@@ -397,78 +401,77 @@ export async function getIpProfileByHash(hash) {
     recentViews,
     recentSubmissions,
     activeBans,
-  ] =
-    await Promise.all([
-      get(
-        `SELECT COUNT(*) AS total, COUNT(DISTINCT page_id) AS unique_pages, MAX(viewed_at) AS last_at
+  ] = await Promise.all([
+    get(
+      `SELECT COUNT(*) AS total, COUNT(DISTINCT page_id) AS unique_pages, MAX(viewed_at) AS last_at
            FROM page_views
           WHERE ip = ?`,
-        [profile.ip],
-      ),
-      get(
-        `SELECT COUNT(*) AS total, COUNT(DISTINCT page_id) AS unique_pages, MAX(created_at) AS last_at
+      [profile.ip],
+    ),
+    get(
+      `SELECT COUNT(*) AS total, COUNT(DISTINCT page_id) AS unique_pages, MAX(created_at) AS last_at
            FROM likes
           WHERE ip = ?`,
-        [profile.ip],
-      ),
-      get(
-        `SELECT COUNT(*) AS total, MAX(created_at) AS last_at
+      [profile.ip],
+    ),
+    get(
+      `SELECT COUNT(*) AS total, MAX(created_at) AS last_at
            FROM comments
           WHERE ip = ? AND status='approved'`,
-        [profile.ip],
-      ),
-      get(
-        `SELECT COUNT(*) AS total, MAX(created_at) AS last_at
+      [profile.ip],
+    ),
+    get(
+      `SELECT COUNT(*) AS total, MAX(created_at) AS last_at
            FROM page_submissions
           WHERE ip = ?`,
-        [profile.ip],
-      ),
-      all(
-        `SELECT status, COUNT(*) AS total
+      [profile.ip],
+    ),
+    all(
+      `SELECT status, COUNT(*) AS total
            FROM page_submissions
           WHERE ip = ?
           GROUP BY status`,
-        [profile.ip],
-      ),
-      all(
-        `SELECT c.snowflake_id, c.body, c.created_at, p.title, p.slug_id
+      [profile.ip],
+    ),
+    all(
+      `SELECT c.snowflake_id, c.body, c.created_at, p.title, p.slug_id
            FROM comments c
            JOIN pages p ON p.id = c.page_id
           WHERE c.ip = ? AND c.status='approved'
           ORDER BY c.created_at DESC
           LIMIT 5`,
-        [profile.ip],
-      ),
-      all(
-        `SELECT l.snowflake_id, l.created_at, p.title, p.slug_id
+      [profile.ip],
+    ),
+    all(
+      `SELECT l.snowflake_id, l.created_at, p.title, p.slug_id
            FROM likes l
            JOIN pages p ON p.id = l.page_id
           WHERE l.ip = ?
           ORDER BY l.created_at DESC
           LIMIT 5`,
-        [profile.ip],
-      ),
-      all(
-        `SELECT v.snowflake_id, v.viewed_at, p.title, p.slug_id
+      [profile.ip],
+    ),
+    all(
+      `SELECT v.snowflake_id, v.viewed_at, p.title, p.slug_id
            FROM page_views v
            JOIN pages p ON p.id = v.page_id
           WHERE v.ip = ?
           ORDER BY v.viewed_at DESC
           LIMIT 5`,
-        [profile.ip],
-      ),
-      all(
-        `SELECT ps.snowflake_id, ps.title, ps.status, ps.type, ps.created_at, ps.result_slug_id,
+      [profile.ip],
+    ),
+    all(
+      `SELECT ps.snowflake_id, ps.title, ps.status, ps.type, ps.created_at, ps.result_slug_id,
                 ps.target_slug_id, p.slug_id AS current_slug, p.title AS current_title
            FROM page_submissions ps
            LEFT JOIN pages p ON p.id = ps.page_id
           WHERE ps.ip = ?
           ORDER BY ps.created_at DESC
           LIMIT 5`,
-        [profile.ip],
-      ),
-      getActiveBans(profile.ip),
-    ]);
+      [profile.ip],
+    ),
+    getActiveBans(profile.ip),
+  ]);
 
   const submissionsByStatus = submissionBreakdown.reduce(
     (acc, row) => ({
@@ -675,10 +678,7 @@ export async function getRawIpProfileByHash(hash) {
   if (!normalized) {
     return null;
   }
-  return get(
-    `SELECT * FROM ip_profiles WHERE hash = ?`,
-    [normalized],
-  );
+  return get(`SELECT * FROM ip_profiles WHERE hash = ?`, [normalized]);
 }
 
 export async function deleteIpProfileByHash(hash) {
@@ -769,7 +769,10 @@ export async function countIpReputationHistoryEntries() {
   return Number(row?.total ?? 0);
 }
 
-export async function fetchRecentIpReputationChecks({ limit = 20, offset = 0 } = {}) {
+export async function fetchRecentIpReputationChecks({
+  limit = 20,
+  offset = 0,
+} = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 20;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(
@@ -811,7 +814,10 @@ export async function countClearedIpProfiles() {
   return Number(row?.total ?? 0);
 }
 
-export async function fetchRecentlyClearedProfiles({ limit = 10, offset = 0 } = {}) {
+export async function fetchRecentlyClearedProfiles({
+  limit = 10,
+  offset = 0,
+} = {}) {
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : 10;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
   const rows = await all(

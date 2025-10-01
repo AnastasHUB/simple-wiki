@@ -73,7 +73,11 @@ export async function getBanAppealBySnowflake(snowflakeId) {
   );
 }
 
-export async function resolveBanAppeal({ snowflakeId, status, resolvedBy = null }) {
+export async function resolveBanAppeal({
+  snowflakeId,
+  status,
+  resolvedBy = null,
+}) {
   const normalized = sanitizeStatus(status);
   if (!snowflakeId || !normalized || normalized === "pending") {
     throw new Error("Statut de résolution invalide");
@@ -91,10 +95,9 @@ export async function deleteBanAppeal(snowflakeId) {
   if (!snowflakeId) {
     return 0;
   }
-  const result = await run(
-    `DELETE FROM ban_appeals WHERE snowflake_id=?`,
-    [snowflakeId],
-  );
+  const result = await run(`DELETE FROM ban_appeals WHERE snowflake_id=?`, [
+    snowflakeId,
+  ]);
   return Number(result?.changes ?? 0);
 }
 
