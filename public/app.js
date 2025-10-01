@@ -196,7 +196,7 @@ function spawnNotification(layer, notif) {
 }
 
 function initLikeForms() {
-  const forms = document.querySelectorAll('form[data-like-form-for]');
+  const forms = document.querySelectorAll("form[data-like-form-for]");
   if (!forms.length) {
     return;
   }
@@ -222,7 +222,8 @@ function initLiveStatsCard() {
 
   const endpoint = card.getAttribute("data-endpoint") || "/admin/stats/live";
   const pageParam = card.getAttribute("data-page-param") || "livePage";
-  const perPageParam = card.getAttribute("data-per-page-param") || "livePerPage";
+  const perPageParam =
+    card.getAttribute("data-per-page-param") || "livePerPage";
   const tableWrap = card.querySelector("[data-live-table]");
   const tbody = card.querySelector("[data-live-table-body]");
   const emptyMessage = card.querySelector("[data-live-empty]");
@@ -262,7 +263,10 @@ function initLiveStatsCard() {
 
   const state = {
     page: parseNumber(card.getAttribute("data-live-page"), 1),
-    perPage: parseNumber(card.getAttribute("data-live-per-page"), parseNumber(perPageSelect.value, 10)),
+    perPage: parseNumber(
+      card.getAttribute("data-live-per-page"),
+      parseNumber(perPageSelect.value, 10),
+    ),
     totalPages: parseNumber(card.getAttribute("data-live-total-pages"), 1),
     totalItems: parseNumber(card.getAttribute("data-live-total-items"), 0),
     refreshMs: parseNumber(refreshSelect.value, 5000),
@@ -385,8 +389,14 @@ function initLiveStatsCard() {
 
     state.page = Math.max(1, parseNumber(pagination.page, state.page));
     state.perPage = Math.max(1, parseNumber(pagination.perPage, state.perPage));
-    state.totalPages = Math.max(1, parseNumber(pagination.totalPages, state.totalPages));
-    state.totalItems = Math.max(0, parseNumber(pagination.totalItems, state.totalItems));
+    state.totalPages = Math.max(
+      1,
+      parseNumber(pagination.totalPages, state.totalPages),
+    );
+    state.totalItems = Math.max(
+      0,
+      parseNumber(pagination.totalItems, state.totalItems),
+    );
 
     card.setAttribute("data-live-page", state.page);
     card.setAttribute("data-live-per-page", state.perPage);
@@ -439,9 +449,7 @@ function initLiveStatsCard() {
         throw new Error("Réponse inattendue");
       }
 
-      const visitors = Array.isArray(payload.visitors)
-        ? payload.visitors
-        : [];
+      const visitors = Array.isArray(payload.visitors) ? payload.visitors : [];
       if (token === requestSerial) {
         renderVisitors(visitors);
         updateVisibility(visitors.length > 0);
@@ -454,7 +462,10 @@ function initLiveStatsCard() {
         updateStatus(Date.now());
       }
     } catch (error) {
-      console.error("Erreur lors du rafraîchissement des statistiques en direct", error);
+      console.error(
+        "Erreur lors du rafraîchissement des statistiques en direct",
+        error,
+      );
       if (token === requestSerial) {
         updateStatus(null, true);
       }
@@ -617,7 +628,9 @@ function initAmbientBackdrop() {
   };
 
   const attachListeners = () => {
-    window.addEventListener("pointermove", handlePointerMove, { passive: true });
+    window.addEventListener("pointermove", handlePointerMove, {
+      passive: true,
+    });
     window.addEventListener("pointerleave", resetPosition, { passive: true });
     window.addEventListener("touchmove", handleTouchMove, { passive: true });
     window.addEventListener("resize", resetPosition);
@@ -654,7 +667,8 @@ function initAmbientBackdrop() {
 }
 
 async function handleLikeSubmit(event, form) {
-  const submitter = event.submitter || form.querySelector('button[type="submit"]');
+  const submitter =
+    event.submitter || form.querySelector('button[type="submit"]');
   if (submitter) {
     submitter.disabled = true;
     submitter.classList.add("is-loading");
@@ -675,7 +689,8 @@ async function handleLikeSubmit(event, form) {
     const data = expectJson ? await response.json() : null;
 
     if (!response.ok || data?.ok === false) {
-      const message = data?.message || "Impossible de mettre à jour vos favoris.";
+      const message =
+        data?.message || "Impossible de mettre à jour vos favoris.";
       const error = new Error(message);
       if (Array.isArray(data?.notifications) && data.notifications.length) {
         error.notifications = data.notifications;
@@ -952,7 +967,8 @@ function initHtmlEditor() {
 
   const quill = new window.Quill(container, options);
 
-  const scrollingContainer = quill.scrollingContainer || quill.root.parentElement;
+  const scrollingContainer =
+    quill.scrollingContainer || quill.root.parentElement;
   const silentSource = window.Quill?.sources?.SILENT || "api";
   let highlightTimeoutId = null;
   let lastKnownSelection = null;
@@ -965,7 +981,9 @@ function initHtmlEditor() {
     }
 
     const selection = quill.getSelection();
-    const savedScrollTop = scrollingContainer ? scrollingContainer.scrollTop : null;
+    const savedScrollTop = scrollingContainer
+      ? scrollingContainer.scrollTop
+      : null;
 
     syntax.highlight();
 
@@ -1087,12 +1105,9 @@ function initHtmlEditor() {
       }
       if (!response.ok || !data?.ok || !data.url) {
         const message = data?.message || data?.error;
-        throw new Error(
-          message || "Erreur lors du téléversement de l'image.",
-        );
+        throw new Error(message || "Erreur lors du téléversement de l'image.");
       }
-      const range =
-        pendingRange ||
+      const range = pendingRange ||
         quill.getSelection(true) || { index: quill.getLength(), length: 0 };
       quill.insertEmbed(range.index, "image", data.url, "user");
       quill.setSelection(range.index + 1, 0);
@@ -1130,8 +1145,10 @@ function initHtmlEditor() {
       openImagePicker();
     });
     toolbar.addHandler("divider", () => {
-      const range =
-        quill.getSelection(true) || { index: quill.getLength(), length: 0 };
+      const range = quill.getSelection(true) || {
+        index: quill.getLength(),
+        length: 0,
+      };
       quill.insertEmbed(range.index, "divider", true, "user");
       quill.insertText(range.index + 1, "\n", "user");
       quill.setSelection(range.index + 2, 0, "user");

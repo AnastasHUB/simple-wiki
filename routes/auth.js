@@ -1,6 +1,10 @@
 import { Router } from "express";
 import { get, run } from "../db.js";
-import { hashPassword, isBcryptHash, verifyPassword } from "../utils/passwords.js";
+import {
+  hashPassword,
+  isBcryptHash,
+  verifyPassword,
+} from "../utils/passwords.js";
 import { sendAdminEvent } from "../utils/webhook.js";
 import { getClientIp } from "../utils/ip.js";
 import { pushNotification } from "../utils/notifications.js";

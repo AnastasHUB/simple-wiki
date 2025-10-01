@@ -9,12 +9,7 @@
 
 body {
   margin: 0;
-  font-family:
-    "Segoe UI",
-    Roboto,
-    "Helvetica Neue",
-    Arial,
-    sans-serif;
+  font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   line-height: 1.6;
   background: #ffffff;
   color: #1f2933;
@@ -705,7 +700,9 @@ textarea {
   gap: 0.75rem;
   opacity: 0;
   transform: translateY(-8px);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
 }
 
 .notification.show {

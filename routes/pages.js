@@ -91,14 +91,19 @@ function appendNotification(res, notif) {
   res.locals.notifications = existing;
 }
 
-async function resolveAppealContext(req, { requestedScope = null, requestedValue = null } = {}) {
+async function resolveAppealContext(
+  req,
+  { requestedScope = null, requestedValue = null } = {},
+) {
   const ip = req.clientIp || getClientIp(req);
   const bans = ip ? await getActiveBans(ip) : [];
   let ban = null;
   if (requestedScope) {
     ban =
       bans.find(
-        (b) => b.scope === requestedScope && (b.value || "") === (requestedValue || ""),
+        (b) =>
+          b.scope === requestedScope &&
+          (b.value || "") === (requestedValue || ""),
       ) || null;
   }
   if (!ban && bans.length) {
@@ -155,7 +160,8 @@ function buildChangelogPagination(req, { page, perPage, hasNext }) {
   const baseParams = new URLSearchParams();
   if (req?.query) {
     for (const [key, rawValue] of Object.entries(req.query)) {
-      if (key === CHANGELOG_PAGE_PARAM || key === CHANGELOG_PER_PAGE_PARAM) continue;
+      if (key === CHANGELOG_PAGE_PARAM || key === CHANGELOG_PER_PAGE_PARAM)
+        continue;
       const values = Array.isArray(rawValue) ? rawValue : [rawValue];
       for (const value of values) {
         if (value === undefined || value === null || value === "") continue;
@@ -247,7 +253,8 @@ r.get(
 r.get(
   "/changelog",
   asyncHandler(async (req, res) => {
-    const repoFromSettings = req.changelogSettings?.repo || res.locals.changelogRepo || "";
+    const repoFromSettings =
+      req.changelogSettings?.repo || res.locals.changelogRepo || "";
     if (!repoFromSettings) {
       return res.status(404).render("page404");
     }
@@ -256,7 +263,9 @@ r.get(
     const requestedMode = req.query.mode || defaultMode;
     const mode = normalizeChangelogMode(requestedMode);
     const page = resolveChangelogPage(req.query[CHANGELOG_PAGE_PARAM]);
-    const perPage = resolveChangelogPageSize(req.query[CHANGELOG_PER_PAGE_PARAM]);
+    const perPage = resolveChangelogPageSize(
+      req.query[CHANGELOG_PER_PAGE_PARAM],
+    );
 
     let entries = [];
     let fetchError = null;
@@ -277,7 +286,11 @@ r.get(
       fetchError = err;
     }
 
-    const pagination = buildChangelogPagination(req, { page, perPage, hasNext });
+    const pagination = buildChangelogPagination(req, {
+      page,
+      perPage,
+      hasNext,
+    });
     const modeOptions = buildChangelogModeOptions(mode);
 
     res.status(fetchError ? 502 : 200).render("changelog", {
@@ -424,7 +437,12 @@ r.post(
       [pageSnowflake, base, slug_id, title, content],
     );
     const tagNames = await upsertTags(result.lastID, tags);
-    await recordRevision(result.lastID, title, content, req.session.user?.id || null);
+    await recordRevision(
+      result.lastID,
+      title,
+      content,
+      req.session.user?.id || null,
+    );
     await savePageFts({
       id: result.lastID,
       title,
@@ -545,9 +563,7 @@ r.post(
   asyncHandler(async (req, res) => {
     const page = await get(
       "SELECT id, snowflake_id, title, slug_id FROM pages WHERE slug_id=?",
-      [
-        req.params.slugid,
-      ],
+      [req.params.slugid],
     );
     if (!page) return res.status(404).send("Page introuvable");
 
@@ -826,10 +842,10 @@ r.post(
       req.get("X-Requested-With") === "XMLHttpRequest" ||
       (req.headers.accept || "").includes("application/json");
 
-      const page = await get(
-        "SELECT id, snowflake_id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
-        [req.params.slugid],
-      );
+    const page = await get(
+      "SELECT id, snowflake_id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
+      [req.params.slugid],
+    );
     if (!page) {
       if (wantsJson) {
         return res.status(404).json({
@@ -921,9 +937,10 @@ r.post(
 
     await touchIpProfile(ip, { userAgent: req.clientUserAgent });
 
-    const total = await get("SELECT COUNT(*) AS totalLikes FROM likes WHERE page_id=?", [
-      page.id,
-    ]);
+    const total = await get(
+      "SELECT COUNT(*) AS totalLikes FROM likes WHERE page_id=?",
+      [page.id],
+    );
     const likeCount = total?.totalLikes || 0;
 
     if (wantsJson) {
@@ -1046,7 +1063,12 @@ r.post(
       return res.redirect("/wiki/" + page.slug_id);
     }
 
-    await recordRevision(page.id, page.title, page.content, req.session.user?.id || null);
+    await recordRevision(
+      page.id,
+      page.title,
+      page.content,
+      req.session.user?.id || null,
+    );
     const base = slugify(title);
     await run(
       "UPDATE pages SET title=?, content=?, slug_base=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
@@ -1097,37 +1119,41 @@ async function handlePageDeletion(req, res) {
   }
 
   const tags = await fetchPageTags(page.id);
-  const [existingComments, existingLikes, existingViewEvents, existingViewDaily] =
-    await Promise.all([
-      all(
-        `SELECT author, body, created_at, updated_at, ip, edit_token, status, author_is_admin
+  const [
+    existingComments,
+    existingLikes,
+    existingViewEvents,
+    existingViewDaily,
+  ] = await Promise.all([
+    all(
+      `SELECT author, body, created_at, updated_at, ip, edit_token, status, author_is_admin
            FROM comments
           WHERE page_id=?
           ORDER BY id`,
-        [page.id],
-      ),
-      all(
-        `SELECT snowflake_id, ip, created_at
+      [page.id],
+    ),
+    all(
+      `SELECT snowflake_id, ip, created_at
            FROM likes
           WHERE page_id=?
           ORDER BY created_at`,
-        [page.id],
-      ),
-      all(
-        `SELECT snowflake_id, ip, viewed_at
+      [page.id],
+    ),
+    all(
+      `SELECT snowflake_id, ip, viewed_at
            FROM page_views
           WHERE page_id=?
           ORDER BY viewed_at`,
-        [page.id],
-      ),
-      all(
-        `SELECT snowflake_id, day, views
+      [page.id],
+    ),
+    all(
+      `SELECT snowflake_id, day, views
            FROM page_view_daily
           WHERE page_id=?
           ORDER BY day`,
-        [page.id],
-      ),
-    ]);
+      [page.id],
+    ),
+  ]);
   const serializedComments = existingComments.map((comment) => ({
     author: comment.author || null,
     body: comment.body || "",
@@ -1284,9 +1310,10 @@ r.get(
   "/wiki/:slugid/history",
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const page = await get("SELECT id, title, slug_id FROM pages WHERE slug_id=?", [
-      req.params.slugid,
-    ]);
+    const page = await get(
+      "SELECT id, title, slug_id FROM pages WHERE slug_id=?",
+      [req.params.slugid],
+    );
     if (!page) return res.status(404).send("Page introuvable");
     const totalRow = await get(
       `SELECT COUNT(*) AS total FROM page_revisions WHERE page_id = ?`,
@@ -1315,7 +1342,11 @@ r.get(
             [page.id, paginationBase.perPage, offset],
           )
         : [];
-    const pagination = decoratePagination(req, paginationBase, paginationOptions);
+    const pagination = decoratePagination(
+      req,
+      paginationBase,
+      paginationOptions,
+    );
     res.render("history", { page, revisions, pagination, total });
   }),
 );
@@ -1329,7 +1360,8 @@ r.get(
     ]);
     if (!page) return res.status(404).send("Page introuvable");
     const revNumber = parseInt(req.params.revisionId, 10);
-    if (Number.isNaN(revNumber)) return res.status(400).send("Révision invalide");
+    if (Number.isNaN(revNumber))
+      return res.status(400).send("Révision invalide");
     const revision = await get(
       `SELECT pr.*, u.username AS author
        FROM page_revisions pr
@@ -1358,7 +1390,8 @@ r.get(
     });
     if (!profile?.hash) {
       return res.status(500).render("error", {
-        message: "Profil IP actuellement indisponible. Veuillez réessayer plus tard.",
+        message:
+          "Profil IP actuellement indisponible. Veuillez réessayer plus tard.",
       });
     }
     res.redirect(`/profiles/ip/${profile.hash}`);
@@ -1459,10 +1492,8 @@ r.get(
   asyncHandler(async (req, res) => {
     const requestedScope = req.query.scope || null;
     const requestedValue = req.query.value || null;
-    const { ban, sessionLock, pendingFromDb, rejectedFromDb } = await resolveAppealContext(
-      req,
-      { requestedScope, requestedValue },
-    );
+    const { ban, sessionLock, pendingFromDb, rejectedFromDb } =
+      await resolveAppealContext(req, { requestedScope, requestedValue });
 
     if (!ban) {
       pushNotification(req, {
@@ -1490,7 +1521,8 @@ r.get(
 
     if (sessionLock === "pending" || pendingFromDb) {
       req.session.banAppealLock = "pending";
-      const errorMessage = "Une demande est déjà en cours de traitement. Veuillez patienter.";
+      const errorMessage =
+        "Une demande est déjà en cours de traitement. Veuillez patienter.";
       appendNotification(res, {
         type: "error",
         message: errorMessage,
@@ -1518,12 +1550,8 @@ r.post(
     const requestedScope = req.body.scope || null;
     const requestedValue = req.body.value || null;
 
-    const {
-      ban,
-      sessionLock,
-      pendingFromDb,
-      rejectedFromDb,
-    } = await resolveAppealContext(req, { requestedScope, requestedValue });
+    const { ban, sessionLock, pendingFromDb, rejectedFromDb } =
+      await resolveAppealContext(req, { requestedScope, requestedValue });
 
     if (!ban) {
       const errorMessage =
@@ -1558,7 +1586,8 @@ r.post(
 
     if (sessionLock === "pending" || pendingFromDb) {
       req.session.banAppealLock = "pending";
-      const errorMessage = "Une demande est déjà en cours de traitement. Veuillez patienter.";
+      const errorMessage =
+        "Une demande est déjà en cours de traitement. Veuillez patienter.";
       appendNotification(res, {
         type: "error",
         message: errorMessage,
@@ -1572,7 +1601,8 @@ r.post(
     }
 
     if (!message) {
-      const errorMessage = "Veuillez expliquer pourquoi votre adresse devrait être débannie.";
+      const errorMessage =
+        "Veuillez expliquer pourquoi votre adresse devrait être débannie.";
       appendNotification(res, {
         type: "error",
         message: errorMessage,
@@ -1585,7 +1615,8 @@ r.post(
       });
     }
     if (message.length > 2000) {
-      const errorMessage = "Votre message est trop long (2000 caractères maximum).";
+      const errorMessage =
+        "Votre message est trop long (2000 caractères maximum).";
       appendNotification(res, {
         type: "error",
         message: errorMessage,

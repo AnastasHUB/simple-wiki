@@ -46,9 +46,7 @@ function formatFieldValue(value) {
     return String(value);
   }
   if (Array.isArray(value)) {
-    const items = value
-      .map((item) => formatFieldValue(item))
-      .filter(Boolean);
+    const items = value.map((item) => formatFieldValue(item)).filter(Boolean);
     return items.join(", ");
   }
   if (typeof value === "object") {
@@ -70,7 +68,9 @@ function buildFields(data) {
       const formatted = formatFieldValue(value);
       if (!formatted) return null;
       const trimmed =
-        formatted.length > 1024 ? formatted.slice(0, 1021).trimEnd() + "…" : formatted;
+        formatted.length > 1024
+          ? formatted.slice(0, 1021).trimEnd() + "…"
+          : formatted;
       const fieldName = clampText(String(name ?? ""), 256);
       if (!fieldName) return null;
       return { name: fieldName, value: trimmed };
@@ -192,7 +192,10 @@ function resolveChannelTargets(channel, settings, options = {}) {
   function addTarget(name) {
     if (!name || seen.has(name)) return;
     seen.add(name);
-    targets.push({ channel: name, url: getWebhookUrlForChannel(name, settings) });
+    targets.push({
+      channel: name,
+      url: getWebhookUrlForChannel(name, settings),
+    });
   }
 
   addTarget(normalizedChannel);
@@ -274,7 +277,9 @@ async function dispatch(url, payload, attachments = [], options = {}) {
       }
 
       const bodyText = await response.text().catch(() => "");
-      const reason = bodyText ? `${response.status} ${response.statusText}: ${bodyText}` : `${response.status} ${response.statusText}`;
+      const reason = bodyText
+        ? `${response.status} ${response.statusText}: ${bodyText}`
+        : `${response.status} ${response.statusText}`;
       console.warn("Unable to send webhook", reason);
       return { ok: false, status: response.status };
     } catch (err) {
@@ -473,7 +478,10 @@ async function sendEvent(channel, title, data = {}, options = {}) {
 
     if (extraEmbeds.length) {
       payload.embeds.push(
-        ...extraEmbeds.slice(0, Math.max(0, MAX_EMBEDS - payload.embeds.length)),
+        ...extraEmbeds.slice(
+          0,
+          Math.max(0, MAX_EMBEDS - payload.embeds.length),
+        ),
       );
     }
 

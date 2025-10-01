@@ -69,7 +69,11 @@ const CONTENT_SANITIZE_OPTIONS = {
     a: ["http", "https", "mailto"],
   },
   transformTags: {
-    a: sanitizeHtml.simpleTransform("a", { target: "_blank", rel: "noreferrer noopener" }, true),
+    a: sanitizeHtml.simpleTransform(
+      "a",
+      { target: "_blank", rel: "noreferrer noopener" },
+      true,
+    ),
   },
 };
 
@@ -101,10 +105,18 @@ function trimForEmbed(text) {
   return `${text.slice(0, MAX_EMBED_DESCRIPTION_LENGTH - 1)}…`;
 }
 
-export function buildArticleMarkdownDescription({ title, content, author, tags, url }) {
+export function buildArticleMarkdownDescription({
+  title,
+  content,
+  author,
+  tags,
+  url,
+}) {
   const normalizedContent = content ? linkifyInternal(String(content)) : "";
   const sanitizedContent = sanitizeContent(normalizedContent);
-  const markdownBody = sanitizedContent ? turndown.turndown(sanitizedContent) : "";
+  const markdownBody = sanitizedContent
+    ? turndown.turndown(sanitizedContent)
+    : "";
   const fallback = "L'article est prêt à être découvert !";
 
   const sections = [];
@@ -118,7 +130,8 @@ export function buildArticleMarkdownDescription({ title, content, author, tags, 
   if (metaParts.length || normalizedTags.length) {
     const metaLines = [];
     if (metaParts.length) metaLines.push(metaParts.join(" • "));
-    if (normalizedTags.length) metaLines.push(normalizedTags.map((tag) => `#${tag}`).join("  "));
+    if (normalizedTags.length)
+      metaLines.push(normalizedTags.map((tag) => `#${tag}`).join("  "));
     sections.push(metaLines.join("\n"));
   }
 

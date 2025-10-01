@@ -58,7 +58,9 @@ export function decomposeSnowflake(value, { now = Date.now() } = {}) {
     return {
       value: snowflake.toString(),
       hex: snowflake.toString(16),
-      binary: snowflake.toString(2).padStart(SNOWFLAKE_STRUCTURE.totalBits, "0"),
+      binary: snowflake
+        .toString(2)
+        .padStart(SNOWFLAKE_STRUCTURE.totalBits, "0"),
       epochMs: SNOWFLAKE_EPOCH_MS,
       timestamp: {
         milliseconds: timestampMs,

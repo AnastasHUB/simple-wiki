@@ -221,7 +221,11 @@ export async function initDb() {
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");
-  await ensureColumn("comments", "author_is_admin", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "comments",
+    "author_is_admin",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
   await ensureColumn("users", "display_name", "TEXT");
   await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_helper", "INTEGER NOT NULL DEFAULT 0");
@@ -232,7 +236,11 @@ export async function initDb() {
   await ensureColumn("roles", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
-  await ensureColumn("ip_profiles", "reputation_status", "TEXT NOT NULL DEFAULT 'unknown'");
+  await ensureColumn(
+    "ip_profiles",
+    "reputation_status",
+    "TEXT NOT NULL DEFAULT 'unknown'",
+  );
   await ensureColumn(
     "ip_profiles",
     "reputation_auto_status",
@@ -478,10 +486,9 @@ async function synchronizeUserRoles() {
     );
   }
   if (userRoleId) {
-    await db.run(
-      "UPDATE users SET role_id=? WHERE role_id IS NULL",
-      [userRoleId],
-    );
+    await db.run("UPDATE users SET role_id=? WHERE role_id IS NULL", [
+      userRoleId,
+    ]);
   }
 
   for (const role of roles) {
@@ -505,18 +512,17 @@ export async function ensureDefaultAdmin() {
   const admin = await db.get("SELECT 1 FROM users WHERE username=?", ["admin"]);
   if (!admin) {
     const hashed = await hashPassword("admin");
-    const adminRole =
-      (await db.get(
-        "SELECT id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages FROM roles WHERE is_admin=1 LIMIT 1",
-      )) || {
-        id: null,
-        is_admin: 1,
-        is_moderator: 0,
-        is_helper: 0,
-        is_contributor: 0,
-        can_comment: 1,
-        can_submit_pages: 1,
-      };
+    const adminRole = (await db.get(
+      "SELECT id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages FROM roles WHERE is_admin=1 LIMIT 1",
+    )) || {
+      id: null,
+      is_admin: 1,
+      is_moderator: 0,
+      is_helper: 0,
+      is_contributor: 0,
+      can_comment: 1,
+      can_submit_pages: 1,
+    };
     await db.run(
       "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages) VALUES(?,?,?,?,?,?,?,?,?,?)",
       [
@@ -545,11 +551,10 @@ export const randSlugId = randId;
 export async function incrementView(pageId, ip = null) {
   if (!pageId) return;
   try {
-    await run("INSERT INTO page_views(snowflake_id, page_id, ip) VALUES(?,?,?)", [
-      generateSnowflake(),
-      pageId,
-      ip || null,
-    ]);
+    await run(
+      "INSERT INTO page_views(snowflake_id, page_id, ip) VALUES(?,?,?)",
+      [generateSnowflake(), pageId, ip || null],
+    );
   } catch (err) {
     console.error("Unable to record page view", err);
   }
@@ -605,13 +610,7 @@ export function isFtsAvailable() {
   return !!ftsAvailable;
 }
 
-export async function savePageFts({
-  id,
-  title,
-  content,
-  slug_id,
-  tags = "",
-}) {
+export async function savePageFts({ id, title, content, slug_id, tags = "" }) {
   if (!ftsAvailable || !id) return;
   try {
     await db.run("DELETE FROM pages_fts WHERE rowid=?", [id]);

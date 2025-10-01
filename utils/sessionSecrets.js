@@ -6,9 +6,7 @@ let watcher;
 let debounceTimer;
 
 function normalizeSecretList(list) {
-  return list
-    .map((value) => value.trim())
-    .filter(Boolean);
+  return list.map((value) => value.trim()).filter(Boolean);
 }
 
 function readSecretsFromFile(filePath) {

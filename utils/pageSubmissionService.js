@@ -64,9 +64,15 @@ function applySubmissionSearch(filters, params, search) {
   params.push(like, like, like, like, like, like, like);
 }
 
-function applySubmissionIdentityFilter(filters, params, { submittedBy = null, ip = null } = {}) {
+function applySubmissionIdentityFilter(
+  filters,
+  params,
+  { submittedBy = null, ip = null } = {},
+) {
   const normalizedSubmittedBy =
-    typeof submittedBy === "string" && submittedBy.trim() ? submittedBy.trim() : null;
+    typeof submittedBy === "string" && submittedBy.trim()
+      ? submittedBy.trim()
+      : null;
   const normalizedIp = typeof ip === "string" && ip.trim() ? ip.trim() : null;
 
   if (normalizedSubmittedBy && normalizedIp) {
@@ -123,12 +129,7 @@ export async function fetchPageSubmissions({
   submittedBy = null,
   ip = null,
 } = {}) {
-  const allowedOrder = new Set([
-    "created_at",
-    "reviewed_at",
-    "title",
-    "type",
-  ]);
+  const allowedOrder = new Set(["created_at", "reviewed_at", "title", "type"]);
   const safeOrder = allowedOrder.has(orderBy) ? orderBy : "created_at";
   const safeDirection = direction === "ASC" ? "ASC" : "DESC";
 
@@ -146,7 +147,9 @@ export async function fetchPageSubmissions({
   applySubmissionSearch(whereClauses, params, search);
   applySubmissionIdentityFilter(whereClauses, params, { submittedBy, ip });
 
-  const where = whereClauses.length ? `WHERE ${whereClauses.join(" AND ")}` : "";
+  const where = whereClauses.length
+    ? `WHERE ${whereClauses.join(" AND ")}`
+    : "";
 
   return all(
     `SELECT ps.*, p.title AS current_title, p.slug_id AS current_slug,
@@ -206,4 +209,3 @@ export function mapSubmissionTags(submission) {
   }
   return normalizeTagInput(submission.tags || "");
 }
-

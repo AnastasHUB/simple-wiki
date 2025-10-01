@@ -2,9 +2,9 @@ const USER_AGENT_MAX_LENGTH = 512;
 
 export function getClientIp(req) {
   return (
-    (req.headers["x-forwarded-for"] || "")
-      .split(",")[0]
-      .trim() || req.ip || null
+    (req.headers["x-forwarded-for"] || "").split(",")[0].trim() ||
+    req.ip ||
+    null
   );
 }
 

@@ -67,8 +67,12 @@ export function buildPageMeta({
   const fallbackImage = toAbsoluteUrl(baseUrl, logoUrl, protocol);
   const image = firstImage || fallbackImage || null;
 
-  const publishedTime = page.created_at ? new Date(page.created_at).toISOString() : null;
-  const modifiedTime = page.updated_at ? new Date(page.updated_at).toISOString() : null;
+  const publishedTime = page.created_at
+    ? new Date(page.created_at).toISOString()
+    : null;
+  const modifiedTime = page.updated_at
+    ? new Date(page.updated_at).toISOString()
+    : null;
 
   return {
     title: page.title || siteName || "Wiki",
