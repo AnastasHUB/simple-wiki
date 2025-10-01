@@ -2,9 +2,26 @@ import sqlite3 from "sqlite3";
 import { open } from "sqlite";
 import { hashPassword } from "./utils/passwords.js";
 import { generateSnowflake } from "./utils/snowflake.js";
+import {
+  ROLE_FLAG_FIELDS,
+  DEFAULT_ROLE_FLAGS,
+  getRoleFlagValues,
+} from "./utils/roleFlags.js";
 
 let db;
 let ftsAvailable = null;
+const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
+const ROLE_FLAG_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
+const ROLE_FLAG_UPDATE_ASSIGNMENTS = ROLE_FLAG_FIELDS.map(
+  (field) => `${field}=excluded.${field}`,
+).join(", ");
+const ROLE_FLAG_USER_ASSIGNMENTS = ROLE_FLAG_FIELDS.map(
+  (field) => `${field}=?`,
+).join(", ");
+const ALL_ROLE_FLAGS_TRUE = ROLE_FLAG_FIELDS.reduce((acc, field) => {
+  acc[field] = true;
+  return acc;
+}, {});
 export async function initDb() {
   if (db) {
     return db;
@@ -24,6 +41,22 @@ export async function initDb() {
     is_contributor INTEGER NOT NULL DEFAULT 0,
     can_comment INTEGER NOT NULL DEFAULT 0,
     can_submit_pages INTEGER NOT NULL DEFAULT 0,
+    can_moderate_comments INTEGER NOT NULL DEFAULT 0,
+    can_review_ban_appeals INTEGER NOT NULL DEFAULT 0,
+    can_manage_ip_bans INTEGER NOT NULL DEFAULT 0,
+    can_manage_ip_reputation INTEGER NOT NULL DEFAULT 0,
+    can_manage_ip_profiles INTEGER NOT NULL DEFAULT 0,
+    can_review_submissions INTEGER NOT NULL DEFAULT 0,
+    can_manage_pages INTEGER NOT NULL DEFAULT 0,
+    can_view_stats INTEGER NOT NULL DEFAULT 0,
+    can_manage_uploads INTEGER NOT NULL DEFAULT 0,
+    can_manage_settings INTEGER NOT NULL DEFAULT 0,
+    can_manage_roles INTEGER NOT NULL DEFAULT 0,
+    can_manage_users INTEGER NOT NULL DEFAULT 0,
+    can_manage_likes INTEGER NOT NULL DEFAULT 0,
+    can_manage_trash INTEGER NOT NULL DEFAULT 0,
+    can_view_events INTEGER NOT NULL DEFAULT 0,
+    can_view_snowflakes INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -39,6 +72,22 @@ export async function initDb() {
     is_contributor INTEGER NOT NULL DEFAULT 0,
     can_comment INTEGER NOT NULL DEFAULT 0,
     can_submit_pages INTEGER NOT NULL DEFAULT 0,
+    can_moderate_comments INTEGER NOT NULL DEFAULT 0,
+    can_review_ban_appeals INTEGER NOT NULL DEFAULT 0,
+    can_manage_ip_bans INTEGER NOT NULL DEFAULT 0,
+    can_manage_ip_reputation INTEGER NOT NULL DEFAULT 0,
+    can_manage_ip_profiles INTEGER NOT NULL DEFAULT 0,
+    can_review_submissions INTEGER NOT NULL DEFAULT 0,
+    can_manage_pages INTEGER NOT NULL DEFAULT 0,
+    can_view_stats INTEGER NOT NULL DEFAULT 0,
+    can_manage_uploads INTEGER NOT NULL DEFAULT 0,
+    can_manage_settings INTEGER NOT NULL DEFAULT 0,
+    can_manage_roles INTEGER NOT NULL DEFAULT 0,
+    can_manage_users INTEGER NOT NULL DEFAULT 0,
+    can_manage_likes INTEGER NOT NULL DEFAULT 0,
+    can_manage_trash INTEGER NOT NULL DEFAULT 0,
+    can_view_events INTEGER NOT NULL DEFAULT 0,
+    can_view_snowflakes INTEGER NOT NULL DEFAULT 0,
     role_id INTEGER REFERENCES roles(id)
   );
   CREATE TABLE IF NOT EXISTS settings(
@@ -232,9 +281,169 @@ export async function initDb() {
   await ensureColumn("users", "is_contributor", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "users",
+    "can_moderate_comments",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_review_ban_appeals",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_ip_bans",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_ip_reputation",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_ip_profiles",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_review_submissions",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_pages",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_view_stats",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_uploads",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_settings",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_roles",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_users",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_likes",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_manage_trash",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_view_events",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "can_view_snowflakes",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
   await ensureColumn("roles", "is_system", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("roles", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn(
+    "roles",
+    "can_moderate_comments",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_review_ban_appeals",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_ip_bans",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_ip_reputation",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_ip_profiles",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_review_submissions",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_pages",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_view_stats",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_uploads",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_settings",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_roles",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_users",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_likes",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_manage_trash",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_view_events",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "roles",
+    "can_view_snowflakes",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
   await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
   await ensureColumn(
     "ip_profiles",
@@ -331,6 +540,16 @@ async function ensureSnowflake(table, column = "snowflake_id") {
   );
 }
 
+function buildRoleFlags(overrides = {}) {
+  const flags = { ...DEFAULT_ROLE_FLAGS };
+  for (const field of ROLE_FLAG_FIELDS) {
+    if (Object.prototype.hasOwnProperty.call(overrides, field)) {
+      flags[field] = Boolean(overrides[field]);
+    }
+  }
+  return flags;
+}
+
 async function ensureDefaultRoles() {
   await db.exec(`
     CREATE TABLE IF NOT EXISTS roles(
@@ -353,94 +572,78 @@ async function ensureDefaultRoles() {
       name: "Everyone",
       description: "Permissions de base accordées à tous les visiteurs.",
       is_system: 1,
-      is_admin: 0,
-      is_moderator: 0,
-      is_helper: 0,
-      is_contributor: 0,
-      can_comment: 1,
-      can_submit_pages: 1,
+      flags: buildRoleFlags({
+        can_comment: true,
+        can_submit_pages: true,
+      }),
     },
     {
       name: "Administrateur",
       description: "Accès complet à toutes les fonctionnalités.",
       is_system: 1,
-      is_admin: 1,
-      is_moderator: 0,
-      is_helper: 0,
-      is_contributor: 0,
-      can_comment: 1,
-      can_submit_pages: 1,
+      flags: buildRoleFlags(ALL_ROLE_FLAGS_TRUE),
     },
     {
       name: "Modérateur",
       description: "Peut gérer les commentaires et les soumissions.",
       is_system: 1,
-      is_admin: 0,
-      is_moderator: 1,
-      is_helper: 0,
-      is_contributor: 0,
-      can_comment: 1,
-      can_submit_pages: 1,
+      flags: buildRoleFlags({
+        is_moderator: true,
+        can_comment: true,
+        can_submit_pages: true,
+        can_moderate_comments: true,
+        can_review_submissions: true,
+        can_review_ban_appeals: true,
+        can_manage_likes: true,
+        can_manage_trash: true,
+        can_view_stats: true,
+      }),
     },
     {
       name: "Contributeur",
       description: "Peut publier des articles immédiatement.",
       is_system: 1,
-      is_admin: 0,
-      is_moderator: 0,
-      is_helper: 0,
-      is_contributor: 1,
-      can_comment: 1,
-      can_submit_pages: 1,
+      flags: buildRoleFlags({
+        is_contributor: true,
+        can_comment: true,
+        can_submit_pages: true,
+      }),
     },
     {
       name: "Helper",
       description: "Peut commenter sans modération.",
       is_system: 1,
-      is_admin: 0,
-      is_moderator: 0,
-      is_helper: 1,
-      is_contributor: 0,
-      can_comment: 1,
-      can_submit_pages: 1,
+      flags: buildRoleFlags({
+        is_helper: true,
+        can_comment: true,
+        can_submit_pages: true,
+      }),
     },
     {
       name: "Utilisateur",
       description: "Accès standard sans permissions supplémentaires.",
       is_system: 1,
-      is_admin: 0,
-      is_moderator: 0,
-      is_helper: 0,
-      is_contributor: 0,
-      can_comment: 1,
-      can_submit_pages: 1,
+      flags: buildRoleFlags({
+        can_comment: true,
+        can_submit_pages: true,
+      }),
     },
   ];
 
   for (const role of defaultRoles) {
     await db.run(
-      `INSERT INTO roles(name, description, is_system, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages)
-       VALUES(?,?,?,?,?,?,?,?,?)
+      `INSERT INTO roles(name, description, is_system, ${ROLE_FLAG_COLUMN_LIST})
+       VALUES(?,?,?,${ROLE_FLAG_PLACEHOLDERS})
        ON CONFLICT(name) DO UPDATE SET
          description=excluded.description,
          is_system=excluded.is_system,
-         is_admin=excluded.is_admin,
-         is_moderator=excluded.is_moderator,
-         is_helper=excluded.is_helper,
-         is_contributor=excluded.is_contributor,
-         can_comment=excluded.can_comment,
-         can_submit_pages=excluded.can_submit_pages,
+         ${ROLE_FLAG_UPDATE_ASSIGNMENTS},
          updated_at=CURRENT_TIMESTAMP`,
       [
         role.name,
         role.description,
         role.is_system || 0,
-        role.is_admin,
-        role.is_moderator,
-        role.is_helper,
-        role.is_contributor,
-        role.can_comment || 0,
-        role.can_submit_pages || 0,
+        ...getRoleFlagValues(role.flags),
       ],
     );
   }
@@ -448,7 +651,7 @@ async function ensureDefaultRoles() {
 
 async function synchronizeUserRoles() {
   const roles = await db.all(
-    "SELECT id, name, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages FROM roles",
+    `SELECT id, name, ${ROLE_FLAG_COLUMN_LIST} FROM roles`,
   );
   if (!roles.length) {
     return;
@@ -492,17 +695,12 @@ async function synchronizeUserRoles() {
   }
 
   for (const role of roles) {
+    const flagValues = ROLE_FLAG_FIELDS.map((field) =>
+      role[field] ? 1 : 0,
+    );
     await db.run(
-      "UPDATE users SET is_admin=?, is_moderator=?, is_helper=?, is_contributor=?, can_comment=?, can_submit_pages=? WHERE role_id=?",
-      [
-        role.is_admin ? 1 : 0,
-        role.is_moderator ? 1 : 0,
-        role.is_helper ? 1 : 0,
-        role.is_contributor ? 1 : 0,
-        role.can_comment ? 1 : 0,
-        role.can_submit_pages ? 1 : 0,
-        role.id,
-      ],
+      `UPDATE users SET ${ROLE_FLAG_USER_ASSIGNMENTS} WHERE role_id=?`,
+      [...flagValues, role.id],
     );
   }
 }
@@ -512,30 +710,25 @@ export async function ensureDefaultAdmin() {
   const admin = await db.get("SELECT 1 FROM users WHERE username=?", ["admin"]);
   if (!admin) {
     const hashed = await hashPassword("admin");
-    const adminRole = (await db.get(
-      "SELECT id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages FROM roles WHERE is_admin=1 LIMIT 1",
-    )) || {
-      id: null,
-      is_admin: 1,
-      is_moderator: 0,
-      is_helper: 0,
-      is_contributor: 0,
-      can_comment: 1,
-      can_submit_pages: 1,
-    };
+    const adminRoleRow =
+      (await db.get(
+        `SELECT id, ${ROLE_FLAG_COLUMN_LIST} FROM roles WHERE is_admin=1 LIMIT 1`,
+      )) || null;
+    const adminRoleFlags = adminRoleRow
+      ? ROLE_FLAG_FIELDS.reduce((acc, field) => {
+          acc[field] = Boolean(adminRoleRow[field]);
+          return acc;
+        }, {})
+      : buildRoleFlags(ALL_ROLE_FLAGS_TRUE);
+    const adminRoleId = adminRoleRow?.id ?? null;
     await db.run(
-      "INSERT INTO users(snowflake_id, username, password, role_id, is_admin, is_moderator, is_helper, is_contributor, can_comment, can_submit_pages) VALUES(?,?,?,?,?,?,?,?,?,?)",
+      `INSERT INTO users(snowflake_id, username, password, role_id, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})`,
       [
         generateSnowflake(),
         "admin",
         hashed,
-        adminRole.id,
-        adminRole.is_admin ? 1 : 0,
-        adminRole.is_moderator ? 1 : 0,
-        adminRole.is_helper ? 1 : 0,
-        adminRole.is_contributor ? 1 : 0,
-        adminRole.can_comment ? 1 : 0,
-        adminRole.can_submit_pages ? 1 : 0,
+        adminRoleId,
+        ...getRoleFlagValues(adminRoleFlags),
       ],
     );
     console.log("Default admin created: admin / (mot de passe haché)");

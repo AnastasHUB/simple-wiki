@@ -96,63 +96,116 @@
     <% } %>
     <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
     <% const isAdminUser = !!permissionFlags.is_admin; %>
-    <% const isModeratorUser = !!permissionFlags.is_moderator; %>
-    <% const isContributorUser = !!permissionFlags.is_contributor; %>
     <% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
     <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
+    <% const canModerateComments = !!permissionFlags.can_moderate_comments; %>
+    <% const canReviewSubmissions = !!permissionFlags.can_review_submissions; %>
+    <% const canManagePages = !!permissionFlags.can_manage_pages; %>
+    <% const canViewStats = !!permissionFlags.can_view_stats; %>
+    <% const canManageUsers = !!permissionFlags.can_manage_users; %>
+    <% const canManageRoles = !!permissionFlags.can_manage_roles; %>
+    <% const canManageLikes = !!permissionFlags.can_manage_likes; %>
+    <% const canManageTrash = !!permissionFlags.can_manage_trash; %>
+    <% const canManageUploads = !!permissionFlags.can_manage_uploads; %>
+    <% const canManageSettings = !!permissionFlags.can_manage_settings; %>
+    <% const canManageIpBans = !!permissionFlags.can_manage_ip_bans; %>
+    <% const canManageIpReputation = !!permissionFlags.can_manage_ip_reputation; %>
+    <% const canManageIpProfiles = !!permissionFlags.can_manage_ip_profiles; %>
+    <% const canReviewBanAppeals = !!permissionFlags.can_review_ban_appeals; %>
+    <% const canViewEvents = !!permissionFlags.can_view_events; %>
+    <% const canViewSnowflakes = !!permissionFlags.can_view_snowflakes; %>
+    <% const hasAdminMenu =
+      isAdminUser ||
+      canModerateComments ||
+      canReviewSubmissions ||
+      canManagePages ||
+      canViewStats ||
+      canManageUsers ||
+      canManageRoles ||
+      canManageLikes ||
+      canManageTrash ||
+      canManageUploads ||
+      canManageSettings ||
+      canManageIpBans ||
+      canManageIpReputation ||
+      canManageIpProfiles ||
+      canReviewBanAppeals ||
+      canViewEvents ||
+      canViewSnowflakes; %>
     <% if (canSubmitContent && !canPublishDirectly) { %>
       <li><a href="/new">Contribuer</a></li>
     <% } else if (canPublishDirectly) { %>
       <li><a href="/new">Nouvelle page</a></li>
     <% } %>
     <li><a href="/account/submissions">Mes contributions</a></li>
-    <% if (isAdminUser) { %>
-      <li><a href="/new">Nouvelle page</a></li>
-      <li>
-        <a href="/admin/submissions">
-          Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
-        </a>
-      </li>
-      <li><a href="/admin/pages">Articles</a></li>
-      <li><a href="/admin/trash">Corbeille</a></li>
-      <li><a href="/admin/stats">Statistiques</a></li>
-      <li><a href="/admin/users">Utilisateurs</a></li>
-      <li><a href="/admin/roles">Rôles</a></li>
-      <li>
-        <a href="/admin/comments">
-          Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
-        </a>
-      </li>
-      <li><a href="/admin/likes">Likes</a></li>
-      <li>
-        <a href="/admin/ip-bans">Blocages IP</a>
-      </li>
-      <li>
-        <a href="/admin/ip-reputation">
-          Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
-        </a>
-      </li>
-      <li><a href="/admin/ip-profiles">Profils IP</a></li>
-      <li>
-        <a href="/admin/ban-appeals">
-          Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
-        </a>
-      </li>
-      <li><a href="/admin/snowflakes">Snowflakes</a></li>
-      <li><a href="/admin/events">Événements</a></li>
-      <li><a href="/admin/uploads">Images</a></li>
-      <li><a href="/admin/settings">Paramètres</a></li>
-    <% } else if (isModeratorUser) { %>
-      <li>
-        <a href="/admin/submissions">
-          Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
-        </a>
-      </li>
-      <li>
-        <a href="/admin/comments">
-          Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
-        </a>
-      </li>
+    <% if (hasAdminMenu) { %>
+      <% if (isAdminUser) { %>
+        <li><a href="/new">Nouvelle page</a></li>
+      <% } %>
+      <% if (canReviewSubmissions) { %>
+        <li>
+          <a href="/admin/submissions">
+            Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canManagePages) { %>
+        <li><a href="/admin/pages">Articles</a></li>
+      <% } %>
+      <% if (canManageTrash) { %>
+        <li><a href="/admin/trash">Corbeille</a></li>
+      <% } %>
+      <% if (canViewStats) { %>
+        <li><a href="/admin/stats">Statistiques</a></li>
+      <% } %>
+      <% if (canManageUsers) { %>
+        <li><a href="/admin/users">Utilisateurs</a></li>
+      <% } %>
+      <% if (canManageRoles) { %>
+        <li><a href="/admin/roles">Rôles</a></li>
+      <% } %>
+      <% if (canModerateComments) { %>
+        <li>
+          <a href="/admin/comments">
+            Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canManageLikes) { %>
+        <li><a href="/admin/likes">Likes</a></li>
+      <% } %>
+      <% if (canManageIpBans) { %>
+        <li><a href="/admin/ip-bans">Blocages IP</a></li>
+      <% } %>
+      <% if (canManageIpReputation) { %>
+        <li>
+          <a href="/admin/ip-reputation">
+            Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canManageIpProfiles) { %>
+        <li><a href="/admin/ip-profiles">Profils IP</a></li>
+      <% } %>
+      <% if (canReviewBanAppeals) { %>
+        <li>
+          <a href="/admin/ban-appeals">
+            Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canViewSnowflakes) { %>
+        <li><a href="/admin/snowflakes">Snowflakes</a></li>
+      <% } %>
+      <% if (canViewEvents) { %>
+        <li><a href="/admin/events">Événements</a></li>
+      <% } %>
+      <% if (canManageUploads) { %>
+        <li><a href="/admin/uploads">Images</a></li>
+      <% } %>
+      <% if (canManageSettings) { %>
+        <li><a href="/admin/settings">Paramètres</a></li>
+      <% } %>
     <% } %>
   </ul>
 </nav>
