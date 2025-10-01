@@ -5,6 +5,7 @@
     <div class="meta">
       <span>Créé: <%= page.created_at %></span>
       <% if (page.updated_at) { %><span>• Modifié: <%= page.updated_at %></span><% } %>
+      <span>• Auteur : <strong><%= page.author || 'Anonyme' %></strong></span>
       <span>• Likes: <strong data-like-count-for="<%= page.slug_id %>"><%= page.likes %></strong></span>
       <span>• Commentaires: <strong><%= commentPagination.totalItems %></strong></span>
       <span>• Vues: <strong><%= page.views %></strong></span>

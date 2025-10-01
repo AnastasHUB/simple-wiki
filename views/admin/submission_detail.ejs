@@ -17,6 +17,10 @@
       <p><%= submission.ip || '–' %></p>
     </div>
     <div>
+      <strong>Auteur proposé</strong>
+      <p><%= submission.author_name || submission.submitted_by || '–' %></p>
+    </div>
+    <div>
       <strong>Proposé le</strong>
       <p><%= new Date(submission.created_at).toLocaleString('fr-FR') %></p>
     </div>
