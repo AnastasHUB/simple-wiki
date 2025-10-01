@@ -39,6 +39,7 @@
             <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener">Voir la page</a>
           </header>
           <p><%= c.body %></p>
+          <p class="meta">ID : <code><%= commentIdentifier %></code></p>
           <p class="meta">IP: <code><%= c.ip || 'n/a' %></code></p>
           <% if (c.updated_at) { %>
             <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
@@ -77,6 +78,7 @@
             <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener">Voir la page</a>
           </header>
           <p><%= c.body %></p>
+          <p class="meta">ID : <code><%= commentIdentifier %></code></p>
           <p class="meta">IP: <code><%= c.ip || 'n/a' %></code></p>
           <% if (c.updated_at) { %>
             <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>

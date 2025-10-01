@@ -43,7 +43,7 @@ Les mots de passe créés avant la migration vers bcrypt sont automatiquement r�
 ## 🧩 Fonctionnalités principales
 
 - ✏️ Édition collaborative des pages avec historique des révisions.
-- 💬 Modération des commentaires avec tokens d’édition temporaires.
+- 💬 Modération des commentaires avec tokens d’édition temporaires et identifiants snowflake.
 - 🔍 Recherche plein texte grâce à SQLite FTS (si disponible).
 - 📊 Statistiques de vues et likes par page.
 - 📡 Webhooks Discord pour les flux « admin » et « feed » avec validation des URL, retries automatiques et options de personnalisation (contenu, auteur, composants, pièces jointes).

@@ -46,11 +46,17 @@ r.post("/login", async (req, res) => {
     const newHash = await hashPassword(password);
     await run("UPDATE users SET password=? WHERE id=?", [newHash, u.id]);
   }
+  const isAdmin = !!u.is_admin;
+  const isModerator = !isAdmin && !!u.is_moderator;
+  if (isAdmin && u.is_moderator) {
+    await run("UPDATE users SET is_moderator=0 WHERE id=?", [u.id]);
+  }
+
   req.session.user = {
     id: u.id,
     username: u.username,
-    is_admin: !!u.is_admin,
-    is_moderator: !!u.is_moderator,
+    is_admin: isAdmin,
+    is_moderator: isModerator,
     display_name: u.display_name || null,
   };
   await sendAdminEvent(
