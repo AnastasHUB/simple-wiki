@@ -1,0 +1,123 @@
+<% title = typeof title !== 'undefined' ? title : 'Changelog'; %>
+<section class="card changelog-card">
+  <header class="card-header">
+    <h1 class="card-title">Changelog GitHub</h1>
+    <p class="card-subtitle">
+      <span>Dépôt&nbsp;:</span>
+      <a href="https://github.com/<%= repo %>" target="_blank" rel="noopener">
+        <%= repo %>
+      </a>
+    </p>
+  </header>
+
+  <form method="get" class="changelog-controls">
+    <% const modeFieldId = "changelog-mode"; %>
+    <% const perPageFieldId = "changelog-per-page"; %>
+    <div class="control-group">
+      <label for="<%= modeFieldId %>">Type d'événement</label>
+      <select id="<%= modeFieldId %>" name="mode" onchange="this.form.submit()">
+        <% modeOptions.forEach(option => { %>
+          <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
+            <%= option.label %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="control-group">
+      <label for="<%= perPageFieldId %>">Éléments par page</label>
+      <select id="<%= perPageFieldId %>" name="perPage" onchange="this.form.submit()">
+        <% pagination.perPageOptionLinks.forEach(option => { %>
+          <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
+            <%= option.value %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+    <input type="hidden" name="page" value="1" />
+  </form>
+
+  <% if (error) { %>
+    <div class="alert error">Impossible de récupérer les mises à jour : <%= error %></div>
+  <% } %>
+
+  <% if (!error && entries.length === 0) { %>
+    <p class="empty-state">Aucune mise à jour trouvée pour le moment.</p>
+  <% } %>
+
+  <ul class="changelog-list">
+    <% entries.forEach(entry => { %>
+      <% const isoDate = entry.timestamp || entry.updatedAt || entry.createdAt || entry.closedAt || entry.mergedAt; %>
+      <% const formattedDate = isoDate ? new Date(isoDate).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : null; %>
+      <% const typeLabel = entry.type === 'pull' ? 'Pull request' : 'Commit'; %>
+      <li class="changelog-item">
+        <div class="changelog-item-header">
+          <span class="changelog-type"><%= typeLabel %></span>
+          <% if (formattedDate) { %>
+            <time datetime="<%= isoDate %>"><%= formattedDate %></time>
+          <% } %>
+        </div>
+        <h2 class="changelog-title">
+          <% if (entry.url) { %>
+            <a href="<%= entry.url %>" target="_blank" rel="noopener">
+              <%= entry.title %>
+            </a>
+          <% } else { %>
+            <%= entry.title %>
+          <% } %>
+        </h2>
+        <p class="changelog-meta">
+          <% if (entry.type === 'pull' && entry.number) { %>
+            <span class="changelog-number">#<%= entry.number %></span>
+          <% } %>
+          <span>Par <strong><%= entry.author %></strong></span>
+          <% if (entry.type === 'commit' && entry.sha) { %>
+            <span class="changelog-sha">(<%= entry.sha.substring(0, 7) %>)</span>
+          <% } %>
+          <% if (entry.type === 'pull') { %>
+            <% const stateClass = entry.mergedAt ? 'merged' : entry.state; %>
+            <span class="changelog-state changelog-state-<%= stateClass %>">
+              <%= entry.state %><%= entry.mergedAt ? ' · fusionnée' : '' %>
+            </span>
+            <% if (entry.draft) { %>
+              <span class="changelog-state changelog-state-draft">brouillon</span>
+            <% } %>
+          <% } %>
+        </p>
+        <% const hasFullMessage = entry.description && entry.description.trim().length > entry.title.trim().length; %>
+        <% if (entry.description && hasFullMessage) { %>
+          <details class="changelog-message">
+            <summary>Afficher le message complet</summary>
+            <pre><code><%= entry.description %></code></pre>
+          </details>
+        <% } else if (entry.description && entry.type === 'pull') { %>
+          <p class="changelog-summary"><%= entry.description %></p>
+        <% } %>
+      </li>
+    <% }) %>
+  </ul>
+
+  <div class="changelog-pagination">
+    <span class="page-indicator">Page <%= pagination.page %></span>
+    <div class="pager">
+      <% if (pagination.hasPrevious) { %>
+        <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+      <% } else { %>
+        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+      <% } %>
+      <% if (pagination.hasNext) { %>
+        <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+      <% } else { %>
+        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+      <% } %>
+    </div>
+  </div>
+
+  <% if (rateLimit && rateLimit.remaining !== null) { %>
+    <p class="rate-limit">
+      Requêtes GitHub restantes : <strong><%= rateLimit.remaining %></strong>
+      <% if (rateLimit.limit !== null) { %>
+        / <%= rateLimit.limit %>
+      <% } %>
+    </p>
+  <% } %>
+</section>

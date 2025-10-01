@@ -2099,27 +2099,39 @@ r.get("/settings", async (_req, res) => {
   res.render("admin/settings", { s });
 });
 r.post("/settings", async (req, res) => {
-  const updated = await updateSiteSettingsFromForm(req.body);
-  const ip = getClientIp(req);
-  await sendAdminEvent(
-    "Paramètres mis à jour",
-    {
-      user: req.session.user?.username || null,
-      extra: {
-        ip,
-        wikiName: updated.wikiName,
-        logoUrl: updated.logoUrl,
-        footerText: updated.footerText,
-        adminWebhookConfigured: !!updated.adminWebhook,
-        feedWebhookConfigured: !!updated.feedWebhook,
+  try {
+    const updated = await updateSiteSettingsFromForm(req.body);
+    const ip = getClientIp(req);
+    await sendAdminEvent(
+      "Paramètres mis à jour",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          wikiName: updated.wikiName,
+          logoUrl: updated.logoUrl,
+          footerText: updated.footerText,
+          adminWebhookConfigured: !!updated.adminWebhook,
+          feedWebhookConfigured: !!updated.feedWebhook,
+          githubRepo: updated.githubRepo || null,
+          changelogMode: updated.changelogMode,
+        },
       },
-    },
-    { includeScreenshot: false },
-  );
-  pushNotification(req, {
-    type: "success",
-    message: "Paramètres enregistrés.",
-  });
+      { includeScreenshot: false },
+    );
+    pushNotification(req, {
+      type: "success",
+      message: "Paramètres enregistrés.",
+    });
+  } catch (err) {
+    console.error("Impossible de mettre à jour les paramètres", err);
+    pushNotification(req, {
+      type: "error",
+      message:
+        err?.message ||
+        "Impossible d'enregistrer les paramètres. Vérifiez les informations saisies.",
+    });
+  }
   res.redirect("/admin/settings");
 });
 

@@ -212,6 +212,12 @@ export async function initDb() {
   await ensureFts();
   await ensureColumn("deleted_pages", "comments_json", "TEXT");
   await ensureColumn("deleted_pages", "stats_json", "TEXT");
+  await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
+  await ensureColumn(
+    "settings",
+    "github_changelog_mode",
+    "TEXT NOT NULL DEFAULT 'commits'",
+  );
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");

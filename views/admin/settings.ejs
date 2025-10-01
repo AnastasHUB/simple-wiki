@@ -11,5 +11,24 @@
   <input type="url" name="feed_webhook_url" value="<%= s.feed_webhook_url %>" />
   <label>Pied de page</label>
   <input type="text" name="footer_text" value="<%= s.footer_text %>" />
+  <label>Dépôt GitHub pour le changelog</label>
+  <input
+    type="text"
+    name="github_repo"
+    placeholder="owner/repo ou URL https://github.com/…"
+    value="<%= s.github_repo %>"
+  />
+  <small class="field-hint"
+    >Laissez vide pour désactiver l'onglet Changelog. Le dépôt doit être public.</small
+  >
+  <label>Source du changelog</label>
+  <select name="github_changelog_mode">
+    <option value="commits" <%= s.github_changelog_mode === 'commits' ? 'selected' : '' %>>
+      Commits
+    </option>
+    <option value="pulls" <%= s.github_changelog_mode === 'pulls' ? 'selected' : '' %>>
+      Pull requests
+    </option>
+  </select>
   <div class="actions"><button class="btn success" data-icon="💾">Enregistrer</button></div>
 </form>

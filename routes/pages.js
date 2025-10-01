@@ -52,6 +52,13 @@ import {
   hasRejectedBanAppeal,
 } from "../utils/banAppeals.js";
 import { buildPageMeta } from "../utils/meta.js";
+import {
+  fetchGitHubChangelog,
+  CHANGELOG_PAGE_SIZES,
+  DEFAULT_CHANGELOG_PAGE_SIZE,
+  normalizeChangelogMode,
+  GITHUB_CHANGELOG_MODES,
+} from "../utils/githubService.js";
 
 const r = Router();
 
@@ -124,6 +131,84 @@ function buildAppealUrl({ scope, value } = {}) {
   return qs ? `/ban-appeal?${qs}` : "/ban-appeal";
 }
 
+const CHANGELOG_PAGE_PARAM = "page";
+const CHANGELOG_PER_PAGE_PARAM = "perPage";
+
+function resolveChangelogPage(rawPage) {
+  const parsed = Number.parseInt(rawPage, 10);
+  if (Number.isInteger(parsed) && parsed > 0) {
+    return parsed;
+  }
+  return 1;
+}
+
+function resolveChangelogPageSize(rawValue) {
+  const parsed = Number.parseInt(rawValue, 10);
+  if (Number.isInteger(parsed) && CHANGELOG_PAGE_SIZES.includes(parsed)) {
+    return parsed;
+  }
+  return DEFAULT_CHANGELOG_PAGE_SIZE;
+}
+
+function buildChangelogPagination(req, { page, perPage, hasNext }) {
+  const hasPrevious = page > 1;
+  const baseParams = new URLSearchParams();
+  if (req?.query) {
+    for (const [key, rawValue] of Object.entries(req.query)) {
+      if (key === CHANGELOG_PAGE_PARAM || key === CHANGELOG_PER_PAGE_PARAM) continue;
+      const values = Array.isArray(rawValue) ? rawValue : [rawValue];
+      for (const value of values) {
+        if (value === undefined || value === null || value === "") continue;
+        baseParams.append(key, String(value));
+      }
+    }
+  }
+
+  const buildUrl = (pageValue) => {
+    const params = new URLSearchParams(baseParams.toString());
+    params.set(CHANGELOG_PAGE_PARAM, String(pageValue));
+    params.set(CHANGELOG_PER_PAGE_PARAM, String(perPage));
+    return `?${params.toString()}`;
+  };
+
+  const perPageOptionLinks = CHANGELOG_PAGE_SIZES.map((size) => {
+    const params = new URLSearchParams(baseParams.toString());
+    params.set(CHANGELOG_PAGE_PARAM, "1");
+    params.set(CHANGELOG_PER_PAGE_PARAM, String(size));
+    return {
+      value: size,
+      selected: size === perPage,
+      url: `?${params.toString()}`,
+    };
+  });
+
+  return {
+    page,
+    perPage,
+    hasPrevious,
+    hasNext,
+    previousUrl: hasPrevious ? buildUrl(page - 1) : null,
+    nextUrl: hasNext ? buildUrl(page + 1) : null,
+    perPageOptionLinks,
+  };
+}
+
+function buildChangelogModeOptions(selectedMode) {
+  const normalized = normalizeChangelogMode(selectedMode);
+  return [
+    {
+      value: GITHUB_CHANGELOG_MODES.COMMITS,
+      label: "Commits",
+      selected: normalized === GITHUB_CHANGELOG_MODES.COMMITS,
+    },
+    {
+      value: GITHUB_CHANGELOG_MODES.PULLS,
+      label: "Pull requests",
+      selected: normalized === GITHUB_CHANGELOG_MODES.PULLS,
+    },
+  ];
+}
+
 r.get(
   "/",
   asyncHandler(async (req, res) => {
@@ -155,6 +240,55 @@ r.get(
       rows,
       total,
       pagination,
+    });
+  }),
+);
+
+r.get(
+  "/changelog",
+  asyncHandler(async (req, res) => {
+    const repoFromSettings = req.changelogSettings?.repo || res.locals.changelogRepo || "";
+    if (!repoFromSettings) {
+      return res.status(404).render("page404");
+    }
+
+    const defaultMode = req.changelogSettings?.mode || res.locals.changelogMode;
+    const requestedMode = req.query.mode || defaultMode;
+    const mode = normalizeChangelogMode(requestedMode);
+    const page = resolveChangelogPage(req.query[CHANGELOG_PAGE_PARAM]);
+    const perPage = resolveChangelogPageSize(req.query[CHANGELOG_PER_PAGE_PARAM]);
+
+    let entries = [];
+    let fetchError = null;
+    let hasNext = false;
+    let rateLimit = null;
+
+    try {
+      const result = await fetchGitHubChangelog({
+        repo: repoFromSettings,
+        mode,
+        perPage,
+        page,
+      });
+      entries = result.entries;
+      hasNext = result.hasNext;
+      rateLimit = result.rateLimit;
+    } catch (err) {
+      fetchError = err;
+    }
+
+    const pagination = buildChangelogPagination(req, { page, perPage, hasNext });
+    const modeOptions = buildChangelogModeOptions(mode);
+
+    res.status(fetchError ? 502 : 200).render("changelog", {
+      title: "Changelog",
+      repo: repoFromSettings,
+      mode,
+      entries,
+      pagination,
+      modeOptions,
+      error: fetchError ? fetchError.message : null,
+      rateLimit,
     });
   }),
 );

@@ -79,6 +79,13 @@ app.use(async (req, res, next) => {
     res.locals.wikiName = settings.wikiName;
     res.locals.logoUrl = settings.logoUrl;
     res.locals.footerText = settings.footerText;
+    res.locals.changelogRepo = settings.githubRepo;
+    res.locals.changelogMode = settings.changelogMode;
+    res.locals.hasChangelog = Boolean(settings.githubRepo);
+    req.changelogSettings = {
+      repo: settings.githubRepo,
+      mode: settings.changelogMode,
+    };
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
     const isStaff = Boolean(currentUser?.is_admin || currentUser?.is_moderator);
