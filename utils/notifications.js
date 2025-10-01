@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { generateSnowflake } from "./snowflake.js";
 
 const DEFAULT_TIMEOUT = 5000;
 
@@ -28,7 +28,7 @@ export function pushNotification(
     req.session.notifications = [];
   }
   req.session.notifications.push({
-    id: randomUUID(),
+    id: generateSnowflake(),
     type,
     message,
     timeout: Number.isFinite(timeout) ? timeout : DEFAULT_TIMEOUT,
