@@ -50,6 +50,7 @@ r.post("/login", async (req, res) => {
     id: u.id,
     username: u.username,
     is_admin: !!u.is_admin,
+    is_moderator: !!u.is_moderator,
     display_name: u.display_name || null,
   };
   await sendAdminEvent(

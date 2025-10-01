@@ -17,6 +17,8 @@ npm start
 
 > 🔐 Le compte administrateur par défaut est `admin` / `admin`. Il est créé avec un mot de passe haché lors de `npm run db:init`. Pensez à le modifier dès la première connexion !
 
+Les administrateurs peuvent également créer des comptes de modération depuis le panneau « Utilisateurs ». Ces modérateurs ont accès aux écrans de modération des commentaires et des contributions, sans les privilèges avancés réservés aux admins.
+
 ## 🛠️ Scripts utiles
 
 | Script | Description |
