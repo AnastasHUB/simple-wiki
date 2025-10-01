@@ -173,6 +173,11 @@
       permissionFlags.can_replace_files ||
       permissionFlags.can_delete_files
     ); %>
+    <% const canManageDataPortability = !!(
+      permissionFlags.can_manage_data_portability ||
+      permissionFlags.can_export_data ||
+      permissionFlags.can_import_data
+    ); %>
     <% const canManageSettings = !!(
       permissionFlags.can_manage_settings ||
       permissionFlags.can_update_general_settings ||
@@ -228,6 +233,7 @@
       canManageLikes ||
       canManageTrash ||
       canManageUploads ||
+      canManageDataPortability ||
       canManageSettings ||
       canManageIpBans ||
       canManageIpReputation ||
@@ -305,6 +311,9 @@
       <% } %>
       <% if (canManageUploads) { %>
         <li><a href="/admin/uploads">Images</a></li>
+      <% } %>
+      <% if (canManageDataPortability) { %>
+        <li><a href="/admin/data">Données</a></li>
       <% } %>
       <% if (canManageSettings) { %>
         <li><a href="/admin/settings">Paramètres</a></li>

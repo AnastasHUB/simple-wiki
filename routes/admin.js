@@ -104,6 +104,12 @@ import {
   getActiveVisitors,
   ACTIVE_VISITOR_TTL_MS,
 } from "../utils/liveStats.js";
+import {
+  listDataPortabilityTypes,
+  exportDataPortabilityBundle,
+  importDataPortabilityBundle,
+  resolveRequestedDataTypes,
+} from "../utils/dataPortability.js";
 
 await ensureUploadDir();
 
@@ -126,6 +132,11 @@ const upload = multer({
       cb(new Error("Type de fichier non supporté"));
     }
   },
+});
+
+const dataUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
 });
 
 const r = Router();
@@ -2302,6 +2313,154 @@ r.post(
     message: "Fichier supprimé.",
   });
   res.redirect("/admin/uploads");
+  },
+);
+
+// data import / export
+r.get(
+  "/data",
+  requirePermission([
+    "can_manage_data_portability",
+    "can_export_data",
+    "can_import_data",
+  ]),
+  async (req, res) => {
+  const permissionFlags = req.permissionFlags || req.session.user || {};
+  const canExportData = Boolean(
+    permissionFlags.can_manage_data_portability ||
+      permissionFlags.can_export_data,
+  );
+  const canImportData = Boolean(
+    permissionFlags.can_manage_data_portability ||
+      permissionFlags.can_import_data,
+  );
+  res.render("admin/data_portability", {
+    dataTypes: listDataPortabilityTypes(),
+    canExportData,
+    canImportData,
+  });
+  },
+);
+
+r.post(
+  "/data/export",
+  requirePermission(["can_manage_data_portability", "can_export_data"]),
+  async (req, res) => {
+  const scope = String(req.body.scope || "selected").toLowerCase();
+  const selectedTypes = resolveRequestedDataTypes(req.body.types, scope);
+  if (!selectedTypes.length) {
+    pushNotification(req, {
+      type: "error",
+      message: "Sélectionnez au moins un jeu de données à exporter.",
+    });
+    return res.redirect("/admin/data");
+  }
+  const bundle = await exportDataPortabilityBundle(selectedTypes);
+  const serialized = JSON.stringify(bundle, null, 2);
+  const timestamp = new Date().toISOString().replace(/[.:]/g, "-");
+  const filename = `wiki-export-${timestamp}.json`;
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Export de données",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        types: bundle.types,
+        scope,
+      },
+    },
+    { includeScreenshot: false },
+  );
+  res.setHeader("Content-Type", "application/json; charset=utf-8");
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="${filename}"`,
+  );
+  res.send(serialized);
+  },
+);
+
+r.post(
+  "/data/import",
+  requirePermission(["can_manage_data_portability", "can_import_data"]),
+  dataUpload.single("dataFile"),
+  async (req, res) => {
+  const scope = String(req.body.scope || "selected").toLowerCase();
+  const selectedTypes = resolveRequestedDataTypes(req.body.types, scope);
+  if (!req.file) {
+    pushNotification(req, {
+      type: "error",
+      message: "Ajoutez un fichier JSON à importer.",
+    });
+    return res.redirect("/admin/data");
+  }
+  if (!selectedTypes.length) {
+    pushNotification(req, {
+      type: "error",
+      message: "Sélectionnez au moins un jeu de données à importer.",
+    });
+    return res.redirect("/admin/data");
+  }
+  let payload;
+  try {
+    const raw = req.file.buffer.toString("utf-8");
+    payload = JSON.parse(raw);
+  } catch (err) {
+    console.error("Fichier d'import invalide", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Le fichier fourni n'est pas un JSON valide.",
+    });
+    return res.redirect("/admin/data");
+  }
+  try {
+    const result = await importDataPortabilityBundle(payload, {
+      selectedTypes,
+    });
+    if (!result.imported.length) {
+      const message = result.available.length
+        ? "Aucun des jeux demandés n'est présent dans le fichier."
+        : "Aucune donnée importable trouvée dans le fichier.";
+      pushNotification(req, {
+        type: "error",
+        message,
+      });
+      return res.redirect("/admin/data");
+    }
+    const ip = getClientIp(req);
+    await sendAdminEvent(
+      "Import de données",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          types: result.imported,
+          skipped: result.skipped,
+          missing: result.missing,
+          scope,
+          fileName: req.file.originalname,
+        },
+      },
+      { includeScreenshot: false },
+    );
+    pushNotification(req, {
+      type: "success",
+      message:
+        result.imported.length === 1
+          ? `Jeu de données « ${result.imported[0]} » importé avec succès.`
+          : `${result.imported.length} jeux de données importés avec succès.`,
+    });
+  } catch (err) {
+    console.error("Impossible d'importer les données", err);
+    pushNotification(req, {
+      type: "error",
+      message:
+        err?.message ||
+        "L'import a échoué. Vérifiez le fichier et réessayez.",
+    });
+  }
+  res.redirect("/admin/data");
   },
 );
 
