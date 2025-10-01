@@ -68,6 +68,13 @@ import {
   getSiteSettingsForForm,
   updateSiteSettingsFromForm,
 } from "../utils/settingsService.js";
+import {
+  listDataPortabilityTypes,
+  exportDataPortability,
+  importDataPortability,
+  parseImportPayload,
+  DATA_PORTABILITY_VERSION,
+} from "../utils/dataPortability.js";
 import { pushNotification } from "../utils/notifications.js";
 import {
   listRoles,
@@ -124,6 +131,24 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error("Type de fichier non supporté"));
+    }
+  },
+});
+
+const jsonUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const mimetype = (file.mimetype || "").toLowerCase();
+    const originalName = (file.originalname || "").toLowerCase();
+    if (
+      mimetype === "application/json" ||
+      mimetype === "text/json" ||
+      originalName.endsWith(".json")
+    ) {
+      cb(null, true);
+    } else {
+      cb(new Error("Le fichier doit être au format JSON."));
     }
   },
 });
@@ -201,6 +226,26 @@ function buildPermissionSnapshot(role = {}) {
     acc[field] = Boolean(role[field]);
     return acc;
   }, {});
+}
+
+function resolveDataSelection(body = {}) {
+  const modeRaw = typeof body.selectionMode === "string" ? body.selectionMode.trim().toLowerCase() : "all";
+  const isCustom = modeRaw === "custom";
+  const rawTypes = body.types;
+  const values = Array.isArray(rawTypes)
+    ? rawTypes
+    : rawTypes != null
+      ? [rawTypes]
+      : [];
+  const normalized = values
+    .map((value) =>
+      typeof value === "string" ? value.trim() : value != null ? String(value).trim() : "",
+    )
+    .filter(Boolean);
+  return {
+    mode: isCustom ? "custom" : "all",
+    types: isCustom ? normalized : [],
+  };
 }
 
 const LIVE_VISITOR_PAGE_SIZES = [5, 10, 25, 50];
@@ -2302,6 +2347,128 @@ r.post(
     message: "Fichier supprimé.",
   });
   res.redirect("/admin/uploads");
+  },
+);
+
+// data import/export
+r.get(
+  "/data",
+  requirePermission(["can_manage_data_portability", "can_export_data", "can_import_data"]),
+  async (_req, res) => {
+    const dataTypes = listDataPortabilityTypes();
+    res.render("admin/data_portability", {
+      dataTypes,
+      version: DATA_PORTABILITY_VERSION,
+    });
+  },
+);
+
+r.post(
+  "/data/export",
+  requirePermission(["can_manage_data_portability", "can_export_data"]),
+  async (req, res) => {
+    const selection = resolveDataSelection(req.body || {});
+    if (selection.mode === "custom" && selection.types.length === 0) {
+      pushNotification(req, {
+        type: "warning",
+        message: "Sélectionnez au moins un type de données à exporter.",
+      });
+      return res.redirect("/admin/data");
+    }
+    try {
+      const { payload, summary } = await exportDataPortability(selection.types);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const filename = `wiki-export-${timestamp}.json`;
+      const json = JSON.stringify(payload, null, 2);
+      await sendAdminEvent(
+        "Export de données",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            types: payload.types,
+            summary,
+          },
+        },
+        { includeScreenshot: false },
+      );
+      res.setHeader(
+        "Content-Disposition",
+        `attachment; filename="${filename}"`,
+      );
+      res.type("application/json");
+      return res.send(json);
+    } catch (err) {
+      console.error("Unable to export data", err);
+      pushNotification(req, {
+        type: "error",
+        message: "L'export a échoué. Veuillez réessayer ultérieurement.",
+      });
+      return res.redirect("/admin/data");
+    }
+  },
+);
+
+r.post(
+  "/data/import",
+  requirePermission(["can_manage_data_portability", "can_import_data"]),
+  (req, res, next) => {
+    jsonUpload.single("import_file")(req, res, (err) => {
+      if (!err) {
+        return next();
+      }
+      let message = "Impossible de traiter le fichier JSON.";
+      if (err instanceof multer.MulterError && err.code === "LIMIT_FILE_SIZE") {
+        message = "Fichier JSON trop volumineux (maximum 5 Mo).";
+      } else if (err?.message) {
+        message = err.message;
+      }
+      pushNotification(req, { type: "error", message });
+      return res.redirect("/admin/data");
+    });
+  },
+  async (req, res) => {
+    try {
+      if (!req.file?.buffer?.length) {
+        throw new Error("Aucun fichier d'import sélectionné.");
+      }
+      const parsed = parseImportPayload(req.file.buffer);
+      const selection = resolveDataSelection(req.body || {});
+      if (selection.mode === "custom" && selection.types.length === 0) {
+        throw new Error("Sélectionnez au moins un type de données à importer.");
+      }
+      const result = await importDataPortability(parsed, selection.types);
+      const availableTypes = listDataPortabilityTypes();
+      const labelByKey = new Map(
+        availableTypes.map((type) => [type.key, type.label]),
+      );
+      const summaryParts = result.processed
+        .filter((entry) => (entry.imported || 0) > 0)
+        .map((entry) => {
+          const label = labelByKey.get(entry.key) || entry.key;
+          return `${label} (${entry.imported})`;
+        });
+      const message = summaryParts.length
+        ? `Import terminé : ${summaryParts.join(", ")}.`
+        : "Import terminé. Aucune donnée nouvelle détectée.";
+      pushNotification(req, { type: "success", message });
+      await sendAdminEvent(
+        "Import de données",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            processed: result.processed,
+            skipped: result.skipped,
+          },
+        },
+        { includeScreenshot: false },
+      );
+    } catch (err) {
+      console.error("Unable to import data", err);
+      const message =
+        err?.message || "Impossible d'importer les données fournies.";
+      pushNotification(req, { type: "error", message });
+    }
+    res.redirect("/admin/data");
   },
 );
 

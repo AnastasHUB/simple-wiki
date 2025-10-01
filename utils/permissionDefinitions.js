@@ -823,6 +823,41 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
+    key: "data",
+    label: "Données",
+    description: "Import et export des contenus et configurations du wiki.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_data_portability",
+            label: "Gestion complète",
+            description:
+              "Autorise toutes les opérations d'import et d'export de données.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Actions",
+        permissions: [
+          {
+            field: "can_export_data",
+            label: "Exporter",
+            description: "Télécharger un instantané JSON des données sélectionnées.",
+          },
+          {
+            field: "can_import_data",
+            label: "Importer",
+            description:
+              "Charger un fichier JSON et appliquer les données au wiki.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     key: "automation",
     label: "Automatisation",
     description: "Orchestration des flux de travail automatisés.",
@@ -1122,6 +1157,7 @@ export const PERMISSION_DEPENDENCIES = {
     "can_configure_notification_channels",
     "can_manage_notification_templates",
   ],
+  can_manage_data_portability: ["can_export_data", "can_import_data"],
   can_manage_automations: [
     "can_view_automations",
     "can_create_automations",
