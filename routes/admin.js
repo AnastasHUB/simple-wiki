@@ -81,7 +81,11 @@ import {
   getEveryoneRole,
   updateRoleOrdering,
 } from "../utils/roleService.js";
-import { buildSessionUser, ROLE_FLAG_FIELDS } from "../utils/roleFlags.js";
+import {
+  ADMIN_ACTION_FLAGS,
+  buildSessionUser,
+  ROLE_FLAG_FIELDS,
+} from "../utils/roleFlags.js";
 import {
   buildRoleColorPresentation,
   extractRoleColorFromBody,
@@ -128,11 +132,14 @@ const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
 const ROLE_FLAG_VALUE_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
 
 r.use((req, res, next) => {
-  const user = req.session.user;
-  if (!user) {
+  const permissions = req.permissionFlags || {};
+  const hasAdminAccess =
+    permissions.is_admin ||
+    permissions.is_moderator ||
+    ADMIN_ACTION_FLAGS.some((flag) => permissions[flag]);
+  if (!hasAdminAccess) {
     return res.redirect("/login");
   }
-  const permissions = req.permissionFlags || user;
   res.locals.isModeratorUser = Boolean(
     permissions.is_moderator || permissions.can_moderate_comments,
   );
