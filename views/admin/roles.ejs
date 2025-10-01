@@ -166,6 +166,7 @@
           <% const roleColorPresentation = role.colorPresentation; %>
           <% const roleColorValues = Array.isArray(roleColorScheme && roleColorScheme.colors) ? roleColorScheme.colors : []; %>
           <% const roleColorMode = roleColorScheme ? roleColorScheme.mode : ''; %>
+          <% const isAdministratorRole = (role.name || '').toLowerCase() === 'administrateur'; %>
           <div class="role-editor">
             <div class="role-summary">
               <div class="role-summary-header">
@@ -334,13 +335,18 @@
                 <legend>Permissions</legend>
                 <div class="role-permissions-grid">
                   <% permissionOptions.forEach((option) => { %>
+                    <% const isLockedAdminPermission = isAdministratorRole && option.field === 'is_admin'; %>
                     <label class="checkbox role-permission">
                       <input
                         type="checkbox"
                         name="<%= option.field %>"
                         value="1"
                         <%= role[option.field] ? 'checked' : '' %>
+                        <%= isLockedAdminPermission ? 'disabled' : '' %>
                       />
+                      <% if (isLockedAdminPermission) { %>
+                        <input type="hidden" name="<%= option.field %>" value="1" />
+                      <% } %>
                       <span class="permission-title"><%= option.label %></span>
                       <span class="permission-description"><%= option.description %></span>
                     </label>
