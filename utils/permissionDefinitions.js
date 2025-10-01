@@ -736,6 +736,241 @@ export const PERMISSION_CATEGORIES = [
       },
     ],
   },
+  {
+    key: "announcements",
+    label: "Annonces",
+    description: "Diffusion et planification des communications officielles.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_announcements",
+            label: "Gestion complète",
+            description: "Autorise toutes les actions sur les annonces publiques.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Actions détaillées",
+        permissions: [
+          {
+            field: "can_view_announcements",
+            label: "Voir les annonces",
+            description: "Consulter l'historique et les messages programmés.",
+          },
+          {
+            field: "can_create_announcements",
+            label: "Créer",
+            description: "Rédiger et enregistrer une nouvelle annonce.",
+          },
+          {
+            field: "can_schedule_announcements",
+            label: "Programmer",
+            description: "Planifier la publication d'une annonce.",
+          },
+          {
+            field: "can_archive_announcements",
+            label: "Archiver",
+            description: "Retirer une annonce et l'ajouter aux archives.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "notifications",
+    label: "Notifications",
+    description: "Envoi et personnalisation des notifications utilisateurs.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_notifications",
+            label: "Gestion complète",
+            description: "Autorise l'administration de tous les canaux de notification.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Canaux",
+        permissions: [
+          {
+            field: "can_view_notifications",
+            label: "Voir les envois",
+            description: "Consulter les notifications envoyées et programmées.",
+          },
+          {
+            field: "can_send_notifications",
+            label: "Envoyer",
+            description: "Déclencher l'envoi immédiat d'une notification.",
+          },
+          {
+            field: "can_configure_notification_channels",
+            label: "Configurer les canaux",
+            description: "Activer ou désactiver les canaux (email, push, webhook).",
+          },
+          {
+            field: "can_manage_notification_templates",
+            label: "Gérer les modèles",
+            description: "Créer et modifier les modèles de notification.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "automation",
+    label: "Automatisation",
+    description: "Orchestration des flux de travail automatisés.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_automations",
+            label: "Gestion complète",
+            description: "Autorise toutes les actions sur les automatisations.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Workflows",
+        permissions: [
+          {
+            field: "can_view_automations",
+            label: "Voir les workflows",
+            description: "Consulter les automatisations existantes et leur état.",
+          },
+          {
+            field: "can_create_automations",
+            label: "Créer",
+            description: "Mettre en place un nouveau workflow automatisé.",
+          },
+          {
+            field: "can_edit_automations",
+            label: "Modifier",
+            description: "Ajuster les déclencheurs ou actions d'une automatisation.",
+          },
+          {
+            field: "can_delete_automations",
+            label: "Supprimer",
+            description: "Retirer un workflow devenu inutile.",
+          },
+          {
+            field: "can_run_automations",
+            label: "Exécuter",
+            description: "Déclencher manuellement une automatisation à la demande.",
+          },
+        ],
+      },
+      {
+        label: "Intégrations",
+        permissions: [
+          {
+            field: "can_manage_webhooks",
+            label: "Gérer les webhooks",
+            description: "Créer ou désactiver des webhooks connectés aux workflows.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "seo",
+    label: "Référencement",
+    description: "Optimisation de la visibilité des contenus.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_seo",
+            label: "Gestion complète",
+            description: "Autorise toutes les optimisations SEO du site.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Optimisations",
+        permissions: [
+          {
+            field: "can_view_seo_reports",
+            label: "Voir les rapports",
+            description: "Consulter les audits SEO et leurs recommandations.",
+          },
+          {
+            field: "can_edit_seo_metadata",
+            label: "Modifier les métadonnées",
+            description: "Mettre à jour titres, descriptions et balises canoniques.",
+          },
+          {
+            field: "can_manage_redirects",
+            label: "Gérer les redirections",
+            description: "Ajouter ou modifier des redirections d'URL.",
+          },
+          {
+            field: "can_audit_internal_links",
+            label: "Auditer les liens",
+            description: "Analyser les liens internes cassés ou orphelins.",
+          },
+        ],
+      },
+    ],
+  },
+  {
+    key: "community",
+    label: "Communauté",
+    description: "Animation et modération des espaces communautaires.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_community",
+            label: "Gestion complète",
+            description: "Autorise toutes les actions communautaires avancées.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Forums",
+        permissions: [
+          {
+            field: "can_view_forums",
+            label: "Voir les forums",
+            description: "Accéder aux discussions communautaires internes.",
+          },
+          {
+            field: "can_moderate_forums",
+            label: "Modérer",
+            description: "Éditer ou supprimer des messages dans les forums.",
+          },
+          {
+            field: "can_feature_forum_topics",
+            label: "Mettre en avant",
+            description: "Épingler ou recommander des discussions importantes.",
+          },
+        ],
+      },
+      {
+        label: "Groupes",
+        permissions: [
+          {
+            field: "can_manage_user_groups",
+            label: "Gérer les groupes",
+            description: "Créer, renommer ou dissoudre des groupes communautaires.",
+          },
+        ],
+      },
+    ],
+  },
 ];
 
 export function flattenPermissionDefinitions(categories = PERMISSION_CATEGORIES) {
@@ -875,6 +1110,38 @@ export const PERMISSION_DEPENDENCIES = {
   can_manage_trash: ["can_view_trash", "can_restore_trash", "can_purge_trash"],
   can_view_events: ["can_view_event_log", "can_export_event_log"],
   can_view_snowflakes: ["can_lookup_snowflake_history"],
+  can_manage_announcements: [
+    "can_view_announcements",
+    "can_create_announcements",
+    "can_schedule_announcements",
+    "can_archive_announcements",
+  ],
+  can_manage_notifications: [
+    "can_view_notifications",
+    "can_send_notifications",
+    "can_configure_notification_channels",
+    "can_manage_notification_templates",
+  ],
+  can_manage_automations: [
+    "can_view_automations",
+    "can_create_automations",
+    "can_edit_automations",
+    "can_delete_automations",
+    "can_run_automations",
+    "can_manage_webhooks",
+  ],
+  can_manage_seo: [
+    "can_view_seo_reports",
+    "can_edit_seo_metadata",
+    "can_manage_redirects",
+    "can_audit_internal_links",
+  ],
+  can_manage_community: [
+    "can_view_forums",
+    "can_moderate_forums",
+    "can_feature_forum_topics",
+    "can_manage_user_groups",
+  ],
 };
 
 export function getAllPermissionFields() {
