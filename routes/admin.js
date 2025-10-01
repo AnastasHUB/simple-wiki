@@ -86,6 +86,7 @@ import {
   buildSessionUser,
   ROLE_FLAG_FIELDS,
 } from "../utils/roleFlags.js";
+import { PERMISSION_CATEGORIES } from "../utils/permissionDefinitions.js";
 import {
   buildRoleColorPresentation,
   extractRoleColorFromBody,
@@ -146,10 +147,29 @@ r.use((req, res, next) => {
   return next();
 });
 
-function requirePermission(flag) {
+function normalizeRequiredFlags(flags) {
+  const collected = [];
+  for (const flag of flags) {
+    if (!flag) {
+      continue;
+    }
+    if (Array.isArray(flag)) {
+      collected.push(...flag.filter((value) => typeof value === "string"));
+    } else if (typeof flag === "string") {
+      collected.push(flag);
+    }
+  }
+  return [...new Set(collected)];
+}
+
+function requirePermission(...flags) {
+  const requiredFlags = normalizeRequiredFlags(flags);
   return (req, res, next) => {
     const permissions = req.permissionFlags || req.session.user || {};
-    if (permissions.is_admin || permissions[flag]) {
+    if (
+      permissions.is_admin ||
+      requiredFlags.some((flag) => permissions[flag])
+    ) {
       return next();
     }
     const preferredType = req.accepts(["html", "json"]);
@@ -222,7 +242,10 @@ function redirectToComments(req, res) {
   return res.redirect(fallback);
 }
 
-r.get("/comments", requirePermission("can_moderate_comments"), async (req, res) => {
+r.get(
+  "/comments",
+  requirePermission(["can_moderate_comments", "can_view_comment_queue"]),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const like = searchTerm ? `%${searchTerm}%` : null;
 
@@ -306,7 +329,7 @@ r.get("/comments", requirePermission("can_moderate_comments"), async (req, res) 
 
 r.post(
   "/comments/:id/approve",
-  requirePermission("can_moderate_comments"),
+  requirePermission(["can_moderate_comments", "can_approve_comments"]),
   async (req, res) => {
   const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
@@ -350,7 +373,7 @@ r.post(
 
 r.post(
   "/comments/:id/reject",
-  requirePermission("can_moderate_comments"),
+  requirePermission(["can_moderate_comments", "can_reject_comments"]),
   async (req, res) => {
   const { comment } = await fetchModeratableComment(req.params.id);
   if (!comment) {
@@ -424,12 +447,12 @@ async function handleCommentDeletion(req, res) {
 
 r.delete(
   "/comments/:id",
-  requirePermission("can_moderate_comments"),
+  requirePermission(["can_moderate_comments", "can_delete_comments"]),
   handleCommentDeletion,
 );
 r.post(
   "/comments/:id/delete",
-  requirePermission("can_moderate_comments"),
+  requirePermission(["can_moderate_comments", "can_delete_comments"]),
   handleCommentDeletion,
 );
 
@@ -505,7 +528,7 @@ function buildCommentSummary(comment = {}) {
 
 r.get(
   "/ban-appeals",
-  requirePermission("can_review_ban_appeals"),
+  requirePermission(["can_review_ban_appeals", "can_view_ban_appeals"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const requestedStatus = (req.query.status || "all").toLowerCase();
@@ -539,7 +562,7 @@ r.get(
 
 r.post(
   "/ban-appeals/:id/accept",
-  requirePermission("can_review_ban_appeals"),
+  requirePermission(["can_review_ban_appeals", "can_accept_ban_appeals"]),
   async (req, res) => {
   const appealId = req.params.id;
   const appeal = await getBanAppealBySnowflake(appealId);
@@ -600,7 +623,7 @@ r.post(
 
 r.post(
   "/ban-appeals/:id/reject",
-  requirePermission("can_review_ban_appeals"),
+  requirePermission(["can_review_ban_appeals", "can_reject_ban_appeals"]),
   async (req, res) => {
   const appealId = req.params.id;
   const appeal = await getBanAppealBySnowflake(appealId);
@@ -661,7 +684,7 @@ r.post(
 
 r.post(
   "/ban-appeals/:id/delete",
-  requirePermission("can_review_ban_appeals"),
+  requirePermission(["can_review_ban_appeals", "can_delete_ban_appeals"]),
   async (req, res) => {
   const appealId = req.params.id;
   const appeal = await getBanAppealBySnowflake(appealId);
@@ -716,7 +739,10 @@ r.post(
   },
 );
 
-r.get("/ip-bans", requirePermission("can_manage_ip_bans"), async (req, res) => {
+r.get(
+  "/ip-bans",
+  requirePermission(["can_manage_ip_bans", "can_view_ip_bans"]),
+  async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const like = searchTerm ? `%${searchTerm}%` : null;
 
@@ -789,7 +815,7 @@ r.get("/ip-bans", requirePermission("can_manage_ip_bans"), async (req, res) => {
 
 r.post(
   "/ip-bans",
-  requirePermission("can_manage_ip_bans"),
+  requirePermission(["can_manage_ip_bans", "can_create_ip_bans"]),
   async (req, res) => {
   const ip = (req.body.ip || "").trim();
   const scopeInput = (req.body.scope || "").trim();
@@ -833,7 +859,7 @@ r.post(
 
 r.post(
   "/ip-bans/:id/lift",
-  requirePermission("can_manage_ip_bans"),
+  requirePermission(["can_manage_ip_bans", "can_lift_ip_bans"]),
   async (req, res) => {
   const ban = await getBan(req.params.id);
   if (!ban) {
@@ -863,7 +889,7 @@ r.post(
 
 r.post(
   "/ip-bans/:id/delete",
-  requirePermission("can_manage_ip_bans"),
+  requirePermission(["can_manage_ip_bans", "can_delete_ip_bans"]),
   async (req, res) => {
   const ban = await getBan(req.params.id);
   if (!ban) {
@@ -894,7 +920,7 @@ r.post(
 
 r.get(
   "/ip-reputation",
-  requirePermission("can_manage_ip_reputation"),
+  requirePermission(["can_manage_ip_reputation", "can_view_ip_reputation"]),
   async (req, res) => {
   const [reviewTotal, clearedTotal, historyTotal] = await Promise.all([
     countIpProfilesForReview(),
@@ -971,7 +997,7 @@ r.get(
 
 r.post(
   "/ip-reputation/manual-check",
-  requirePermission("can_manage_ip_reputation"),
+  requirePermission(["can_manage_ip_reputation", "can_view_ip_reputation"]),
   async (req, res) => {
   const rawIp = typeof req.body?.ip === "string" ? req.body.ip.trim() : "";
   if (!rawIp) {
@@ -1015,7 +1041,7 @@ r.post(
 
 r.post(
   "/ip-reputation/:hash/mark-safe",
-  requirePermission("can_manage_ip_reputation"),
+  requirePermission(["can_manage_ip_reputation", "can_tag_ip_reputation"]),
   async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
@@ -1046,7 +1072,7 @@ r.post(
 
 r.post(
   "/ip-reputation/:hash/clear-safe",
-  requirePermission("can_manage_ip_reputation"),
+  requirePermission(["can_manage_ip_reputation", "can_clear_ip_reputation"]),
   async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
@@ -1070,7 +1096,7 @@ r.post(
 
 r.post(
   "/ip-reputation/:hash/recheck",
-  requirePermission("can_manage_ip_reputation"),
+  requirePermission(["can_manage_ip_reputation", "can_import_ip_reputation"]),
   async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
@@ -1100,7 +1126,7 @@ r.post(
 
 r.post(
   "/ip-reputation/:hash/ban",
-  requirePermission("can_manage_ip_reputation"),
+  requirePermission(["can_manage_ip_reputation", "can_tag_ip_reputation"]),
   async (req, res) => {
   const hash = (req.params.hash || "").trim();
   const profile = await getRawIpProfileByHash(hash);
@@ -1142,7 +1168,7 @@ r.post(
 
 r.get(
   "/ip-profiles",
-  requirePermission("can_manage_ip_profiles"),
+  requirePermission(["can_manage_ip_profiles", "can_view_ip_profiles"]),
   async (req, res) => {
   const searchTerm =
     typeof req.query.search === "string" ? req.query.search.trim() : "";
@@ -1202,13 +1228,13 @@ async function handleIpProfileDeletion(req, res) {
 r.delete("/ip-profiles/:hash", handleIpProfileDeletion);
 r.post(
   "/ip-profiles/:hash/delete",
-  requirePermission("can_manage_ip_profiles"),
+  requirePermission(["can_manage_ip_profiles", "can_delete_ip_profiles"]),
   handleIpProfileDeletion,
 );
 
 r.get(
   "/submissions",
-  requirePermission("can_review_submissions"),
+  requirePermission(["can_review_submissions", "can_view_submission_queue"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const search = searchTerm || null;
@@ -1277,7 +1303,7 @@ r.get(
 
 r.get(
   "/submissions/:id",
-  requirePermission("can_review_submissions"),
+  requirePermission(["can_review_submissions", "can_view_submission_queue"]),
   async (req, res) => {
   const submission = await getPageSubmissionById(req.params.id);
   if (!submission) {
@@ -1320,7 +1346,7 @@ r.get(
 
 r.post(
   "/submissions/:id/approve",
-  requirePermission("can_review_submissions"),
+  requirePermission(["can_review_submissions", "can_accept_submissions"]),
   async (req, res) => {
   const submission = await getPageSubmissionById(req.params.id);
   if (!submission) {
@@ -1482,7 +1508,7 @@ r.post(
 
 r.post(
   "/submissions/:id/reject",
-  requirePermission("can_review_submissions"),
+  requirePermission(["can_review_submissions", "can_reject_submissions"]),
   async (req, res) => {
   const submission = await getPageSubmissionById(req.params.id);
   if (!submission) {
@@ -1538,7 +1564,7 @@ r.post(
 
 r.get(
   "/pages",
-  requirePermission("can_manage_pages"),
+  requirePermission(["can_manage_pages", "can_view_page_overview"]),
   async (req, res) => {
   const countRow = await get("SELECT COUNT(*) AS c FROM pages");
   const latest = await get(`
@@ -1557,7 +1583,10 @@ r.get(
   },
 );
 
-r.get("/stats", requirePermission("can_view_stats"), async (req, res) => {
+r.get(
+  "/stats",
+  requirePermission(["can_view_stats", "can_view_stats_basic"]),
+  async (req, res) => {
   const periods = [
     {
       key: "day",
@@ -2042,7 +2071,7 @@ r.get("/stats", requirePermission("can_view_stats"), async (req, res) => {
 
 r.get(
   "/stats/live",
-  requirePermission("can_view_stats"),
+  requirePermission(["can_view_stats", "can_view_stats_detailed"]),
   (req, res) => {
   const now = Date.now();
   const allLiveVisitors = serializeLiveVisitors(now);
@@ -2075,7 +2104,7 @@ r.get(
 
 r.post(
   "/uploads",
-  requirePermission("can_manage_uploads"),
+  requirePermission(["can_manage_uploads", "can_upload_files"]),
   upload.single("image"),
   async (req, res, next) => {
   try {
@@ -2170,7 +2199,7 @@ r.use((err, req, res, next) => {
 
 r.get(
   "/uploads",
-  requirePermission("can_manage_uploads"),
+  requirePermission(["can_manage_uploads", "can_view_uploads"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const normalizedSearch = searchTerm.toLowerCase();
@@ -2205,7 +2234,7 @@ r.get(
 
 r.post(
   "/uploads/:id/name",
-  requirePermission("can_manage_uploads"),
+  requirePermission(["can_manage_uploads", "can_replace_files"]),
   async (req, res) => {
   const displayName = normalizeDisplayName(req.body?.displayName);
   await updateUploadName(req.params.id, displayName);
@@ -2232,7 +2261,7 @@ r.post(
 
 r.post(
   "/uploads/:id/delete",
-  requirePermission("can_manage_uploads"),
+  requirePermission(["can_manage_uploads", "can_delete_files"]),
   async (req, res) => {
   const upload = await get(
     "SELECT id, original_name, display_name FROM uploads WHERE id=?",
@@ -2264,7 +2293,7 @@ r.post(
 // settings
 r.get(
   "/settings",
-  requirePermission("can_manage_settings"),
+  requirePermission(["can_manage_settings", "can_update_general_settings"]),
   async (_req, res) => {
   const s = await getSiteSettingsForForm();
   res.render("admin/settings", { s });
@@ -2272,7 +2301,7 @@ r.get(
 );
 r.post(
   "/settings",
-  requirePermission("can_manage_settings"),
+  requirePermission(["can_manage_settings", "can_update_general_settings"]),
   async (req, res) => {
   try {
     const updated = await updateSiteSettingsFromForm(req.body);
@@ -2314,15 +2343,15 @@ r.post(
 // roles
 r.get(
   "/roles",
-  requirePermission("can_manage_roles"),
+  requirePermission(["can_manage_roles", "can_view_roles"]),
   async (_req, res) => {
   const roles = await listRolesWithUsage();
-  res.render("admin/roles", { roles });
+  res.render("admin/roles", { roles, permissionCategories: PERMISSION_CATEGORIES });
   },
 );
 r.post(
   "/roles",
-  requirePermission("can_manage_roles"),
+  requirePermission(["can_manage_roles", "can_create_roles"]),
   async (req, res) => {
     const wantsJson =
       req.xhr ||
@@ -2380,7 +2409,7 @@ r.post(
 );
 r.post(
   "/roles/reorder",
-  requirePermission("can_manage_roles"),
+  requirePermission(["can_manage_roles", "can_edit_roles"]),
   async (req, res) => {
     try {
       const rawOrder = req.body?.order;
@@ -2410,7 +2439,7 @@ r.post(
 );
 r.post(
   "/roles/:id",
-  requirePermission("can_manage_roles"),
+  requirePermission(["can_manage_roles", "can_edit_roles", "can_delete_roles"]),
   async (req, res) => {
   const roleId = req.params.id;
   const existing = await getRoleById(roleId);
@@ -2587,7 +2616,7 @@ r.post(
 // users
 r.get(
   "/users",
-  requirePermission("can_manage_users"),
+  requirePermission(["can_manage_users", "can_view_users"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
@@ -2653,7 +2682,7 @@ r.get(
 );
 r.post(
   "/users",
-  requirePermission("can_manage_users"),
+  requirePermission(["can_manage_users", "can_invite_users"]),
   async (req, res) => {
   const { username, password } = req.body;
   const selectedRoleId = (req.body.roleId || req.body.role || "").trim();
@@ -2731,7 +2760,7 @@ r.post(
 );
 r.post(
   "/users/:id/display-name",
-  requirePermission("can_manage_users"),
+  requirePermission(["can_manage_users", "can_edit_users"]),
   async (req, res) => {
   const target = await get(
     "SELECT id, username, display_name FROM users WHERE id=?",
@@ -2794,7 +2823,11 @@ r.post(
 );
 r.post(
   "/users/:id/role",
-  requirePermission("can_manage_users"),
+  requirePermission([
+    "can_manage_users",
+    "can_edit_users",
+    "can_assign_roles",
+  ]),
   async (req, res) => {
   const target = await get(
     `SELECT u.id, u.username, u.role_id, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, r.name AS role_name, r.color AS role_color, r.snowflake_id AS role_snowflake_id
@@ -2889,7 +2922,7 @@ r.post(
 );
 r.post(
   "/users/:id/delete",
-  requirePermission("can_manage_users"),
+  requirePermission(["can_manage_users", "can_delete_users", "can_suspend_users"]),
   async (req, res) => {
   const target = await get(
     "SELECT id, username, display_name FROM users WHERE id=?",
@@ -2922,7 +2955,7 @@ r.post(
 // likes table improved
 r.get(
   "/likes",
-  requirePermission("can_manage_likes"),
+  requirePermission(["can_manage_likes", "can_view_likes"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
@@ -2965,7 +2998,7 @@ r.get(
 );
 r.post(
   "/likes/:id/delete",
-  requirePermission("can_manage_likes"),
+  requirePermission(["can_manage_likes", "can_remove_likes"]),
   async (req, res) => {
   const like = await get(
     `SELECT l.id, l.ip, p.title, p.slug_id
@@ -2998,7 +3031,7 @@ r.post(
 
 r.get(
   "/trash",
-  requirePermission("can_manage_trash"),
+  requirePermission(["can_manage_trash", "can_view_trash"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];
@@ -3054,7 +3087,7 @@ r.get(
 
 r.post(
   "/trash/:id/restore",
-  requirePermission("can_manage_trash"),
+  requirePermission(["can_manage_trash", "can_restore_trash"]),
   async (req, res) => {
   const trashed = await get(
     `SELECT * FROM deleted_pages WHERE snowflake_id = ?`,
@@ -3212,7 +3245,7 @@ r.post(
 
 r.post(
   "/trash/:id/delete",
-  requirePermission("can_manage_trash"),
+  requirePermission(["can_manage_trash", "can_purge_trash"]),
   async (req, res) => {
   const trashed = await get(
     `SELECT id, title, slug_id FROM deleted_pages WHERE snowflake_id = ?`,
@@ -3251,7 +3284,7 @@ r.post(
 
 r.post(
   "/trash/empty",
-  requirePermission("can_manage_trash"),
+  requirePermission(["can_manage_trash", "can_purge_trash"]),
   async (req, res) => {
   const totalRow = await get("SELECT COUNT(*) AS total FROM deleted_pages");
   const total = Number(totalRow?.total || 0);
@@ -3284,7 +3317,7 @@ r.post(
 
 r.get(
   "/snowflakes",
-  requirePermission("can_view_snowflakes"),
+  requirePermission(["can_view_snowflakes", "can_lookup_snowflake_history"]),
   (req, res) => {
   const queryId = typeof req.query.id === "string" ? req.query.id.trim() : "";
   let decoded = null;
@@ -3332,7 +3365,7 @@ r.get(
 
 r.get(
   "/events",
-  requirePermission("can_view_events"),
+  requirePermission(["can_view_events", "can_view_event_log"]),
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const filters = [];

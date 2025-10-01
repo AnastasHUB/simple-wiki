@@ -22,6 +22,9 @@ const ALL_ROLE_FLAGS_TRUE = ROLE_FLAG_FIELDS.reduce((acc, field) => {
   acc[field] = true;
   return acc;
 }, {});
+const ROLE_FLAG_COLUMN_DEFINITIONS = ROLE_FLAG_FIELDS.map(
+  (field) => `    ${field} INTEGER NOT NULL DEFAULT 0`,
+).join(",\n");
 export async function initDb() {
   if (db) {
     return db;
@@ -37,28 +40,7 @@ export async function initDb() {
     color TEXT,
     is_system INTEGER NOT NULL DEFAULT 0,
     position INTEGER NOT NULL DEFAULT 0,
-    is_admin INTEGER NOT NULL DEFAULT 0,
-    is_moderator INTEGER NOT NULL DEFAULT 0,
-    is_helper INTEGER NOT NULL DEFAULT 0,
-    is_contributor INTEGER NOT NULL DEFAULT 0,
-    can_comment INTEGER NOT NULL DEFAULT 0,
-    can_submit_pages INTEGER NOT NULL DEFAULT 0,
-    can_moderate_comments INTEGER NOT NULL DEFAULT 0,
-    can_review_ban_appeals INTEGER NOT NULL DEFAULT 0,
-    can_manage_ip_bans INTEGER NOT NULL DEFAULT 0,
-    can_manage_ip_reputation INTEGER NOT NULL DEFAULT 0,
-    can_manage_ip_profiles INTEGER NOT NULL DEFAULT 0,
-    can_review_submissions INTEGER NOT NULL DEFAULT 0,
-    can_manage_pages INTEGER NOT NULL DEFAULT 0,
-    can_view_stats INTEGER NOT NULL DEFAULT 0,
-    can_manage_uploads INTEGER NOT NULL DEFAULT 0,
-    can_manage_settings INTEGER NOT NULL DEFAULT 0,
-    can_manage_roles INTEGER NOT NULL DEFAULT 0,
-    can_manage_users INTEGER NOT NULL DEFAULT 0,
-    can_manage_likes INTEGER NOT NULL DEFAULT 0,
-    can_manage_trash INTEGER NOT NULL DEFAULT 0,
-    can_view_events INTEGER NOT NULL DEFAULT 0,
-    can_view_snowflakes INTEGER NOT NULL DEFAULT 0,
+${ROLE_FLAG_COLUMN_DEFINITIONS},
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -68,28 +50,7 @@ export async function initDb() {
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     display_name TEXT,
-    is_admin INTEGER NOT NULL DEFAULT 0,
-    is_moderator INTEGER NOT NULL DEFAULT 0,
-    is_helper INTEGER NOT NULL DEFAULT 0,
-    is_contributor INTEGER NOT NULL DEFAULT 0,
-    can_comment INTEGER NOT NULL DEFAULT 0,
-    can_submit_pages INTEGER NOT NULL DEFAULT 0,
-    can_moderate_comments INTEGER NOT NULL DEFAULT 0,
-    can_review_ban_appeals INTEGER NOT NULL DEFAULT 0,
-    can_manage_ip_bans INTEGER NOT NULL DEFAULT 0,
-    can_manage_ip_reputation INTEGER NOT NULL DEFAULT 0,
-    can_manage_ip_profiles INTEGER NOT NULL DEFAULT 0,
-    can_review_submissions INTEGER NOT NULL DEFAULT 0,
-    can_manage_pages INTEGER NOT NULL DEFAULT 0,
-    can_view_stats INTEGER NOT NULL DEFAULT 0,
-    can_manage_uploads INTEGER NOT NULL DEFAULT 0,
-    can_manage_settings INTEGER NOT NULL DEFAULT 0,
-    can_manage_roles INTEGER NOT NULL DEFAULT 0,
-    can_manage_users INTEGER NOT NULL DEFAULT 0,
-    can_manage_likes INTEGER NOT NULL DEFAULT 0,
-    can_manage_trash INTEGER NOT NULL DEFAULT 0,
-    can_view_events INTEGER NOT NULL DEFAULT 0,
-    can_view_snowflakes INTEGER NOT NULL DEFAULT 0,
+${ROLE_FLAG_COLUMN_DEFINITIONS},
     role_id INTEGER REFERENCES roles(id)
   );
   CREATE TABLE IF NOT EXISTS settings(
@@ -260,6 +221,8 @@ export async function initDb() {
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   `);
+  await ensureRoleFlagColumns("roles");
+  await ensureRoleFlagColumns("users");
   await ensureFts();
   await ensureColumn("deleted_pages", "comments_json", "TEXT");
   await ensureColumn("deleted_pages", "stats_json", "TEXT");
@@ -517,6 +480,18 @@ export async function all(sql, params = []) {
 }
 export async function run(sql, params = []) {
   return db.run(sql, params);
+}
+
+async function ensureRoleFlagColumns(table) {
+  const info = await db.all(`PRAGMA table_info(${table})`);
+  const existing = new Set(info.map((column) => column.name));
+  for (const field of ROLE_FLAG_FIELDS) {
+    if (!existing.has(field)) {
+      await db.exec(
+        `ALTER TABLE ${table} ADD COLUMN ${field} INTEGER NOT NULL DEFAULT 0`,
+      );
+    }
+  }
 }
 
 async function ensureColumn(table, column, definition) {

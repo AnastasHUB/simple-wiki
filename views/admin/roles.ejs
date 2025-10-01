@@ -3,118 +3,9 @@
 <p class="text-muted">Créez de nouveaux rôles et ajustez leurs permissions. Les utilisateurs associés héritent automatiquement des permissions de leur rôle.</p>
 
 <%
-  const permissionOptions = [
-    {
-      field: 'is_admin',
-      label: 'Administrateur',
-      description: "Donne un accès complet à l'administration, toutes les permissions sont implicites.",
-    },
-    {
-      field: 'is_moderator',
-      label: 'Modérateur',
-      description: "Autorise la modération générale des contenus (commentaires, pages, contributions).",
-    },
-    {
-      field: 'can_comment',
-      label: 'Commenter',
-      description: "Permet de publier des commentaires sur les articles publics.",
-    },
-    {
-      field: 'can_submit_pages',
-      label: 'Soumettre des contenus',
-      description: "Permet d'envoyer des brouillons de pages pour relecture.",
-    },
-    {
-      field: 'is_contributor',
-      label: 'Publier des articles',
-      description: "Autorise la publication immédiate de nouvelles pages sans validation.",
-    },
-    {
-      field: 'is_helper',
-      label: 'Commentaires sans modération',
-      description: "Les commentaires publiés sont visibles immédiatement sans approbation préalable.",
-    },
-    {
-      field: 'can_moderate_comments',
-      label: 'Modérer les commentaires',
-      description: "Permet de supprimer, masquer ou approuver des commentaires d'autres utilisateurs.",
-    },
-    {
-      field: 'can_review_submissions',
-      label: 'Revoir les contributions',
-      description: "Donne accès à la file de contributions afin d'accepter ou refuser les propositions.",
-    },
-    {
-      field: 'can_manage_pages',
-      label: 'Gérer les articles',
-      description: "Autorise l'édition, la publication et la suppression des pages existantes.",
-    },
-    {
-      field: 'can_view_stats',
-      label: 'Voir les statistiques',
-      description: "Affiche les statistiques d'audience et les indicateurs d'activité du wiki.",
-    },
-    {
-      field: 'can_manage_users',
-      label: 'Gérer les utilisateurs',
-      description: "Permet de modifier les comptes, leurs rôles et leur état d'activation.",
-    },
-    {
-      field: 'can_manage_roles',
-      label: 'Gérer les rôles',
-      description: "Donne accès à cette interface d'administration des rôles.",
-    },
-    {
-      field: 'can_manage_likes',
-      label: 'Gérer les likes',
-      description: "Autorise la suppression ou le rétablissement des mentions J'aime.",
-    },
-    {
-      field: 'can_manage_trash',
-      label: 'Gérer la corbeille',
-      description: "Permet de restaurer ou purger les contenus supprimés.",
-    },
-    {
-      field: 'can_manage_uploads',
-      label: 'Gérer les images',
-      description: "Autorise l'ajout, la suppression et le renommage des fichiers envoyés.",
-    },
-    {
-      field: 'can_manage_settings',
-      label: 'Modifier les paramètres',
-      description: "Donne accès à la configuration générale du site (nom, logo, intégrations...).",
-    },
-    {
-      field: 'can_manage_ip_bans',
-      label: 'Gérer les blocages IP',
-      description: "Permet de consulter, ajouter ou lever des blocages IP manuellement.",
-    },
-    {
-      field: 'can_manage_ip_reputation',
-      label: 'Gérer la réputation IP',
-      description: "Accès aux outils de réputation automatique pour marquer des IP sûres ou suspectes.",
-    },
-    {
-      field: 'can_manage_ip_profiles',
-      label: 'Gérer les profils IP',
-      description: "Autorise la consultation détaillée des profils IP et leurs historiques.",
-    },
-    {
-      field: 'can_review_ban_appeals',
-      label: 'Examiner les demandes de déban',
-      description: "Permet de traiter les demandes de réexamen des bannissements utilisateurs.",
-    },
-    {
-      field: 'can_view_events',
-      label: 'Voir les événements',
-      description: "Affiche le journal des événements internes pour suivre l'activité administrative.",
-    },
-    {
-      field: 'can_view_snowflakes',
-      label: 'Voir les identifiants Snowflake',
-      description: "Montre les identifiants Snowflake complets lors de l'inspection des contenus.",
-    },
-  ];
+  const permissionGroups = Array.isArray(permissionCategories)
+    ? permissionCategories
+    : [];
 %>
 
 <section class="role-manager">
@@ -333,25 +224,56 @@
               </div>
               <fieldset class="role-permissions">
                 <legend>Permissions</legend>
-                <div class="role-permissions-grid">
-                  <% permissionOptions.forEach((option) => { %>
-                    <% const isLockedAdminPermission = isAdministratorRole && option.field === 'is_admin'; %>
-                    <label class="checkbox role-permission">
-                      <input
-                        type="checkbox"
-                        name="<%= option.field %>"
-                        value="1"
-                        <%= role[option.field] ? 'checked' : '' %>
-                        <%= isLockedAdminPermission ? 'disabled' : '' %>
-                      />
-                      <% if (isLockedAdminPermission) { %>
-                        <input type="hidden" name="<%= option.field %>" value="1" />
-                      <% } %>
-                      <span class="permission-title"><%= option.label %></span>
-                      <span class="permission-description"><%= option.description %></span>
-                    </label>
+                <% if (!permissionGroups.length) { %>
+                  <p class="text-sm text-muted">Aucune permission disponible pour le moment.</p>
+                <% } else { %>
+                  <% permissionGroups.forEach((category) => { %>
+                    <% const groups = Array.isArray(category.groups) ? category.groups : []; %>
+                    <section class="permission-category">
+                      <div class="permission-category-header">
+                        <h3 class="permission-category-title"><%= category.label %></h3>
+                        <% if (category.description) { %>
+                          <p class="text-sm text-muted"><%= category.description %></p>
+                        <% } %>
+                      </div>
+                      <% groups.forEach((group) => { %>
+                        <% const options = Array.isArray(group.permissions) ? group.permissions : []; %>
+                        <div class="permission-group">
+                          <% if (group.label) { %>
+                            <h4 class="permission-group-title"><%= group.label %></h4>
+                          <% } %>
+                          <div class="role-permissions-grid">
+                            <% options.forEach((option) => { %>
+                              <% if (!option || typeof option.field !== 'string') { return; } %>
+                              <% const isLockedAdminPermission = isAdministratorRole && option.field === 'is_admin'; %>
+                              <label class="checkbox role-permission <%= option.isAggregate ? 'is-aggregate' : '' %>">
+                                <input
+                                  type="checkbox"
+                                  name="<%= option.field %>"
+                                  value="1"
+                                  <%= role[option.field] ? 'checked' : '' %>
+                                  <%= isLockedAdminPermission ? 'disabled' : '' %>
+                                />
+                                <% if (isLockedAdminPermission) { %>
+                                  <input type="hidden" name="<%= option.field %>" value="1" />
+                                <% } %>
+                                <span class="permission-title">
+                                  <%= option.label %>
+                                  <% if (option.isAggregate) { %>
+                                    <span class="badge badge-aggregate" aria-label="Permission globale">Macro</span>
+                                  <% } %>
+                                </span>
+                                <% if (option.description) { %>
+                                  <span class="permission-description"><%= option.description %></span>
+                                <% } %>
+                              </label>
+                            <% }) %>
+                          </div>
+                        </div>
+                      <% }) %>
+                    </section>
                   <% }) %>
-                </div>
+                <% } %>
               </fieldset>
               <div class="role-actions">
                 <button class="btn secondary" type="submit" data-icon="💾">Enregistrer</button>
