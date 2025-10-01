@@ -185,6 +185,196 @@ a:focus {
   margin-bottom: 1.25rem;
 }
 
+.field-hint {
+  display: block;
+  margin: 0.25rem 0 0.75rem;
+  color: #52606d;
+  font-size: 0.85rem;
+}
+
+.changelog-card .card-subtitle {
+  margin: 0;
+  color: #52606d;
+}
+
+.changelog-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.changelog-controls .control-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 160px;
+}
+
+.changelog-controls select {
+  padding: 0.35rem 0.5rem;
+  border: 1px solid #cbd2d9;
+  border-radius: 4px;
+  font: inherit;
+}
+
+.changelog-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.changelog-item {
+  border-top: 1px solid #e4e7eb;
+  padding-top: 1.25rem;
+}
+
+.changelog-item:first-child {
+  border-top: none;
+  padding-top: 0;
+}
+
+.changelog-item-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #52606d;
+  font-size: 0.9rem;
+}
+
+.changelog-type {
+  font-weight: 600;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  color: #829ab1;
+}
+
+.changelog-title {
+  margin: 0.35rem 0;
+  font-size: 1.1rem;
+}
+
+.changelog-title a {
+  color: inherit;
+}
+
+.changelog-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  color: #52606d;
+  font-size: 0.9rem;
+}
+
+.changelog-sha {
+  font-family: "Fira Code", "Courier New", monospace;
+}
+
+.changelog-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.changelog-state-open {
+  background: #e3f9e5;
+  border-color: #a3d6a4;
+  color: #036b26;
+}
+
+.changelog-state-closed {
+  background: #fde8e8;
+  border-color: #f8b4b4;
+  color: #c81e1e;
+}
+
+.changelog-state-merged {
+  background: #e8e1ff;
+  border-color: #c4b5f6;
+  color: #5f3dc4;
+}
+
+.changelog-state-draft {
+  background: #f0f4f8;
+  border-color: #cbd2d9;
+  color: #52606d;
+}
+
+.changelog-message {
+  margin-top: 0.75rem;
+}
+
+.changelog-message summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.changelog-message pre {
+  margin: 0.5rem 0 0 0;
+  padding: 0.75rem;
+  background: #f1f5f9;
+  border-radius: 6px;
+  overflow: auto;
+}
+
+.changelog-summary {
+  margin-top: 0.75rem;
+  white-space: pre-wrap;
+}
+
+.changelog-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.changelog-pagination .pager {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.page-indicator {
+  font-weight: 600;
+}
+
+.rate-limit {
+  margin-top: 1rem;
+  color: #52606d;
+  font-size: 0.85rem;
+}
+
+.empty-state {
+  color: #52606d;
+  font-style: italic;
+}
+
+@media (max-width: 640px) {
+  .changelog-item-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .changelog-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 .card-header {
   margin-bottom: 0.75rem;
 }
