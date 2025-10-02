@@ -235,27 +235,25 @@
                         <h3 class="h4">Catégories</h3>
                         <p class="text-sm text-muted">Sélectionnez une catégorie pour afficher ses permissions.</p>
                       </div>
-                      <ul class="permission-selector" data-permission-selector role="list">
-                        <% permissionGroups.forEach((category, categoryIndex) => { %>
-                          <% const groups = Array.isArray(category.groups) ? category.groups : []; %>
-                          <% const permissionCount = groups.reduce((total, group) => {
-                            const options = Array.isArray(group.permissions) ? group.permissions : [];
-                            return total + options.length;
-                          }, 0); %>
-                          <li class="permission-selector-item">
-                            <button
-                              type="button"
-                              class="permission-choice <%= categoryIndex === 0 ? 'is-active' : '' %>"
-                              data-permission-category="<%= category.key %>"
-                              aria-pressed="<%= categoryIndex === 0 ? 'true' : 'false' %>"
-                              aria-controls="permission-panel-<%= role.id %>-<%= category.key %>"
+                      <% const permissionSelectId = `permission-category-select-${role.id}`; %>
+                      <div class="permission-selector">
+                        <label for="<%= permissionSelectId %>">Catégorie affichée</label>
+                        <select id="<%= permissionSelectId %>" data-permission-selector>
+                          <% permissionGroups.forEach((category, categoryIndex) => { %>
+                            <% const groups = Array.isArray(category.groups) ? category.groups : []; %>
+                            <% const permissionCount = groups.reduce((total, group) => {
+                              const options = Array.isArray(group.permissions) ? group.permissions : [];
+                              return total + options.length;
+                            }, 0); %>
+                            <option
+                              value="<%= category.key %>"
+                              <%= categoryIndex === 0 ? 'selected' : '' %>
                             >
-                              <span class="permission-choice-name"><%= category.label %></span>
-                              <span class="badge"><%= permissionCount %> permission<%= permissionCount > 1 ? 's' : '' %></span>
-                            </button>
-                          </li>
-                        <% }) %>
-                      </ul>
+                              <%= category.label %> (<%= permissionCount %> permission<%= permissionCount > 1 ? 's' : '' %>)
+                            </option>
+                          <% }) %>
+                        </select>
+                      </div>
                     </aside>
                     <div class="permission-detail" data-permission-detail>
                       <% permissionGroups.forEach((category, categoryIndex) => { %>
@@ -781,18 +779,15 @@
       }
       const selector = panel.querySelector('[data-permission-selector]');
       const detail = panel.querySelector('[data-permission-detail]');
-      if (!selector || !detail) {
+      if (!(selector instanceof HTMLSelectElement) || !detail) {
         return;
       }
 
-      const buttons = Array.from(
-        selector.querySelectorAll('[data-permission-category]'),
-      );
       const categoryPanels = Array.from(
         detail.querySelectorAll('[data-permission-category-panel]'),
       );
 
-      if (!buttons.length || !categoryPanels.length) {
+      if (!categoryPanels.length) {
         return;
       }
 
@@ -809,22 +804,23 @@
           section.hidden = section.dataset.permissionCategoryPanel !== key;
         });
 
-        buttons.forEach((button) => {
-          const isActive = button.dataset.permissionCategory === key;
-          button.classList.toggle('is-active', isActive);
-          button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-        });
+        if (selector.value !== key) {
+          const matchingOption = Array.from(selector.options).find(
+            (option) => option.value === key,
+          );
+          if (matchingOption) {
+            selector.value = matchingOption.value;
+          }
+        }
       };
 
-      buttons.forEach((button) => {
-        button.addEventListener('click', () => {
-          activate(button.dataset.permissionCategory || '');
-        });
+      selector.addEventListener('change', (event) => {
+        activate(event.target.value);
       });
 
-      const initiallyActive =
-        buttons.find((button) => button.classList.contains('is-active'))?.dataset
-          .permissionCategory || buttons[0].dataset.permissionCategory;
+      const initiallyActive = selector.value
+        || categoryPanels[0].dataset.permissionCategoryPanel
+        || '';
 
       activate(initiallyActive);
     };
