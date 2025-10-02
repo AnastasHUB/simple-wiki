@@ -21,10 +21,18 @@
       </thead>
       <tbody>
         <% revisions.forEach((rev) => { %>
+          <% const revAuthorColor = rev.authorRole && rev.authorRole.color ? rev.authorRole.color : null; %>
+          <% const revAuthorClasses = ['user-handle', 'history-author']; %>
+          <% const revAuthorStyle = revAuthorColor && revAuthorColor.hasColor ? revAuthorColor.style : ''; %>
+          <% if (revAuthorColor && revAuthorColor.hasColor) { revAuthorClasses.push('role-colored-text'); revAuthorClasses.push(revAuthorColor.className); } %>
           <tr>
             <td><%= rev.revision %></td>
             <td><%= rev.title %></td>
-            <td><%= rev.author || 'Inconnu' %></td>
+            <td>
+              <strong class="<%= revAuthorClasses.join(' ') %>" style="<%= revAuthorStyle %>">
+                <%= rev.author || 'Inconnu' %>
+              </strong>
+            </td>
             <td><%= rev.created_at %></td>
             <td><a class="btn" data-icon="📝" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a></td>
           </tr>

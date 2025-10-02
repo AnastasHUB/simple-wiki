@@ -1,5 +1,6 @@
 import { all, get } from "../db.js";
 import { formatIpProfileLabel, hashIp } from "./ipProfiles.js";
+import { resolveHandleColors, getHandleColor } from "./userHandles.js";
 
 const TAGS_CSV_SUBQUERY = `(
   SELECT GROUP_CONCAT(t.name, ',')
@@ -73,7 +74,7 @@ export async function fetchPaginatedPages({
 }
 
 export async function fetchPageWithStats(slugId, ip) {
-  return get(
+  const page = await get(
     `
     SELECT p.*,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
@@ -85,6 +86,16 @@ export async function fetchPageWithStats(slugId, ip) {
   `,
     [ip, slugId],
   );
+
+  if (!page) {
+    return null;
+  }
+
+  const handleMap = await resolveHandleColors([page.author]);
+  return {
+    ...page,
+    authorRole: getHandleColor(page.author, handleMap),
+  };
 }
 
 export async function fetchPageTags(pageId) {
@@ -129,6 +140,7 @@ export async function fetchPageComments(pageId, options = {}) {
   }
 
   const rows = await all(query, params);
+  const handleMap = await resolveHandleColors(rows.map((row) => row.author));
   return rows.map((row) => {
     const ipHash = row.ip_hash || hashIp(row.raw_ip || "");
     const {
@@ -140,6 +152,7 @@ export async function fetchPageComments(pageId, options = {}) {
     return {
       ...rest,
       isAdminAuthor: Boolean(row.author_is_admin),
+      authorRole: getHandleColor(row.author, handleMap),
       ipProfile: ipHash
         ? {
             hash: ipHash,

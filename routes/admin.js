@@ -70,6 +70,10 @@ import {
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
 import {
+  resolveHandleColors,
+  getHandleColor,
+} from "../utils/userHandles.js";
+import {
   listRoles,
   listRolesWithUsage,
   getRoleById,
@@ -1990,6 +1994,19 @@ r.get(
   const newLikesCount = Number(newLikesRow?.total || 0);
   const newViewsCount = Number(newViewsRow?.total || 0);
 
+  const statsHandleMap = await resolveHandleColors([
+    ...recentEvents.map((event) => event.username),
+    ...topCommenters.map((row) => row.author),
+  ]);
+  const decoratedRecentEvents = recentEvents.map((event) => ({
+    ...event,
+    userRole: getHandleColor(event.username, statsHandleMap),
+  }));
+  const decoratedTopCommenters = topCommenters.map((row) => ({
+    ...row,
+    authorRole: getHandleColor(row.author, statsHandleMap),
+  }));
+
   const engagementHighlights = [
     {
       icon: "📄",
@@ -2063,7 +2080,7 @@ r.get(
     engagementHighlights,
     topLikedPages,
     topLikedPagination,
-    topCommenters,
+    topCommenters: decoratedTopCommenters,
     topCommentersPagination,
     topCommentedPages,
     topCommentedPagination,
@@ -2076,7 +2093,7 @@ r.get(
     ipViewsByPage,
     ipViewsPagination,
     recentPages,
-    recentEvents,
+    recentEvents: decoratedRecentEvents,
     viewTrends,
     liveVisitors,
     liveVisitorsPagination,
@@ -3422,10 +3439,17 @@ r.get(
       LIMIT ? OFFSET ?`,
     [...params, basePagination.perPage, offset],
   );
+  const eventHandleMap = await resolveHandleColors(
+    events.map((event) => event.username),
+  );
+  const decoratedEvents = events.map((event) => ({
+    ...event,
+    userRole: getHandleColor(event.username, eventHandleMap),
+  }));
   const pagination = decoratePagination(req, basePagination);
 
   res.render("admin/events", {
-    events,
+    events: decoratedEvents,
     pagination,
     searchTerm,
   });

@@ -341,6 +341,33 @@ pre {
   font-weight: 600;
 }
 
+.role-colored-text {
+  background-image: var(--role-gradient, none);
+  background-size: var(--role-background-size, 100% 100%);
+  background-position: var(--role-background-position, 0% 50%);
+  background-repeat: no-repeat;
+  animation: var(--role-animation, none);
+  color: var(--role-fallback-color, currentColor);
+  -webkit-text-fill-color: var(--role-fallback-color, currentColor);
+  background-clip: text;
+  -webkit-background-clip: text;
+}
+
+.role-colored-text.role-color--gradient,
+.role-colored-text.role-color--rainbow {
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+@keyframes role-rainbow {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
 .btn {
   appearance: none;
   border: none;
@@ -437,6 +464,13 @@ html.drawer-open .nav-drawer {
   margin-bottom: 1.25rem;
 }
 
+.nav-close {
+  margin-left: auto;
+  width: 40px;
+  height: 40px;
+  display: none;
+}
+
 .nav-drawer-icon {
   display: none;
   width: 40px;
@@ -467,6 +501,10 @@ html.drawer-open .nav-drawer {
 
 @media (max-width: 1024px) {
   .nav-drawer-icon {
+    display: inline-flex;
+  }
+
+  .nav-close {
     display: inline-flex;
   }
 }
@@ -503,11 +541,34 @@ html.drawer-open .nav-drawer {
   transition: background var(--transition-base), color var(--transition-base), transform var(--transition-base);
 }
 
+.nav-item-icon {
+  width: 1.9rem;
+  height: 1.9rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-small);
+  background: rgba(92, 139, 255, 0.08);
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  transition: background var(--transition-base), color var(--transition-base), transform var(--transition-base);
+}
+
+.nav-item-label {
+  flex: 1;
+}
+
 .nav-list a:hover,
 .nav-list a:focus {
   background: rgba(92, 139, 255, 0.18);
   color: var(--color-text);
   transform: translateX(4px);
+}
+
+.nav-list a:hover .nav-item-icon,
+.nav-list a:focus .nav-item-icon {
+  background: rgba(92, 139, 255, 0.28);
+  color: var(--color-text);
 }
 
 .page-content {
@@ -928,6 +989,10 @@ input[type="radio"] {
   }
 
   .drawer-overlay {
+    display: none;
+  }
+
+  .nav-close {
     display: none;
   }
 }

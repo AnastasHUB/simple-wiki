@@ -18,7 +18,21 @@
     </div>
     <div>
       <strong>Auteur proposé</strong>
-      <p><%= submission.author_name || submission.submitted_by || '–' %></p>
+      <% const submissionAuthorHandle = submission.author_name || submission.submitted_by; %>
+      <% const submissionAuthorRole = submission.author_name ? submission.authorNameRole : submission.submittedByRole; %>
+      <% if (submissionAuthorHandle) { %>
+        <% const submissionAuthorColor = submissionAuthorRole && submissionAuthorRole.color ? submissionAuthorRole.color : null; %>
+        <% const submissionAuthorClasses = ['user-handle', 'submission-author']; %>
+        <% const submissionAuthorStyle = submissionAuthorColor && submissionAuthorColor.hasColor ? submissionAuthorColor.style : ''; %>
+        <% if (submissionAuthorColor && submissionAuthorColor.hasColor) { submissionAuthorClasses.push('role-colored-text'); submissionAuthorClasses.push(submissionAuthorColor.className); } %>
+        <p>
+          <strong class="<%= submissionAuthorClasses.join(' ') %>" style="<%= submissionAuthorStyle %>">
+            <%= submissionAuthorHandle %>
+          </strong>
+        </p>
+      <% } else { %>
+        <p>–</p>
+      <% } %>
     </div>
     <div>
       <strong>Proposé le</strong>
@@ -42,7 +56,11 @@
         <p>
           <%= new Date(submission.reviewed_at).toLocaleString('fr-FR') %>
           <% if (submission.reviewer_username) { %>
-            · par <strong><%= submission.reviewer_username %></strong>
+            <% const reviewerColor = submission.reviewerRole && submission.reviewerRole.color ? submission.reviewerRole.color : null; %>
+            <% const reviewerClasses = ['user-handle', 'submission-reviewer']; %>
+            <% const reviewerStyle = reviewerColor && reviewerColor.hasColor ? reviewerColor.style : ''; %>
+            <% if (reviewerColor && reviewerColor.hasColor) { reviewerClasses.push('role-colored-text'); reviewerClasses.push(reviewerColor.className); } %>
+            · par <strong class="<%= reviewerClasses.join(' ') %>" style="<%= reviewerStyle %>"><%= submission.reviewer_username %></strong>
           <% } %>
         </p>
       </div>

@@ -45,7 +45,17 @@
               <td><code><%= ev.snowflake_id || ev.id %></code></td>
               <td><strong><%= ev.type %></strong></td>
               <td><code><%= ev.channel %></code></td>
-              <td><%= ev.username || '-' %></td>
+              <% const eventUserColor = ev.userRole && ev.userRole.color ? ev.userRole.color : null; %>
+              <% const eventUserClasses = ['user-handle', 'event-user']; %>
+              <% const eventUserStyle = eventUserColor && eventUserColor.hasColor ? eventUserColor.style : ''; %>
+              <% if (eventUserColor && eventUserColor.hasColor) { eventUserClasses.push('role-colored-text'); eventUserClasses.push(eventUserColor.className); } %>
+              <td>
+                <% if (ev.username) { %>
+                  <strong class="<%= eventUserClasses.join(' ') %>" style="<%= eventUserStyle %>"><%= ev.username %></strong>
+                <% } else { %>
+                  -
+                <% } %>
+              </td>
               <td><%= ev.ip || '-' %></td>
               <td><%= new Date(ev.created_at).toLocaleString('fr-FR') %></td>
             </tr>

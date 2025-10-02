@@ -5,7 +5,11 @@
     <div class="meta">
       <span>Créé: <%= page.created_at %></span>
       <% if (page.updated_at) { %><span>• Modifié: <%= page.updated_at %></span><% } %>
-      <span>• Auteur : <strong><%= page.author || 'Anonyme' %></strong></span>
+      <% const pageAuthorColor = page.authorRole && page.authorRole.color ? page.authorRole.color : null; %>
+      <% const pageAuthorClasses = ['user-handle', 'page-author']; %>
+      <% const pageAuthorStyle = pageAuthorColor && pageAuthorColor.hasColor ? pageAuthorColor.style : ''; %>
+      <% if (pageAuthorColor && pageAuthorColor.hasColor) { pageAuthorClasses.push('role-colored-text'); pageAuthorClasses.push(pageAuthorColor.className); } %>
+      <span>• Auteur : <strong class="<%= pageAuthorClasses.join(' ') %>" style="<%= pageAuthorStyle %>"><%= page.author || 'Anonyme' %></strong></span>
       <span>• Likes: <strong data-like-count-for="<%= page.slug_id %>"><%= page.likes %></strong></span>
       <span>• Commentaires: <strong><%= commentPagination.totalItems %></strong></span>
       <span>• Vues: <strong><%= page.views %></strong></span>
@@ -78,9 +82,12 @@
       <% comments.forEach(c => { %>
         <li class="comment">
           <div class="comment-meta">
-            <% const authorClasses = ['comment-author']; %>
+            <% const commentAuthorColor = c.authorRole && c.authorRole.color ? c.authorRole.color : null; %>
+            <% const authorClasses = ['comment-author', 'user-handle']; %>
             <% if (c.isAdminAuthor) { authorClasses.push('comment-author--admin'); } %>
-            <strong class="<%= authorClasses.join(' ') %>">
+            <% const commentAuthorStyle = commentAuthorColor && commentAuthorColor.hasColor ? commentAuthorColor.style : ''; %>
+            <% if (commentAuthorColor && commentAuthorColor.hasColor) { authorClasses.push('role-colored-text'); authorClasses.push(commentAuthorColor.className); } %>
+            <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
               <%= c.author || 'Anonyme' %>
               <% if (c.isAdminAuthor) { %>
                 <span class="comment-author-badge" title="Administrateur">⭐</span>

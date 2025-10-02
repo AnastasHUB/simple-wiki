@@ -118,29 +118,67 @@
       <div class="nav-drawer-header">
         <span class="nav-drawer-icon" aria-hidden="true">☰</span>
         <span class="nav-title">Explorer</span>
+        <button class="nav-close icon-button" type="button" data-close-nav aria-label="Fermer la navigation">
+          <span class="icon" aria-hidden="true">✕</span>
+        </button>
       </div>
       <div class="nav-content">
         <section class="nav-section">
           <h2 class="nav-section-title">Général</h2>
           <ul class="nav-list">
-            <li><a href="/">Accueil</a></li>
-            <li><a href="/rss.xml" target="_blank" rel="noopener">Flux RSS</a></li>
+            <li>
+              <a href="/">
+                <span class="nav-item-icon" aria-hidden="true">🏠</span>
+                <span class="nav-item-label">Accueil</span>
+              </a>
+            </li>
+            <li>
+              <a href="/rss.xml" target="_blank" rel="noopener">
+                <span class="nav-item-icon" aria-hidden="true">📡</span>
+                <span class="nav-item-label">Flux RSS</span>
+              </a>
+            </li>
             <% if (typeof hasChangelog !== 'undefined' && hasChangelog) { %>
-              <li><a href="/changelog">Changelog</a></li>
+              <li>
+                <a href="/changelog">
+                  <span class="nav-item-icon" aria-hidden="true">📝</span>
+                  <span class="nav-item-label">Changelog</span>
+                </a>
+              </li>
             <% } %>
             <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
-              <li><a href="/profiles/ip/me">Mon profil IP</a></li>
+              <li>
+                <a href="/profiles/ip/me">
+                  <span class="nav-item-icon" aria-hidden="true">🛡️</span>
+                  <span class="nav-item-label">Mon profil IP</span>
+                </a>
+              </li>
             <% } %>
             <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
             <% const isAdminUser = !!permissionFlags.is_admin; %>
             <% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
             <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
             <% if (canSubmitContent && !canPublishDirectly) { %>
-              <li><a href="/new">Contribuer</a></li>
+              <li>
+                <a href="/new">
+                  <span class="nav-item-icon" aria-hidden="true">✍️</span>
+                  <span class="nav-item-label">Contribuer</span>
+                </a>
+              </li>
             <% } else if (canPublishDirectly) { %>
-              <li><a href="/new">Nouvelle page</a></li>
+              <li>
+                <a href="/new">
+                  <span class="nav-item-icon" aria-hidden="true">➕</span>
+                  <span class="nav-item-label">Nouvelle page</span>
+                </a>
+              </li>
             <% } %>
-            <li><a href="/account/submissions">Mes contributions</a></li>
+            <li>
+              <a href="/account/submissions">
+                <span class="nav-item-icon" aria-hidden="true">📚</span>
+                <span class="nav-item-label">Mes contributions</span>
+              </a>
+            </li>
           </ul>
         </section>
         <% const canModerateComments = !!(
@@ -280,71 +318,148 @@
             <h2 class="nav-section-title">Administration</h2>
             <ul class="nav-list">
               <% if (isAdminUser) { %>
-                <li><a href="/new">Nouvelle page</a></li>
+                <li>
+                  <a href="/new">
+                    <span class="nav-item-icon" aria-hidden="true">🆕</span>
+                    <span class="nav-item-label">Nouvelle page</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canReviewSubmissions) { %>
                 <li>
                   <a href="/admin/submissions">
-                    Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
+                    <span class="nav-item-icon" aria-hidden="true">🗳️</span>
+                    <span class="nav-item-label">
+                      Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
+                    </span>
                   </a>
                 </li>
               <% } %>
               <% if (canManagePages) { %>
-                <li><a href="/admin/pages">Articles</a></li>
+                <li>
+                  <a href="/admin/pages">
+                    <span class="nav-item-icon" aria-hidden="true">📄</span>
+                    <span class="nav-item-label">Articles</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageTrash) { %>
-                <li><a href="/admin/trash">Corbeille</a></li>
+                <li>
+                  <a href="/admin/trash">
+                    <span class="nav-item-icon" aria-hidden="true">🗑️</span>
+                    <span class="nav-item-label">Corbeille</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canViewStats) { %>
-                <li><a href="/admin/stats">Statistiques</a></li>
+                <li>
+                  <a href="/admin/stats">
+                    <span class="nav-item-icon" aria-hidden="true">📊</span>
+                    <span class="nav-item-label">Statistiques</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageUsers) { %>
-                <li><a href="/admin/users">Utilisateurs</a></li>
+                <li>
+                  <a href="/admin/users">
+                    <span class="nav-item-icon" aria-hidden="true">👥</span>
+                    <span class="nav-item-label">Utilisateurs</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageRoles) { %>
-                <li><a href="/admin/roles">Rôles</a></li>
+                <li>
+                  <a href="/admin/roles">
+                    <span class="nav-item-icon" aria-hidden="true">🛡️</span>
+                    <span class="nav-item-label">Rôles</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canModerateComments) { %>
                 <li>
                   <a href="/admin/comments">
-                    Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
+                    <span class="nav-item-icon" aria-hidden="true">💬</span>
+                    <span class="nav-item-label">
+                      Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
+                    </span>
                   </a>
                 </li>
               <% } %>
               <% if (canManageLikes) { %>
-                <li><a href="/admin/likes">Likes</a></li>
+                <li>
+                  <a href="/admin/likes">
+                    <span class="nav-item-icon" aria-hidden="true">💖</span>
+                    <span class="nav-item-label">Likes</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageIpBans) { %>
-                <li><a href="/admin/ip-bans">Blocages IP</a></li>
+                <li>
+                  <a href="/admin/ip-bans">
+                    <span class="nav-item-icon" aria-hidden="true">🚫</span>
+                    <span class="nav-item-label">Blocages IP</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageIpReputation) { %>
                 <li>
                   <a href="/admin/ip-reputation">
-                    Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
+                    <span class="nav-item-icon" aria-hidden="true">🕵️</span>
+                    <span class="nav-item-label">
+                      Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
+                    </span>
                   </a>
                 </li>
               <% } %>
               <% if (canManageIpProfiles) { %>
-                <li><a href="/admin/ip-profiles">Profils IP</a></li>
+                <li>
+                  <a href="/admin/ip-profiles">
+                    <span class="nav-item-icon" aria-hidden="true">🔍</span>
+                    <span class="nav-item-label">Profils IP</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canReviewBanAppeals) { %>
                 <li>
                   <a href="/admin/ban-appeals">
-                    Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
+                    <span class="nav-item-icon" aria-hidden="true">🙏</span>
+                    <span class="nav-item-label">
+                      Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
+                    </span>
                   </a>
                 </li>
               <% } %>
               <% if (canViewSnowflakes) { %>
-                <li><a href="/admin/snowflakes">Snowflakes</a></li>
+                <li>
+                  <a href="/admin/snowflakes">
+                    <span class="nav-item-icon" aria-hidden="true">❄️</span>
+                    <span class="nav-item-label">Snowflakes</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canViewEvents) { %>
-                <li><a href="/admin/events">Événements</a></li>
+                <li>
+                  <a href="/admin/events">
+                    <span class="nav-item-icon" aria-hidden="true">🧾</span>
+                    <span class="nav-item-label">Événements</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageUploads) { %>
-                <li><a href="/admin/uploads">Images</a></li>
+                <li>
+                  <a href="/admin/uploads">
+                    <span class="nav-item-icon" aria-hidden="true">🖼️</span>
+                    <span class="nav-item-label">Images</span>
+                  </a>
+                </li>
               <% } %>
               <% if (canManageSettings) { %>
-                <li><a href="/admin/settings">Paramètres</a></li>
+                <li>
+                  <a href="/admin/settings">
+                    <span class="nav-item-icon" aria-hidden="true">⚙️</span>
+                    <span class="nav-item-label">Paramètres</span>
+                  </a>
+                </li>
               <% } %>
             </ul>
           </section>

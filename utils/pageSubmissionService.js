@@ -1,6 +1,7 @@
 import { all, get, run } from "../db.js";
 import { normalizeTagInput } from "./pageEditing.js";
 import { generateSnowflake } from "./snowflake.js";
+import { resolveHandleColors, getHandleColor } from "./userHandles.js";
 
 export async function createPageSubmission({
   type,
@@ -44,7 +45,7 @@ export async function getPageSubmissionById(id) {
     return null;
   }
 
-  return get(
+  const submission = await get(
     `SELECT ps.*, p.title AS current_title, p.slug_id AS current_slug,
             r.username AS reviewer_username
        FROM page_submissions ps
@@ -53,6 +54,20 @@ export async function getPageSubmissionById(id) {
       WHERE ps.snowflake_id=?`,
     [id],
   );
+  if (!submission) {
+    return null;
+  }
+  const handleMap = await resolveHandleColors([
+    submission.submitted_by,
+    submission.author_name,
+    submission.reviewer_username,
+  ]);
+  return {
+    ...submission,
+    submittedByRole: getHandleColor(submission.submitted_by, handleMap),
+    authorNameRole: getHandleColor(submission.author_name, handleMap),
+    reviewerRole: getHandleColor(submission.reviewer_username, handleMap),
+  };
 }
 
 function applySubmissionSearch(filters, params, search) {
@@ -153,7 +168,7 @@ export async function fetchPageSubmissions({
     ? `WHERE ${whereClauses.join(" AND ")}`
     : "";
 
-  return all(
+  const rows = await all(
     `SELECT ps.*, p.title AS current_title, p.slug_id AS current_slug,
             r.username AS reviewer_username
        FROM page_submissions ps
@@ -164,6 +179,17 @@ export async function fetchPageSubmissions({
       LIMIT ? OFFSET ?`,
     [...params, limit, offset],
   );
+  const handleMap = await resolveHandleColors([
+    ...rows.map((row) => row.submitted_by),
+    ...rows.map((row) => row.author_name),
+    ...rows.map((row) => row.reviewer_username),
+  ]);
+  return rows.map((row) => ({
+    ...row,
+    submittedByRole: getHandleColor(row.submitted_by, handleMap),
+    authorNameRole: getHandleColor(row.author_name, handleMap),
+    reviewerRole: getHandleColor(row.reviewer_username, handleMap),
+  }));
 }
 
 export async function updatePageSubmissionStatus(
