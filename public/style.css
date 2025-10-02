@@ -388,6 +388,12 @@ pre {
   text-decoration: none;
 }
 
+.btn.like,
+.btn.unlike {
+  padding: 0.4rem 1rem;
+  font-size: 0.95rem;
+}
+
 .btn:hover,
 .btn:focus {
   transform: translateY(-1px);
