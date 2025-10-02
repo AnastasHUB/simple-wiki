@@ -281,7 +281,13 @@
             </div>
             <div class="text-muted text-sm">
               <time datetime="<%= event.created_at %>"><%= new Date(event.created_at).toLocaleString('fr-FR') %></time>
-              <% if (event.username) { %> · <span>par <strong><%= event.username %></strong></span><% } %>
+              <% if (event.username) { %>
+                <% const eventUserColor = event.userRole && event.userRole.color ? event.userRole.color : null; %>
+                <% const eventUserClasses = ['user-handle', 'event-user']; %>
+                <% const eventUserStyle = eventUserColor && eventUserColor.hasColor ? eventUserColor.style : ''; %>
+                <% if (eventUserColor && eventUserColor.hasColor) { eventUserClasses.push('role-colored-text'); eventUserClasses.push(eventUserColor.className); } %>
+                · <span>par <strong class="<%= eventUserClasses.join(' ') %>" style="<%= eventUserStyle %>"><%= event.username %></strong></span>
+              <% } %>
             </div>
           </li>
         <% }) %>
@@ -334,8 +340,18 @@
           </thead>
           <tbody>
             <% topCommenters.forEach(row => { %>
+              <% const commenterColor = row.authorRole && row.authorRole.color ? row.authorRole.color : null; %>
+              <% const commenterClasses = ['user-handle', 'commenter-name']; %>
+              <% const commenterStyle = commenterColor && commenterColor.hasColor ? commenterColor.style : ''; %>
+              <% if (commenterColor && commenterColor.hasColor) { commenterClasses.push('role-colored-text'); commenterClasses.push(commenterColor.className); } %>
               <tr>
-                <td><%= row.author %></td>
+                <td>
+                  <% if (row.author && row.author !== 'Anonyme') { %>
+                    <strong class="<%= commenterClasses.join(' ') %>" style="<%= commenterStyle %>"><%= row.author %></strong>
+                  <% } else { %>
+                    <%= row.author %>
+                  <% } %>
+                </td>
                 <td><%= row.comments %></td>
               </tr>
             <% }) %>

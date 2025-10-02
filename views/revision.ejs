@@ -2,7 +2,16 @@
 <div class="card">
   <h1>Révision #<%= revision.revision %> de « <%= page.title %> »</h1>
   <p><strong>Titre enregistré :</strong> <%= revision.title %></p>
-  <p><strong>Auteur :</strong> <%= revision.author || 'Inconnu' %></p>
+  <% const revisionAuthorColor = revision.authorRole && revision.authorRole.color ? revision.authorRole.color : null; %>
+  <% const revisionAuthorClasses = ['user-handle', 'revision-author']; %>
+  <% const revisionAuthorStyle = revisionAuthorColor && revisionAuthorColor.hasColor ? revisionAuthorColor.style : ''; %>
+  <% if (revisionAuthorColor && revisionAuthorColor.hasColor) { revisionAuthorClasses.push('role-colored-text'); revisionAuthorClasses.push(revisionAuthorColor.className); } %>
+  <p>
+    <strong>Auteur :</strong>
+    <strong class="<%= revisionAuthorClasses.join(' ') %>" style="<%= revisionAuthorStyle %>">
+      <%= revision.author || 'Inconnu' %>
+    </strong>
+  </p>
   <p><strong>Horodatage :</strong> <%= revision.created_at %></p>
 </div>
 

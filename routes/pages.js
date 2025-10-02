@@ -59,6 +59,10 @@ import {
   normalizeChangelogMode,
   GITHUB_CHANGELOG_MODES,
 } from "../utils/githubService.js";
+import {
+  resolveHandleColors,
+  getHandleColor,
+} from "../utils/userHandles.js";
 
 const r = Router();
 
@@ -1364,12 +1368,19 @@ r.get(
             [page.id, paginationBase.perPage, offset],
           )
         : [];
+    const revisionHandleMap = await resolveHandleColors(
+      revisions.map((rev) => rev.author),
+    );
+    const normalizedRevisions = revisions.map((rev) => ({
+      ...rev,
+      authorRole: getHandleColor(rev.author, revisionHandleMap),
+    }));
     const pagination = decoratePagination(
       req,
       paginationBase,
       paginationOptions,
     );
-    res.render("history", { page, revisions, pagination, total });
+    res.render("history", { page, revisions: normalizedRevisions, pagination, total });
   }),
 );
 
@@ -1392,8 +1403,13 @@ r.get(
       [page.id, revNumber],
     );
     if (!revision) return res.status(404).send("Révision introuvable");
+    const revisionHandleMap = await resolveHandleColors([revision.author]);
+    const revisionAuthorRole = getHandleColor(
+      revision.author,
+      revisionHandleMap,
+    );
     const html = linkifyInternal(revision.content);
-    res.render("revision", { page, revision, html });
+    res.render("revision", { page, revision: { ...revision, authorRole: revisionAuthorRole }, html });
   }),
 );
 

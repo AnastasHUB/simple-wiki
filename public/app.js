@@ -38,6 +38,10 @@ let quillCodeBlockRegistered = false;
       "aria-label",
       expanded ? "Fermer le menu" : "Ouvrir le menu",
     );
+    const icon = toggleBtn.querySelector(".icon");
+    if (icon) {
+      icon.textContent = expanded ? "✕" : "☰";
+    }
   };
 
   const openDrawer = () => {

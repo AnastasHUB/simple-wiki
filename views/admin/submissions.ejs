@@ -50,7 +50,21 @@
               <td><code><%= item.snowflake_id %></code></td>
               <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
               <td><strong><%= item.title %></strong></td>
-              <td><%= item.author_name || item.submitted_by || '–' %></td>
+              <% const pendingAuthorHandle = item.author_name || item.submitted_by; %>
+              <% const pendingAuthorRole = item.author_name ? item.authorNameRole : item.submittedByRole; %>
+              <td>
+                <% if (pendingAuthorHandle) { %>
+                  <% const pendingAuthorColor = pendingAuthorRole && pendingAuthorRole.color ? pendingAuthorRole.color : null; %>
+                  <% const pendingAuthorClasses = ['user-handle', 'submission-author']; %>
+                  <% const pendingAuthorStyle = pendingAuthorColor && pendingAuthorColor.hasColor ? pendingAuthorColor.style : ''; %>
+                  <% if (pendingAuthorColor && pendingAuthorColor.hasColor) { pendingAuthorClasses.push('role-colored-text'); pendingAuthorClasses.push(pendingAuthorColor.className); } %>
+                  <strong class="<%= pendingAuthorClasses.join(' ') %>" style="<%= pendingAuthorStyle %>">
+                    <%= pendingAuthorHandle %>
+                  </strong>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
               <td>
                 <% if (item.current_slug) { %>
                   <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
@@ -115,9 +129,35 @@
                   <div><a href="/wiki/<%= item.result_slug_id %>"><code><%= item.result_slug_id %></code></a></div>
                 <% } %>
               </td>
-              <td><%= item.author_name || item.submitted_by || '–' %></td>
+              <% const recentAuthorHandle = item.author_name || item.submitted_by; %>
+              <% const recentAuthorRole = item.author_name ? item.authorNameRole : item.submittedByRole; %>
+              <td>
+                <% if (recentAuthorHandle) { %>
+                  <% const recentAuthorColor = recentAuthorRole && recentAuthorRole.color ? recentAuthorRole.color : null; %>
+                  <% const recentAuthorClasses = ['user-handle', 'submission-author']; %>
+                  <% const recentAuthorStyle = recentAuthorColor && recentAuthorColor.hasColor ? recentAuthorColor.style : ''; %>
+                  <% if (recentAuthorColor && recentAuthorColor.hasColor) { recentAuthorClasses.push('role-colored-text'); recentAuthorClasses.push(recentAuthorColor.className); } %>
+                  <strong class="<%= recentAuthorClasses.join(' ') %>" style="<%= recentAuthorStyle %>">
+                    <%= recentAuthorHandle %>
+                  </strong>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
               <td class="status <%= item.status %>"><%= item.status === 'approved' ? 'Approuvée' : 'Rejetée' %></td>
-              <td><%= item.reviewer_username || '–' %></td>
+              <% const reviewerColor = item.reviewerRole && item.reviewerRole.color ? item.reviewerRole.color : null; %>
+              <% const reviewerClasses = ['user-handle', 'submission-reviewer']; %>
+              <% const reviewerStyle = reviewerColor && reviewerColor.hasColor ? reviewerColor.style : ''; %>
+              <% if (reviewerColor && reviewerColor.hasColor) { reviewerClasses.push('role-colored-text'); reviewerClasses.push(reviewerColor.className); } %>
+              <td>
+                <% if (item.reviewer_username) { %>
+                  <strong class="<%= reviewerClasses.join(' ') %>" style="<%= reviewerStyle %>">
+                    <%= item.reviewer_username %>
+                  </strong>
+                <% } else { %>
+                  –
+                <% } %>
+              </td>
               <td>
                 <% if (item.reviewed_at) { %>
                   <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
