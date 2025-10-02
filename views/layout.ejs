@@ -51,350 +51,272 @@
     <% }) %>
   <% } %>
   <meta name="twitter:card" content="<%= metaTags.twitterCard || 'summary' %>" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@24,300,0,0&display=swap"
-    rel="stylesheet"
-  />
-  <link
-    rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
-    integrity="sha512-SnH5WK+bZxgPHs44uWIX+LLJAJ9/2PkPKZ5QiAj6Ta86w+fsb2TkcmfRyVX3pBnMFcV7oQPJkl9QevSCWr3W6A=="
-    crossorigin="anonymous"
-    referrerpolicy="no-referrer"
-  />
   <link rel="stylesheet" href="/public/style.css" />
   <link rel="stylesheet" href="https://cdn.quilljs.com/1.3.7/quill.snow.css" />
 </head>
-<body class="theme-liquid material-theme">
-<div class="background-scene" aria-hidden="true">
-  <div class="orb orb-primary"></div>
-  <div class="orb orb-secondary"></div>
-  <div class="orb orb-tertiary"></div>
-</div>
+<body>
 <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
 <% const hasBrandLogo = typeof logoUrl !== 'undefined' && logoUrl; %>
 <% const adminCounts = typeof adminActionCounts !== 'undefined' ? adminActionCounts : {}; %>
-<% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
-<% const isAdminUser = !!permissionFlags.is_admin; %>
-<% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
-<% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
-<% const canModerateComments = !!(
-  permissionFlags.can_moderate_comments ||
-  permissionFlags.can_view_comment_queue ||
-  permissionFlags.can_approve_comments ||
-  permissionFlags.can_reject_comments ||
-  permissionFlags.can_delete_comments
-); %>
-<% const canReviewSubmissions = !!(
-  permissionFlags.can_review_submissions ||
-  permissionFlags.can_view_submission_queue ||
-  permissionFlags.can_accept_submissions ||
-  permissionFlags.can_reject_submissions ||
-  permissionFlags.can_comment_on_submissions
-); %>
-<% const canManagePages = !!(
-  permissionFlags.can_manage_pages ||
-  permissionFlags.can_view_page_overview ||
-  permissionFlags.can_edit_pages ||
-  permissionFlags.can_publish_pages ||
-  permissionFlags.can_unpublish_pages ||
-  permissionFlags.can_delete_pages ||
-  permissionFlags.can_restore_pages ||
-  permissionFlags.can_schedule_pages ||
-  permissionFlags.can_manage_page_tags ||
-  permissionFlags.can_view_page_history ||
-  permissionFlags.can_revert_page_history
-); %>
-<% const canViewStats = !!(
-  permissionFlags.can_view_stats ||
-  permissionFlags.can_view_stats_basic ||
-  permissionFlags.can_view_stats_detailed ||
-  permissionFlags.can_export_stats
-); %>
-<% const canManageUsers = !!(
-  permissionFlags.can_manage_users ||
-  permissionFlags.can_view_users ||
-  permissionFlags.can_invite_users ||
-  permissionFlags.can_edit_users ||
-  permissionFlags.can_suspend_users ||
-  permissionFlags.can_delete_users ||
-  permissionFlags.can_reset_passwords ||
-  permissionFlags.can_impersonate_users ||
-  permissionFlags.can_assign_roles
-); %>
-<% const canManageRoles = !!(
-  permissionFlags.can_manage_roles ||
-  permissionFlags.can_view_roles ||
-  permissionFlags.can_create_roles ||
-  permissionFlags.can_edit_roles ||
-  permissionFlags.can_delete_roles ||
-  permissionFlags.can_assign_roles
-); %>
-<% const canManageLikes = !!(
-  permissionFlags.can_manage_likes ||
-  permissionFlags.can_view_likes ||
-  permissionFlags.can_remove_likes
-); %>
-<% const canManageTrash = !!(
-  permissionFlags.can_manage_trash ||
-  permissionFlags.can_view_trash ||
-  permissionFlags.can_restore_trash ||
-  permissionFlags.can_purge_trash
-); %>
-<% const canManageUploads = !!(
-  permissionFlags.can_manage_uploads ||
-  permissionFlags.can_view_uploads ||
-  permissionFlags.can_upload_files ||
-  permissionFlags.can_replace_files ||
-  permissionFlags.can_delete_files
-); %>
-<% const canManageSettings = !!(
-  permissionFlags.can_manage_settings ||
-  permissionFlags.can_update_general_settings ||
-  permissionFlags.can_manage_integrations ||
-  permissionFlags.can_manage_navigation ||
-  permissionFlags.can_manage_features
-); %>
-<% const canManageIpBans = !!(
-  permissionFlags.can_manage_ip_bans ||
-  permissionFlags.can_view_ip_bans ||
-  permissionFlags.can_create_ip_bans ||
-  permissionFlags.can_update_ip_bans ||
-  permissionFlags.can_delete_ip_bans ||
-  permissionFlags.can_lift_ip_bans
-); %>
-<% const canManageIpReputation = !!(
-  permissionFlags.can_manage_ip_reputation ||
-  permissionFlags.can_view_ip_reputation ||
-  permissionFlags.can_tag_ip_reputation ||
-  permissionFlags.can_clear_ip_reputation ||
-  permissionFlags.can_import_ip_reputation
-); %>
-<% const canManageIpProfiles = !!(
-  permissionFlags.can_manage_ip_profiles ||
-  permissionFlags.can_view_ip_profiles ||
-  permissionFlags.can_merge_ip_profiles ||
-  permissionFlags.can_delete_ip_profiles
-); %>
-<% const canReviewBanAppeals = !!(
-  permissionFlags.can_review_ban_appeals ||
-  permissionFlags.can_view_ban_appeals ||
-  permissionFlags.can_accept_ban_appeals ||
-  permissionFlags.can_reject_ban_appeals ||
-  permissionFlags.can_delete_ban_appeals
-); %>
-<% const canViewEvents = !!(
-  permissionFlags.can_view_events ||
-  permissionFlags.can_view_event_log ||
-  permissionFlags.can_export_event_log
-); %>
-<% const canViewSnowflakes = !!(
-  permissionFlags.can_view_snowflakes ||
-  permissionFlags.can_lookup_snowflake_history
-); %>
-<% const hasAdminMenu =
-  isAdminUser ||
-  canModerateComments ||
-  canReviewSubmissions ||
-  canManagePages ||
-  canViewStats ||
-  canManageUsers ||
-  canManageRoles ||
-  canManageLikes ||
-  canManageTrash ||
-  canManageUploads ||
-  canManageSettings ||
-  canManageIpBans ||
-  canManageIpReputation ||
-  canManageIpProfiles ||
-  canReviewBanAppeals ||
-  canViewEvents ||
-  canViewSnowflakes; %>
-
-<div class="app-shell">
-  <header class="app-topbar glass-panel">
-    <div class="topbar-left">
-      <button
-        class="icon-button burger"
-        id="sidebarToggle"
-        type="button"
-        aria-controls="appSidebar"
-        aria-expanded="false"
-        aria-label="Ouvrir le menu"
-      >
-        <span class="material-symbols-rounded" aria-hidden="true">menu</span>
-      </button>
-      <a class="brand-link" href="/">
-        <% if (hasBrandLogo) { %>
-          <img src="<%= logoUrl %>" alt="Logo de <%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>" />
-        <% } else { %>
-          <span class="brand-logo" aria-hidden="true"><i class="fa-solid fa-circle-nodes"></i></span>
-        <% } %>
-        <span class="brand-text"><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></span>
-      </a>
-    </div>
-    <form method="get" action="/search" class="search-form" role="search">
-      <label class="sr-only" for="wikiSearch">Rechercher</label>
-      <span class="material-symbols-rounded search-icon" aria-hidden="true">search</span>
-      <input
-        id="wikiSearch"
-        class="search-input"
-        type="text"
-        name="q"
-        placeholder="Rechercher…"
-        aria-label="Rechercher sur le wiki"
-      />
-      <button class="btn primary" type="submit">
-        <span class="material-symbols-rounded" aria-hidden="true">arrow_forward</span>
-        <span>Rechercher</span>
-      </button>
-    </form>
-    <div class="auth-links">
-      <% if (currentUser) { %>
-        <% const headerDisplayName = currentUser.display_name || currentUser.username; %>
-        <% const headerColor = currentUser.role_color || null; %>
-        <% const headerClasses = ['user-handle']; %>
-        <% const headerStyle = headerColor && headerColor.hasColor ? headerColor.style : ''; %>
-        <% if (headerColor && headerColor.hasColor) { headerClasses.push('role-colored-text'); headerClasses.push(headerColor.className); } %>
-        <span class="user-pill">
-          <span class="material-symbols-rounded" aria-hidden="true">account_circle</span>
-          <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong>
-        </span>
-        <form action="/logout" method="post">
-          <button class="btn ghost" type="submit">
-            <span class="material-symbols-rounded" aria-hidden="true">logout</span>
-            <span>Déconnexion</span>
-          </button>
-        </form>
-      <% } else { %>
-        <a class="btn primary" href="/login">
-          <span class="material-symbols-rounded" aria-hidden="true">login</span>
-          <span>Connexion</span>
-        </a>
+<header class="site-header">
+  <div class="brand">
+    <a class="brand-link" href="/">
+      <% if (hasBrandLogo) { %>
+        <img src="<%= logoUrl %>" alt="Logo de <%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %>" />
       <% } %>
-    </div>
-  </header>
-
-  <div class="app-body">
-    <aside class="app-sidebar glass-panel" id="appSidebar" aria-label="Navigation principale">
-      <div class="sidebar-inner">
-        <div class="sidebar-header">
-          <span class="sidebar-title">Navigation</span>
-          <button class="icon-button ghost" type="button" data-close-drawer>
-            <span class="material-symbols-rounded" aria-hidden="true">close</span>
-            <span class="sr-only">Fermer le menu</span>
-          </button>
-        </div>
-        <nav id="vnav" class="sidebar-nav">
-          <div class="nav-section">
-            <span class="nav-section-title">Explorer</span>
-            <ul class="nav-list">
-              <li><a href="/" data-icon="home">Accueil</a></li>
-              <li><a href="/rss.xml" target="_blank" rel="noopener" data-icon="rss_feed">Flux RSS</a></li>
-              <% if (typeof hasChangelog !== 'undefined' && hasChangelog) { %>
-                <li><a href="/changelog" data-icon="auto_awesome">Changelog</a></li>
-              <% } %>
-              <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
-                <li><a href="/profiles/ip/me" data-icon="fingerprint">Mon profil IP</a></li>
-              <% } %>
-            </ul>
-          </div>
-          <div class="nav-section">
-            <span class="nav-section-title">Contribuer</span>
-            <ul class="nav-list">
-              <% if (canSubmitContent && !canPublishDirectly) { %>
-                <li><a href="/new" data-icon="edit_note">Contribuer</a></li>
-              <% } else if (canPublishDirectly) { %>
-                <li><a href="/new" data-icon="note_add">Nouvelle page</a></li>
-              <% } %>
-              <li><a href="/account/submissions" data-icon="workspace_premium">Mes contributions</a></li>
-            </ul>
-          </div>
-          <% if (hasAdminMenu) { %>
-            <div class="nav-section">
-              <span class="nav-section-title">Administration</span>
-              <ul class="nav-list">
-                <% if (canReviewSubmissions) { %>
-                  <li>
-                    <a href="/admin/submissions" data-icon="fact_check">
-                      Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
-                    </a>
-                  </li>
-                <% } %>
-                <% if (canManagePages) { %>
-                  <li><a href="/admin/pages" data-icon="menu_book">Articles</a></li>
-                <% } %>
-                <% if (canManageTrash) { %>
-                  <li><a href="/admin/trash" data-icon="delete_sweep">Corbeille</a></li>
-                <% } %>
-                <% if (canViewStats) { %>
-                  <li><a href="/admin/stats" data-icon="monitoring">Statistiques</a></li>
-                <% } %>
-                <% if (canManageUsers) { %>
-                  <li><a href="/admin/users" data-icon="group">Utilisateurs</a></li>
-                <% } %>
-                <% if (canManageRoles) { %>
-                  <li><a href="/admin/roles" data-icon="verified_user">Rôles</a></li>
-                <% } %>
-                <% if (canModerateComments) { %>
-                  <li>
-                    <a href="/admin/comments" data-icon="forum">
-                      Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
-                    </a>
-                  </li>
-                <% } %>
-                <% if (canManageLikes) { %>
-                  <li><a href="/admin/likes" data-icon="favorite">Likes</a></li>
-                <% } %>
-                <% if (canManageIpBans) { %>
-                  <li><a href="/admin/ip-bans" data-icon="block">Blocages IP</a></li>
-                <% } %>
-                <% if (canManageIpReputation) { %>
-                  <li>
-                    <a href="/admin/ip-reputation" data-icon="track_changes">
-                      Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
-                    </a>
-                  </li>
-                <% } %>
-                <% if (canManageIpProfiles) { %>
-                  <li><a href="/admin/ip-profiles" data-icon="dns">Profils IP</a></li>
-                <% } %>
-                <% if (canReviewBanAppeals) { %>
-                  <li>
-                    <a href="/admin/ban-appeals" data-icon="gavel">
-                      Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
-                    </a>
-                  </li>
-                <% } %>
-                <% if (canViewSnowflakes) { %>
-                  <li><a href="/admin/snowflakes" data-icon="ac_unit">Snowflakes</a></li>
-                <% } %>
-                <% if (canViewEvents) { %>
-                  <li><a href="/admin/events" data-icon="event_note">Événements</a></li>
-                <% } %>
-                <% if (canManageUploads) { %>
-                  <li><a href="/admin/uploads" data-icon="cloud_upload">Images</a></li>
-                <% } %>
-                <% if (canManageSettings) { %>
-                  <li><a href="/admin/settings" data-icon="settings">Paramètres</a></li>
-                <% } %>
-              </ul>
-            </div>
-          <% } %>
-        </nav>
-      </div>
-    </aside>
-    <div class="app-overlay" id="overlayHit" aria-hidden="true"></div>
-    <main class="page-content"><%- body %></main>
+      <span><%= typeof wikiName !== 'undefined' ? wikiName : 'Wiki' %></span>
+    </a>
   </div>
+  <form method="get" action="/search" class="search-form" role="search">
+    <label class="sr-only" for="wikiSearch">Rechercher</label>
+    <input id="wikiSearch" type="text" name="q" placeholder="Rechercher…" aria-label="Rechercher sur le wiki">
+    <button class="btn" type="submit">Rechercher</button>
+  </form>
+  <div class="auth-links">
+    <% if (currentUser) { %>
+      <% const headerDisplayName = currentUser.display_name || currentUser.username; %>
+      <% const headerColor = currentUser.role_color || null; %>
+      <% const headerClasses = ['user-handle']; %>
+      <% const headerStyle = headerColor && headerColor.hasColor ? headerColor.style : ''; %>
+      <% if (headerColor && headerColor.hasColor) { headerClasses.push('role-colored-text'); headerClasses.push(headerColor.className); } %>
+      <span>Connecté·e : <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong></span>
+      <form action="/logout" method="post">
+        <button class="btn" type="submit">Déconnexion</button>
+      </form>
+    <% } else { %>
+      <a class="btn" href="/login">Connexion</a>
+    <% } %>
+  </div>
+</header>
 
-  <footer class="site-footer glass-panel"><small><%- typeof footerText !== 'undefined' ? footerText : '' %></small></footer>
+<nav class="site-nav" aria-label="Navigation principale">
+  <ul>
+    <li><a href="/">Accueil</a></li>
+    <li><a href="/rss.xml" target="_blank" rel="noopener">Flux RSS</a></li>
+    <% if (typeof hasChangelog !== 'undefined' && hasChangelog) { %>
+      <li><a href="/changelog">Changelog</a></li>
+    <% } %>
+    <% if (typeof canViewIpProfile !== 'undefined' && canViewIpProfile) { %>
+      <li><a href="/profiles/ip/me">Mon profil IP</a></li>
+    <% } %>
+    <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+    <% const isAdminUser = !!permissionFlags.is_admin; %>
+    <% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
+    <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
+    <% const canModerateComments = !!(
+      permissionFlags.can_moderate_comments ||
+      permissionFlags.can_view_comment_queue ||
+      permissionFlags.can_approve_comments ||
+      permissionFlags.can_reject_comments ||
+      permissionFlags.can_delete_comments
+    ); %>
+    <% const canReviewSubmissions = !!(
+      permissionFlags.can_review_submissions ||
+      permissionFlags.can_view_submission_queue ||
+      permissionFlags.can_accept_submissions ||
+      permissionFlags.can_reject_submissions ||
+      permissionFlags.can_comment_on_submissions
+    ); %>
+    <% const canManagePages = !!(
+      permissionFlags.can_manage_pages ||
+      permissionFlags.can_view_page_overview ||
+      permissionFlags.can_edit_pages ||
+      permissionFlags.can_publish_pages ||
+      permissionFlags.can_unpublish_pages ||
+      permissionFlags.can_delete_pages ||
+      permissionFlags.can_restore_pages ||
+      permissionFlags.can_schedule_pages ||
+      permissionFlags.can_manage_page_tags ||
+      permissionFlags.can_view_page_history ||
+      permissionFlags.can_revert_page_history
+    ); %>
+    <% const canViewStats = !!(
+      permissionFlags.can_view_stats ||
+      permissionFlags.can_view_stats_basic ||
+      permissionFlags.can_view_stats_detailed ||
+      permissionFlags.can_export_stats
+    ); %>
+    <% const canManageUsers = !!(
+      permissionFlags.can_manage_users ||
+      permissionFlags.can_view_users ||
+      permissionFlags.can_invite_users ||
+      permissionFlags.can_edit_users ||
+      permissionFlags.can_suspend_users ||
+      permissionFlags.can_delete_users ||
+      permissionFlags.can_reset_passwords ||
+      permissionFlags.can_impersonate_users ||
+      permissionFlags.can_assign_roles
+    ); %>
+    <% const canManageRoles = !!(
+      permissionFlags.can_manage_roles ||
+      permissionFlags.can_view_roles ||
+      permissionFlags.can_create_roles ||
+      permissionFlags.can_edit_roles ||
+      permissionFlags.can_delete_roles ||
+      permissionFlags.can_assign_roles
+    ); %>
+    <% const canManageLikes = !!(
+      permissionFlags.can_manage_likes ||
+      permissionFlags.can_view_likes ||
+      permissionFlags.can_remove_likes
+    ); %>
+    <% const canManageTrash = !!(
+      permissionFlags.can_manage_trash ||
+      permissionFlags.can_view_trash ||
+      permissionFlags.can_restore_trash ||
+      permissionFlags.can_purge_trash
+    ); %>
+    <% const canManageUploads = !!(
+      permissionFlags.can_manage_uploads ||
+      permissionFlags.can_view_uploads ||
+      permissionFlags.can_upload_files ||
+      permissionFlags.can_replace_files ||
+      permissionFlags.can_delete_files
+    ); %>
+    <% const canManageSettings = !!(
+      permissionFlags.can_manage_settings ||
+      permissionFlags.can_update_general_settings ||
+      permissionFlags.can_manage_integrations ||
+      permissionFlags.can_manage_navigation ||
+      permissionFlags.can_manage_features
+    ); %>
+    <% const canManageIpBans = !!(
+      permissionFlags.can_manage_ip_bans ||
+      permissionFlags.can_view_ip_bans ||
+      permissionFlags.can_create_ip_bans ||
+      permissionFlags.can_update_ip_bans ||
+      permissionFlags.can_delete_ip_bans ||
+      permissionFlags.can_lift_ip_bans
+    ); %>
+    <% const canManageIpReputation = !!(
+      permissionFlags.can_manage_ip_reputation ||
+      permissionFlags.can_view_ip_reputation ||
+      permissionFlags.can_tag_ip_reputation ||
+      permissionFlags.can_clear_ip_reputation ||
+      permissionFlags.can_import_ip_reputation
+    ); %>
+    <% const canManageIpProfiles = !!(
+      permissionFlags.can_manage_ip_profiles ||
+      permissionFlags.can_view_ip_profiles ||
+      permissionFlags.can_merge_ip_profiles ||
+      permissionFlags.can_delete_ip_profiles
+    ); %>
+    <% const canReviewBanAppeals = !!(
+      permissionFlags.can_review_ban_appeals ||
+      permissionFlags.can_view_ban_appeals ||
+      permissionFlags.can_accept_ban_appeals ||
+      permissionFlags.can_reject_ban_appeals ||
+      permissionFlags.can_delete_ban_appeals
+    ); %>
+    <% const canViewEvents = !!(
+      permissionFlags.can_view_events ||
+      permissionFlags.can_view_event_log ||
+      permissionFlags.can_export_event_log
+    ); %>
+    <% const canViewSnowflakes = !!(
+      permissionFlags.can_view_snowflakes ||
+      permissionFlags.can_lookup_snowflake_history
+    ); %>
+    <% const hasAdminMenu =
+      isAdminUser ||
+      canModerateComments ||
+      canReviewSubmissions ||
+      canManagePages ||
+      canViewStats ||
+      canManageUsers ||
+      canManageRoles ||
+      canManageLikes ||
+      canManageTrash ||
+      canManageUploads ||
+      canManageSettings ||
+      canManageIpBans ||
+      canManageIpReputation ||
+      canManageIpProfiles ||
+      canReviewBanAppeals ||
+      canViewEvents ||
+      canViewSnowflakes; %>
+    <% if (canSubmitContent && !canPublishDirectly) { %>
+      <li><a href="/new">Contribuer</a></li>
+    <% } else if (canPublishDirectly) { %>
+      <li><a href="/new">Nouvelle page</a></li>
+    <% } %>
+    <li><a href="/account/submissions">Mes contributions</a></li>
+    <% if (hasAdminMenu) { %>
+      <% if (isAdminUser) { %>
+        <li><a href="/new">Nouvelle page</a></li>
+      <% } %>
+      <% if (canReviewSubmissions) { %>
+        <li>
+          <a href="/admin/submissions">
+            Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canManagePages) { %>
+        <li><a href="/admin/pages">Articles</a></li>
+      <% } %>
+      <% if (canManageTrash) { %>
+        <li><a href="/admin/trash">Corbeille</a></li>
+      <% } %>
+      <% if (canViewStats) { %>
+        <li><a href="/admin/stats">Statistiques</a></li>
+      <% } %>
+      <% if (canManageUsers) { %>
+        <li><a href="/admin/users">Utilisateurs</a></li>
+      <% } %>
+      <% if (canManageRoles) { %>
+        <li><a href="/admin/roles">Rôles</a></li>
+      <% } %>
+      <% if (canModerateComments) { %>
+        <li>
+          <a href="/admin/comments">
+            Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canManageLikes) { %>
+        <li><a href="/admin/likes">Likes</a></li>
+      <% } %>
+      <% if (canManageIpBans) { %>
+        <li><a href="/admin/ip-bans">Blocages IP</a></li>
+      <% } %>
+      <% if (canManageIpReputation) { %>
+        <li>
+          <a href="/admin/ip-reputation">
+            Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canManageIpProfiles) { %>
+        <li><a href="/admin/ip-profiles">Profils IP</a></li>
+      <% } %>
+      <% if (canReviewBanAppeals) { %>
+        <li>
+          <a href="/admin/ban-appeals">
+            Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
+          </a>
+        </li>
+      <% } %>
+      <% if (canViewSnowflakes) { %>
+        <li><a href="/admin/snowflakes">Snowflakes</a></li>
+      <% } %>
+      <% if (canViewEvents) { %>
+        <li><a href="/admin/events">Événements</a></li>
+      <% } %>
+      <% if (canManageUploads) { %>
+        <li><a href="/admin/uploads">Images</a></li>
+      <% } %>
+      <% if (canManageSettings) { %>
+        <li><a href="/admin/settings">Paramètres</a></li>
+      <% } %>
+    <% } %>
+  </ul>
+</nav>
 
-  <% const initialNotifications = typeof notifications !== 'undefined' ? notifications : []; %>
-  <div class="notification-layer" id="notificationLayer"></div>
-</div>
+<% const initialNotifications = typeof notifications !== 'undefined' ? notifications : []; %>
+<div class="notification-layer" id="notificationLayer"></div>
+<main class="page-content"><%- body %></main>
+<footer class="site-footer"><small><%- typeof footerText !== 'undefined' ? footerText : '' %></small></footer>
 
 <script type="application/json" id="initial-notifications"><%- JSON.stringify(initialNotifications).replace(/</g, '\\u003c') %></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
