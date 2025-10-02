@@ -4,9 +4,32 @@ let quillCodeBlockRegistered = false;
 (function () {
   const toggleBtn = document.getElementById("sidebarToggle");
   const overlayHit = document.getElementById("overlayHit"); // zone cliquable à droite
+  const drawer = document.querySelector(".nav-drawer");
   const links = document.querySelectorAll("#vnav a");
   const closeButtons = document.querySelectorAll("[data-close-nav]");
   const html = document.documentElement;
+
+  const clearOverlayBounds = () => {
+    if (!overlayHit) return;
+    overlayHit.style.removeProperty("--overlay-left");
+  };
+
+  const scheduleOverlaySync = () => {
+    if (!overlayHit || !drawer) {
+      return;
+    }
+    if (!html.classList.contains("drawer-open")) {
+      clearOverlayBounds();
+      return;
+    }
+    const styles = window.getComputedStyle(drawer);
+    const leftValue = parseFloat(styles.left) || 0;
+    const overlayLeft = Math.min(
+      window.innerWidth,
+      Math.max(0, leftValue + drawer.offsetWidth),
+    );
+    overlayHit.style.setProperty("--overlay-left", `${overlayLeft}px`);
+  };
 
   const setExpanded = (expanded) => {
     if (!toggleBtn) return;
@@ -20,6 +43,7 @@ let quillCodeBlockRegistered = false;
   const openDrawer = () => {
     html.classList.add("drawer-open");
     setExpanded(true);
+    scheduleOverlaySync();
   };
   const closeDrawer = () => {
     if (!html.classList.contains("drawer-open")) {
@@ -27,6 +51,7 @@ let quillCodeBlockRegistered = false;
     }
     html.classList.remove("drawer-open");
     setExpanded(false);
+    clearOverlayBounds();
   };
 
   if (toggleBtn) {
@@ -40,6 +65,10 @@ let quillCodeBlockRegistered = false;
   overlayHit && overlayHit.addEventListener("click", closeDrawer);
   closeButtons.forEach((btn) => btn.addEventListener("click", closeDrawer));
   links.forEach((a) => a.addEventListener("click", closeDrawer));
+
+  scheduleOverlaySync();
+
+  window.addEventListener("resize", scheduleOverlaySync, { passive: true });
 
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
