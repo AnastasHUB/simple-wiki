@@ -1781,13 +1781,12 @@ kbd {
   display: flex;
   align-items: flex-start;
   gap: 0.55rem;
-  padding: 0.75rem 0.85rem;
+  padding: 0.65rem 0.75rem;
   border-radius: var(--radius-sm);
-  background: rgba(18, 32, 64, 0.9);
-  border: 1px solid rgba(134, 182, 255, 0.2);
+  background: rgba(10, 18, 36, 0.75);
+  border: 1px solid rgba(134, 182, 255, 0.12);
   transition: var(--transition-base);
   cursor: pointer;
-  color: var(--text-primary);
 }
 
 .role-permission:hover,
@@ -1801,8 +1800,8 @@ kbd {
 }
 
 .role-permission.is-aggregate {
-  background: rgba(42, 78, 160, 0.65);
-  border-color: rgba(108, 140, 255, 0.4);
+  background: rgba(33, 68, 138, 0.55);
+  border-color: rgba(108, 140, 255, 0.35);
 }
 
 .permission-title {
@@ -1815,10 +1814,9 @@ kbd {
 
 .permission-description {
   display: block;
-  margin-top: 0.35rem;
-  font-size: 0.95rem;
-  line-height: 1.5;
-  color: rgba(226, 235, 255, 0.82);
+  margin-top: 0.25rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
 }
 
 .badge-aggregate {
