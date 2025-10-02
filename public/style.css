@@ -959,16 +959,20 @@ textarea {
 }
 
 .permission-manager {
-  display: grid;
-  grid-template-columns: minmax(220px, 260px) 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
-  align-items: start;
+  align-items: stretch;
 }
 
 .permission-sidebar {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+}
+
+.permission-manager .permission-sidebar.card {
+  margin-bottom: 0;
 }
 
 .permission-sidebar-header {
@@ -1102,11 +1106,6 @@ textarea {
   margin-top: auto;
 }
 
-@media (max-width: 900px) {
-  .permission-manager {
-    grid-template-columns: 1fr;
-  }
-}
 
 .role-summary-header {
   display: flex;
