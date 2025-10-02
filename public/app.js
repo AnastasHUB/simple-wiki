@@ -5,6 +5,7 @@ let quillCodeBlockRegistered = false;
   const toggleBtn = document.getElementById("sidebarToggle");
   const overlayHit = document.getElementById("overlayHit"); // zone cliquable à droite
   const links = document.querySelectorAll("#vnav a");
+  const closeButtons = document.querySelectorAll("[data-close-nav]");
   const html = document.documentElement;
 
   const setExpanded = (expanded) => {
@@ -37,6 +38,7 @@ let quillCodeBlockRegistered = false;
   }
 
   overlayHit && overlayHit.addEventListener("click", closeDrawer);
+  closeButtons.forEach((btn) => btn.addEventListener("click", closeDrawer));
   links.forEach((a) => a.addEventListener("click", closeDrawer));
 
   document.addEventListener("keydown", (event) => {
