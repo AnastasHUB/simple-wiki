@@ -559,6 +559,24 @@ html.drawer-open .drawer-overlay {
   pointer-events: auto;
 }
 
+@media (max-width: 600px) {
+  .nav-content {
+    gap: 0.25rem;
+  }
+
+  .nav-section {
+    gap: 0.18rem;
+  }
+
+  .nav-list {
+    gap: 0.1rem;
+  }
+
+  .nav-list a {
+    padding: 0.38rem 0.8rem;
+  }
+}
+
 .sr-only {
   position: absolute;
   width: 1px;
