@@ -1155,6 +1155,8 @@ textarea {
 .role-colored-text {
   position: relative;
   color: var(--role-fallback-color, var(--role-color-1, inherit));
+  background-repeat: no-repeat;
+  background-image: none;
 }
 
 .role-colored-text.role-color--gradient,
@@ -1171,6 +1173,27 @@ textarea {
     color: transparent;
     -webkit-background-clip: text;
     background-clip: text;
+  }
+}
+
+@supports (-moz-background-clip: text) {
+  .role-colored-text.role-color--gradient,
+  .role-colored-text.role-color--rainbow {
+    color: transparent;
+    background-clip: text;
+    -moz-background-clip: text;
+  }
+}
+
+.role-colored-text.role-color--gradient,
+.role-colored-text.role-color--rainbow {
+  -webkit-text-fill-color: currentColor;
+}
+
+@supports (-webkit-text-fill-color: transparent) {
+  .role-colored-text.role-color--gradient,
+  .role-colored-text.role-color--rainbow {
+    -webkit-text-fill-color: transparent;
   }
 }
 
