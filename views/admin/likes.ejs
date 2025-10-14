@@ -42,6 +42,7 @@
               <td><%= r.created_at %></td>
               <td>
                 <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm('Retirer ce like ?')">
+                  <%- include('../partials/csrf_field') %>
                   <button class="btn unlike" data-icon="🧹">Retirer</button>
                 </form>
               </td>

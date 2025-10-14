@@ -1,6 +1,7 @@
 <% title='Paramètres'; %>
 <h1>Paramètres</h1>
 <form method="post" class="card">
+  <%- include('../partials/csrf_field') %>
   <label>Nom du wiki</label>
   <input type="text" name="wiki_name" value="<%= s.wiki_name %>" />
   <label>Logo URL</label>

@@ -101,11 +101,13 @@
     <h2>Prendre une décision</h2>
     <div class="grid grid-auto">
       <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/approve" class="flex flex-col gap-sm">
+        <%- include('../partials/csrf_field') %>
         <label for="approve-note">Note (optionnelle)</label>
         <textarea id="approve-note" name="note" rows="3" placeholder="Commentaire interne"></textarea>
         <button class="btn success" data-icon="✅" type="submit">Approuver la contribution</button>
       </form>
       <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/reject" class="flex flex-col gap-sm" onsubmit="return confirm('Rejeter cette contribution ?');">
+        <%- include('../partials/csrf_field') %>
         <label for="reject-note">Motif (optionnel)</label>
         <textarea id="reject-note" name="note" rows="3" placeholder="Motif du rejet"></textarea>
         <button class="btn danger" data-icon="✖️" type="submit">Rejeter la contribution</button>

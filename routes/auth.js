@@ -22,6 +22,7 @@ import {
   getRecaptchaConfig,
   verifyRecaptchaResponse,
 } from "../utils/captcha.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 
 const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
   (field) => `r.${field} AS role_${field}`,
@@ -34,6 +35,20 @@ const ROLE_FLAG_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
 
 const r = Router();
 
+const loginRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  message:
+    "Trop de tentatives de connexion ont été détectées. Merci de patienter avant de réessayer.",
+});
+
+const registerRateLimiter = createRateLimiter({
+  windowMs: 60 * 60 * 1000,
+  limit: 5,
+  message:
+    "Trop de tentatives d'inscription successives ont été détectées. Réessayez plus tard.",
+});
+
 r.get("/login", (req, res) => res.render("login"));
 r.get("/register", (req, res) => {
   const captcha = getRecaptchaConfig();
@@ -44,7 +59,7 @@ r.get("/register", (req, res) => {
   }
   res.render("register", { captcha });
 });
-r.post("/login", async (req, res) => {
+r.post("/login", loginRateLimiter, async (req, res) => {
   const { username, password } = req.body;
   const ip = getClientIp(req);
   const u = await get(
@@ -113,7 +128,7 @@ r.post("/login", async (req, res) => {
   });
   res.redirect("/");
 });
-r.post("/register", async (req, res) => {
+r.post("/register", registerRateLimiter, async (req, res) => {
   const captcha = getRecaptchaConfig();
   const { username, password } = req.body;
   const captchaToken =

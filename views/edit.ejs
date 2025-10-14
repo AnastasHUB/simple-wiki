@@ -12,6 +12,7 @@
   </div>
 <% } %>
 <form method="post">
+  <%- include('partials/csrf_field') %>
   <label>Titre</label>
   <input type="text" name="title" value="<%= page ? page.title : '' %>" required />
   <label>Contenu (liens [[internes]])</label>

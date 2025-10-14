@@ -88,6 +88,7 @@
                 <div class="role-summary-footer">
                   <% if ((role.userCount || 0) === 0) { %>
                     <form method="post" action="/admin/roles/<%= role.id %>" aria-label="Supprimer le rôle <%= role.name %>">
+                      <%- include('../partials/csrf_field') %>
                       <input type="hidden" name="_action" value="delete" />
                       <button class="btn danger" type="submit" data-icon="🗑️" onclick="return confirm('Supprimer définitivement ce rôle ?');">Supprimer le rôle</button>
                     </form>
@@ -97,6 +98,7 @@
                       utilisateur<%= role.userCount > 1 ? 's' : '' %>. Réassignez-les vers <%= everyoneRoleName %> pour pouvoir supprimer ce rôle.
                     </p>
                     <form method="post" action="/admin/roles/<%= role.id %>" class="role-reassign-form" aria-label="Réassigner les utilisateurs de <%= role.name %> vers <%= everyoneRoleName %>">
+                      <%- include('../partials/csrf_field') %>
                       <input type="hidden" name="_action" value="reassign_to_everyone" />
                       <button class="btn secondary" type="submit" data-icon="🔁">Réassigner tous les utilisateurs vers <%= everyoneRoleName %></button>
                     </form>
@@ -105,6 +107,7 @@
               <% } %>
             </div>
             <form method="post" action="/admin/roles/<%= role.id %>" class="role-permissions-column" aria-label="Mettre à jour les permissions pour <%= role.name %>">
+              <%- include('../partials/csrf_field') %>
               <div class="role-metadata">
                 <fieldset class="role-color-editor" data-role-color-editor>
                   <legend>Style du pseudo</legend>

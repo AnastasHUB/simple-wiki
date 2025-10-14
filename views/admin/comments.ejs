@@ -46,12 +46,15 @@
           <% } %>
           <div class="actions">
             <form method="post" action="/admin/comments/<%= commentIdentifier %>/approve">
+              <%- include('../partials/csrf_field') %>
               <button class="btn success" data-icon="✅" type="submit">Approuver</button>
             </form>
             <form method="post" action="/admin/comments/<%= commentIdentifier %>/reject">
+              <%- include('../partials/csrf_field') %>
               <button class="btn" data-icon="🚫" type="submit">Rejeter</button>
             </form>
             <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+              <%- include('../partials/csrf_field') %>
               <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
             </form>
           </div>
@@ -85,6 +88,7 @@
           <% } %>
           <div class="actions">
             <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+              <%- include('../partials/csrf_field') %>
               <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
             </form>
           </div>

@@ -84,9 +84,11 @@
               <td>
                 <a class="btn" data-icon="🔍" href="/admin/submissions/<%= item.snowflake_id %>">Voir</a>
                 <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/approve">
+                  <%- include('../partials/csrf_field') %>
                   <button class="btn success" data-icon="✅" type="submit">Approuver</button>
                 </form>
                 <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/reject" onsubmit="return confirm('Rejeter cette contribution ?');">
+                  <%- include('../partials/csrf_field') %>
                   <button class="btn danger" data-icon="✖️" type="submit">Rejeter</button>
                 </form>
               </td>

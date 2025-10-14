@@ -89,9 +89,11 @@
                 <% if (appeal.status === 'pending') { %>
                   <div class="flex gap-sm flex-wrap">
                     <form method="post" action="/admin/ban-appeals/<%= appeal.snowflake_id %>/accept">
+                      <%- include('../partials/csrf_field') %>
                       <button class="btn success" data-icon="✅" type="submit">Accepter</button>
                     </form>
                     <form method="post" action="/admin/ban-appeals/<%= appeal.snowflake_id %>/reject">
+                      <%- include('../partials/csrf_field') %>
                       <button class="btn danger" data-icon="✖️" type="submit">Refuser</button>
                     </form>
                   </div>
@@ -101,6 +103,7 @@
                     action="/admin/ban-appeals/<%= appeal.snowflake_id %>/delete"
                     onsubmit="return confirm('Supprimer cette demande de déban ?');"
                   >
+                    <%- include('../partials/csrf_field') %>
                     <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
                   </form>
                 <% } %>

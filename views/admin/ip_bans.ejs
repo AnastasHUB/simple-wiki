@@ -27,6 +27,7 @@
 <section class="card mb-xl">
   <h2>Ajouter un blocage</h2>
   <form method="post" action="/admin/ip-bans" class="grid grid-auto">
+    <%- include('../partials/csrf_field') %>
     <div>
       <label for="ip">Adresse IP</label>
       <input id="ip" type="text" name="ip" required>
@@ -91,6 +92,7 @@
                     action="/admin/ip-bans/<%= ban.snowflake_id %>/lift"
                     onsubmit="return confirm('Lever ce blocage ?');"
                   >
+                    <%- include('../partials/csrf_field') %>
                     <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
                   </form>
                   <form
@@ -98,6 +100,7 @@
                     action="/admin/ip-bans/<%= ban.snowflake_id %>/delete"
                     onsubmit="return confirm('Supprimer définitivement ce blocage ?');"
                   >
+                    <%- include('../partials/csrf_field') %>
                     <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
                   </form>
                 </div>
@@ -146,6 +149,7 @@
                   action="/admin/ip-bans/<%= ban.snowflake_id %>/delete"
                   onsubmit="return confirm('Supprimer définitivement ce blocage ?');"
                 >
+                  <%- include('../partials/csrf_field') %>
                   <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
                 </form>
               </td>

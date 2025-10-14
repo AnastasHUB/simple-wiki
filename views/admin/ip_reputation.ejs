@@ -31,6 +31,7 @@
 <section class="card mb-xl">
   <h2 class="mt-0">Analyser une adresse IP</h2>
   <form method="post" action="/admin/ip-reputation/manual-check" class="flex flex-wrap gap-sm items-end">
+    <%- include('../partials/csrf_field') %>
     <label class="stack-form flex-basis-260">
       <span class="text-sm text-muted">Adresse IP</span>
       <input
@@ -129,12 +130,15 @@
           </div>
           <div class="admin-risk-actions">
             <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/ban" onsubmit="return confirm('Bannir définitivement cette adresse IP ?');">
+              <%- include('../partials/csrf_field') %>
               <button type="submit" class="btn danger" data-icon="🚫">Bannir</button>
             </form>
             <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/mark-safe">
+              <%- include('../partials/csrf_field') %>
               <button type="submit" class="btn success" data-icon="✅">Marquer comme sûr</button>
             </form>
             <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/recheck">
+              <%- include('../partials/csrf_field') %>
               <button type="submit" class="btn secondary" data-icon="🔄">Revérifier</button>
             </form>
           </div>
@@ -181,6 +185,7 @@
               action="/admin/ip-reputation/<%= profile.hash %>/clear-safe"
               onsubmit="return confirm('Retirer cette IP des validations récentes ?');"
             >
+              <%- include('../partials/csrf_field') %>
               <button type="submit" class="btn danger" data-icon="🗑️">Retirer</button>
             </form>
           </div>

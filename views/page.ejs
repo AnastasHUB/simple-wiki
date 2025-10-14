@@ -17,6 +17,7 @@
   </div>
   <div class="actions">
     <form action="/wiki/<%= page.slug_id %>/like" method="post" data-like-form-for="<%= page.slug_id %>">
+      <%- include('partials/csrf_field') %>
       <button
         class="btn <%= page.userLiked ? 'unlike' : 'like' %>"
         data-icon="<%= page.userLiked ? '💔' : '💖' %>"
@@ -37,6 +38,7 @@
       <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Éditer</a>
       <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history">Historique</a>
       <form action="/delete/<%= page.slug_id %>" method="post" onsubmit="return confirm('Supprimer ?')">
+        <%- include('partials/csrf_field') %>
         <input type="hidden" name="_method" value="DELETE" />
         <button class="btn danger" data-icon="🗑️">Supprimer</button>
       </form>
@@ -108,6 +110,7 @@
             <div class="comment-actions">
               <a class="btn secondary" data-icon="✏️" href="/wiki/<%= page.slug_id %>/comments/<%= c.snowflake_id %>/edit">Modifier</a>
               <form method="post" action="/wiki/<%= page.slug_id %>/comments/<%= c.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+                <%- include('partials/csrf_field') %>
                 <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
               </form>
             </div>
@@ -152,6 +155,7 @@
     <p class="text-muted">Les commentaires sont désactivés pour votre rôle.</p>
   <% } else { %>
   <form class="comment-form" method="post" action="/wiki/<%= page.slug_id %>/comments">
+    <%- include('partials/csrf_field') %>
     <% if (adminPreferredName) { %>
       <div class="field">
         <p class="text-muted">

@@ -10,6 +10,10 @@
   <% if (metaTags.description) { %>
     <meta name="description" content="<%= metaTags.description %>" />
   <% } %>
+  <meta
+    name="csrf-token"
+    content="<%= typeof csrfToken !== 'undefined' ? csrfToken : '' %>"
+  />
   <% const canonicalUrl = metaTags.canonical || metaTags.url; %>
   <% if (canonicalUrl) { %>
     <link rel="canonical" href="<%= canonicalUrl %>" />
@@ -109,6 +113,7 @@
           <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong>
         </span>
         <form action="/logout" method="post">
+          <%- include('partials/csrf_field') %>
           <button class="btn" type="submit">Déconnexion</button>
         </form>
       <% } else { %>
