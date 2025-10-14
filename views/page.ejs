@@ -154,6 +154,7 @@
   <% if (!canComment) { %>
     <p class="text-muted">Les commentaires sont désactivés pour votre rôle.</p>
   <% } else { %>
+  <% const commentCaptchaConfig = typeof captchaConfig !== 'undefined' && captchaConfig ? captchaConfig : null; %>
   <form
     class="comment-form"
     method="post"
@@ -205,15 +206,126 @@
         data-preview-body
       ></div>
     </div>
-    <div class="field">
-      <label for="comment-captcha">Question anti-spam : 3 + 4 = ? <span class="text-required">*</span></label>
-      <input id="comment-captcha" type="text" name="captcha" inputmode="numeric" pattern="[0-9]*" required>
-    </div>
+    <% if (commentCaptchaConfig) { %>
+      <div class="field">
+        <fieldset class="captcha-selector">
+          <legend>Vérification anti-robot</legend>
+          <p class="form-help">
+            Complétez le <%= commentCaptchaConfig.label %> pour envoyer votre commentaire.
+          </p>
+          <div
+            id="comment-captcha-container-<%= page.slug_id %>"
+            class="captcha-container"
+            aria-live="polite"
+            data-sitekey="<%= commentCaptchaConfig.siteKey %>"
+            data-script="<%= commentCaptchaConfig.scriptUrl %>"
+            data-global="<%= commentCaptchaConfig.global %>"
+          ></div>
+          <input
+            type="hidden"
+            name="captchaToken"
+            id="comment-captcha-token-<%= page.slug_id %>"
+          />
+        </fieldset>
+      </div>
+    <% } else { %>
+      <div class="field">
+        <label for="comment-captcha">Question anti-spam : 3 + 4 = ? <span class="text-required">*</span></label>
+        <input id="comment-captcha" type="text" name="captcha" inputmode="numeric" pattern="[0-9]*" required>
+      </div>
+    <% } %>
     <div class="field honeypot">
       <label for="comment-website">Ne pas remplir</label>
       <input id="comment-website" type="text" name="website" tabindex="-1" autocomplete="off">
     </div>
     <button class="btn success" data-icon="📨" type="submit">Envoyer mon commentaire</button>
   </form>
+  <% if (commentCaptchaConfig) { %>
+  <script>
+    (function () {
+      const containerId = "comment-captcha-container-<%= page.slug_id %>";
+      const tokenId = "comment-captcha-token-<%= page.slug_id %>";
+      const container = document.getElementById(containerId);
+      const tokenInput = document.getElementById(tokenId);
+      if (!container || !tokenInput) {
+        return;
+      }
+      const siteKey = container.dataset.sitekey;
+      const scriptUrl = container.dataset.script;
+      const globalName = container.dataset.global;
+      if (!siteKey || !scriptUrl || !globalName) {
+        return;
+      }
+
+      const state = (window.__captchaLoaders = window.__captchaLoaders || {});
+      function ensureScript(url, globalVar) {
+        if (window[globalVar]) {
+          return Promise.resolve(window[globalVar]);
+        }
+        if (!state[url]) {
+          state[url] = new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = url;
+            script.async = true;
+            script.defer = true;
+            script.onload = () => {
+              const checkReady = () => {
+                if (window[globalVar]) {
+                  resolve(window[globalVar]);
+                } else {
+                  window.setTimeout(checkReady, 30);
+                }
+              };
+              checkReady();
+            };
+            script.onerror = () => reject(new Error("Impossible de charger le script du captcha."));
+            document.head.appendChild(script);
+          });
+        }
+        return state[url];
+      }
+
+      function resetContainer() {
+        tokenInput.value = "";
+        container.innerHTML = "";
+      }
+
+      function renderCaptcha(library) {
+        resetContainer();
+        const placeholder = document.createElement("div");
+        placeholder.className = "captcha-frame";
+        container.appendChild(placeholder);
+
+        function handleToken(token) {
+          tokenInput.value = token || "";
+        }
+
+        function handleError() {
+          tokenInput.value = "";
+        }
+
+        if (!library || typeof library.render !== "function") {
+          throw new Error("Captcha non supporté.");
+        }
+
+        library.render(placeholder, {
+          sitekey: siteKey,
+          callback: handleToken,
+          "expired-callback": handleError,
+          "error-callback": handleError,
+        });
+      }
+
+      ensureScript(scriptUrl, globalName)
+        .then((library) => {
+          renderCaptcha(library);
+        })
+        .catch((error) => {
+          console.error(error);
+          container.innerHTML = '<p class="form-help error">Impossible de charger le captcha. Veuillez rafraîchir la page.</p>';
+        });
+    })();
+  </script>
+  <% } %>
   <% } %>
 </section>

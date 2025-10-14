@@ -1,9 +1,12 @@
-export function validateCommentSubmission({
-  authorInput = "",
-  bodyInput = "",
-  captchaInput = "",
-  honeypotInput = "",
-}) {
+export function validateCommentSubmission(
+  {
+    authorInput = "",
+    bodyInput = "",
+    captchaInput = "",
+    honeypotInput = "",
+  },
+  { skipCaptchaQuestion = false } = {},
+) {
   const author = authorInput.trim().slice(0, 80);
   const { body, errors } = validateCommentBody(bodyInput);
   const captcha = captchaInput.trim();
@@ -13,7 +16,7 @@ export function validateCommentSubmission({
     errors.push("Soumission invalide.");
   }
 
-  if (captcha !== "7") {
+  if (!skipCaptchaQuestion && captcha !== "7") {
     errors.push(
       "Merci de répondre correctement à la question anti-spam (3 + 4).",
     );
