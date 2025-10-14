@@ -1,4 +1,6 @@
 <% title = `Historique · ${page.title}`; %>
+<% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+<% const canRevertHistory = !!permissionFlags.can_revert_page_history; %>
 <div class="card">
   <h1>Historique de « <%= page.title %> »</h1>
   <p>Slug : <code><%= page.slug_id %></code></p>
@@ -34,7 +36,21 @@
               </strong>
             </td>
             <td><%= rev.created_at %></td>
-            <td><a class="btn" data-icon="📝" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a></td>
+            <td>
+              <div class="table-actions">
+                <a class="btn" data-icon="📝" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a>
+                <% if (canRevertHistory) { %>
+                  <form
+                    method="post"
+                    action="/admin/pages/<%= page.slug_id %>/revisions/<%= rev.revision %>/revert"
+                    onsubmit="return confirm('Restaurer la page à cette révision ?');"
+                  >
+                    <%- include('partials/csrf_field') %>
+                    <button class="btn danger" data-icon="⏪" type="submit">Restaurer</button>
+                  </form>
+                <% } %>
+              </div>
+            </td>
           </tr>
         <% }) %>
       </tbody>

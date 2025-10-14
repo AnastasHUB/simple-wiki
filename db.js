@@ -37,6 +37,7 @@ export async function initDb() {
   db = await open({ filename: "./data.sqlite", driver: sqlite3.Database });
   await db.exec(`
   PRAGMA foreign_keys=ON;
+  PRAGMA busy_timeout=5000;
   CREATE TABLE IF NOT EXISTS roles(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
