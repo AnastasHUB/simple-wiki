@@ -747,6 +747,37 @@ r.get(
 );
 
 r.post(
+  "/wiki/:slugid/comments/preview",
+  commentRateLimiter,
+  asyncHandler(async (req, res) => {
+    const page = await get(
+      "SELECT id FROM pages WHERE slug_id=?",
+      [req.params.slugid],
+    );
+    if (!page) {
+      return res.status(404).json({ ok: false, error: "Page introuvable." });
+    }
+
+    const permissions = req.permissionFlags || {};
+    if (!permissions.can_comment) {
+      return res
+        .status(403)
+        .json({ ok: false, error: "Les commentaires sont désactivés pour votre rôle." });
+    }
+
+    const bodyInput = typeof req.body?.body === "string" ? req.body.body : "";
+    const validation = validateCommentBody(bodyInput);
+    if (validation.errors.length) {
+      return res.status(400).json({ ok: false, errors: validation.errors });
+    }
+
+    const previewHtml = buildPreviewHtml(validation.body);
+    res.set("Cache-Control", "no-store");
+    return res.json({ ok: true, html: previewHtml });
+  }),
+);
+
+r.post(
   "/wiki/:slugid/comments",
   commentRateLimiter,
   asyncHandler(async (req, res) => {
