@@ -3,7 +3,7 @@ import fetch from "node-fetch";
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
 import { getActiveBans } from "./ipBans.js";
-import { detectBotUserAgent } from "./ip.js";
+import { detectBotUserAgentWithApi } from "./ip.js";
 
 const DEFAULT_REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000;
 const configuredRefreshInterval =
@@ -177,7 +177,9 @@ export async function touchIpProfile(
   if (!hashed) {
     return null;
   }
-  const botDetection = detectBotUserAgent(userAgent);
+  const botDetection = await detectBotUserAgentWithApi(userAgent, {
+    suppressLog: true,
+  });
   const normalizedUserAgent = botDetection.userAgent;
 
   const existing = await get(
