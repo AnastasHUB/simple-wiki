@@ -24,6 +24,7 @@ import {
 } from "./utils/roleFlags.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
+import { getEnabledCaptchaProviders } from "./utils/captcha.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -95,6 +96,8 @@ app.use(async (req, res, next) => {
     };
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
+    const captchaOptions = getEnabledCaptchaProviders();
+    res.locals.registrationEnabled = captchaOptions.length > 0;
     const hasAdminActionPermission = currentUser
       ? ADMIN_ACTION_FLAGS.some((flag) => currentUser[flag])
       : false;
