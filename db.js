@@ -77,6 +77,9 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     author TEXT,
+    status TEXT NOT NULL DEFAULT 'published'
+      CHECK(status IN ('draft','published','scheduled')),
+    publish_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -90,6 +93,8 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     author TEXT,
+    status TEXT NOT NULL DEFAULT 'published',
+    publish_at DATETIME,
     tags_json TEXT,
     created_at DATETIME,
     updated_at DATETIME,
@@ -234,9 +239,21 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureRoleFlagColumns("users");
   await ensureFts();
   await ensureColumn("pages", "author", "TEXT");
+  await ensureColumn(
+    "pages",
+    "status",
+    "TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published','scheduled'))",
+  );
+  await ensureColumn("pages", "publish_at", "DATETIME");
   await ensureColumn("deleted_pages", "comments_json", "TEXT");
   await ensureColumn("deleted_pages", "stats_json", "TEXT");
   await ensureColumn("deleted_pages", "author", "TEXT");
+  await ensureColumn(
+    "deleted_pages",
+    "status",
+    "TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published','scheduled'))",
+  );
+  await ensureColumn("deleted_pages", "publish_at", "DATETIME");
   await ensureColumn("page_submissions", "author_name", "TEXT");
   await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
   await ensureColumn(

@@ -14,13 +14,30 @@ const VIEW_COUNT_SELECT = `
   COALESCE((SELECT COUNT(*) FROM page_views WHERE page_id = p.id), 0)
 `;
 
+function buildPublishedFilter({ includeUnpublished = false, alias = "p" } = {}) {
+  if (includeUnpublished) {
+    return { clause: "1=1", params: [] };
+  }
+  const safeAlias = alias || "p";
+  return {
+    clause: `(${safeAlias}.status = 'published' OR (${safeAlias}.status = 'scheduled' AND ${safeAlias}.publish_at IS NOT NULL AND datetime(${safeAlias}.publish_at) <= datetime('now')))`,
+    params: [],
+  };
+}
+
 export async function fetchRecentPages({
   ip,
   since,
   limit = 3,
   excerptLength = 900,
+  includeUnpublished = false,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
+  const visibility = buildPublishedFilter({ includeUnpublished });
+  const params = [ip, since, limit];
+  if (visibility.params.length) {
+    params.push(...visibility.params);
+  }
   return all(
     `
     SELECT p.id,
@@ -37,10 +54,11 @@ export async function fetchRecentPages({
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE p.created_at >= ?
+       AND ${visibility.clause}
      ORDER BY p.created_at DESC
      LIMIT ?
   `,
-    [ip, since, limit],
+    params,
   );
 }
 
@@ -49,8 +67,14 @@ export async function fetchPaginatedPages({
   limit,
   offset,
   excerptLength = 1200,
+  includeUnpublished = false,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
+  const visibility = buildPublishedFilter({ includeUnpublished });
+  const params = [ip, limit, offset];
+  if (visibility.params.length) {
+    params.push(...visibility.params);
+  }
   return all(
     `
     SELECT p.id,
@@ -66,14 +90,20 @@ export async function fetchPaginatedPages({
            COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
+     WHERE ${visibility.clause}
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?
   `,
-    [ip, limit, offset],
+    params,
   );
 }
 
-export async function fetchPageWithStats(slugId, ip) {
+export async function fetchPageWithStats(slugId, ip, { includeUnpublished = false } = {}) {
+  const visibility = buildPublishedFilter({ includeUnpublished });
+  const params = [ip, slugId];
+  if (visibility.params.length) {
+    params.push(...visibility.params);
+  }
   const page = await get(
     `
     SELECT p.*,
@@ -83,8 +113,9 @@ export async function fetchPageWithStats(slugId, ip) {
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE slug_id = ?
+       ${includeUnpublished ? "" : `AND ${visibility.clause}`}
   `,
-    [ip, slugId],
+    params,
   );
 
   if (!page) {
@@ -163,7 +194,8 @@ export async function fetchPageComments(pageId, options = {}) {
   });
 }
 
-export async function countPagesByTag(tagName) {
+export async function countPagesByTag(tagName, { includeUnpublished = false } = {}) {
+  const visibility = buildPublishedFilter({ includeUnpublished });
   const row = await get(
     `
     SELECT COUNT(DISTINCT p.id) AS total
@@ -171,8 +203,9 @@ export async function countPagesByTag(tagName) {
       JOIN page_tags pt ON p.id = pt.page_id
       JOIN tags t ON t.id = pt.tag_id
      WHERE t.name = ?
+       AND ${visibility.clause}
   `,
-    [tagName],
+    visibility.params.length ? [tagName, ...visibility.params] : [tagName],
   );
   return Number(row?.total ?? 0);
 }
@@ -183,8 +216,10 @@ export async function fetchPagesByTag({
   limit,
   offset,
   excerptLength = 1200,
+  includeUnpublished = false,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
+  const visibility = buildPublishedFilter({ includeUnpublished });
   let query = `
     SELECT p.id,
            p.snowflake_id,
@@ -202,8 +237,12 @@ export async function fetchPagesByTag({
       JOIN page_tags pt ON p.id = pt.page_id
       JOIN tags t ON t.id = pt.tag_id
      WHERE t.name = ?
+       AND ${visibility.clause}
      ORDER BY p.updated_at DESC`;
   const params = [ip, tagName];
+  if (visibility.params.length) {
+    params.push(...visibility.params);
+  }
 
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;
@@ -223,7 +262,12 @@ export async function fetchPagesByTag({
   return all(query, params);
 }
 
-export async function countPages() {
-  const row = await get(`SELECT COUNT(*) AS total FROM pages`);
+export async function countPages({ includeUnpublished = false } = {}) {
+  const visibility = buildPublishedFilter({ includeUnpublished });
+  const params = visibility.params.length ? visibility.params : [];
+  const row = await get(
+    `SELECT COUNT(*) AS total FROM pages p WHERE ${visibility.clause}`,
+    params,
+  );
   return row?.total || 0;
 }
