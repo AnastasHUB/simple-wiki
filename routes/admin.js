@@ -1585,6 +1585,136 @@ r.get(
   },
 );
 
+r.post(
+  "/pages/:slugid/revisions/:revisionId/revert",
+  requirePermission(["can_revert_page_history"]),
+  async (req, res) => {
+  const redirectUrl = `/wiki/${req.params.slugid}/history`;
+  const revisionNumber = Number.parseInt(req.params.revisionId, 10);
+
+  if (!Number.isInteger(revisionNumber) || revisionNumber <= 0) {
+    pushNotification(req, {
+      type: "error",
+      message: "Révision cible invalide.",
+    });
+    return res.redirect(redirectUrl);
+  }
+
+  const page = await get(
+    `SELECT id, snowflake_id, slug_id, slug_base, title, content
+       FROM pages
+      WHERE slug_id=?`,
+    [req.params.slugid],
+  );
+
+  if (!page) {
+    pushNotification(req, {
+      type: "error",
+      message: "Page introuvable.",
+    });
+    return res.redirect("/admin/pages");
+  }
+
+  const revision = await get(
+    `SELECT revision, title, content
+       FROM page_revisions
+      WHERE page_id=? AND revision=?`,
+    [page.id, revisionNumber],
+  );
+
+  if (!revision) {
+    pushNotification(req, {
+      type: "error",
+      message: "Révision introuvable.",
+    });
+    return res.redirect(redirectUrl);
+  }
+
+  const nextTitle =
+    typeof revision.title === "string" && revision.title.trim().length
+      ? revision.title
+      : page.title;
+  const nextContent =
+    typeof revision.content === "string" ? revision.content : "";
+  const slugBaseSeed =
+    nextTitle || page.slug_base || page.slug_id || page.title || "";
+  const computedSlugBase = slugify(String(slugBaseSeed));
+  const nextSlugBase = computedSlugBase || page.slug_base || page.slug_id;
+  const previousRevisionRow = await get(
+    "SELECT MAX(revision) AS latest FROM page_revisions WHERE page_id = ?",
+    [page.id],
+  );
+  const previousRevisionNumber = Number(previousRevisionRow?.latest || 0);
+  const tags = await fetchPageTags(page.id);
+
+  try {
+    await run(
+      "UPDATE pages SET title=?, content=?, slug_base=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      [nextTitle, nextContent, nextSlugBase, page.id],
+    );
+    await savePageFts({
+      id: page.id,
+      title: nextTitle,
+      content: nextContent,
+      slug_id: page.slug_id,
+      tags: tags.join(" "),
+    });
+  } catch (err) {
+    console.error("Failed to revert page revision", err);
+    pushNotification(req, {
+      type: "error",
+      message: "La restauration a échoué. Merci de réessayer.",
+    });
+    return res.redirect(redirectUrl);
+  }
+
+  let newRevisionNumber = null;
+  try {
+    newRevisionNumber = await recordRevision(
+      page.id,
+      nextTitle,
+      nextContent,
+      req.session.user?.id || null,
+    );
+  } catch (err) {
+    console.error("Failed to record restored revision", err);
+    pushNotification(req, {
+      type: "error",
+      message: "Impossible d'enregistrer la restauration.",
+    });
+    return res.redirect(redirectUrl);
+  }
+
+  const ip = getClientIp(req);
+  try {
+    await sendAdminEvent("Page reverted", {
+      user: req.session.user?.username || null,
+      page: {
+        title: nextTitle,
+        slug_id: page.slug_id,
+        snowflake_id: page.snowflake_id,
+      },
+      extra: {
+        action: "revert_revision",
+        target_revision: revision.revision,
+        previous_revision: previousRevisionNumber,
+        new_revision: newRevisionNumber,
+        ip,
+      },
+    });
+  } catch (err) {
+    console.error("Failed to log page revert event", err);
+  }
+
+  pushNotification(req, {
+    type: "success",
+    message: `La page a été restaurée à la révision #${revision.revision}.`,
+  });
+
+  return res.redirect(redirectUrl);
+  },
+);
+
 r.get(
   "/stats",
   requirePermission(["can_view_stats", "can_view_stats_basic"]),
