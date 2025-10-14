@@ -1318,6 +1318,131 @@ function initMarkdownEditor() {
     handleValueChange();
   }
 
+  function normalizeListLine(line) {
+    const match = line.match(/^(\s*)(?:[-*+]\s+|\d+[.)]\s+)?(\[(?: |x|X)\]\s+)?(.*)$/);
+    const indent = match ? match[1] : "";
+    const taskMarker = match ? match[2] : "";
+    const content = match ? match[3] || "" : line;
+    return {
+      indent,
+      content,
+      checked: Boolean(taskMarker && /x/i.test(taskMarker)),
+    };
+  }
+
+  function applyListAction({ type, placeholder }) {
+    const { start, end } = getSelection();
+    const value = input.value;
+    const selected = value.slice(start, end);
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const hasSelection = Boolean(selected);
+    const lines = hasSelection ? selected.split(/\r?\n/) : [""];
+    const formattedLines = [];
+    let placeholderMeta = null;
+
+    lines.forEach((line, index) => {
+      const meta = normalizeListLine(line);
+      const usePlaceholder = !hasSelection && index === 0;
+      let lineContent = meta.content
+        ? meta.content.replace(/^\s+/, "")
+        : "";
+      if (!lineContent && usePlaceholder) {
+        lineContent = placeholder;
+      }
+
+      let prefix = "- ";
+      switch (type) {
+        case "ordered":
+          prefix = `${index + 1}. `;
+          break;
+        case "task":
+          prefix = `- [${meta.checked ? "x" : " "}] `;
+          break;
+        default:
+          prefix = "- ";
+          break;
+      }
+
+      if (
+        !placeholderMeta &&
+        !hasSelection &&
+        usePlaceholder &&
+        lineContent === placeholder
+      ) {
+        placeholderMeta = {
+          indentLength: meta.indent.length,
+          prefixLength: prefix.length,
+        };
+      }
+
+      formattedLines.push(`${meta.indent}${prefix}${lineContent}`);
+    });
+
+    const formatted = formattedLines.join("\n");
+
+    if (hasSelection) {
+      input.value = before + formatted + after;
+      const selectionStart = before.length;
+      const selectionEnd = selectionStart + formatted.length;
+      input.setSelectionRange(selectionStart, selectionEnd);
+    } else {
+      const needsLeadingNewline = before && !before.endsWith("\n") ? "\n" : "";
+      const needsTrailingNewline = after && !after.startsWith("\n") ? "\n" : "";
+      const insertion = `${needsLeadingNewline}${formatted}${needsTrailingNewline}`;
+      input.value = before + insertion + after;
+      if (placeholderMeta) {
+        const caretStart =
+          before.length +
+          needsLeadingNewline.length +
+          placeholderMeta.indentLength +
+          placeholderMeta.prefixLength;
+        const caretEnd = caretStart + placeholder.length;
+        input.setSelectionRange(caretStart, caretEnd);
+      } else {
+        const caret = before.length + insertion.length;
+        input.setSelectionRange(caret, caret);
+      }
+    }
+
+    handleValueChange();
+  }
+
+  function insertHorizontalRule() {
+    const { start, end } = getSelection();
+    const value = input.value;
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const needsLeadingNewline = before && !before.endsWith("\n") ? "\n" : "";
+    const trailingNewlines =
+      after.length === 0 ? "\n" : after.startsWith("\n") ? "\n" : "\n\n";
+    const insertion = `${needsLeadingNewline}---${trailingNewlines}`;
+    input.value = before + insertion + after;
+    const caret = before.length + insertion.length;
+    input.setSelectionRange(caret, caret);
+    handleValueChange();
+  }
+
+  function insertTableTemplate() {
+    const template = [
+      "| Colonne 1 | Colonne 2 |",
+      "| --------- | --------- |",
+      "| Valeur 1  | Valeur 2  |",
+    ].join("\n");
+    const { start, end } = getSelection();
+    const value = input.value;
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const needsLeadingNewline = before && !before.endsWith("\n") ? "\n" : "";
+    const needsTrailingNewline = after && !after.startsWith("\n") ? "\n\n" : "\n";
+    const insertion = `${needsLeadingNewline}${template}${needsTrailingNewline}`;
+    input.value = before + insertion + after;
+    const caretStart = before.length + needsLeadingNewline.length + 2;
+    const caretEnd = caretStart + "Colonne 1".length;
+    input.setSelectionRange(caretStart, caretEnd);
+    handleValueChange();
+  }
+
   function applyToolbarAction(action) {
     switch (action) {
       case "bold":
@@ -1425,6 +1550,24 @@ function initMarkdownEditor() {
         break;
       case "mermaid":
         insertMultilineBlock("```mermaid", "graph TD;\n  A --> B;", "```");
+        break;
+      case "unordered-list":
+        applyListAction({ type: "unordered", placeholder: "Élément de liste" });
+        break;
+      case "ordered-list":
+        applyListAction({
+          type: "ordered",
+          placeholder: "Élément numéroté",
+        });
+        break;
+      case "task-list":
+        applyListAction({ type: "task", placeholder: "Nouvelle tâche" });
+        break;
+      case "horizontal-rule":
+        insertHorizontalRule();
+        break;
+      case "table":
+        insertTableTemplate();
         break;
       default:
         break;
