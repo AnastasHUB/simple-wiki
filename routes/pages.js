@@ -48,6 +48,11 @@ import {
   buildPaginationView,
 } from "../utils/pagination.js";
 import {
+  resolvePublicationState,
+  formatPublishAtForInput,
+  PAGE_STATUS_VALUES,
+} from "../utils/publicationState.js";
+import {
   createBanAppeal,
   hasPendingBanAppeal,
   hasRejectedBanAppeal,
@@ -76,6 +81,66 @@ const commentRateLimiter = createRateLimiter({
   message:
     "Trop de commentaires ont été envoyés en peu de temps depuis votre adresse IP. Veuillez patienter avant de réessayer.",
 });
+
+const PAGE_STATUS_LABELS = {
+  draft: "Brouillon",
+  published: "Publié",
+  scheduled: "Planifié",
+};
+
+function buildStatusOptions(selectedStatus = "published", { canSchedule = false } = {}) {
+  const allowedStatuses = PAGE_STATUS_VALUES.filter(
+    (status) => status !== "scheduled" || canSchedule,
+  );
+  const normalizedSelection = allowedStatuses.includes(selectedStatus)
+    ? selectedStatus
+    : allowedStatuses[0] || "published";
+  return allowedStatuses.map((status) => ({
+    value: status,
+    label: PAGE_STATUS_LABELS[status] || status,
+    selected: status === normalizedSelection,
+  }));
+}
+
+function buildEditorRenderContext(baseContext = {}) {
+  const {
+    page = null,
+    tags = "",
+    uploads = [],
+    submissionMode = false,
+    allowUploads = false,
+    authorName = "",
+    canChooseStatus = false,
+    canSchedule = false,
+    formState = {},
+    validationErrors = [],
+  } = baseContext;
+
+  const fallbackStatus = page?.status || "published";
+  const selectedStatus =
+    typeof formState.status === "string" && formState.status
+      ? formState.status
+      : fallbackStatus;
+  const publishAtValue =
+    typeof formState.publishAt === "string"
+      ? formState.publishAt
+      : formatPublishAtForInput(page?.publish_at || null);
+
+  return {
+    page,
+    tags,
+    uploads,
+    submissionMode,
+    allowUploads,
+    authorName,
+    canChooseStatus,
+    canSchedule,
+    formState,
+    statusOptions: buildStatusOptions(selectedStatus, { canSchedule }),
+    publishAtValue,
+    validationErrors,
+  };
+}
 
 r.use(
   asyncHandler(async (req, res, next) => {
@@ -123,6 +188,7 @@ r.get(
       SELECT title, slug_id
       FROM pages
       WHERE title LIKE ? ESCAPE '\\'
+        AND status = 'published'
       ORDER BY updated_at DESC, created_at DESC
       LIMIT 8
     `,
@@ -405,6 +471,7 @@ r.get(
     const canPublishDirectly = Boolean(
       permissions.is_admin || permissions.is_contributor,
     );
+    const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
       const ban = await isIpBanned(req.clientIp, { action: "contribute" });
       if (ban) {
@@ -413,14 +480,19 @@ r.get(
     }
     const uploads = permissions.is_admin ? await listUploads() : [];
     const defaultAuthor = getUserDisplayName(req.session.user) || "";
-    res.render("edit", {
-      page: null,
-      tags: "",
-      uploads,
-      submissionMode: !canPublishDirectly,
-      allowUploads: permissions.is_admin,
-      authorName: defaultAuthor,
-    });
+    res.render(
+      "edit",
+      buildEditorRenderContext({
+        page: null,
+        tags: "",
+        uploads,
+        submissionMode: !canPublishDirectly,
+        allowUploads: permissions.is_admin,
+        authorName: defaultAuthor,
+        canChooseStatus: canPublishDirectly,
+        canSchedule: canPublishDirectly && canSchedulePages,
+      }),
+    );
   }),
 );
 
@@ -442,6 +514,7 @@ r.post(
     const canPublishDirectly = Boolean(
       permissions.is_admin || permissions.is_contributor,
     );
+    const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
       const ban = await isIpBanned(req.clientIp, { action: "contribute" });
       if (ban) {
@@ -484,12 +557,53 @@ r.post(
       return res.redirect("/");
     }
 
+    const publication = resolvePublicationState({
+      statusInput: req.body.status,
+      publishAtInput: req.body.publish_at,
+      canSchedule: canSchedulePages,
+    });
+    if (!publication.isValid) {
+      const uploads = permissions.is_admin ? await listUploads() : [];
+      const formState = {
+        title,
+        content,
+        tags,
+        author: trimmedAuthorInput,
+        status: req.body.status || "published",
+        publishAt: publication.rawPublishAt,
+      };
+      return res.status(400).render(
+        "edit",
+        buildEditorRenderContext({
+          page: null,
+          tags,
+          uploads,
+          submissionMode: false,
+          allowUploads: permissions.is_admin,
+          authorName: authorToPersist || "",
+          canChooseStatus: true,
+          canSchedule: canPublishDirectly && canSchedulePages,
+          formState,
+          validationErrors: publication.errors.map((error) => error.message),
+        }),
+      );
+    }
+
     const base = slugify(title);
     const slug_id = randId();
     const pageSnowflake = generateSnowflake();
     const result = await run(
-      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author) VALUES(?,?,?,?,?,?)",
-      [pageSnowflake, base, slug_id, title, content, authorToPersist],
+      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at) VALUES(?,?,?,?,?,?,?,?)",
+      [
+        pageSnowflake,
+        base,
+        slug_id,
+        title,
+        content,
+        authorToPersist,
+        publication.status,
+        publication.publishAt,
+      ],
     );
     const tagNames = await upsertTags(result.lastID, tags);
     await recordRevision(
@@ -508,21 +622,37 @@ r.post(
     await sendAdminEvent("Page created", {
       user: req.session.user?.username,
       page: { title, slug_id, slug_base: base, snowflake_id: pageSnowflake },
-      extra: { tags, author: authorToPersist },
-    });
-    await sendFeedEvent(
-      "Nouvel article",
-      {
-        page: { title, slug_id, snowflake_id: pageSnowflake },
-        author: authorToPersist || "Anonyme",
-        url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
+      extra: {
         tags,
+        author: authorToPersist,
+        status: publication.status,
+        publish_at: publication.publishAt,
       },
-      { articleContent: content },
-    );
+    });
+    if (publication.status === "published") {
+      await sendFeedEvent(
+        "Nouvel article",
+        {
+          page: { title, slug_id, snowflake_id: pageSnowflake },
+          author: authorToPersist || "Anonyme",
+          url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
+          tags,
+        },
+        { articleContent: content },
+      );
+    }
+    const scheduledLabel = publication.publishAt
+      ? new Date(publication.publishAt).toLocaleString("fr-FR")
+      : "la date programmée";
+    const baseMessage =
+      publication.status === "draft"
+        ? `"${title}" a été enregistré en brouillon.`
+        : publication.status === "scheduled"
+          ? `"${title}" est planifié pour publication le ${scheduledLabel}.`
+          : `"${title}" a été créé avec succès !`;
     pushNotification(req, {
       type: "success",
-      message: `"${title}" a été créé avec succès !`,
+      message: baseMessage,
     });
     res.redirect("/wiki/" + slug_id);
   }),
@@ -532,7 +662,10 @@ r.get(
   "/wiki/:slugid",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
-    const page = await fetchPageWithStats(req.params.slugid, ip);
+    const permissions = req.permissionFlags || {};
+    const page = await fetchPageWithStats(req.params.slugid, ip, {
+      includeUnpublished: Boolean(permissions.is_admin),
+    });
     if (!page) return res.status(404).send("Page introuvable");
 
     const tagNames = await fetchPageTags(page.id);
@@ -1031,6 +1164,7 @@ r.get(
     const canPublishDirectly = Boolean(
       permissions.is_admin || permissions.is_contributor,
     );
+    const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
       const ban = await isIpBanned(req.clientIp, {
         action: "contribute",
@@ -1043,14 +1177,19 @@ r.get(
     const uploads = permissions.is_admin ? await listUploads() : [];
     const defaultAuthor =
       page.author || getUserDisplayName(req.session.user) || "";
-    res.render("edit", {
-      page,
-      tags: tagNames.join(", "),
-      uploads,
-      submissionMode: !canPublishDirectly,
-      allowUploads: permissions.is_admin,
-      authorName: defaultAuthor,
-    });
+    res.render(
+      "edit",
+      buildEditorRenderContext({
+        page,
+        tags: tagNames.join(", "),
+        uploads,
+        submissionMode: !canPublishDirectly,
+        allowUploads: permissions.is_admin,
+        authorName: defaultAuthor,
+        canChooseStatus: canPublishDirectly,
+        canSchedule: canPublishDirectly && canSchedulePages,
+      }),
+    );
   }),
 );
 
@@ -1072,6 +1211,7 @@ r.post(
     const canPublishDirectly = Boolean(
       permissions.is_admin || permissions.is_contributor,
     );
+    const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
       const tagNames = await fetchPageTags(page.id);
       const ban = await isIpBanned(req.clientIp, {
@@ -1130,6 +1270,38 @@ r.post(
       return res.redirect("/wiki/" + page.slug_id);
     }
 
+    const publication = resolvePublicationState({
+      statusInput: req.body.status ?? page.status,
+      publishAtInput: req.body.publish_at ?? formatPublishAtForInput(page.publish_at),
+      canSchedule: canSchedulePages,
+    });
+    if (!publication.isValid) {
+      const uploads = permissions.is_admin ? await listUploads() : [];
+      const formState = {
+        title,
+        content,
+        tags,
+        author: trimmedAuthorInput,
+        status: req.body.status ?? page.status,
+        publishAt: publication.rawPublishAt || formatPublishAtForInput(page.publish_at),
+      };
+      return res.status(400).render(
+        "edit",
+        buildEditorRenderContext({
+          page,
+          tags: tagNames.join(", "),
+          uploads,
+          submissionMode: false,
+          allowUploads: permissions.is_admin,
+          authorName: authorToPersist || "",
+          canChooseStatus: true,
+          canSchedule: canPublishDirectly && canSchedulePages,
+          formState,
+          validationErrors: publication.errors.map((error) => error.message),
+        }),
+      );
+    }
+
     await recordRevision(
       page.id,
       page.title,
@@ -1138,8 +1310,16 @@ r.post(
     );
     const base = slugify(title);
     await run(
-      "UPDATE pages SET title=?, content=?, slug_base=?, author=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
-      [title, content, base, authorToPersist, req.params.slugid],
+      "UPDATE pages SET title=?, content=?, slug_base=?, author=?, status=?, publish_at=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
+      [
+        title,
+        content,
+        base,
+        authorToPersist,
+        publication.status,
+        publication.publishAt,
+        req.params.slugid,
+      ],
     );
     await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
     const tagNames = await upsertTags(page.id, tags);
@@ -1159,11 +1339,24 @@ r.post(
         slug_base: base,
         snowflake_id: page.snowflake_id,
       },
-      extra: { tags, author: authorToPersist },
+      extra: {
+        tags,
+        author: authorToPersist,
+        status: publication.status,
+        publish_at: publication.publishAt,
+      },
     });
+    const scheduledLabel = publication.publishAt
+      ? new Date(publication.publishAt).toLocaleString("fr-FR")
+      : "la date programmée";
     pushNotification(req, {
       type: "success",
-      message: `"${title}" a été mis à jour !`,
+      message:
+        publication.status === "draft"
+          ? `"${title}" a été enregistré comme brouillon.`
+          : publication.status === "scheduled"
+            ? `"${title}" est planifié pour publication le ${scheduledLabel}.`
+            : `"${title}" a été mis à jour !`,
     });
     res.redirect("/wiki/" + req.params.slugid);
   }),
@@ -1272,13 +1465,15 @@ async function handlePageDeletion(req, res) {
          title,
          content,
          author,
+         status,
+         publish_at,
          tags_json,
          created_at,
          updated_at,
          deleted_by,
          comments_json,
          stats_json
-       ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         trashSnowflake,
         page.id,
@@ -1288,6 +1483,8 @@ async function handlePageDeletion(req, res) {
         page.title,
         page.content,
         page.author || null,
+        page.status || "published",
+        page.publish_at || null,
         tagsJson,
         page.created_at,
         page.updated_at,

@@ -1361,7 +1361,7 @@ r.post(
       const slugId = randId();
       const pageSnowflake = generateSnowflake();
       const insertResult = await run(
-        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author) VALUES(?,?,?,?,?,?)",
+        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at) VALUES(?,?,?,?,?,?,?,?)",
         [
           pageSnowflake,
           base,
@@ -1369,6 +1369,8 @@ r.post(
           submission.title,
           submission.content,
           submission.author_name || submission.submitted_by || null,
+          "published",
+          null,
         ],
       );
       const pageId = insertResult?.lastID;
@@ -3281,8 +3283,8 @@ r.post(
   await run("BEGIN");
   try {
     const insert = await run(
-      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, created_at, updated_at)
-       VALUES(?,?,?,?,?,?,?,?)`,
+      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at, created_at, updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?)`,
       [
         snowflake,
         trashed.slug_base,
@@ -3290,6 +3292,8 @@ r.post(
         restoredTitle,
         trashed.content || "",
         trashed.author || null,
+        trashed.status || "published",
+        trashed.publish_at || null,
         trashed.created_at || null,
         trashed.updated_at || null,
       ],

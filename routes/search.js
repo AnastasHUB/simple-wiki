@@ -29,7 +29,13 @@ r.get("/search", async (req, res) => {
     const matchQuery = tokens.map((t) => `${t}*`).join(" AND ");
     try {
       const totalRow = await get(
-        `SELECT COUNT(*) AS total FROM pages_fts WHERE pages_fts MATCH ?`,
+        `
+        SELECT COUNT(*) AS total
+          FROM pages_fts
+          JOIN pages p ON p.id = pages_fts.rowid
+         WHERE pages_fts MATCH ?
+           AND p.status = 'published'
+        `,
         [matchQuery],
       );
       pagination = buildPaginationView(
@@ -56,6 +62,7 @@ r.get("/search", async (req, res) => {
         FROM pages_fts
         JOIN pages p ON p.id = pages_fts.rowid
         WHERE pages_fts MATCH ?
+          AND p.status = 'published'
         ORDER BY score ASC, p.updated_at DESC, p.created_at DESC
         LIMIT ? OFFSET ?
       `,
@@ -84,9 +91,10 @@ r.get("/search", async (req, res) => {
       FROM pages p
       LEFT JOIN page_tags pt ON pt.page_id = p.id
       LEFT JOIN tags t ON t.id = pt.tag_id
-      WHERE p.title   LIKE '%'||?||'%'
+      WHERE (p.title   LIKE '%'||?||'%'
          OR p.content LIKE '%'||?||'%'
-         OR t.name    LIKE '%'||?||'%'
+         OR t.name    LIKE '%'||?||'%')
+        AND p.status = 'published'
     `,
       [q, q, q],
     );
@@ -111,9 +119,10 @@ r.get("/search", async (req, res) => {
       FROM pages p
       LEFT JOIN page_tags pt ON pt.page_id = p.id
       LEFT JOIN tags t ON t.id = pt.tag_id
-      WHERE p.title   LIKE '%'||?||'%'
+      WHERE (p.title   LIKE '%'||?||'%'
          OR p.content LIKE '%'||?||'%'
-         OR t.name    LIKE '%'||?||'%'
+         OR t.name    LIKE '%'||?||'%')
+        AND p.status = 'published'
       ORDER BY p.updated_at DESC, p.created_at DESC
       LIMIT ? OFFSET ?
     `,

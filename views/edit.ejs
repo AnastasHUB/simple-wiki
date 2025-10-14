@@ -1,9 +1,23 @@
 <% title = page ? 'Éditer' : 'Nouvelle page'; %>
 <h1><%= title %></h1>
 <% const isSubmission = typeof submissionMode !== 'undefined' ? submissionMode : false; %>
-<% const authorFieldValue = typeof authorName !== 'undefined'
+<% const rawFormState = formState && typeof formState === 'object' ? formState : {}; %>
+<% const initialAuthor = typeof authorName !== 'undefined'
   ? authorName
   : (page && page.author ? page.author : ''); %>
+<% const authorFieldValue = typeof rawFormState.author === 'string' ? rawFormState.author : initialAuthor; %>
+<% const initialTitleValue = page ? page.title : ''; %>
+<% const titleFieldValue = typeof rawFormState.title === 'string' ? rawFormState.title : initialTitleValue; %>
+<% const initialContentValue = page ? page.content : ''; %>
+<% const contentFieldValue = typeof rawFormState.content === 'string' ? rawFormState.content : initialContentValue; %>
+<% const initialTagsValue = typeof tags === 'string' ? tags : ''; %>
+<% const tagsFieldValue = typeof rawFormState.tags === 'string' ? rawFormState.tags : initialTagsValue; %>
+<% const statusOptionsList = Array.isArray(statusOptions) ? statusOptions : []; %>
+<% const showStatusControls = !!canChooseStatus; %>
+<% const canSchedulePublication = !!canSchedule; %>
+<% const publishAtFieldValue = typeof publishAtValue === 'string' ? publishAtValue : ''; %>
+<% const scheduleSelected = statusOptionsList.some((opt) => opt && opt.value === 'scheduled' && opt.selected); %>
+<% const errorMessages = Array.isArray(validationErrors) ? validationErrors : []; %>
 <% if (isSubmission) { %>
   <div class="card card-highlight mb-md">
     <p class="mt-0 mb-0">
@@ -11,12 +25,21 @@
     </p>
   </div>
 <% } %>
-<form method="post">
+<% if (errorMessages.length) { %>
+  <div class="card card-error mb-md" role="alert">
+    <ul class="mt-0 mb-0">
+      <% errorMessages.forEach((message) => { %>
+        <li><%= message %></li>
+      <% }) %>
+    </ul>
+  </div>
+<% } %>
+<form method="post" data-page-editor-form data-can-schedule="<%= canSchedulePublication ? 'true' : 'false' %>">
   <%- include('partials/csrf_field') %>
   <label>Titre</label>
-  <input type="text" name="title" value="<%= page ? page.title : '' %>" required />
+  <input type="text" name="title" value="<%= titleFieldValue %>" required />
   <label>Contenu (liens [[internes]])</label>
-  <textarea name="content" id="contentField" rows="18" required hidden><%- page ? page.content : '' %></textarea>
+  <textarea name="content" id="contentField" rows="18" required hidden><%- contentFieldValue %></textarea>
   <div
     class="markdown-editor-shell"
     data-markdown-editor
@@ -93,8 +116,40 @@
   <p class="editor-hint">
     Ce nom sera affiché comme auteur de l’article. Si vous n’êtes pas connecté, choisissez le pseudo de votre choix.
   </p>
+  <% if (showStatusControls) { %>
+    <label for="status-field">Statut de publication</label>
+    <select id="status-field" name="status" data-status-field>
+      <% statusOptionsList.forEach((option) => { %>
+        <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
+          <%= option.label %>
+        </option>
+      <% }) %>
+    </select>
+    <p class="editor-hint">
+      Choisissez «&nbsp;Brouillon&nbsp;» pour enregistrer sans publier immédiatement.
+    </p>
+    <div
+      class="schedule-controls"
+      data-schedule-controls
+      <%= scheduleSelected ? '' : 'hidden' %>
+    >
+      <label for="publish-at-field">Publication programmée</label>
+      <input
+        id="publish-at-field"
+        type="datetime-local"
+        name="publish_at"
+        value="<%= publishAtFieldValue %>"
+        data-publish-at-field
+        <%= canSchedulePublication ? '' : 'disabled' %>
+      />
+      <p class="editor-hint">
+        Sélectionnez la date et l’heure auxquelles l’article sera automatiquement publié.
+      </p>
+      <p class="form-error" data-schedule-error hidden></p>
+    </div>
+  <% } %>
   <label>Tags (séparés par des virgules)</label>
-  <input type="text" name="tags" value="<%= tags %>" />
+  <input type="text" name="tags" value="<%= tagsFieldValue %>" />
   <div class="actions">
     <% if (isSubmission) { %>
       <button class="btn success" data-icon="📨" type="submit">Envoyer ma proposition</button>
@@ -103,4 +158,82 @@
     <% } %>
   </div>
 </form>
+
+<% if (showStatusControls) { %>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      const form = document.querySelector("[data-page-editor-form]");
+      if (!form) {
+        return;
+      }
+      const statusField = form.querySelector("[data-status-field]");
+      const scheduleBlock = form.querySelector("[data-schedule-controls]");
+      const publishInput = form.querySelector("[data-publish-at-field]");
+      const errorBox = form.querySelector("[data-schedule-error]");
+      const canSchedule = form.dataset.canSchedule === "true";
+
+      function clearScheduleError() {
+        if (errorBox) {
+          errorBox.textContent = "";
+          errorBox.hidden = true;
+        }
+      }
+
+      function showScheduleError(message) {
+        if (!errorBox) {
+          return;
+        }
+        errorBox.textContent = message;
+        errorBox.hidden = false;
+      }
+
+      function updateScheduleVisibility() {
+        if (!scheduleBlock || !statusField) {
+          return;
+        }
+        const shouldShow = statusField.value === "scheduled";
+        scheduleBlock.hidden = !shouldShow;
+        if (!shouldShow) {
+          clearScheduleError();
+        }
+      }
+
+      if (statusField) {
+        statusField.addEventListener("change", updateScheduleVisibility);
+        updateScheduleVisibility();
+      }
+
+      form.addEventListener("submit", (event) => {
+        if (!statusField || statusField.value !== "scheduled") {
+          return;
+        }
+        if (!canSchedule) {
+          event.preventDefault();
+          showScheduleError(
+            "Vous n'avez pas la permission de programmer la publication de cette page.",
+          );
+          return;
+        }
+        const rawValue = publishInput ? publishInput.value.trim() : "";
+        if (!rawValue) {
+          event.preventDefault();
+          showScheduleError("Veuillez indiquer la date de publication planifiée.");
+          return;
+        }
+        const parsed = new Date(rawValue);
+        if (Number.isNaN(parsed.getTime())) {
+          event.preventDefault();
+          showScheduleError("La date de publication est invalide.");
+          return;
+        }
+        if (parsed.getTime() <= Date.now()) {
+          event.preventDefault();
+          showScheduleError("La date de publication doit être ultérieure.");
+          return;
+        }
+        clearScheduleError();
+      });
+    });
+  </script>
+<% } %>
 

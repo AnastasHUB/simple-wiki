@@ -27,6 +27,7 @@ import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
 import { getRecaptchaConfig } from "./utils/captcha.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrf.js";
+import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -148,7 +149,9 @@ app.get("/rss.xml", async (req, res) => {
     await import("./db.js")
   ).all(`
     SELECT id, title, slug_id, substr(content,1,500) AS excerpt, datetime(created_at) as pubDate
-    FROM pages ORDER BY created_at DESC LIMIT 50
+    FROM pages
+    WHERE status = 'published'
+    ORDER BY created_at DESC LIMIT 50
   `);
   const base = req.protocol + "://" + req.get("host");
   const title = res.locals.wikiName + " · RSS";
@@ -198,3 +201,4 @@ const server = app.listen(port, () =>
 );
 
 setupLiveStatsWebSocket(server, sessionMiddleware);
+startScheduledPublicationJob();
