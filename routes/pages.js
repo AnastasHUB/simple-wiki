@@ -95,6 +95,37 @@ function appendNotification(res, notif) {
   res.locals.notifications = existing;
 }
 
+r.get(
+  "/api/pages/suggest",
+  asyncHandler(async (req, res) => {
+    const rawQuery = typeof req.query.q === "string" ? req.query.q : "";
+    const searchTerm = rawQuery.trim();
+    if (!searchTerm) {
+      return res.json({ ok: true, results: [] });
+    }
+
+    const sanitized = searchTerm.replace(/[%_]/g, "\\$&");
+    const likeTerm = `%${sanitized}%`;
+
+    const rows = await all(
+      `
+      SELECT title, slug_id
+      FROM pages
+      WHERE title LIKE ? ESCAPE '\\'
+      ORDER BY updated_at DESC, created_at DESC
+      LIMIT 8
+    `,
+      [likeTerm],
+    );
+
+    res.set("Cache-Control", "no-store");
+    res.json({
+      ok: true,
+      results: rows.map((row) => ({ title: row.title, slug: row.slug_id })),
+    });
+  }),
+);
+
 async function resolveAppealContext(
   req,
   { requestedScope = null, requestedValue = null } = {},
