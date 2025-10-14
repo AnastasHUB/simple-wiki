@@ -47,6 +47,11 @@
       <span class="ql-formats">
         <button class="ql-link" aria-label="Insérer un lien"></button>
         <button class="ql-image" aria-label="Insérer une image"></button>
+        <button
+          type="button"
+          class="ql-internal-link"
+          aria-label="Insérer un lien interne"
+        >[[ ]]</button>
         <button class="ql-clean" aria-label="Effacer la mise en forme"></button>
       </span>
     </div>
@@ -58,6 +63,7 @@
       <% if (typeof allowUploads !== 'undefined' && allowUploads) { %>data-upload-endpoint="/admin/uploads"<% } %>
       aria-label="Éditeur de contenu"
     ></div>
+    <div class="editor-status" data-editor-status role="status" aria-live="polite"></div>
   </div>
   <label for="author-field">Auteur affiché</label>
   <input

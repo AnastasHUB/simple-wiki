@@ -998,9 +998,62 @@ input[type="radio"] {
     display: none;
   }
 
-  .nav-close {
-    display: none;
-  }
+.nav-close {
+  display: none;
+}
+}
+
+.html-editor-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.html-editor-shell .ql-toolbar.ql-snow {
+  border-radius: var(--radius-medium);
+  border: 1px solid var(--color-border);
+  background: rgba(9, 22, 44, 0.72);
+  padding: 0.35rem;
+}
+
+.html-editor-shell .ql-toolbar.ql-snow .ql-formats {
+  margin-right: 0.5rem;
+}
+
+.html-editor-shell .ql-toolbar button.ql-internal-link {
+  min-width: 2.6em;
+  font-weight: 600;
+  font-family: var(--font-heading);
+}
+
+.html-editor-shell .ql-container.ql-snow {
+  border-radius: var(--radius-medium);
+  border: 1px solid var(--color-border);
+  background: rgba(3, 11, 29, 0.6);
+  min-height: 320px;
+}
+
+.html-editor-shell .ql-editor {
+  min-height: 260px;
+  color: var(--color-text);
+  line-height: 1.7;
+}
+
+.html-editor-shell .ql-editor a {
+  color: var(--color-accent);
+  text-decoration: underline;
+}
+
+.html-editor-shell[data-uploading-image] .ql-toolbar button,
+.html-editor-shell[data-uploading-image] .ql-toolbar button:hover {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.editor-status {
+  margin: 0.25rem 0 0.5rem;
+  color: var(--color-text-muted);
+  font-size: 0.95rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

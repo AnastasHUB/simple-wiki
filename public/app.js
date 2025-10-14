@@ -1148,6 +1148,48 @@ function initHtmlEditor() {
   const silentSource = window.Quill?.sources?.SILENT || "api";
   let highlightTimeoutId = null;
   let lastKnownSelection = null;
+  const shell = container.closest(".html-editor-shell");
+  const statusElement = shell
+    ? shell.querySelector("[data-editor-status]")
+    : document.querySelector("[data-editor-status]");
+  const numberFormatter =
+    typeof Intl !== "undefined" && Intl.NumberFormat
+      ? new Intl.NumberFormat("fr-FR")
+      : null;
+
+  const formatCountLabel = (count, singular, plural = `${singular}s`) => {
+    const formatted = numberFormatter
+      ? numberFormatter.format(count)
+      : String(count);
+    const label = count === 1 ? singular : plural;
+    return `${formatted} ${label}`;
+  };
+
+  const computeReadingTime = (wordCount) => {
+    if (!wordCount) return 0;
+    return Math.max(1, Math.ceil(wordCount / 200));
+  };
+
+  const updateStatus = () => {
+    if (!statusElement) return;
+    const rawText = quill.getText() || "";
+    const sanitized = rawText.replace(/\r/g, "");
+    const trimmed = sanitized.trim();
+    const words = trimmed ? trimmed.split(/\s+/).filter(Boolean).length : 0;
+    const characters = trimmed ? trimmed.replace(/\n/g, "").length : 0;
+    const parts = [
+      formatCountLabel(words, "mot"),
+      formatCountLabel(characters, "caractère", "caractères"),
+    ];
+    const readingMinutes = computeReadingTime(words);
+    if (readingMinutes > 0) {
+      const formattedMinutes = numberFormatter
+        ? numberFormatter.format(readingMinutes)
+        : String(readingMinutes);
+      parts.push(`~${formattedMinutes} min de lecture`);
+    }
+    statusElement.textContent = parts.join(" • ");
+  };
 
   const runCodeHighlighting = () => {
     highlightTimeoutId = null;
@@ -1337,6 +1379,48 @@ function initHtmlEditor() {
         refreshCodeHighlighting({ immediate: true });
       }
     });
+    toolbar.addHandler("internalLink", () => {
+      let range = quill.getSelection(true);
+      if (!range) {
+        range = { index: quill.getLength(), length: 0 };
+      }
+      const selectedText = range.length
+        ? quill.getText(range.index, range.length).replace(/\s+/g, " ").trim()
+        : "";
+      const promptDefault = selectedText || "";
+      const promptResult = window.prompt(
+        "Entrez le titre de la page à lier :",
+        promptDefault,
+      );
+      if (promptResult == null) {
+        return;
+      }
+      const target = promptResult.trim();
+      if (!target) {
+        notify("error", "Le lien interne doit avoir une cible.");
+        return;
+      }
+
+      const label = selectedText || target;
+      const sameLabel =
+        !!selectedText &&
+        selectedText.localeCompare(target, undefined, {
+          sensitivity: "accent",
+          usage: "search",
+        }) === 0;
+
+      const snippet =
+        selectedText && !sameLabel
+          ? `[[${target}|${label}]]`
+          : `[[${target}]]`;
+
+      if (range.length) {
+        quill.deleteText(range.index, range.length, "user");
+      }
+      quill.insertText(range.index, snippet, "user");
+      quill.setSelection(range.index + snippet.length, 0, "user");
+      notify("success", "Lien interne inséré.");
+    });
   }
 
   const initialValue = field.value || "";
@@ -1353,6 +1437,7 @@ function initHtmlEditor() {
     } else {
       field.value = html;
     }
+    updateStatus();
   };
 
   syncField();
