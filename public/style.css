@@ -1210,6 +1210,13 @@ input[type="radio"] {
     Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+.markdown-preview mark {
+  background: rgba(250, 204, 21, 0.3);
+  color: var(--color-text);
+  padding: 0.1rem 0.25rem;
+  border-radius: 4px;
+}
+
 .markdown-preview table {
   width: 100%;
   border-collapse: collapse;
@@ -1227,7 +1234,8 @@ input[type="radio"] {
   text-decoration: underline;
 }
 
-.markdown-preview .md-spoiler {
+.markdown-preview .md-spoiler,
+.markdown-preview .md-details {
   border-radius: var(--radius-medium);
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(9, 22, 44, 0.6);
@@ -1243,6 +1251,83 @@ input[type="radio"] {
 
 .markdown-preview .md-spoiler-body {
   padding-top: 0.25rem;
+}
+
+.markdown-preview .md-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin: -0.5rem -0.75rem 0.5rem;
+  padding: 0.5rem 0.75rem;
+}
+
+.markdown-preview .md-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.markdown-preview .md-details summary::before {
+  content: "▸";
+  display: inline-block;
+  margin-right: 0.5rem;
+  transition: transform var(--transition-base);
+  opacity: 0.75;
+}
+
+.markdown-preview .md-details[open] summary::before {
+  transform: rotate(90deg);
+}
+
+.markdown-preview .md-details-body {
+  padding-top: 0.25rem;
+}
+
+.markdown-preview .md-details-body > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-preview .md-callout {
+  border-radius: var(--radius-medium);
+  padding: 0.75rem 1rem;
+  margin: 0.85rem 0;
+  border-left: 4px solid rgba(255, 255, 255, 0.18);
+  background: rgba(8, 19, 40, 0.65);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.markdown-preview .md-callout-title {
+  font-weight: 600;
+  margin: 0 0 0.4rem;
+  color: var(--color-text);
+}
+
+.markdown-preview .md-callout-body > :last-child {
+  margin-bottom: 0;
+}
+
+.markdown-preview .md-callout-info {
+  border-left-color: var(--color-info);
+  background: rgba(96, 165, 250, 0.14);
+}
+
+.markdown-preview .md-callout-info .md-callout-title {
+  color: var(--color-info);
+}
+
+.markdown-preview .md-callout-warning {
+  border-left-color: var(--color-warning);
+  background: rgba(250, 204, 21, 0.16);
+}
+
+.markdown-preview .md-callout-warning .md-callout-title {
+  color: var(--color-warning);
+}
+
+.markdown-preview .md-callout-success {
+  border-left-color: var(--color-success);
+  background: rgba(56, 226, 160, 0.16);
+}
+
+.markdown-preview .md-callout-success .md-callout-title {
+  color: var(--color-success);
 }
 
 .markdown-preview .mermaid-diagram {

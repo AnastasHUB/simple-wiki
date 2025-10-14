@@ -1169,6 +1169,24 @@ function initMarkdownEditor() {
     "❗",
   ];
 
+  const CALLOUT_META = {
+    info: {
+      fallbackTitle: "Information",
+      promptLabel: "informatif",
+      placeholder: "Contenu informatif",
+    },
+    warning: {
+      fallbackTitle: "Avertissement",
+      promptLabel: "d'avertissement",
+      placeholder: "Points importants à noter",
+    },
+    success: {
+      fallbackTitle: "Succès",
+      promptLabel: "de réussite",
+      placeholder: "Annonce ou résultat positif",
+    },
+  };
+
   if (emojiPanel) {
     emojiPanel.innerHTML = "";
     emojiPanel.setAttribute("role", "menu");
@@ -1291,6 +1309,31 @@ function initMarkdownEditor() {
     handleValueChange();
   }
 
+  function sanitizeSingleLine(value) {
+    return (value || "").replace(/[\r\n]+/g, " ").trim();
+  }
+
+  function promptBlockTitle(message, fallback) {
+    const response = window.prompt(message, fallback);
+    if (response === null) {
+      return null;
+    }
+    const sanitized = sanitizeSingleLine(response);
+    return sanitized || fallback;
+  }
+
+  function restoreSelection(selection) {
+    if (
+      !selection ||
+      typeof selection.start !== "number" ||
+      typeof selection.end !== "number"
+    ) {
+      return;
+    }
+    input.focus();
+    input.setSelectionRange(selection.start, selection.end);
+  }
+
   function insertMultilineBlock(opening, placeholder, closing) {
     const { start, end } = getSelection();
     const value = input.value;
@@ -1316,6 +1359,18 @@ function initMarkdownEditor() {
       input.setSelectionRange(newCaret, newCaret);
     }
     handleValueChange();
+  }
+
+  function insertCalloutBlock(type) {
+    const meta = CALLOUT_META[type] || CALLOUT_META.info;
+    const selection = getSelection();
+    const promptText = `Titre du bloc ${meta.promptLabel} :`;
+    const title = promptBlockTitle(promptText, meta.fallbackTitle);
+    if (title === null) {
+      return;
+    }
+    restoreSelection(selection);
+    insertMultilineBlock(`::: ${type} ${title}`, meta.placeholder, ":::");
   }
 
   function normalizeListLine(line) {
@@ -1451,6 +1506,9 @@ function initMarkdownEditor() {
       case "italic":
         wrapSelection("*", "*", "texte en italique");
         break;
+      case "highlight":
+        wrapSelection("<mark>", "</mark>", "Texte mis en évidence");
+        break;
       case "code":
         wrapSelection("`", "`", "code");
         break;
@@ -1535,15 +1593,86 @@ function initMarkdownEditor() {
         handleValueChange();
         break;
       }
+      case "image": {
+        const { start, end } = getSelection();
+        const value = input.value;
+        const selected = value.slice(start, end);
+        const url = window.prompt("Entrez l'URL de l'image :", "https://");
+        if (!url) {
+          return;
+        }
+        let altText = selected || "Description de l'image";
+        if (!selected) {
+          const altPrompt = window.prompt(
+            "Texte alternatif de l'image :",
+            altText,
+          );
+          if (altPrompt === null) {
+            return;
+          }
+          altText = altPrompt || altText;
+        }
+        const normalizedAlt = altText.trim() || "Image";
+        const snippet = `![${normalizedAlt}](${url.trim()})`;
+        const before = value.slice(0, start);
+        const after = value.slice(end);
+        input.value = before + snippet + after;
+        if (!selected) {
+          const caretStart = before.length + 2;
+          const caretEnd = caretStart + normalizedAlt.length;
+          input.setSelectionRange(caretStart, caretEnd);
+        } else {
+          const caret = before.length + snippet.length;
+          input.setSelectionRange(caret, caret);
+        }
+        handleValueChange();
+        break;
+      }
       case "code-block":
         insertMultilineBlock("```", "code", "```");
         break;
-      case "spoiler":
+      case "spoiler": {
+        const selection = getSelection();
+        const title = promptBlockTitle(
+          "Titre du bloc spoiler :",
+          "Titre du spoiler"
+        );
+        if (title === null) {
+          return;
+        }
+        restoreSelection(selection);
         insertMultilineBlock(
-          "::: spoiler Titre du spoiler",
+          `::: spoiler ${title}`,
           "Contenu du spoiler",
           ":::"
         );
+        break;
+      }
+      case "details": {
+        const selection = getSelection();
+        const title = promptBlockTitle(
+          "Titre du bloc détaillé :",
+          "Titre du bloc"
+        );
+        if (title === null) {
+          return;
+        }
+        restoreSelection(selection);
+        insertMultilineBlock(
+          `::: details ${title}`,
+          "Contenu détaillé",
+          ":::"
+        );
+        break;
+      }
+      case "callout-info":
+        insertCalloutBlock("info");
+        break;
+      case "callout-warning":
+        insertCalloutBlock("warning");
+        break;
+      case "callout-success":
+        insertCalloutBlock("success");
         break;
       case "katex":
         insertMultilineBlock("$$", "c^2 = a^2 + b^2", "$$");
@@ -1871,7 +2000,8 @@ function createMarkdownRenderer() {
     md.use(window.markdownitEmoji);
   }
   if (window.markdownitContainer) {
-    md.use(window.markdownitContainer, "spoiler", {
+    const containerPlugin = window.markdownitContainer;
+    md.use(containerPlugin, "spoiler", {
       validate: (params) => /^spoiler(\s+.*)?$/i.test(params.trim()),
       render: (tokens, idx) => {
         const match = tokens[idx].info.trim().match(/^spoiler\s*(.*)$/i);
@@ -1883,6 +2013,47 @@ function createMarkdownRenderer() {
         }
         return "</div></details>\n";
       },
+    });
+
+    md.use(containerPlugin, "details", {
+      validate: (params) => /^details(\s+.*)?$/i.test(params.trim()),
+      render: (tokens, idx) => {
+        const match = tokens[idx].info.trim().match(/^details\s*(.*)$/i);
+        if (tokens[idx].nesting === 1) {
+          const title = match && match[1] ? match[1].trim() : "Détails";
+          return `<details class="md-details"><summary>${escapeHtml(
+            title || "Détails"
+          )}</summary>\n<div class="md-details-body">\n`;
+        }
+        return "</div></details>\n";
+      },
+    });
+
+    const calloutConfigs = [
+      { name: "info", defaultTitle: "Information" },
+      { name: "warning", defaultTitle: "Avertissement" },
+      { name: "success", defaultTitle: "Succès" },
+    ];
+
+    calloutConfigs.forEach(({ name, defaultTitle }) => {
+      const pattern = new RegExp(`^${name}\\s*(.*)$`, "i");
+      md.use(containerPlugin, name, {
+        validate: (params) => {
+          const trimmed = params.trim();
+          return pattern.test(trimmed);
+        },
+        render: (tokens, idx) => {
+          const info = tokens[idx].info.trim();
+          const match = info.match(pattern);
+          if (tokens[idx].nesting === 1) {
+            const title = match && match[1] ? match[1].trim() : defaultTitle;
+            return `<div class="md-callout md-callout-${name}"><div class="md-callout-title">${escapeHtml(
+              title || defaultTitle
+            )}</div>\n<div class="md-callout-body">\n`;
+          }
+          return "</div></div>\n";
+        },
+      });
     });
   }
   if (window.markdownitKatex && window.katex) {
