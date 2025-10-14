@@ -61,34 +61,63 @@ function formatFieldValue(value) {
   return String(value);
 }
 
-function buildFields(data) {
-  if (!data) return [];
-  const fields = Object.entries(data)
-    .map(([name, value]) => {
-      const formatted = formatFieldValue(value);
-      if (!formatted) return null;
-      const trimmed =
-        formatted.length > 1024
-          ? formatted.slice(0, 1021).trimEnd() + "…"
-          : formatted;
-      const fieldName = clampText(String(name ?? ""), 256);
-      if (!fieldName) return null;
-      return { name: fieldName, value: trimmed };
-    })
-    .filter(Boolean);
-
-  return fields.slice(0, MAX_EMBED_FIELDS);
+function trimFieldValue(value) {
+  if (typeof value !== "string") return value;
+  if (value.length <= 1024) return value;
+  return value.slice(0, 1021).trimEnd() + "…";
 }
 
-function formatMetaLines(meta) {
+function normalizeFieldEntry(entry) {
+  if (!entry) return null;
+  if (Array.isArray(entry)) {
+    const [name, value, inline] = entry;
+    return normalizeFieldEntry({ name, value, inline });
+  }
+
+  if (!isRecord(entry)) return null;
+
+  const formatted = formatFieldValue(entry.value);
+  if (!formatted) return null;
+
+  const fieldName = clampText(String(entry.name ?? ""), 256);
+  if (!fieldName) return null;
+
+  const trimmedValue = trimFieldValue(formatted);
+  if (!trimmedValue) return null;
+
+  return {
+    name: fieldName,
+    value: trimmedValue,
+    inline: entry.inline === true,
+  };
+}
+
+function buildFields(data) {
+  if (!data) return [];
+
+  const entries = Array.isArray(data)
+    ? data.map((entry) => normalizeFieldEntry(entry))
+    : Object.entries(data).map(([name, value]) =>
+        normalizeFieldEntry({ name, value }),
+      );
+
+  return entries.filter(Boolean).slice(0, MAX_EMBED_FIELDS);
+}
+
+function buildMetaFieldEntries(meta) {
   if (!meta) return [];
+
   return Object.entries(meta)
     .map(([key, value]) => {
       const formatted = formatFieldValue(value);
       if (!formatted) return null;
-      return formatted.includes("\n")
-        ? `**${key} :**\n${formatted}`
-        : `**${key} :** ${formatted}`;
+      const shouldInline =
+        !formatted.includes("\n") && formatted.length <= 72;
+      return {
+        name: key,
+        value: formatted,
+        inline: shouldInline,
+      };
     })
     .filter(Boolean);
 }
@@ -102,7 +131,8 @@ function formatPageSummary(page, url, options = {}) {
   }
   const link = url || (page.slug_id ? `/wiki/${page.slug_id}` : "");
   if (link && includeLink) {
-    lines.push(`**Lien :** ${link}`);
+    const formattedLink = link.startsWith("http") ? link : `<${link}>`;
+    lines.push(`**Lien :** ${formattedLink}`);
   } else if (page.slug_id) {
     lines.push(`**Identifiant :** ${page.slug_id}`);
   }
@@ -306,10 +336,18 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     options,
   );
 
-  const meta = { ...(data?.extra || {}) };
+  const RESERVED_DATA_KEYS = new Set([
+    "page",
+    "comment",
+    "user",
+    "description",
+    "extra",
+    "meta",
+  ]);
+
+  const meta = { ...(data?.meta || {}), ...(data?.extra || {}) };
   for (const [key, value] of Object.entries(data || {})) {
-    if (["page", "comment", "user", "description", "extra"].includes(key))
-      continue;
+    if (RESERVED_DATA_KEYS.has(key)) continue;
     meta[key] = value;
   }
 
@@ -342,14 +380,17 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     includeTitle: !descriptionContainsTitle,
     includeLink: !descriptionContainsUrl,
   });
-  if (pageSummary) {
-    baseSections.push(pageSummary);
-  }
 
-  const baseFieldsInput = {
-    Commentaire: data.comment,
-    Utilisateur: data.user,
-  };
+  const baseFieldEntries = [];
+  if (pageSummary) {
+    baseFieldEntries.push({ name: "Page", value: pageSummary });
+  }
+  if (data.comment) {
+    baseFieldEntries.push({ name: "Commentaire", value: data.comment });
+  }
+  if (data.user) {
+    baseFieldEntries.push({ name: "Utilisateur", value: data.user, inline: true });
+  }
 
   const normalizedContent =
     typeof options.content === "string"
@@ -373,13 +414,8 @@ async function sendEvent(channel, title, data = {}, options = {}) {
     ? options.extraEmbeds.filter(isRecord).map((embed) => ({ ...embed }))
     : [];
 
-  function composeDescription(metaForChannel) {
-    const sections = baseSections.slice();
-    const metaLines = formatMetaLines(metaForChannel);
-    if (metaLines.length) {
-      sections.push(metaLines.join("\n"));
-    }
-    const description = sections.filter(Boolean).join("\n\n");
+  function composeDescription() {
+    const description = baseSections.filter(Boolean).join("\n\n");
     return clampText(description, MAX_EMBED_DESCRIPTION_LENGTH);
   }
 
@@ -392,6 +428,28 @@ async function sendEvent(channel, title, data = {}, options = {}) {
       CHANNEL_DEFAULTS[normalizedChannel]?.embedColor ??
       0x5865f2
     );
+  }
+
+  function resolveEmbedTimestamp() {
+    const candidates = [
+      options.embedTimestamp,
+      data?.timestamp,
+      data?.page?.published_at,
+      data?.page?.created_at,
+      data?.page?.updated_at,
+      data?.created_at,
+      data?.updated_at,
+    ];
+
+    for (const candidate of candidates) {
+      if (!candidate) continue;
+      const date = candidate instanceof Date ? candidate : new Date(candidate);
+      if (!Number.isNaN(date.getTime())) {
+        return date.toISOString();
+      }
+    }
+
+    return new Date().toISOString();
   }
 
   function buildMetaForChannel(targetChannel) {
@@ -407,12 +465,18 @@ async function sendEvent(channel, title, data = {}, options = {}) {
 
   function buildPayloadForChannel(targetChannel) {
     const metaForChannel = buildMetaForChannel(targetChannel);
-    const embedDescription = composeDescription(metaForChannel);
+    const embedDescription = composeDescription();
+    const metaFieldEntries = buildMetaFieldEntries(metaForChannel);
     const embed = {
-      timestamp: new Date().toISOString(),
+      timestamp: resolveEmbedTimestamp(),
       color: resolveEmbedColor(targetChannel),
       description: embedDescription,
-      fields: buildFields(baseFieldsInput),
+      url:
+        typeof options.embedUrl === "string" && options.embedUrl.trim().length
+          ? options.embedUrl.trim()
+          : typeof data?.url === "string" && data.url.trim().length
+            ? data.url.trim()
+            : undefined,
     };
 
     const embedTitle = clampText(
@@ -427,16 +491,17 @@ async function sendEvent(channel, title, data = {}, options = {}) {
       delete embed.description;
     }
 
-    if (!embed.fields?.length) {
-      delete embed.fields;
-    }
-
     if (settings.footerText || options.embedFooterText) {
       embed.footer = {
         text: clampText(
           options.embedFooterText || settings.footerText,
           MAX_EMBED_FOOTER_LENGTH,
         ),
+        icon_url:
+          typeof options.embedFooterIcon === "string" &&
+          options.embedFooterIcon.trim().length
+            ? options.embedFooterIcon.trim()
+            : undefined,
       };
     }
 
@@ -453,6 +518,24 @@ async function sendEvent(channel, title, data = {}, options = {}) {
 
     if (embedImageName) {
       embed.image = { url: `attachment://${embedImageName}` };
+    } else if (
+      typeof options.embedImageUrl === "string" &&
+      options.embedImageUrl.trim().length
+    ) {
+      embed.image = { url: options.embedImageUrl.trim() };
+    }
+
+    if (
+      typeof options.embedThumbnail === "string" &&
+      options.embedThumbnail.trim().length
+    ) {
+      embed.thumbnail = { url: options.embedThumbnail.trim() };
+    }
+
+    const fieldEntries = [...baseFieldEntries, ...metaFieldEntries];
+    const embedFields = buildFields(fieldEntries);
+    if (embedFields.length) {
+      embed.fields = embedFields;
     }
 
     const payload = {
@@ -537,10 +620,21 @@ export async function sendFeedEvent(title, data = {}, options = {}) {
     });
 
     const payloadData = { ...data, description };
-    await sendEvent("feed", title, payloadData, restOptions);
+    const embedUrl =
+      restOptions.embedUrl ||
+      data?.url ||
+      (data?.page?.slug_id ? `/wiki/${data.page.slug_id}` : undefined);
+    await sendEvent("feed", title, payloadData, {
+      ...restOptions,
+      embedUrl,
+    });
     return;
   }
 
   const { articleContent, includeArticleScreenshot, ...restOptions } = options;
-  await sendEvent("feed", title, data, restOptions);
+  const embedUrl =
+    restOptions.embedUrl ||
+    data?.url ||
+    (data?.page?.slug_id ? `/wiki/${data.page.slug_id}` : undefined);
+  await sendEvent("feed", title, data, { ...restOptions, embedUrl });
 }
