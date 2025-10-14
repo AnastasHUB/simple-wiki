@@ -12,7 +12,6 @@ import adminRoutes from "./routes/admin.js";
 import accountRoutes from "./routes/account.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
-import { getSiteSettings } from "./utils/settingsService.js";
 import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp, getClientUserAgent } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
@@ -23,6 +22,8 @@ import {
   DEFAULT_ROLE_FLAGS,
   mergeRoleFlags,
 } from "./utils/roleFlags.js";
+import { getSiteSettings } from "./utils/settingsService.js";
+import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,7 +44,8 @@ app.use(methodOverride("_method"));
 app.use(morgan("dev"));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
-app.use(session(sessionConfig));
+const sessionMiddleware = session(sessionConfig);
+app.use(sessionMiddleware);
 
 app.use((req, res, next) => {
   const originalUrl = req.originalUrl || req.url || "/";
@@ -177,4 +179,8 @@ app.use((err, req, res, next) => {
 app.use((req, res) => res.status(404).render("page404"));
 
 const port = process.env.PORT || 3000;
-app.listen(port, () => console.log("Wiki on http://localhost:" + port));
+const server = app.listen(port, () =>
+  console.log("Wiki on http://localhost:" + port),
+);
+
+setupLiveStatsWebSocket(server, sessionMiddleware);
