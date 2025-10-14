@@ -47,7 +47,6 @@ import { getClientIp } from "../utils/ip.js";
 import {
   formatDateTimeLocalized,
   formatRelativeDurationMs,
-  formatSecondsAgo,
 } from "../utils/time.js";
 import {
   buildPagination,
@@ -105,8 +104,9 @@ import {
   deleteBanAppeal,
 } from "../utils/banAppeals.js";
 import {
-  getActiveVisitors,
   ACTIVE_VISITOR_TTL_MS,
+  LIVE_VISITOR_PAGINATION_OPTIONS,
+  getLiveVisitorsSnapshot,
 } from "../utils/liveStats.js";
 
 await ensureUploadDir();
@@ -207,25 +207,8 @@ function buildPermissionSnapshot(role = {}) {
   }, {});
 }
 
-const LIVE_VISITOR_PAGE_SIZES = [5, 10, 25, 50];
-const LIVE_VISITOR_DEFAULT_PAGE_SIZE = 10;
-const LIVE_VISITOR_PAGINATION_OPTIONS = {
-  pageParam: "livePage",
-  perPageParam: "livePerPage",
-  defaultPageSize: LIVE_VISITOR_DEFAULT_PAGE_SIZE,
-  pageSizeOptions: LIVE_VISITOR_PAGE_SIZES,
-};
-
 function serializeLiveVisitors(now = Date.now()) {
-  return getActiveVisitors({ now }).map((visitor) => {
-    const secondsAgo = Math.max(0, Math.round((now - visitor.lastSeen) / 1000));
-    return {
-      ...visitor,
-      lastSeenIso: new Date(visitor.lastSeen).toISOString(),
-      lastSeenSecondsAgo: secondsAgo,
-      lastSeenRelative: formatSecondsAgo(secondsAgo),
-    };
-  });
+  return getLiveVisitorsSnapshot(now).visitors;
 }
 
 function redirectToComments(req, res) {

@@ -249,6 +249,7 @@ function initLikeForms() {
   });
 }
 
+
 function initLiveStatsCard() {
   const card = document.querySelector("[data-live-stats-card]");
   if (!card) {
@@ -284,6 +285,13 @@ function initLiveStatsCard() {
     return;
   }
 
+  if (typeof window.WebSocket !== "function") {
+    console.error("WebSocket n'est pas pris en charge par ce navigateur.");
+    statusEl.textContent = "Dernière mise à jour : WebSocket non disponible";
+    statusEl.classList.add("live-stats-status-error");
+    return;
+  }
+
   const locale = document.documentElement.lang || undefined;
   const timeFormatter = new Intl.DateTimeFormat(locale, {
     hour: "2-digit",
@@ -306,11 +314,13 @@ function initLiveStatsCard() {
     totalItems: parseNumber(card.getAttribute("data-live-total-items"), 0),
     refreshMs: parseNumber(refreshSelect.value, 5000),
     timerId: null,
+    socket: null,
+    reconnectTimerId: null,
+    reconnectDelay: 1000,
     loading: false,
   };
 
-  let requestSerial = 0;
-  let activeRequests = 0;
+  let destroyed = false;
 
   const setHidden = (element, hidden) => {
     if (!element) return;
@@ -342,9 +352,24 @@ function initLiveStatsCard() {
     windowLabel.textContent = `Basé sur l'activité des ${formatWindowLabel(seconds)} précédentes.`;
   };
 
+  const parseTimestamp = (timestamp) => {
+    if (!timestamp) {
+      return null;
+    }
+    if (typeof timestamp === "string") {
+      const date = new Date(timestamp);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    if (Number.isFinite(timestamp)) {
+      const date = new Date(timestamp);
+      return Number.isNaN(date.getTime()) ? null : date;
+    }
+    return null;
+  };
+
   const updateStatus = (timestamp, isError = false) => {
     if (isError) {
-      statusEl.textContent = "Dernière mise à jour : échec du rafraîchissement";
+      statusEl.textContent = "Dernière mise à jour : échec de la connexion";
       statusEl.classList.add("live-stats-status-error");
       return;
     }
@@ -353,7 +378,12 @@ function initLiveStatsCard() {
       statusEl.textContent = "Dernière mise à jour : --";
       return;
     }
-    statusEl.textContent = `Dernière mise à jour : ${timeFormatter.format(new Date(timestamp))}`;
+    const date = parseTimestamp(timestamp);
+    if (!date) {
+      statusEl.textContent = "Dernière mise à jour : --";
+      return;
+    }
+    statusEl.textContent = `Dernière mise à jour : ${timeFormatter.format(date)}`;
   };
 
   const renderVisitors = (visitors) => {
@@ -460,54 +490,151 @@ function initLiveStatsCard() {
     setHidden(footer, !hasVisitors);
   };
 
-  const fetchData = async (options = {}) => {
-    const requestedPage = parseNumber(options.page, state.page);
-    const requestedPerPage = parseNumber(options.perPage, state.perPage);
-    const params = new URLSearchParams();
-    params.set(pageParam, String(requestedPage));
-    params.set(perPageParam, String(requestedPerPage));
+  const canSend = () =>
+    state.socket && state.socket.readyState === WebSocket.OPEN;
 
-    const token = ++requestSerial;
-    activeRequests += 1;
-    state.loading = true;
+  const sendMessage = (message) => {
+    if (!canSend()) {
+      return false;
+    }
     try {
-      const response = await fetch(`${endpoint}?${params.toString()}`, {
-        headers: {
-          Accept: "application/json",
-        },
-      });
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      const payload = await response.json();
-      if (!payload || payload.ok !== true) {
-        throw new Error("Réponse inattendue");
-      }
-
-      const visitors = Array.isArray(payload.visitors) ? payload.visitors : [];
-      if (token === requestSerial) {
-        renderVisitors(visitors);
-        updateVisibility(visitors.length > 0);
-        applyPagination(payload.pagination || {});
-        if (payload.liveVisitorsWindowSeconds !== undefined) {
-          const seconds = Number(payload.liveVisitorsWindowSeconds);
-          card.setAttribute("data-live-window-seconds", seconds);
-          updateWindowLabel(seconds);
-        }
-        updateStatus(Date.now());
-      }
+      state.socket.send(JSON.stringify(message));
+      return true;
     } catch (error) {
-      console.error(
-        "Erreur lors du rafraîchissement des statistiques en direct",
-        error,
-      );
-      if (token === requestSerial) {
+      console.error("Impossible d'envoyer le message de statistiques en direct", error);
+      return false;
+    }
+  };
+
+  const clearReconnectTimer = () => {
+    if (state.reconnectTimerId) {
+      window.clearTimeout(state.reconnectTimerId);
+      state.reconnectTimerId = null;
+    }
+  };
+
+  const scheduleReconnect = () => {
+    if (destroyed || document.hidden) {
+      return;
+    }
+    clearReconnectTimer();
+    const delay = Math.min(state.reconnectDelay, 30000);
+    state.reconnectTimerId = window.setTimeout(() => {
+      state.reconnectTimerId = null;
+      connect();
+    }, delay);
+    state.reconnectDelay = Math.min(delay * 2, 30000);
+    updateStatus(null, true);
+  };
+
+  const requestSnapshot = () => {
+    if (sendMessage({ type: "requestSnapshot" })) {
+      state.loading = true;
+    }
+  };
+
+  const pushPagination = () => {
+    if (sendMessage({
+      type: "setPagination",
+      page: state.page,
+      perPage: state.perPage,
+    })) {
+      state.loading = true;
+    }
+  };
+
+  const handleSnapshot = (payload) => {
+    const visitors = Array.isArray(payload?.visitors) ? payload.visitors : [];
+    renderVisitors(visitors);
+    updateVisibility(visitors.length > 0);
+    if (payload?.pagination) {
+      applyPagination(payload.pagination);
+    }
+    if (payload?.liveVisitorsWindowSeconds !== undefined) {
+      const seconds = Number(payload.liveVisitorsWindowSeconds);
+      card.setAttribute("data-live-window-seconds", seconds);
+      updateWindowLabel(seconds);
+    }
+    updateStatus(payload?.generatedAt || Date.now());
+    state.loading = false;
+    restartTimer();
+  };
+
+  const handleSocketMessage = (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (!payload) {
+        return;
+      }
+      if (payload.type === "liveStatsSnapshot") {
+        handleSnapshot(payload);
+      } else if (payload.type === "error") {
+        console.error("Erreur des statistiques en direct", payload.message);
         updateStatus(null, true);
       }
-    } finally {
-      activeRequests = Math.max(0, activeRequests - 1);
-      state.loading = activeRequests > 0;
+    } catch (error) {
+      console.error("Réception de données invalides pour les statistiques en direct", error);
     }
+  };
+
+  const buildSocketUrl = () => {
+    const url = new URL(endpoint, window.location.origin);
+    url.searchParams.set(pageParam, String(state.page));
+    url.searchParams.set(perPageParam, String(state.perPage));
+    url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+    return url.toString();
+  };
+
+  const connect = () => {
+    if (destroyed) {
+      return;
+    }
+    clearReconnectTimer();
+    if (state.socket) {
+      try {
+        state.socket.close();
+      } catch (error) {
+        console.warn("Impossible de fermer l'ancienne connexion WebSocket", error);
+      }
+      state.socket = null;
+    }
+    let socket;
+    try {
+      socket = new WebSocket(buildSocketUrl());
+    } catch (error) {
+      console.error("Échec de l'initialisation de la connexion WebSocket", error);
+      scheduleReconnect();
+      return;
+    }
+
+    state.socket = socket;
+    state.loading = true;
+
+    socket.addEventListener("open", () => {
+      state.reconnectDelay = 1000;
+      updateStatus(Date.now());
+      requestSnapshot();
+    });
+
+    socket.addEventListener("message", handleSocketMessage);
+
+    socket.addEventListener("close", () => {
+      state.socket = null;
+      state.loading = false;
+      if (!destroyed) {
+        scheduleReconnect();
+      }
+    });
+
+    socket.addEventListener("error", (event) => {
+      console.error("Erreur WebSocket pour les statistiques en direct", event);
+      updateStatus(null, true);
+      try {
+        socket.close();
+      } catch (error) {
+        console.warn("Impossible de fermer la connexion WebSocket", error);
+      }
+    });
   };
 
   const restartTimer = () => {
@@ -520,7 +647,7 @@ function initLiveStatsCard() {
     }
     state.timerId = window.setInterval(() => {
       if (!state.loading) {
-        fetchData();
+        requestSnapshot();
       }
     }, state.refreshMs);
   };
@@ -532,8 +659,7 @@ function initLiveStatsCard() {
     }
     state.perPage = value;
     state.page = 1;
-    fetchData({ page: state.page, perPage: state.perPage });
-    restartTimer();
+    pushPagination();
   };
 
   const handlePrev = () => {
@@ -541,8 +667,8 @@ function initLiveStatsCard() {
       return;
     }
     const targetPage = Math.max(1, state.page - 1);
-    fetchData({ page: targetPage, perPage: state.perPage });
-    restartTimer();
+    state.page = targetPage;
+    pushPagination();
   };
 
   const handleNext = () => {
@@ -550,8 +676,8 @@ function initLiveStatsCard() {
       return;
     }
     const targetPage = state.page + 1;
-    fetchData({ page: targetPage, perPage: state.perPage });
-    restartTimer();
+    state.page = targetPage;
+    pushPagination();
   };
 
   const handleRefreshChange = () => {
@@ -570,20 +696,37 @@ function initLiveStatsCard() {
         clearInterval(state.timerId);
         state.timerId = null;
       }
-    } else {
-      fetchData();
-      restartTimer();
+      return;
     }
+    if (!state.socket || state.socket.readyState === WebSocket.CLOSED) {
+      connect();
+    }
+    requestSnapshot();
+    restartTimer();
   };
 
   document.addEventListener("visibilitychange", handleVisibilityChange);
 
   const cleanup = () => {
+    destroyed = true;
     if (state.timerId) {
       clearInterval(state.timerId);
       state.timerId = null;
     }
+    clearReconnectTimer();
     document.removeEventListener("visibilitychange", handleVisibilityChange);
+    perPageSelect.removeEventListener("change", handlePerPageChange);
+    prevButton.removeEventListener("click", handlePrev);
+    nextButton.removeEventListener("click", handleNext);
+    refreshSelect.removeEventListener("change", handleRefreshChange);
+    if (state.socket) {
+      try {
+        state.socket.close();
+      } catch (error) {
+        console.warn("Impossible de fermer la connexion WebSocket lors du nettoyage", error);
+      }
+      state.socket = null;
+    }
     window.removeEventListener("beforeunload", cleanup);
   };
 
@@ -606,11 +749,9 @@ function initLiveStatsCard() {
     hasNext: state.page < state.totalPages,
   });
 
-  fetchData().finally(() => {
-    restartTimer();
-  });
+  connect();
+  restartTimer();
 }
-
 function initAmbientBackdrop() {
   const scene = document.querySelector(".theme-liquid .background-scene");
   if (!scene) {
