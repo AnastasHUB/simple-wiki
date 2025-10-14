@@ -120,6 +120,15 @@ pre {
   font-size: 0.95rem;
 }
 
+code {
+  color: var(--color-accent-strong);
+  background: rgba(92, 139, 255, 0.18);
+  padding: 0.15rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid rgba(92, 139, 255, 0.25);
+  font-weight: 600;
+}
+
 pre {
   background: rgba(8, 19, 40, 0.88);
   border: 1px solid var(--color-border);
@@ -127,6 +136,14 @@ pre {
   padding: 1rem 1.25rem;
   overflow: auto;
   box-shadow: var(--shadow-soft);
+}
+
+pre code {
+  color: inherit;
+  background: transparent;
+  padding: 0;
+  border: 0;
+  font-weight: inherit;
 }
 
 .theme-liquid .background-scene {
