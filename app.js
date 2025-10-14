@@ -25,6 +25,8 @@ import {
 import { getSiteSettings } from "./utils/settingsService.js";
 import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
 import { getRecaptchaConfig } from "./utils/captcha.js";
+import { createRateLimiter } from "./middleware/rateLimit.js";
+import { csrfProtection } from "./middleware/csrf.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -45,8 +47,17 @@ app.use(methodOverride("_method"));
 app.use(morgan("dev"));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
+const globalRateLimiter = createRateLimiter({
+  windowMs: 60 * 1000,
+  limit: 300,
+  message:
+    "Trop de requêtes ont été détectées depuis votre adresse IP. Veuillez patienter avant de réessayer.",
+});
+app.use(globalRateLimiter);
+
 const sessionMiddleware = session(sessionConfig);
 app.use(sessionMiddleware);
+app.use(csrfProtection());
 
 app.use((req, res, next) => {
   const originalUrl = req.originalUrl || req.url || "/";

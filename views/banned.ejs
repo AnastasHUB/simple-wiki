@@ -17,6 +17,7 @@
   <% } else { %>
     <p>Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur.</p>
     <form method="post" action="/ban-appeal" class="form">
+      <%- include('partials/csrf_field') %>
       <input type="hidden" name="scope" value="<%= ban?.scope || '' %>" />
       <input type="hidden" name="value" value="<%= ban?.value || '' %>" />
       <div class="form-group">

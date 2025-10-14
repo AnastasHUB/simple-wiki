@@ -2,6 +2,7 @@
 <section class="card">
   <h1>Modifier votre commentaire</h1>
   <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/edit" class="comment-form">
+    <%- include('partials/csrf_field') %>
     <div class="field">
       <label for="comment-author">Nom ou pseudo</label>
       <input id="comment-author" type="text" name="author" maxlength="80" value="<%= comment.author || '' %>">
@@ -16,6 +17,7 @@
     </div>
   </form>
   <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ? Cette action est définitive.');">
+    <%- include('partials/csrf_field') %>
     <button class="btn danger" data-icon="🗑️" type="submit">Supprimer ce commentaire</button>
   </form>
 </section>

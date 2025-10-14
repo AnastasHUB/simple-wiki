@@ -31,6 +31,7 @@
         action="/admin/trash/empty"
         onsubmit="return confirm('Vider définitivement la corbeille ? Cette action est irréversible.');"
       >
+        <%- include('../partials/csrf_field') %>
         <button class="btn danger" data-icon="🔥" type="submit">Vider la corbeille</button>
       </form>
     </div>
@@ -88,6 +89,7 @@
                     action="/admin/trash/<%= page.snowflake_id %>/restore"
                     onsubmit="return confirm('Restaurer cette page ?');"
                   >
+                    <%- include('../partials/csrf_field') %>
                     <button class="btn success btn-compact" data-icon="♻️" type="submit">Restaurer</button>
                   </form>
                   <form
@@ -95,6 +97,7 @@
                     action="/admin/trash/<%= page.snowflake_id %>/delete"
                     onsubmit="return confirm('Supprimer définitivement cette page ? Cette action est irréversible.');"
                   >
+                    <%- include('../partials/csrf_field') %>
                     <button class="btn danger btn-compact" data-icon="🗑️" type="submit">Supprimer définitivement</button>
                   </form>
                 </div>

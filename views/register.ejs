@@ -23,6 +23,7 @@
     </div>
   <% } %>
   <form method="post" action="/register" class="stacked-form" id="registerForm">
+    <%- include('partials/csrf_field') %>
     <label for="register-username">Nom d'utilisateur</label>
     <input
       id="register-username"

@@ -4,6 +4,7 @@
   <div class="card"><%= error %></div>
 <% } %>
 <form method="post" action="/login">
+  <%- include('partials/csrf_field') %>
   <label>Utilisateur</label>
   <input type="text" name="username" required />
   <label>Mot de passe</label>

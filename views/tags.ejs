@@ -43,6 +43,7 @@
       <div class="actions">
         <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post" data-like-form-for="<%= p.slug_id %>">
+          <%- include('partials/csrf_field') %>
           <button
             class="btn <%= p.userLiked ? 'unlike' : 'like' %>"
             data-icon="<%= p.userLiked ? '💔' : '💖' %>"

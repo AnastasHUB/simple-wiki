@@ -7,6 +7,7 @@
     Vous pouvez définir un nom personnalisé sans changer le snowflake. Laissez le champ vide pour effacer le nom personnalisé.
   </p>
   <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" class="flex flex-wrap gap-sm mt-sm">
+    <%- include('../partials/csrf_field') %>
     <div class="flex-basis-220">
       <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="Image" />
     </div>
@@ -70,6 +71,7 @@
           </td>
           <td>
             <form method="post" action="/admin/uploads/<%= upload.id %>/name" class="stack-form">
+              <%- include('../partials/csrf_field') %>
               <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
               <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
             </form>
@@ -79,6 +81,7 @@
             <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>">
               <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
               <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
+                <%- include('../partials/csrf_field') %>
                 <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
               </form>
             </div>

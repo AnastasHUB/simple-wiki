@@ -19,6 +19,7 @@ import { asyncHandler } from "../utils/asyncHandler.js";
 import { pushNotification } from "../utils/notifications.js";
 import { upsertTags, recordRevision } from "../utils/pageEditing.js";
 import { createPageSubmission } from "../utils/pageSubmissionService.js";
+import { createRateLimiter } from "../middleware/rateLimit.js";
 import {
   getIpProfileByHash,
   hashIp,
@@ -65,6 +66,12 @@ import {
 } from "../utils/userHandles.js";
 
 const r = Router();
+const commentRateLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  limit: 12,
+  message:
+    "Trop de commentaires ont été envoyés en peu de temps depuis votre adresse IP. Veuillez patienter avant de réessayer.",
+});
 
 r.use(
   asyncHandler(async (req, res, next) => {
@@ -604,6 +611,7 @@ r.get(
 
 r.post(
   "/wiki/:slugid/comments",
+  commentRateLimiter,
   asyncHandler(async (req, res) => {
     const page = await get(
       "SELECT id, snowflake_id, title, slug_id FROM pages WHERE slug_id=?",

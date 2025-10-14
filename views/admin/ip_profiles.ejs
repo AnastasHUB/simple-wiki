@@ -115,6 +115,7 @@
                   action="/admin/ip-profiles/<%= profile.hash %>/delete"
                   onsubmit="return confirm('Supprimer ce profil IP ?');"
                 >
+                  <%- include('../partials/csrf_field') %>
                   <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
                 </form>
               </td>

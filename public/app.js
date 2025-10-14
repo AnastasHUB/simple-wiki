@@ -94,7 +94,61 @@
   }
 })();
 
+let cachedCsrfToken = null;
+
+function getCsrfToken() {
+  if (cachedCsrfToken !== null) {
+    return cachedCsrfToken;
+  }
+  const meta = document.querySelector('meta[name="csrf-token"]');
+  cachedCsrfToken = meta ? meta.getAttribute("content") || "" : "";
+  return cachedCsrfToken;
+}
+
+function initCsrfProtection() {
+  const token = getCsrfToken();
+  if (!token) {
+    return;
+  }
+
+  const ensureTokenField = (form) => {
+    let input = form.querySelector('input[name="_csrf"]');
+    if (!input) {
+      input = document.createElement("input");
+      input.type = "hidden";
+      input.name = "_csrf";
+      form.appendChild(input);
+    }
+    input.value = token;
+  };
+
+  document.addEventListener(
+    "submit",
+    (event) => {
+      const form = event.target;
+      if (!(form instanceof HTMLFormElement)) {
+        return;
+      }
+      const method = (form.getAttribute("method") || "get").toUpperCase();
+      if (!["POST", "PUT", "PATCH", "DELETE"].includes(method)) {
+        return;
+      }
+      ensureTokenField(form);
+    },
+    true,
+  );
+}
+
+function applyCsrfHeader(headers = {}) {
+  const token = getCsrfToken();
+  if (token) {
+    headers["X-CSRF-Token"] = token;
+  }
+  return headers;
+}
+
 document.addEventListener("DOMContentLoaded", () => {
+  initCsrfProtection();
   initAmbientBackdrop();
   initNotifications();
   enhanceIconButtons();
@@ -850,10 +904,10 @@ async function handleLikeSubmit(event, form) {
   try {
     const response = await fetch(form.action, {
       method: "POST",
-      headers: {
+      headers: applyCsrfHeader({
         "X-Requested-With": "XMLHttpRequest",
         Accept: "application/json",
-      },
+      }),
       body: new FormData(form),
     });
 
