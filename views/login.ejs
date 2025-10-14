@@ -12,3 +12,8 @@
     <button class="btn success" data-icon="🔑">Se connecter</button>
   </div>
 </form>
+<% if (typeof registrationEnabled === 'undefined' || registrationEnabled) { %>
+  <p class="form-help">
+    Pas encore de compte&nbsp;? <a href="/register">Créer un compte</a>.
+  </p>
+<% } %>
