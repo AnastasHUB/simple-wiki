@@ -64,6 +64,10 @@ import {
   resolveHandleColors,
   getHandleColor,
 } from "../utils/userHandles.js";
+import {
+  renderMarkdownDiff,
+  hasMeaningfulDiff,
+} from "../utils/diffRenderer.js";
 
 const r = Router();
 const commentRateLimiter = createRateLimiter({
@@ -1442,13 +1446,94 @@ r.get(
       [page.id, revNumber],
     );
     if (!revision) return res.status(404).send("Révision introuvable");
-    const revisionHandleMap = await resolveHandleColors([revision.author]);
+    const revisionsList = await all(
+      `SELECT revision, title, created_at
+         FROM page_revisions
+        WHERE page_id = ?
+        ORDER BY revision DESC`,
+      [page.id],
+    );
+
+    const rawCompareParam =
+      typeof req.query.compare === "string" ? req.query.compare.trim() : "";
+    const isExplicitCompare = rawCompareParam !== "";
+    let compareRevisionNumber = null;
+    if (isExplicitCompare) {
+      const parsedCompare = Number.parseInt(rawCompareParam, 10);
+      if (!Number.isInteger(parsedCompare)) {
+        return res.status(400).send("Révision de comparaison invalide");
+      }
+      if (parsedCompare === revNumber) {
+        return res
+          .status(400)
+          .send("La révision de comparaison doit être différente de la révision consultée");
+      }
+      compareRevisionNumber = parsedCompare;
+    } else {
+      const previous = revisionsList.find((rev) => rev.revision < revNumber);
+      if (previous) {
+        compareRevisionNumber = previous.revision;
+      }
+    }
+
+    let compareRevision = null;
+    if (compareRevisionNumber !== null) {
+      compareRevision = await get(
+        `SELECT pr.*, u.username AS author
+           FROM page_revisions pr
+           LEFT JOIN users u ON u.id = pr.author_id
+          WHERE pr.page_id=? AND pr.revision=?`,
+        [page.id, compareRevisionNumber],
+      );
+      if (!compareRevision && isExplicitCompare) {
+        return res.status(404).send("Révision de comparaison introuvable");
+      }
+    }
+
+    const handlesToResolve = [revision.author];
+    if (compareRevision?.author) {
+      handlesToResolve.push(compareRevision.author);
+    }
+    const revisionHandleMap = await resolveHandleColors(handlesToResolve);
     const revisionAuthorRole = getHandleColor(
       revision.author,
       revisionHandleMap,
     );
+    const compareRevisionAuthorRole = compareRevision
+      ? getHandleColor(compareRevision.author, revisionHandleMap)
+      : null;
+
     const html = linkifyInternal(revision.content);
-    res.render("revision", { page, revision: { ...revision, authorRole: revisionAuthorRole }, html });
+    const diffHtml =
+      compareRevision && hasMeaningfulDiff(compareRevision.content, revision.content)
+        ? renderMarkdownDiff({
+            oldContent: compareRevision.content,
+            newContent: revision.content,
+            oldLabel: `Révision ${compareRevision.revision}`,
+            newLabel: `Révision ${revision.revision}`,
+          })
+        : null;
+
+    const compareOptions = revisionsList
+      .filter((rev) => rev.revision !== revision.revision)
+      .map((rev) => ({
+        ...rev,
+        isSelected: compareRevision
+          ? rev.revision === compareRevision.revision
+          : compareRevisionNumber !== null && rev.revision === compareRevisionNumber,
+      }));
+
+    res.render("revision", {
+      page,
+      revision: { ...revision, authorRole: revisionAuthorRole },
+      html,
+      rawContent: revision.content,
+      compareRevision: compareRevision
+        ? { ...compareRevision, authorRole: compareRevisionAuthorRole }
+        : null,
+      compareOptions,
+      diffHtml,
+    });
   }),
 );
 

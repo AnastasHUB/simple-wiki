@@ -15,9 +15,46 @@
   <p><strong>Horodatage :</strong> <%= revision.created_at %></p>
 </div>
 
+<% if (compareOptions && compareOptions.length) { %>
+  <div class="card">
+    <form method="get" class="form-grid">
+      <div>
+        <label for="compare"><strong>Comparer avec une autre révision :</strong></label>
+        <select id="compare" name="compare">
+          <% compareOptions.forEach(function(option) { %>
+            <option value="<%= option.revision %>" <%= option.isSelected ? 'selected' : '' %>>
+              Révision #<%= option.revision %> — <%= option.created_at %>
+            </option>
+          <% }); %>
+        </select>
+      </div>
+      <div>
+        <button class="btn" type="submit" data-icon="🔄">Mettre à jour la comparaison</button>
+      </div>
+    </form>
+  </div>
+<% } %>
+
+<div class="card">
+  <h2>Contenu brut</h2>
+  <pre class="revision-raw"><code><%= rawContent %></code></pre>
+</div>
+
 <div class="card prose">
+  <h2>Rendu HTML</h2>
   <div><%- html %></div>
 </div>
+
+<% if (diffHtml) { %>
+  <div class="card">
+    <h2>Diff avec la révision #<%= compareRevision.revision %></h2>
+    <div class="diff-view"><%- diffHtml %></div>
+  </div>
+<% } else if (compareOptions && compareOptions.length) { %>
+  <div class="card">
+    <p>Aucune différence textuelle détectée avec la révision sélectionnée.</p>
+  </div>
+<% } %>
 
 <div class="card">
   <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history">Retour à l'historique</a>
