@@ -28,6 +28,7 @@ import { getRecaptchaConfig } from "./utils/captcha.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
+import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFeed.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -145,35 +146,68 @@ app.use(async (req, res, next) => {
 });
 
 app.get("/rss.xml", async (req, res) => {
-  const rows = await (
-    await import("./db.js")
-  ).all(`
-    SELECT id, title, slug_id, substr(content,1,500) AS excerpt, datetime(created_at) as pubDate
-    FROM pages
-    WHERE status = 'published'
-    ORDER BY created_at DESC LIMIT 50
+  const { all } = await import("./db.js");
+  const rows = await all(`
+    SELECT
+      p.id,
+      p.title,
+      p.slug_id,
+      p.content,
+      p.author,
+      p.created_at AS createdAt,
+      COALESCE(p.updated_at, p.created_at) AS updatedAt,
+      GROUP_CONCAT(t.name, ',') AS tags
+    FROM pages p
+    LEFT JOIN page_tags pt ON pt.page_id = p.id
+    LEFT JOIN tags t ON t.id = pt.tag_id
+    WHERE p.status = 'published'
+    GROUP BY p.id
+    ORDER BY p.created_at DESC
+    LIMIT 50
   `);
-  const base = req.protocol + "://" + req.get("host");
-  const title = res.locals.wikiName + " · RSS";
-  const items = rows
-    .map(
-      (r) => `
-    <item>
-      <title><![CDATA[${r.title}]]></title>
-      <link>${base}/wiki/${r.slug_id}</link>
-      <guid isPermaLink="false">${r.slug_id}</guid>
-      <pubDate>${r.pubDate}</pubDate>
-      <description><![CDATA[${r.excerpt}]]></description>
-    </item>`,
-    )
-    .join("\n");
-  const xml = `<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0"><channel>
-  <title>${title}</title>
-  <link>${base}/</link>
-  <description>${title}</description>
-  ${items}
-</channel></rss>`;
+
+  const baseUrl = `${req.protocol}://${req.get("host")}`;
+  const wikiName = res.locals.wikiName || "Wiki";
+  const siteTitle = `${wikiName} · RSS`;
+  const siteDescription = `${wikiName} — Dernières publications`;
+
+  const items = rows.map((row) => {
+    const pageUrl = `${baseUrl}/wiki/${row.slug_id}`;
+    const discordMarkdown = buildFeedMarkdown(row.content);
+    const excerpt = buildFeedExcerpt(discordMarkdown, 320);
+    const categories = row.tags
+      ? Array.from(
+          new Set(
+            row.tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean),
+          ),
+        )
+      : [];
+
+    return {
+      title: row.title,
+      link: pageUrl,
+      guid: pageUrl,
+      pubDate: row.createdAt,
+      updated: row.updatedAt,
+      author: row.author || undefined,
+      description: excerpt,
+      content: discordMarkdown,
+      categories,
+    };
+  });
+
+  const xml = buildRssFeed({
+    siteTitle,
+    siteLink: `${baseUrl}/`,
+    siteDescription,
+    language: "fr-FR",
+    atomLink: `${baseUrl}/rss.xml`,
+    items,
+  });
+
   res.type("application/rss+xml").send(xml);
 });
 

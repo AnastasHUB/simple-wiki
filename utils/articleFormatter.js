@@ -104,10 +104,27 @@ function normalizeTags(tags) {
     .slice(0, 6);
 }
 
-function trimForEmbed(text) {
+function trimForEmbed(text, maxLength = MAX_EMBED_DESCRIPTION_LENGTH) {
   if (!text) return "";
-  if (text.length <= MAX_EMBED_DESCRIPTION_LENGTH) return text;
-  return `${text.slice(0, MAX_EMBED_DESCRIPTION_LENGTH - 1)}…`;
+  if (!Number.isFinite(maxLength) || maxLength <= 0) {
+    return text;
+  }
+  if (text.length <= maxLength) return text;
+  return `${text.slice(0, Math.max(0, maxLength - 1))}…`;
+}
+
+export function convertHtmlToDiscordMarkdown(content, options = {}) {
+  if (!content) return "";
+
+  const { alreadySanitized = false } = options;
+  const normalized = alreadySanitized
+    ? String(content)
+    : linkifyInternal(String(content));
+  const sanitized = sanitizeContent(normalized);
+  if (!sanitized) return "";
+
+  const markdown = turndown.turndown(sanitized).trim();
+  return markdown;
 }
 
 export function buildArticleMarkdownDescription({
@@ -116,12 +133,9 @@ export function buildArticleMarkdownDescription({
   author,
   tags,
   url,
-}) {
-  const normalizedContent = content ? linkifyInternal(String(content)) : "";
-  const sanitizedContent = sanitizeContent(normalizedContent);
-  const markdownBody = sanitizedContent
-    ? turndown.turndown(sanitizedContent)
-    : "";
+}, options = {}) {
+  const { maxLength = MAX_EMBED_DESCRIPTION_LENGTH } = options;
+  const markdownBody = convertHtmlToDiscordMarkdown(content);
   const fallback = "L'article est prêt à être découvert !";
 
   const sections = [];
@@ -144,5 +158,5 @@ export function buildArticleMarkdownDescription({
   sections.push(body);
 
   const description = sections.filter(Boolean).join("\n\n");
-  return trimForEmbed(description);
+  return trimForEmbed(description, maxLength);
 }
