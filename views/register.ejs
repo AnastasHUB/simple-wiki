@@ -1,8 +1,8 @@
 <% title = "Inscription"; %>
 <h1>Créer un compte</h1>
 
-<% const hasCaptchaOptions = Array.isArray(captchaOptions) && captchaOptions.length > 0; %>
-<% if (typeof registrationDisabled !== 'undefined' && registrationDisabled && !hasCaptchaOptions) { %>
+<% const captchaConfig = typeof captcha !== 'undefined' ? captcha : null; %>
+<% if (typeof registrationDisabled !== 'undefined' && registrationDisabled && !captchaConfig) { %>
   <div class="card warning">
     Les inscriptions sont momentanément indisponibles car aucun captcha n'est configuré.
   </div>
@@ -22,7 +22,6 @@
       </ul>
     </div>
   <% } %>
-  <% const anyCaptchaPreselected = hasCaptchaOptions && captchaOptions.some(function (option) { return option && option.selected; }); %>
   <form method="post" action="/register" class="stacked-form" id="registerForm">
     <label for="register-username">Nom d'utilisateur</label>
     <input
@@ -51,25 +50,15 @@
 
     <fieldset class="captcha-selector">
       <legend>Vérification anti-robot</legend>
-      <p>Choisissez le captcha que vous préférez et complétez-le pour continuer.</p>
-      <div class="captcha-options">
-        <% captchaOptions.forEach(function(option, index) { %>
-          <label class="captcha-choice">
-            <input
-              type="radio"
-              name="captchaProvider"
-              value="<%= option.id %>"
-              <%= option.selected || (!anyCaptchaPreselected && index === 0) ? 'checked' : '' %>
-              data-sitekey="<%= option.siteKey %>"
-              data-script="<%= option.scriptUrl %>"
-              data-global="<%= option.global %>"
-              required
-            />
-            <span><%= option.label %></span>
-          </label>
-        <% }); %>
-      </div>
-      <div id="captcha-container" class="captcha-container" aria-live="polite"></div>
+      <p>Complétez le reCAPTCHA pour continuer.</p>
+      <div
+        id="captcha-container"
+        class="captcha-container"
+        aria-live="polite"
+        data-sitekey="<%= captchaConfig.siteKey %>"
+        data-script="<%= captchaConfig.scriptUrl %>"
+        data-global="<%= captchaConfig.global %>"
+      ></div>
     </fieldset>
 
     <input type="hidden" name="captchaToken" id="captcha-token" required />
@@ -84,24 +73,28 @@
 
   <script>
     (function () {
-      const radios = Array.prototype.slice.call(
-        document.querySelectorAll('input[name="captchaProvider"]'),
-      );
-      if (!radios.length) {
-        return;
-      }
       const container = document.getElementById("captcha-container");
       const tokenInput = document.getElementById("captcha-token");
-      const scriptCache = new Map();
+      if (!container || !tokenInput) {
+        return;
+      }
+      const siteKey = container.dataset.sitekey;
+      const scriptUrl = container.dataset.script;
+      const globalName = container.dataset.global;
+      if (!siteKey || !scriptUrl || !globalName) {
+        return;
+      }
 
-      function ensureScript(providerId, scriptUrl, globalName) {
+      let scriptPromise = null;
+
+      function ensureScript(scriptUrl, globalName) {
         if (window[globalName]) {
           return Promise.resolve(window[globalName]);
         }
-        if (scriptCache.has(providerId)) {
-          return scriptCache.get(providerId);
+        if (scriptPromise) {
+          return scriptPromise;
         }
-        const promise = new Promise((resolve, reject) => {
+        scriptPromise = new Promise((resolve, reject) => {
           const script = document.createElement("script");
           script.src = scriptUrl;
           script.async = true;
@@ -119,8 +112,7 @@
           script.onerror = () => reject(new Error("Impossible de charger le script du captcha."));
           document.head.appendChild(script);
         });
-        scriptCache.set(providerId, promise);
-        return promise;
+        return scriptPromise;
       }
 
       function resetContainer() {
@@ -128,73 +120,40 @@
         container.innerHTML = "";
       }
 
-      function renderCaptcha(radio) {
-        if (!radio) {
-          resetContainer();
-          return;
-        }
-        const providerId = radio.value;
-        const siteKey = radio.dataset.sitekey;
-        const scriptUrl = radio.dataset.script;
-        const globalName = radio.dataset.global;
-
+      function renderCaptcha(library) {
         resetContainer();
         const placeholder = document.createElement("div");
         placeholder.className = "captcha-frame";
         container.appendChild(placeholder);
 
-        ensureScript(providerId, scriptUrl, globalName)
-          .then((library) => {
-            function handleToken(token) {
-              tokenInput.value = token || "";
-            }
-            function handleError() {
-              tokenInput.value = "";
-            }
-            if (providerId === "hcaptcha" && library && library.render) {
-              library.render(placeholder, {
-                sitekey: siteKey,
-                callback: handleToken,
-                "expired-callback": handleError,
-                "chalexpired-callback": handleError,
-              });
-            } else if (providerId === "recaptcha" && library && library.render) {
-              library.render(placeholder, {
-                sitekey: siteKey,
-                callback: handleToken,
-                "expired-callback": handleError,
-                "error-callback": handleError,
-              });
-            } else if (providerId === "turnstile" && library && library.render) {
-              library.render(placeholder, {
-                sitekey: siteKey,
-                callback: handleToken,
-                "expired-callback": handleError,
-                "error-callback": handleError,
-              });
-            } else {
-              throw new Error("Captcha non supporté.");
-            }
-          })
-          .catch((error) => {
-            console.error(error);
-            container.innerHTML =
-              '<p class="form-help error">Impossible de charger le captcha. Veuillez rafraîchir la page.</p>';
-          });
-      }
+        function handleToken(token) {
+          tokenInput.value = token || "";
+        }
+        function handleError() {
+          tokenInput.value = "";
+        }
 
-      radios.forEach((radio) => {
-        radio.addEventListener("change", () => {
-          if (radio.checked) {
-            renderCaptcha(radio);
-          }
+        if (!library || typeof library.render !== "function") {
+          throw new Error("Captcha non supporté.");
+        }
+
+        library.render(placeholder, {
+          sitekey: siteKey,
+          callback: handleToken,
+          "expired-callback": handleError,
+          "error-callback": handleError,
         });
-      });
-
-      const initial = radios.find((radio) => radio.checked) || radios[0];
-      if (initial) {
-        renderCaptcha(initial);
       }
+
+      ensureScript(scriptUrl, globalName)
+        .then((library) => {
+          renderCaptcha(library);
+        })
+        .catch((error) => {
+          console.error(error);
+          container.innerHTML =
+            '<p class="form-help error">Impossible de charger le captcha. Veuillez rafraîchir la page.</p>';
+        });
     })();
   </script>
 <% } %>
