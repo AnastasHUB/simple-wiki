@@ -1567,6 +1567,192 @@ r.post(
 );
 
 r.get(
+  "/schedule",
+  requirePermission([
+    "can_schedule_pages",
+    "can_manage_pages",
+    "can_publish_pages",
+  ]),
+  async (req, res) => {
+    const rows = await all(`
+      SELECT id,
+             snowflake_id,
+             slug_id,
+             title,
+             author,
+             publish_at,
+             created_at,
+             updated_at
+        FROM pages
+       WHERE status = 'scheduled'
+         AND publish_at IS NOT NULL
+         AND datetime(publish_at) > datetime('now')
+       ORDER BY datetime(publish_at) ASC, slug_id ASC
+    `);
+
+    const now = Date.now();
+    const scheduledPages = rows.map((row) => {
+      const publishAt = row.publish_at ? new Date(row.publish_at) : null;
+      return {
+        id: row.id,
+        snowflake_id: row.snowflake_id,
+        slug_id: row.slug_id,
+        title: row.title,
+        author: row.author,
+        publish_at: row.publish_at,
+        publishAtIso: publishAt ? publishAt.toISOString() : null,
+        publishAtLabel: publishAt ? formatDateTimeLocalized(publishAt) : "",
+        publishAtRelative: publishAt
+          ? formatRelativeDurationMs(publishAt.getTime() - now)
+          : "",
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+      };
+    });
+
+    res.render("admin/schedule", { scheduledPages });
+  },
+);
+
+r.post(
+  "/schedule/:slugid/publish",
+  requirePermission([
+    "can_schedule_pages",
+    "can_publish_pages",
+    "can_manage_pages",
+  ]),
+  async (req, res) => {
+    const slugId = req.params.slugid;
+    const page = await get(
+      `
+      SELECT p.id,
+             p.snowflake_id,
+             p.slug_id,
+             p.slug_base,
+             p.title,
+             p.content,
+             p.author,
+             p.status,
+             p.publish_at,
+             GROUP_CONCAT(t.name, ',') AS tagsCsv
+        FROM pages p
+        LEFT JOIN page_tags pt ON pt.page_id = p.id
+        LEFT JOIN tags t ON t.id = pt.tag_id
+       WHERE p.slug_id = ?
+       GROUP BY p.id
+    `,
+      [slugId],
+    );
+
+    if (!page || page.status !== "scheduled") {
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible de publier cette page : elle n'est pas planifiée.",
+      });
+      return res.redirect("/admin/schedule");
+    }
+
+    await run(
+      "UPDATE pages SET status='published', updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      [page.id],
+    );
+
+    try {
+      await sendAdminEvent("Page programmée publiée manuellement", {
+        page: {
+          title: page.title,
+          slug_id: page.slug_id,
+          slug_base: page.slug_base,
+          snowflake_id: page.snowflake_id,
+        },
+        user: req.session.user?.username || null,
+        extra: {
+          publish_at: page.publish_at,
+          action: "manual_publish",
+        },
+      });
+      const tags = page.tagsCsv || "";
+      await sendFeedEvent(
+        "Nouvel article",
+        {
+          page: {
+            title: page.title,
+            slug_id: page.slug_id,
+            snowflake_id: page.snowflake_id,
+            content: page.content,
+          },
+          author: page.author || "Anonyme",
+          url: `/wiki/${page.slug_id}`,
+          tags,
+        },
+        { articleContent: page.content },
+      );
+    } catch (err) {
+      console.error("Failed to notify manual scheduled publication", err);
+    }
+
+    pushNotification(req, {
+      type: "success",
+      message: `« ${page.title || page.slug_id} » est maintenant publiée.`,
+    });
+
+    res.redirect("/admin/schedule");
+  },
+);
+
+r.post(
+  "/schedule/:slugid/cancel",
+  requirePermission([
+    "can_schedule_pages",
+    "can_manage_pages",
+  ]),
+  async (req, res) => {
+    const slugId = req.params.slugid;
+    const page = await get(
+      `SELECT id, snowflake_id, slug_id, slug_base, title, status FROM pages WHERE slug_id = ?`,
+      [slugId],
+    );
+
+    if (!page || page.status !== "scheduled") {
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible d'annuler : cette page n'est pas programmée.",
+      });
+      return res.redirect("/admin/schedule");
+    }
+
+    await run(
+      "UPDATE pages SET status='draft', publish_at=NULL, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+      [page.id],
+    );
+
+    try {
+      await sendAdminEvent("Programmation annulée", {
+        page: {
+          title: page.title,
+          slug_id: page.slug_id,
+          slug_base: page.slug_base,
+          snowflake_id: page.snowflake_id,
+        },
+        user: req.session.user?.username || null,
+        extra: {
+          action: "cancel_schedule",
+        },
+      });
+    } catch (err) {
+      console.error("Failed to notify schedule cancellation", err);
+    }
+
+    pushNotification(req, {
+      type: "success",
+      message: `La programmation de « ${page.title || page.slug_id} » a été annulée.`,
+    });
+
+    res.redirect("/admin/schedule");
+  },
+);
+
+r.get(
   "/pages",
   requirePermission(["can_manage_pages", "can_view_page_overview"]),
   async (req, res) => {

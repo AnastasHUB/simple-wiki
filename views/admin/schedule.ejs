@@ -1,0 +1,68 @@
+<% title = 'Programmations'; %>
+<h1>Pages programmées</h1>
+
+<section class="card">
+  <h2 class="mt-0">Programmations à venir</h2>
+  <% if (!scheduledPages || !scheduledPages.length) { %>
+    <p>Aucune page n'est actuellement planifiée pour une publication future.</p>
+  <% } else { %>
+    <p class="text-muted">
+      <strong><%= scheduledPages.length %></strong> page(s) en attente de publication automatique.
+    </p>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Titre</th>
+            <th>Publication prévue</th>
+            <th>Auteur</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% scheduledPages.forEach(page => { %>
+            <tr>
+              <td>
+                <div class="table-title"><strong><%= page.title || 'Sans titre' %></strong></div>
+                <div class="table-meta text-muted">
+                  <span>Slug : <code><%= page.slug_id %></code></span>
+                  <% if (page.updated_at) { %>
+                    · Dernière mise à jour le <%= new Date(page.updated_at).toLocaleString('fr-FR') %>
+                  <% } %>
+                </div>
+              </td>
+              <td>
+                <% if (page.publishAtLabel) { %>
+                  <time datetime="<%= page.publishAtIso || '' %>"><%= page.publishAtLabel %></time>
+                  <% if (page.publishAtRelative) { %>
+                    <div class="text-muted"><%= page.publishAtRelative %></div>
+                  <% } %>
+                <% } else { %>
+                  <span class="text-muted">—</span>
+                <% } %>
+              </td>
+              <td><%= page.author || 'Anonyme' %></td>
+              <td>
+                <div class="flex flex-wrap gap-xs">
+                  <form method="post" action="/admin/schedule/<%= page.slug_id %>/publish">
+                    <%- include('../partials/csrf_field') %>
+                    <button class="btn success btn-compact" data-icon="🚀" type="submit">Publier maintenant</button>
+                  </form>
+                  <a class="btn secondary btn-compact" data-icon="✏️" href="/wiki/<%= page.slug_id %>/edit">Modifier</a>
+                  <form
+                    method="post"
+                    action="/admin/schedule/<%= page.slug_id %>/cancel"
+                    onsubmit="return confirm('Annuler la programmation de cette page ?');"
+                  >
+                    <%- include('../partials/csrf_field') %>
+                    <button class="btn danger btn-compact" data-icon="🛑" type="submit">Annuler</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  <% } %>
+</section>
