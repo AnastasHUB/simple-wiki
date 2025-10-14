@@ -219,6 +219,11 @@
           permissionFlags.can_view_page_history ||
           permissionFlags.can_revert_page_history
         ); %>
+        <% const canAccessSchedule = !!(
+          permissionFlags.can_schedule_pages ||
+          permissionFlags.can_publish_pages ||
+          permissionFlags.can_manage_pages
+        ); %>
         <% const canViewStats = !!(
           permissionFlags.can_view_stats ||
           permissionFlags.can_view_stats_basic ||
@@ -351,6 +356,16 @@
                   <a href="/admin/pages">
                     <span class="nav-item-icon" aria-hidden="true">📄</span>
                     <span class="nav-item-label">Articles</span>
+                  </a>
+                </li>
+              <% } %>
+              <% if (canAccessSchedule) { %>
+                <li>
+                  <a href="/admin/schedule">
+                    <span class="nav-item-icon" aria-hidden="true">🕒</span>
+                    <span class="nav-item-label">
+                      Programmations<% if (adminCounts.scheduledPages) { %> (<%= adminCounts.scheduledPages %>)<% } %>
+                    </span>
                   </a>
                 </li>
               <% } %>
