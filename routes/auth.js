@@ -18,9 +18,9 @@ import {
 import { getEveryoneRole } from "../utils/roleService.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import {
-  describeCaptchaProvider,
-  getEnabledCaptchaProviders,
-  verifyCaptchaResponse,
+  describeRecaptcha,
+  getRecaptchaConfig,
+  verifyRecaptchaResponse,
 } from "../utils/captcha.js";
 
 const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
@@ -36,16 +36,13 @@ const r = Router();
 
 r.get("/login", (req, res) => res.render("login"));
 r.get("/register", (req, res) => {
-  const captchaOptions = getEnabledCaptchaProviders().map((option, index) => ({
-    ...option,
-    selected: index === 0,
-  }));
-  if (!captchaOptions.length) {
+  const captcha = getRecaptchaConfig();
+  if (!captcha) {
     return res
       .status(503)
-      .render("register", { registrationDisabled: true, captchaOptions });
+      .render("register", { registrationDisabled: true, captcha: null });
   }
-  res.render("register", { captchaOptions });
+  res.render("register", { captcha });
 });
 r.post("/login", async (req, res) => {
   const { username, password } = req.body;
@@ -117,25 +114,17 @@ r.post("/login", async (req, res) => {
   res.redirect("/");
 });
 r.post("/register", async (req, res) => {
-  const availableProviders = getEnabledCaptchaProviders();
+  const captcha = getRecaptchaConfig();
   const { username, password } = req.body;
-  const selectedProviderId =
-    typeof req.body.captchaProvider === "string"
-      ? req.body.captchaProvider
-      : "";
   const captchaToken =
     typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
   const sanitizedUsername = typeof username === "string" ? username.trim() : "";
   const errors = [];
-  const captchaOptions = availableProviders.map((option) => ({
-    ...option,
-    selected: option.id === selectedProviderId,
-  }));
 
-  if (!availableProviders.length) {
+  if (!captcha) {
     return res.status(503).render("register", {
       registrationDisabled: true,
-      captchaOptions,
+      captcha,
     });
   }
 
@@ -158,24 +147,15 @@ r.post("/register", async (req, res) => {
     errors.push("Le mot de passe doit contenir au moins 8 caractères.");
   }
 
-  const provider = availableProviders.find(
-    (option) => option.id === selectedProviderId,
-  );
-  if (!provider) {
-    errors.push("Veuillez sélectionner un captcha valide.");
-  }
-
   let captchaResult = { success: false, errorCodes: [] };
-  if (provider) {
-    captchaResult = await verifyCaptchaResponse(provider.id, captchaToken, {
-      remoteIp: getClientIp(req),
-    });
-    if (!captchaResult.success) {
-      const codes = captchaResult.errorCodes.length
-        ? ` (${captchaResult.errorCodes.join(", ")})`
-        : "";
-      errors.push(`La vérification du captcha a échoué${codes}.`);
-    }
+  captchaResult = await verifyRecaptchaResponse(captchaToken, {
+    remoteIp: getClientIp(req),
+  });
+  if (!captchaResult.success) {
+    const codes = captchaResult.errorCodes.length
+      ? ` (${captchaResult.errorCodes.join(", ")})`
+      : "";
+    errors.push(`La vérification du captcha a échoué${codes}.`);
   }
 
   if (!errors.length) {
@@ -191,7 +171,7 @@ r.post("/register", async (req, res) => {
   if (errors.length) {
     return res.status(400).render("register", {
       errors,
-      captchaOptions,
+      captcha,
       values: { username: sanitizedUsername },
     });
   }
@@ -226,15 +206,15 @@ r.post("/register", async (req, res) => {
 
   const flags = deriveRoleFlags(createdUser);
   req.session.user = buildSessionUser(createdUser, flags);
-  const providerDescription = describeCaptchaProvider(provider.id);
+  const providerDescription = describeRecaptcha();
   await sendAdminEvent(
     "Nouvelle inscription",
     {
       user: sanitizedUsername,
       extra: {
         ip,
-        captchaProvider: providerDescription?.id || provider.id,
-        captchaLabel: providerDescription?.label || provider.id,
+        captchaProvider: providerDescription?.id || captcha.id,
+        captchaLabel: providerDescription?.label || captcha.label,
       },
     },
     { includeScreenshot: false },

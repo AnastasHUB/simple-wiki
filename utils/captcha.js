@@ -1,111 +1,64 @@
-const PROVIDERS = {
-  hcaptcha: {
-    id: "hcaptcha",
-    label: "hCaptcha",
-    siteKey:
-      process.env.HCAPTCHA_SITE_KEY || process.env.HCAPTCHA_SITEKEY || null,
-    secret:
-      process.env.HCAPTCHA_SECRET ||
-      process.env.HCAPTCHA_SECRET_KEY ||
-      null,
-    scriptUrl: "https://js.hcaptcha.com/1/api.js?render=explicit",
-    global: "hcaptcha",
-    verifyUrl: "https://hcaptcha.com/siteverify",
-    buildPayload({ secret, token, remoteIp }) {
-      const body = new URLSearchParams();
-      body.set("secret", secret);
-      body.set("response", token);
-      if (remoteIp) {
-        body.set("remoteip", remoteIp);
-      }
-      return { body };
-    },
-  },
-  recaptcha: {
-    id: "recaptcha",
-    label: "reCAPTCHA",
-    siteKey:
-      process.env.RECAPTCHA_SITE_KEY ||
-      process.env.RECAPTCHA_SITEKEY ||
-      null,
-    secret:
-      process.env.RECAPTCHA_SECRET ||
-      process.env.RECAPTCHA_SECRET_KEY ||
-      null,
-    scriptUrl: "https://www.google.com/recaptcha/api.js?render=explicit",
-    global: "grecaptcha",
-    verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
-    buildPayload({ secret, token, remoteIp }) {
-      const body = new URLSearchParams();
-      body.set("secret", secret);
-      body.set("response", token);
-      if (remoteIp) {
-        body.set("remoteip", remoteIp);
-      }
-      return { body };
-    },
-  },
-  turnstile: {
-    id: "turnstile",
-    label: "Cloudflare Turnstile",
-    siteKey:
-      process.env.CLOUDFLARE_TURNSTILE_SITE_KEY ||
-      process.env.TURNSTILE_SITE_KEY ||
-      null,
-    secret:
-      process.env.CLOUDFLARE_TURNSTILE_SECRET ||
-      process.env.TURNSTILE_SECRET_KEY ||
-      process.env.TURNSTILE_SECRET ||
-      null,
-    scriptUrl:
-      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit",
-    global: "turnstile",
-    verifyUrl:
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-    buildPayload({ secret, token, remoteIp }) {
-      const payload = { secret, response: token };
-      if (remoteIp) {
-        payload.remoteip = remoteIp;
-      }
-      return {
-        body: JSON.stringify(payload),
-        headers: { "Content-Type": "application/json" },
-      };
-    },
-  },
+const RECAPTCHA_CONFIG = {
+  id: "recaptcha",
+  label: "reCAPTCHA",
+  siteKey:
+    process.env.RECAPTCHA_SITE_KEY ||
+    process.env.RECAPTCHA_SITEKEY ||
+    null,
+  secret:
+    process.env.RECAPTCHA_SECRET ||
+    process.env.RECAPTCHA_SECRET_KEY ||
+    null,
+  scriptUrl: "https://www.google.com/recaptcha/api.js?render=explicit",
+  global: "grecaptcha",
+  verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
 };
 
-export function getEnabledCaptchaProviders() {
-  return Object.values(PROVIDERS)
-    .filter((provider) => provider.siteKey && provider.secret)
-    .map(({ id, label, siteKey, scriptUrl, global }) => ({
-      id,
-      label,
-      siteKey,
-      scriptUrl,
-      global,
-    }));
+function buildVerificationPayload({ secret, token, remoteIp }) {
+  const body = new URLSearchParams();
+  body.set("secret", secret);
+  body.set("response", token);
+  if (remoteIp) {
+    body.set("remoteip", remoteIp);
+  }
+  return { body };
+}
+
+function getProvider() {
+  const siteKey = RECAPTCHA_CONFIG.siteKey;
+  const secret = RECAPTCHA_CONFIG.secret;
+  if (!siteKey || !secret) {
+    return null;
+  }
+  return {
+    ...RECAPTCHA_CONFIG,
+    siteKey,
+    secret,
+  };
+}
+
+export function getRecaptchaConfig() {
+  const provider = getProvider();
+  if (!provider) {
+    return null;
+  }
+  const { id, label, siteKey, scriptUrl, global } = provider;
+  return { id, label, siteKey, scriptUrl, global };
 }
 
 export function isCaptchaAvailable() {
-  return getEnabledCaptchaProviders().length > 0;
+  return Boolean(getProvider());
 }
 
-export async function verifyCaptchaResponse(providerId, token, options = {}) {
-  const provider = PROVIDERS[providerId];
+export async function verifyRecaptchaResponse(token, options = {}) {
+  const provider = getProvider();
   if (!provider) {
     return {
       success: false,
-      errorCodes: ["unknown-provider"],
+      errorCodes: ["missing-configuration"],
     };
   }
-  const { secret, verifyUrl, buildPayload } = provider;
-  if (!secret) {
-    return {
-      success: false,
-      errorCodes: ["missing-secret"],
-    };
-  }
+
   const trimmedToken = typeof token === "string" ? token.trim() : "";
   if (!trimmedToken) {
     return {
@@ -115,12 +68,12 @@ export async function verifyCaptchaResponse(providerId, token, options = {}) {
   }
 
   try {
-    const payload = buildPayload({
-      secret,
+    const payload = buildVerificationPayload({
+      secret: provider.secret,
       token: trimmedToken,
       remoteIp: options.remoteIp || null,
     });
-    const response = await fetch(verifyUrl, {
+    const response = await fetch(provider.verifyUrl, {
       method: "POST",
       ...payload,
     });
@@ -150,13 +103,11 @@ export async function verifyCaptchaResponse(providerId, token, options = {}) {
   }
 }
 
-export function describeCaptchaProvider(providerId) {
-  const provider = PROVIDERS[providerId];
+export function describeRecaptcha() {
+  const provider = getRecaptchaConfig();
   if (!provider) {
     return null;
   }
-  return {
-    id: provider.id,
-    label: provider.label,
-  };
+  const { id, label } = provider;
+  return { id, label };
 }
