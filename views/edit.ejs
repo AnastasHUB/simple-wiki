@@ -16,53 +16,57 @@
   <input type="text" name="title" value="<%= page ? page.title : '' %>" required />
   <label>Contenu (liens [[internes]])</label>
   <textarea name="content" id="contentField" rows="18" required hidden><%- page ? page.content : '' %></textarea>
-  <div class="html-editor-shell">
-    <div class="html-editor-toolbar" id="editorToolbar">
-      <span class="ql-formats">
-        <select class="ql-header" aria-label="Niveau de titre">
-          <option selected></option>
-          <option value="1">Titre principal</option>
-          <option value="2">Titre moyen</option>
-          <option value="3">Sous-titre</option>
-        </select>
-        <button class="ql-bold" aria-label="Gras"></button>
-        <button class="ql-italic" aria-label="Italique"></button>
-        <button class="ql-underline" aria-label="Souligné"></button>
-        <button class="ql-strike" aria-label="Barré"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-list" value="ordered" aria-label="Liste numérotée"></button>
-        <button class="ql-list" value="bullet" aria-label="Liste à puces"></button>
-        <button class="ql-list" value="check" aria-label="Liste de tâches"></button>
-        <button class="ql-indent" value="-1" aria-label="Diminuer le retrait"></button>
-        <button class="ql-indent" value="+1" aria-label="Augmenter le retrait"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-script" value="sub" aria-label="Indice"></button>
-        <button class="ql-script" value="super" aria-label="Exposant"></button>
-        <button class="ql-blockquote" aria-label="Bloc de citation"></button>
-        <button class="ql-code-block" aria-label="Bloc de code"></button>
-        <button type="button" class="ql-divider" aria-label="Séparation"></button>
-      </span>
-      <span class="ql-formats">
-        <button class="ql-link" aria-label="Insérer un lien"></button>
-        <button class="ql-image" aria-label="Insérer une image"></button>
-        <button
-          type="button"
-          class="ql-internal-link"
-          aria-label="Insérer un lien interne"
-        >[[ ]]</button>
-        <button class="ql-clean" aria-label="Effacer la mise en forme"></button>
-      </span>
-    </div>
+  <div
+    class="markdown-editor-shell"
+    data-markdown-editor
+    data-target="#contentField"
+  >
     <div
-      class="html-editor"
-      data-html-editor
-      data-target="#contentField"
-      data-toolbar="#editorToolbar"
-      <% if (typeof allowUploads !== 'undefined' && allowUploads) { %>data-upload-endpoint="/admin/uploads"<% } %>
-      aria-label="Éditeur de contenu"
-    ></div>
+      class="markdown-toolbar"
+      role="toolbar"
+      aria-label="Outils de mise en forme"
+    >
+      <button type="button" class="toolbar-btn" data-md-action="heading-2" aria-label="Titre niveau 2" title="Titre niveau 2">H2</button>
+      <button type="button" class="toolbar-btn" data-md-action="heading-3" aria-label="Titre niveau 3" title="Titre niveau 3">H3</button>
+      <button type="button" class="toolbar-btn" data-md-action="bold" aria-label="Gras" title="Gras"><span aria-hidden="true">𝐆</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="italic" aria-label="Italique" title="Italique"><span aria-hidden="true"><em>I</em></span></button>
+      <button type="button" class="toolbar-btn" data-md-action="strike" aria-label="Barré" title="Barré"><span aria-hidden="true">S̶</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="code" aria-label="Code inline" title="Code inline"><span aria-hidden="true">`</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="quote" aria-label="Citation" title="Citation"><span aria-hidden="true">❝</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="link" aria-label="Lien" title="Lien"><span aria-hidden="true">🔗</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="code-block" aria-label="Bloc de code" title="Bloc de code"><span aria-hidden="true">&lt;/&gt;</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="spoiler" aria-label="Bloc spoiler" title="Bloc spoiler"><span aria-hidden="true">🕵️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="katex" aria-label="Formule mathématique" title="Formule mathématique"><span aria-hidden="true">∑</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="mermaid" aria-label="Diagramme Mermaid" title="Diagramme Mermaid"><span aria-hidden="true">🗺️</span></button>
+      <button
+        type="button"
+        class="toolbar-btn emoji-trigger"
+        data-emoji-trigger
+        aria-label="Insérer un emoji"
+        title="Insérer un emoji"
+      >😊</button>
+      <div class="emoji-popover" data-emoji-picker hidden></div>
+    </div>
+    <div class="markdown-editor-body">
+      <div class="markdown-editor-pane">
+        <textarea
+          class="markdown-input"
+          rows="18"
+          data-editor-input
+          aria-label="Éditeur Markdown"
+        ></textarea>
+        <div
+          class="link-suggestions"
+          data-link-suggestions
+          hidden
+          aria-label="Suggestions de liens internes"
+        ></div>
+      </div>
+      <div class="markdown-preview-pane">
+        <div class="markdown-preview-heading">Prévisualisation</div>
+        <div class="markdown-preview" data-editor-preview aria-live="polite"></div>
+      </div>
+    </div>
     <div class="editor-status" data-editor-status role="status" aria-live="polite"></div>
   </div>
   <label for="author-field">Auteur affiché</label>
