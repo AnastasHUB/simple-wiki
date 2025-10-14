@@ -1,6 +1,69 @@
 <% title = 'Recherche'; %>
 <h1>Résultats pour « <%= q %> »</h1>
 
+<div class="search-filters">
+  <form class="filters-form" method="get" data-search-filters>
+    <input type="hidden" name="q" value="<%= q %>">
+    <% const selectedTagSet = new Set((filters.selectedTagKeys || []).map(t => t.toLowerCase())); %>
+    <div class="filters-grid">
+      <div class="filter-field">
+        <label for="filter-author">Auteur</label>
+        <input id="filter-author" name="author" type="text" value="<%= filters.author || '' %>" maxlength="120" data-filter-field>
+      </div>
+
+      <div class="filter-field">
+        <label for="filter-tags">Tags</label>
+        <select id="filter-tags" name="tag" multiple size="5" data-filter-tags data-filter-field>
+          <% if (!availableTags.length) { %>
+            <option disabled>(Aucun tag disponible)</option>
+          <% } %>
+          <% availableTags.forEach(tagName => { %>
+            <% const isSelected = selectedTagSet.has(tagName.toLowerCase()); %>
+            <option value="<%= tagName %>" <%= isSelected ? 'selected' : '' %>><%= tagName %></option>
+          <% }) %>
+        </select>
+        <% if (filters.displayTags && filters.displayTags.length) { %>
+          <ul class="active-tag-filters" data-active-tags>
+            <% filters.displayTags.forEach(tag => { %>
+              <li>
+                <span class="tag-chip"><%= tag.label %></span>
+                <button type="button" class="btn ghost" data-remove-tag="<%= tag.value %>" aria-label="Retirer le tag <%= tag.label %>">✕</button>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
+      </div>
+
+      <div class="filter-field">
+        <label for="filter-start">Publication (début)</label>
+        <input id="filter-start" name="start" type="date" value="<%= filters.startDate || '' %>" data-filter-field>
+      </div>
+
+      <div class="filter-field">
+        <label for="filter-end">Publication (fin)</label>
+        <input id="filter-end" name="end" type="date" value="<%= filters.endDate || '' %>" data-filter-field>
+      </div>
+
+      <div class="filter-field">
+        <label for="filter-sort">Tri</label>
+        <select id="filter-sort" name="sort" data-auto-submit data-filter-field>
+          <% sortOptions.forEach(option => { %>
+            <option value="<%= option.value %>" <%= option.value === filters.sortKey ? 'selected' : '' %>><%= option.label %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div class="filter-actions">
+      <button type="submit" class="btn primary" data-icon="🔎">Appliquer</button>
+      <button type="button" class="btn" data-clear-filters data-reset-url="<%= filters.resetUrl %>">Réinitialiser</button>
+    </div>
+  </form>
+  <% if (filters.hasActiveFilters) { %>
+    <p class="active-filter-hint">Filtres actifs appliqués à cette recherche.</p>
+  <% } %>
+</div>
+
 <div class="search-meta">
   <p><strong><%= total %></strong> résultat<%= total > 1 ? 's' : '' %> trouvé<%= total > 1 ? 's' : '' %>.</p>
   <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
