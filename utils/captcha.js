@@ -1,18 +1,26 @@
 const RECAPTCHA_CONFIG = {
   id: "recaptcha",
   label: "reCAPTCHA",
-  siteKey:
-    process.env.RECAPTCHA_SITE_KEY ||
-    process.env.RECAPTCHA_SITEKEY ||
-    null,
-  secret:
-    process.env.RECAPTCHA_SECRET ||
-    process.env.RECAPTCHA_SECRET_KEY ||
-    null,
   scriptUrl: "https://www.google.com/recaptcha/api.js?render=explicit",
   global: "grecaptcha",
   verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
 };
+
+function getSiteKeyFromEnv() {
+  return (
+    process.env.RECAPTCHA_SITE_KEY ||
+    process.env.RECAPTCHA_SITEKEY ||
+    null
+  );
+}
+
+function getSecretFromEnv() {
+  return (
+    process.env.RECAPTCHA_SECRET ||
+    process.env.RECAPTCHA_SECRET_KEY ||
+    null
+  );
+}
 
 function buildVerificationPayload({ secret, token, remoteIp }) {
   const body = new URLSearchParams();
@@ -25,8 +33,8 @@ function buildVerificationPayload({ secret, token, remoteIp }) {
 }
 
 function getProvider() {
-  const siteKey = RECAPTCHA_CONFIG.siteKey;
-  const secret = RECAPTCHA_CONFIG.secret;
+  const siteKey = getSiteKeyFromEnv();
+  const secret = getSecretFromEnv();
   if (!siteKey || !secret) {
     return null;
   }

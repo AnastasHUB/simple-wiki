@@ -39,6 +39,10 @@ import {
   validateCommentSubmission,
   validateCommentBody,
 } from "../utils/commentValidation.js";
+import {
+  getRecaptchaConfig,
+  verifyRecaptchaResponse,
+} from "../utils/captcha.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import {
   DEFAULT_PAGE_SIZE,
@@ -733,6 +737,8 @@ r.get(
       protocol: req.protocol,
     });
 
+    const captchaConfig = getRecaptchaConfig();
+
     res.render("page", {
       page,
       html,
@@ -742,6 +748,7 @@ r.get(
       commentFeedback,
       ownCommentTokens,
       meta,
+      captchaConfig,
     });
   }),
 );
@@ -798,6 +805,9 @@ r.post(
     }
 
     const ip = req.clientIp;
+    const captchaConfig = getRecaptchaConfig();
+    const captchaToken =
+      typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
     const adminDisplayName = permissions.is_admin
       ? getUserDisplayName(req.session.user)
       : null;
@@ -825,12 +835,26 @@ r.post(
       return res.redirect(`/wiki/${page.slug_id}#comments`);
     }
 
-    const validation = validateCommentSubmission({
-      authorInput: req.body.author,
-      bodyInput: req.body.body,
-      captchaInput: req.body.captcha,
-      honeypotInput: req.body.website,
-    });
+    const validation = validateCommentSubmission(
+      {
+        authorInput: req.body.author,
+        bodyInput: req.body.body,
+        captchaInput: req.body.captcha,
+        honeypotInput: req.body.website,
+      },
+      { skipCaptchaQuestion: Boolean(captchaConfig) },
+    );
+
+    if (captchaConfig && validation.errors.length === 0) {
+      const captchaResult = await verifyRecaptchaResponse(captchaToken, {
+        remoteIp: ip,
+      });
+      if (!captchaResult.success) {
+        validation.errors.push(
+          "Merci de répondre correctement à la question anti-spam (3 + 4).",
+        );
+      }
+    }
 
     const authorToUse = adminDisplayName || validation.author;
 
