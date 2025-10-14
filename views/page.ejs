@@ -154,7 +154,13 @@
   <% if (!canComment) { %>
     <p class="text-muted">Les commentaires sont désactivés pour votre rôle.</p>
   <% } else { %>
-  <form class="comment-form" method="post" action="/wiki/<%= page.slug_id %>/comments">
+  <form
+    class="comment-form"
+    method="post"
+    action="/wiki/<%= page.slug_id %>/comments"
+    data-comment-preview-form
+    data-preview-endpoint="/wiki/<%= page.slug_id %>/comments/preview"
+  >
     <%- include('partials/csrf_field') %>
     <% if (adminPreferredName) { %>
       <div class="field">
@@ -175,9 +181,29 @@
         >
       </div>
     <% } %>
-    <div class="field">
+    <% const commentPreviewId = `comment-preview-${page.slug_id}`; %>
+    <div class="field" data-preview-root>
       <label for="comment-body">Votre message <span class="text-required">*</span></label>
-      <textarea id="comment-body" name="body" rows="5" maxlength="2000" required><%= commentValues.body || '' %></textarea>
+      <textarea
+        id="comment-body"
+        name="body"
+        rows="5"
+        maxlength="2000"
+        required
+        data-preview-source
+        data-preview-target="#<%= commentPreviewId %>"
+      ><%= commentValues.body || '' %></textarea>
+      <p class="field-hint" data-preview-status aria-live="polite">
+        L'aperçu s'affichera automatiquement pendant votre saisie.
+      </p>
+    </div>
+    <div class="field" data-preview-container hidden>
+      <span class="comment-preview-label">Aperçu du rendu</span>
+      <div
+        class="comment-preview prose"
+        id="<%= commentPreviewId %>"
+        data-preview-body
+      ></div>
     </div>
     <div class="field">
       <label for="comment-captcha">Question anti-spam : 3 + 4 = ? <span class="text-required">*</span></label>
