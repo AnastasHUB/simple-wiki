@@ -155,6 +155,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLikeForms();
   initMarkdownEditor();
   initCodeHighlighting();
+  initSearchFilters();
   initLiveStatsCard();
 });
 
@@ -194,6 +195,99 @@ function initNotifications() {
       spawnNotification(layer, notif);
     }, index * 120);
   });
+}
+
+function initSearchFilters() {
+  const form = document.querySelector("[data-search-filters]");
+  if (!form) {
+    return;
+  }
+
+  const requestSubmit = () => {
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit();
+    } else {
+      form.submit();
+    }
+  };
+
+  form.querySelectorAll("[data-auto-submit]").forEach((element) => {
+    element.addEventListener("change", () => {
+      requestSubmit();
+    });
+  });
+
+  const tagSelect = form.querySelector("[data-filter-tags]");
+  form.querySelectorAll("[data-remove-tag]").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const value = button.getAttribute("data-remove-tag");
+      if (!value) {
+        requestSubmit();
+        return;
+      }
+
+      let removed = false;
+      if (tagSelect) {
+        Array.from(tagSelect.options).forEach((option) => {
+          if (option.value === value) {
+            option.selected = false;
+            removed = true;
+          }
+        });
+      }
+
+      if (!removed) {
+        Array.from(form.elements).forEach((element) => {
+          if (element instanceof HTMLInputElement && element.name === "tag") {
+            if (element.value === value) {
+              element.remove();
+            }
+          }
+        });
+      }
+
+      requestSubmit();
+    });
+  });
+
+  const clearButton = form.querySelector("[data-clear-filters]");
+  if (clearButton) {
+    clearButton.addEventListener("click", (event) => {
+      event.preventDefault();
+      const resetUrl = clearButton.getAttribute("data-reset-url");
+      if (resetUrl) {
+        window.location.href = resetUrl;
+        return;
+      }
+
+      const preserved = new Set(["q"]);
+      Array.from(form.elements).forEach((element) => {
+        if (!element.name || preserved.has(element.name)) {
+          return;
+        }
+        if (!element.matches("[data-filter-field]")) {
+          return;
+        }
+        if (element instanceof HTMLSelectElement) {
+          Array.from(element.options).forEach((option) => {
+            option.selected = false;
+          });
+          element.selectedIndex = -1;
+        } else if (element instanceof HTMLInputElement) {
+          if (element.type === "checkbox" || element.type === "radio") {
+            element.checked = false;
+          } else {
+            element.value = "";
+          }
+        } else {
+          element.value = "";
+        }
+      });
+
+      requestSubmit();
+    });
+  }
 }
 
 function spawnNotification(layer, notif) {

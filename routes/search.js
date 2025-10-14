@@ -7,10 +7,63 @@ const r = Router();
 
 const SEARCH_PAGE_SIZE_OPTIONS = [5, 10, 25, 50];
 const SEARCH_DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_SORT_KEY = "relevance";
+const TAG_VALIDATION_PATTERN = /^[\p{L}\p{N}\s._-]+$/u;
+
+const SORT_DEFINITIONS = {
+  relevance: {
+    label: "Pertinence",
+    orderBy: (mode) =>
+      mode === "fts"
+        ?
+          "score ASC, p.publish_at DESC, p.updated_at DESC, p.created_at DESC, p.slug_id ASC"
+        : "p.updated_at DESC, p.publish_at DESC, p.created_at DESC, p.slug_id ASC",
+  },
+  published_desc: {
+    label: "Plus récents (publication)",
+    orderBy:
+      "CASE WHEN p.publish_at IS NULL THEN 1 ELSE 0 END, p.publish_at DESC, p.updated_at DESC, p.created_at DESC, p.slug_id ASC",
+  },
+  published_asc: {
+    label: "Plus anciens (publication)",
+    orderBy:
+      "CASE WHEN p.publish_at IS NULL THEN 1 ELSE 0 END, p.publish_at ASC, p.updated_at ASC, p.created_at ASC, p.slug_id ASC",
+  },
+  updated_desc: {
+    label: "Mises à jour récentes",
+    orderBy:
+      "p.updated_at DESC, p.publish_at DESC, p.created_at DESC, p.slug_id ASC",
+  },
+  updated_asc: {
+    label: "Mises à jour anciennes",
+    orderBy:
+      "p.updated_at ASC, p.publish_at ASC, p.created_at ASC, p.slug_id ASC",
+  },
+  title_asc: {
+    label: "Titre A → Z",
+    orderBy: "p.title COLLATE NOCASE ASC, p.slug_id ASC",
+  },
+  title_desc: {
+    label: "Titre Z → A",
+    orderBy: "p.title COLLATE NOCASE DESC, p.slug_id DESC",
+  },
+};
+
+const SORT_OPTIONS = Object.entries(SORT_DEFINITIONS).map(([value, definition]) => ({
+  value,
+  label: definition.label,
+}));
 
 r.get("/search", async (req, res) => {
-  const q = (req.query.q || "").trim();
+  const q = String(req.query.q ?? "").trim();
   if (!q) return res.redirect("/");
+
+  const filters = parseSearchFilters(req.query);
+  const filterSql = buildFilterSql(filters);
+  const filterClause = filterSql.whereClauses.length
+    ? ` AND ${filterSql.whereClauses.join(" AND ")}`
+    : "";
+  const filterParams = filterSql.params;
 
   const ftsPossible = isFtsAvailable();
   let mode = "fts";
@@ -35,8 +88,9 @@ r.get("/search", async (req, res) => {
           JOIN pages p ON p.id = pages_fts.rowid
          WHERE pages_fts MATCH ?
            AND p.status = 'published'
+          ${filterClause}
         `,
-        [matchQuery],
+        [matchQuery, ...filterParams],
       );
       pagination = buildPaginationView(
         req,
@@ -44,6 +98,7 @@ r.get("/search", async (req, res) => {
         paginationOptions,
       );
       const offset = (pagination.page - 1) * pagination.perPage;
+      const orderClause = resolveOrderClause(filters.sortKey, mode);
       const ftsRows = await all(
         `
         SELECT
@@ -63,10 +118,11 @@ r.get("/search", async (req, res) => {
         JOIN pages p ON p.id = pages_fts.rowid
         WHERE pages_fts MATCH ?
           AND p.status = 'published'
-        ORDER BY score ASC, p.updated_at DESC, p.created_at DESC
+          ${filterClause}
+        ORDER BY ${orderClause}
         LIMIT ? OFFSET ?
       `,
-        [matchQuery, pagination.perPage, offset],
+        [matchQuery, ...filterParams, pagination.perPage, offset],
       );
       rows = ftsRows.map((row) => {
         const numericScore = Number(row.score);
@@ -95,8 +151,9 @@ r.get("/search", async (req, res) => {
          OR p.content LIKE '%'||?||'%'
          OR t.name    LIKE '%'||?||'%')
         AND p.status = 'published'
+        ${filterClause}
     `,
-      [q, q, q],
+      [q, q, q, ...filterParams],
     );
     pagination = buildPaginationView(
       req,
@@ -104,6 +161,7 @@ r.get("/search", async (req, res) => {
       paginationOptions,
     );
     const offset = (pagination.page - 1) * pagination.perPage;
+    const orderClause = resolveOrderClause(filters.sortKey, mode);
     const fallbackRows = await all(
       `
       SELECT DISTINCT
@@ -123,22 +181,33 @@ r.get("/search", async (req, res) => {
          OR p.content LIKE '%'||?||'%'
          OR t.name    LIKE '%'||?||'%')
         AND p.status = 'published'
-      ORDER BY p.updated_at DESC, p.created_at DESC
+        ${filterClause}
+      ORDER BY ${orderClause}
       LIMIT ? OFFSET ?
     `,
-      [q, q, q, pagination.perPage, offset],
+      [q, q, q, ...filterParams, pagination.perPage, offset],
     );
     rows = fallbackRows.map((row) => ({ ...row, snippet: null, score: null }));
   }
 
-  const decoratedRows = rows.map((row) => ({
-    ...row,
-    excerpt: buildPreviewHtml(row.excerpt),
-    snippet: row.snippet ? buildPreviewHtml(row.snippet) : null,
-  }));
+const decoratedRows = rows.map((row) => ({
+  ...row,
+  excerpt: buildPreviewHtml(row.excerpt),
+  snippet: row.snippet ? buildPreviewHtml(row.snippet) : null,
+}));
 
   const total = pagination.totalItems;
 
+  const availableTagsRows = await all(
+    "SELECT name FROM tags ORDER BY name COLLATE NOCASE ASC",
+  );
+  const availableTagNames = availableTagsRows.map((row) => row.name);
+  const filtersForView = buildFiltersViewModel(filters, {
+    availableTagNames,
+    query: q,
+  });
+
+  
   res.render("search", {
     q,
     rows: decoratedRows,
@@ -146,10 +215,171 @@ r.get("/search", async (req, res) => {
     ftsAvailable: ftsPossible,
     pagination,
     total,
+    filters: filtersForView,
+    sortOptions: SORT_OPTIONS,
+    availableTags: availableTagNames,
   });
 });
 
 export default r;
+
+function parseSearchFilters(query = {}) {
+  const filters = {
+    tags: [],
+    normalizedTags: [],
+    author: "",
+    authorQuery: null,
+    startDate: null,
+    endDate: null,
+    sortKey: DEFAULT_SORT_KEY,
+  };
+
+  const rawTags = toArray(query.tag).map((value) => String(value ?? "").trim());
+  const normalizedSet = new Set();
+  for (const tag of rawTags) {
+    if (!tag || tag.length > 50) continue;
+    if (!TAG_VALIDATION_PATTERN.test(tag)) continue;
+    const normalized = tag.toLowerCase();
+    if (normalizedSet.has(normalized)) continue;
+    normalizedSet.add(normalized);
+    filters.tags.push(tag);
+    filters.normalizedTags.push(normalized);
+  }
+
+  const author = String(query.author ?? "").trim();
+  if (author && author.length <= 120) {
+    filters.author = author;
+    filters.authorQuery = author.toLowerCase();
+  }
+
+  let startDate = parseDateParameter(query.start);
+  let endDate = parseDateParameter(query.end);
+  if (startDate && endDate && startDate > endDate) {
+    [startDate, endDate] = [endDate, startDate];
+  }
+  filters.startDate = startDate;
+  filters.endDate = endDate;
+
+  const sortRaw = String(query.sort ?? "").trim().toLowerCase();
+  if (sortRaw && SORT_DEFINITIONS[sortRaw]) {
+    filters.sortKey = sortRaw;
+  }
+
+  return filters;
+}
+
+function toArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value === undefined || value === null) return [];
+  return [value];
+}
+
+function parseDateParameter(raw) {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+  const parsed = new Date(`${value}T00:00:00Z`);
+  if (Number.isNaN(parsed.getTime())) {
+    return null;
+  }
+  return value;
+}
+
+function buildFilterSql(filters) {
+  const whereClauses = [];
+  const params = [];
+
+  if (filters.authorQuery) {
+    whereClauses.push("LOWER(IFNULL(p.author, '')) = ?");
+    params.push(filters.authorQuery);
+  }
+
+  if (filters.startDate) {
+    whereClauses.push(
+      "p.publish_at IS NOT NULL AND date(p.publish_at) >= date(?)",
+    );
+    params.push(filters.startDate);
+  }
+
+  if (filters.endDate) {
+    whereClauses.push(
+      "p.publish_at IS NOT NULL AND date(p.publish_at) <= date(?)",
+    );
+    params.push(filters.endDate);
+  }
+
+  if (filters.normalizedTags.length) {
+    const placeholders = filters.normalizedTags.map(() => "?").join(", ");
+    whereClauses.push(`p.id IN (
+      SELECT pt.page_id
+      FROM page_tags pt
+      JOIN tags t ON t.id = pt.tag_id
+      WHERE LOWER(t.name) IN (${placeholders})
+      GROUP BY pt.page_id
+      HAVING COUNT(DISTINCT t.id) = ${filters.normalizedTags.length}
+    )`);
+    params.push(...filters.normalizedTags);
+  }
+
+  return { whereClauses, params };
+}
+
+function resolveOrderClause(sortKey, mode) {
+  const definition = SORT_DEFINITIONS[sortKey] || SORT_DEFINITIONS[DEFAULT_SORT_KEY];
+  const orderBy =
+    typeof definition.orderBy === "function"
+      ? definition.orderBy(mode)
+      : definition.orderBy;
+  return orderBy;
+}
+
+function buildFiltersViewModel(filters, { availableTagNames, query }) {
+  const normalizedToName = new Map();
+  for (const tagName of availableTagNames) {
+    normalizedToName.set(tagName.toLowerCase(), tagName);
+  }
+
+  const displayTags = [];
+  const seen = new Set();
+  filters.normalizedTags.forEach((normalized, index) => {
+    if (seen.has(normalized)) return;
+    seen.add(normalized);
+    const resolved = normalizedToName.get(normalized);
+    const fallbackValue = filters.tags[index] ||
+      filters.tags.find((value) => value.toLowerCase() === normalized) ||
+      normalized;
+    displayTags.push({
+      label: resolved || fallbackValue,
+      value: resolved || fallbackValue,
+    });
+  });
+
+  const hasActiveFilters =
+    filters.normalizedTags.length > 0 ||
+    Boolean(filters.author) ||
+    Boolean(filters.startDate) ||
+    Boolean(filters.endDate) ||
+    filters.sortKey !== DEFAULT_SORT_KEY;
+
+  return {
+    author: filters.author,
+    startDate: filters.startDate,
+    endDate: filters.endDate,
+    sortKey: filters.sortKey,
+    selectedTagKeys: filters.normalizedTags,
+    displayTags,
+    hasActiveFilters,
+    resetUrl: buildResetUrl(query),
+  };
+}
+
+function buildResetUrl(query) {
+  const params = new URLSearchParams();
+  params.set("q", query);
+  return `/search?${params.toString()}`;
+}
 
 function tokenize(input) {
   return input
