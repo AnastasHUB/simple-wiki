@@ -86,6 +86,8 @@ const commentRateLimiter = createRateLimiter({
     "Trop de commentaires ont été envoyés en peu de temps depuis votre adresse IP. Veuillez patienter avant de réessayer.",
 });
 
+const MAX_COMMENT_DEPTH = 4;
+
 const PAGE_STATUS_LABELS = {
   draft: "Brouillon",
   published: "Publié",
@@ -747,6 +749,7 @@ r.get(
       commentPagination,
       commentFeedback,
       ownCommentTokens,
+      maxCommentDepth: MAX_COMMENT_DEPTH,
       meta,
       captchaConfig,
     });
@@ -813,6 +816,8 @@ r.post(
       : null;
     const trimmedAuthorInput = (req.body.author || "").trim().slice(0, 80);
     const trimmedBodyInput = (req.body.body || "").trim();
+    const rawParentId =
+      typeof req.body.parentId === "string" ? req.body.parentId.trim() : "";
     const tagNames = await fetchPageTags(page.id);
     const ban = await isIpBanned(ip, {
       action: "comment",
@@ -824,6 +829,7 @@ r.post(
         values: {
           author: adminDisplayName || trimmedAuthorInput,
           body: trimmedBodyInput,
+          parentId: rawParentId,
         },
       };
       pushNotification(req, {
@@ -857,6 +863,31 @@ r.post(
     }
 
     const authorToUse = adminDisplayName || validation.author;
+    let parentSnowflake = null;
+    if (rawParentId) {
+      const parentComment = await get(
+        `SELECT snowflake_id, page_id, status FROM comments WHERE snowflake_id = ?`,
+        [rawParentId],
+      );
+      if (!parentComment || parentComment.page_id !== page.id) {
+        validation.errors.push(
+          "Le commentaire auquel vous répondez est introuvable ou n'est plus disponible.",
+        );
+      } else if (parentComment.status !== "approved") {
+        validation.errors.push(
+          "Vous ne pouvez répondre qu'à des commentaires publiés.",
+        );
+      } else {
+        const parentDepth = await getCommentDepth(parentComment.snowflake_id);
+        if (parentDepth + 1 >= MAX_COMMENT_DEPTH) {
+          validation.errors.push(
+            "La profondeur maximale des réponses est atteinte pour ce fil de discussion.",
+          );
+        } else {
+          parentSnowflake = parentComment.snowflake_id;
+        }
+      }
+    }
 
     if (validation.errors.length) {
       req.session.commentFeedback = {
@@ -870,6 +901,7 @@ r.post(
           timeout: 6000,
         });
       }
+      req.session.commentFeedback.values.parentId = parentSnowflake || rawParentId;
       return res.redirect(`/wiki/${page.slug_id}#comments`);
     }
 
@@ -888,16 +920,18 @@ r.post(
          page_id,
          author,
          body,
+         parent_snowflake_id,
          ip,
          edit_token,
          author_is_admin,
          status
-       ) VALUES(?,?,?,?,?,?,?,?)`,
+       ) VALUES(?,?,?,?,?,?,?,?,?)`,
       [
         commentSnowflake,
         page.id,
         authorToUse || null,
         validation.body,
+        parentSnowflake,
         ip || null,
         token,
         permissions.is_admin ? 1 : 0,
@@ -929,6 +963,7 @@ r.post(
         id: commentSnowflake,
         author: authorToUse || "Anonyme",
         preview: validation.body.slice(0, 200),
+        parentId: parentSnowflake,
       },
       user: req.session.user?.username || null,
       extra: {
@@ -945,7 +980,7 @@ r.get(
   "/wiki/:slugid/comments/:commentId/edit",
   asyncHandler(async (req, res) => {
     const comment = await get(
-      `SELECT c.id AS legacy_id, c.snowflake_id, c.author, c.body, c.status, c.edit_token, p.slug_id, p.title
+      `SELECT c.id AS legacy_id, c.snowflake_id, c.author, c.body, c.status, c.edit_token, c.parent_snowflake_id, p.slug_id, p.title
         FROM comments c
         JOIN pages p ON p.id = c.page_id
       WHERE c.snowflake_id=? AND p.slug_id=?`,
@@ -967,7 +1002,7 @@ r.post(
   "/wiki/:slugid/comments/:commentId/edit",
   asyncHandler(async (req, res) => {
     const comment = await get(
-      `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.author, c.body, c.status, c.edit_token, c.ip, p.slug_id, p.title, p.snowflake_id AS page_snowflake_id
+      `SELECT c.id AS legacy_id, c.snowflake_id, c.page_id, c.author, c.body, c.status, c.edit_token, c.parent_snowflake_id, c.ip, p.slug_id, p.title, p.snowflake_id AS page_snowflake_id
         FROM comments c
         JOIN pages p ON p.id = c.page_id
       WHERE c.snowflake_id=? AND p.slug_id=?`,
@@ -984,15 +1019,62 @@ r.post(
 
     const author = (req.body.author || "").trim().slice(0, 80);
     const bodyValidation = validateCommentBody(req.body.body);
-    if (bodyValidation.errors.length) {
-      const inlineNotifications = bodyValidation.errors.map((message) => ({
+    const rawParentId =
+      typeof req.body.parentId === "string" ? req.body.parentId.trim() : "";
+    const errors = bodyValidation.errors.slice();
+    let parentSnowflake = rawParentId || null;
+
+    if (parentSnowflake) {
+      if (parentSnowflake === comment.snowflake_id) {
+        errors.push("Un commentaire ne peut pas répondre à lui-même.");
+      } else {
+        const parentComment = await get(
+          `SELECT snowflake_id, page_id, status, parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
+          [parentSnowflake],
+        );
+        if (!parentComment || parentComment.page_id !== comment.page_id) {
+          errors.push(
+            "Le commentaire parent sélectionné est introuvable ou n'appartient pas à cette page.",
+          );
+        } else if (parentComment.status !== "approved") {
+          errors.push("Seuls les commentaires publiés peuvent recevoir une réponse.");
+        } else {
+          const createsCycle = await isCommentDescendant(
+            comment.snowflake_id,
+            parentComment,
+          );
+          if (createsCycle) {
+            errors.push(
+              "Impossible de déplacer ce commentaire sous l'un de ses propres descendants.",
+            );
+          } else {
+            const depth = await getCommentDepth(parentComment.snowflake_id);
+            if (depth + 1 >= MAX_COMMENT_DEPTH) {
+              errors.push(
+                "La profondeur maximale des réponses est atteinte pour ce fil de discussion.",
+              );
+            } else {
+              parentSnowflake = parentComment.snowflake_id;
+            }
+          }
+        }
+      }
+    }
+
+    if (errors.length) {
+      const inlineNotifications = errors.map((message) => ({
         id: generateSnowflake(),
         type: "error",
         message,
         timeout: 6000,
       }));
       return res.render("comment_edit", {
-        comment: { ...comment, author, body: bodyValidation.body },
+        comment: {
+          ...comment,
+          author,
+          body: bodyValidation.body,
+          parent_snowflake_id: rawParentId || comment.parent_snowflake_id || null,
+        },
         pageSlug: req.params.slugid,
         notifications: inlineNotifications,
       });
@@ -1000,9 +1082,9 @@ r.post(
 
     await run(
       `UPDATE comments
-          SET author=?, body=?, status='pending', updated_at=CURRENT_TIMESTAMP
+          SET author=?, body=?, parent_snowflake_id=?, status='pending', updated_at=CURRENT_TIMESTAMP
         WHERE id=?`,
-      [author || null, bodyValidation.body, comment.legacy_id],
+      [author || null, bodyValidation.body, parentSnowflake, comment.legacy_id],
     );
     await sendAdminEvent("Commentaire modifié", {
       page: {
@@ -1014,6 +1096,7 @@ r.post(
         id: comment.snowflake_id,
         author: author || "Anonyme",
         preview: bodyValidation.body.slice(0, 200),
+        parentId: parentSnowflake,
       },
       user: req.session.user?.username || null,
       extra: {
@@ -1851,22 +1934,33 @@ function canManageComment(req, comment) {
 
 function collectOwnCommentTokens(comments, tokens) {
   const ownTokens = {};
-  if (!tokens) {
+  if (!tokens || !Array.isArray(comments)) {
     return ownTokens;
   }
-  for (const comment of comments) {
-    if (!comment?.snowflake_id) continue;
-    if (tokens[comment.snowflake_id]) {
-      ownTokens[comment.snowflake_id] = tokens[comment.snowflake_id];
-      continue;
+
+  const visit = (nodes) => {
+    for (const comment of nodes) {
+      if (!comment?.snowflake_id) {
+        if (Array.isArray(comment?.children) && comment.children.length) {
+          visit(comment.children);
+        }
+        continue;
+      }
+      if (tokens[comment.snowflake_id]) {
+        ownTokens[comment.snowflake_id] = tokens[comment.snowflake_id];
+      } else if (comment?.legacy_id && tokens[comment.legacy_id]) {
+        const token = tokens[comment.legacy_id];
+        ownTokens[comment.snowflake_id] = token;
+        tokens[comment.snowflake_id] = token;
+        delete tokens[comment.legacy_id];
+      }
+      if (Array.isArray(comment?.children) && comment.children.length) {
+        visit(comment.children);
+      }
     }
-    if (comment?.legacy_id && tokens[comment.legacy_id]) {
-      const token = tokens[comment.legacy_id];
-      ownTokens[comment.snowflake_id] = token;
-      tokens[comment.snowflake_id] = token;
-      delete tokens[comment.legacy_id];
-    }
-  }
+  };
+
+  visit(comments);
   return ownTokens;
 }
 
@@ -1899,6 +1993,56 @@ function getUserDisplayName(user) {
     }
   }
   return null;
+}
+
+async function getCommentDepth(commentSnowflakeId) {
+  if (!commentSnowflakeId) {
+    return 0;
+  }
+  const row = await get(
+    `WITH RECURSIVE ancestors(snowflake_id, parent_snowflake_id, depth) AS (
+       SELECT snowflake_id, parent_snowflake_id, 0
+         FROM comments
+        WHERE snowflake_id = ?
+       UNION
+       SELECT c.snowflake_id, c.parent_snowflake_id, ancestors.depth + 1
+         FROM comments c
+         JOIN ancestors ON c.snowflake_id = ancestors.parent_snowflake_id
+        WHERE ancestors.depth < 24
+     )
+     SELECT MAX(depth) AS depth FROM ancestors`,
+    [commentSnowflakeId],
+  );
+  return Number.isInteger(row?.depth) ? Number(row.depth) : 0;
+}
+
+async function isCommentDescendant(rootSnowflakeId, initialParent) {
+  if (!rootSnowflakeId || !initialParent) {
+    return false;
+  }
+  let current = initialParent;
+  const visited = new Set();
+  while (current) {
+    if (current.snowflake_id === rootSnowflakeId) {
+      return true;
+    }
+    const parentId =
+      typeof current.parent_snowflake_id === "string"
+        ? current.parent_snowflake_id.trim()
+        : null;
+    if (!parentId || visited.has(parentId)) {
+      break;
+    }
+    visited.add(parentId);
+    if (parentId === rootSnowflakeId) {
+      return true;
+    }
+    current = await get(
+      `SELECT snowflake_id, parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
+      [parentId],
+    );
+  }
+  return false;
 }
 
 r.get(

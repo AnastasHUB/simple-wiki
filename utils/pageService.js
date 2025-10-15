@@ -50,7 +50,11 @@ export async function fetchRecentPages({
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
-           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
+           COALESCE((SELECT COUNT(*)
+                     FROM comments
+                     WHERE page_id = p.id
+                       AND status = 'approved'
+                       AND parent_snowflake_id IS NULL), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE p.created_at >= ?
@@ -87,7 +91,11 @@ export async function fetchPaginatedPages({
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
-           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
+           COALESCE((SELECT COUNT(*)
+                     FROM comments
+                     WHERE page_id = p.id
+                       AND status = 'approved'
+                       AND parent_snowflake_id IS NULL), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE ${visibility.clause}
@@ -109,7 +117,11 @@ export async function fetchPageWithStats(slugId, ip, { includeUnpublished = fals
     SELECT p.*,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
-           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
+           COALESCE((SELECT COUNT(*)
+                     FROM comments
+                     WHERE page_id = p.id
+                       AND status = 'approved'
+                       AND parent_snowflake_id IS NULL), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE slug_id = ?
@@ -139,49 +151,99 @@ export async function fetchPageTags(pageId) {
 
 export async function fetchPageComments(pageId, options = {}) {
   const { limit, offset } = options;
-  const params = [pageId];
-  let query = `SELECT c.id AS legacy_id,
-            c.snowflake_id,
-            c.author,
-            c.body,
-            c.created_at,
-            c.updated_at,
-            c.ip AS raw_ip,
-            c.author_is_admin,
-            ipr.hash AS ip_hash
-       FROM comments c
-       LEFT JOIN ip_profiles ipr ON ipr.ip = c.ip
-      WHERE c.page_id = ?
-        AND c.status = 'approved'
-      ORDER BY c.created_at ASC`;
-
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
-  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;
+  const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : 0;
 
-  if (safeLimit !== null) {
-    query += " LIMIT ?";
-    params.push(safeLimit);
-    if (safeOffset !== null) {
-      query += " OFFSET ?";
-      params.push(safeOffset);
-    }
-  } else if (safeOffset !== null) {
-    query += " LIMIT -1 OFFSET ?";
-    params.push(safeOffset);
+  const rootRows = await all(
+    `SELECT snowflake_id
+       FROM comments
+      WHERE page_id = ?
+        AND status = 'approved'
+        AND parent_snowflake_id IS NULL
+      ORDER BY created_at ASC`,
+    [pageId],
+  );
+
+  const rootIds = rootRows.map((row) => row.snowflake_id);
+  const sliceStart = safeOffset || 0;
+  const sliceEnd = safeLimit !== null ? sliceStart + safeLimit : undefined;
+  const selectedRootIds = rootIds.slice(sliceStart, sliceEnd);
+
+  if (!selectedRootIds.length) {
+    return [];
   }
 
-  const rows = await all(query, params);
+  const threadPlaceholders = selectedRootIds.map(() => "?").join(", ");
+  const rows = await all(
+    `WITH RECURSIVE thread AS (
+       SELECT c.id,
+              c.snowflake_id,
+              c.parent_snowflake_id,
+              c.page_id,
+              c.author,
+              c.body,
+              c.created_at,
+              c.updated_at,
+              c.ip,
+              c.author_is_admin
+         FROM comments c
+        WHERE c.page_id = ?
+          AND c.status = 'approved'
+          AND c.snowflake_id IN (${threadPlaceholders})
+       UNION ALL
+       SELECT child.id,
+              child.snowflake_id,
+              child.parent_snowflake_id,
+              child.page_id,
+              child.author,
+              child.body,
+              child.created_at,
+              child.updated_at,
+              child.ip,
+              child.author_is_admin
+         FROM comments child
+         JOIN thread parent ON parent.snowflake_id = child.parent_snowflake_id
+        WHERE child.status = 'approved'
+          AND child.page_id = ?
+     )
+     SELECT t.id AS legacy_id,
+            t.snowflake_id,
+            t.parent_snowflake_id,
+            t.author,
+            t.body,
+            t.created_at,
+            t.updated_at,
+            t.ip AS raw_ip,
+            t.author_is_admin,
+            ipr.hash AS ip_hash
+       FROM thread t
+       LEFT JOIN ip_profiles ipr ON ipr.ip = t.ip
+      ORDER BY t.created_at ASC`,
+    [pageId, ...selectedRootIds, pageId],
+  );
+
+  if (!rows.length) {
+    return [];
+  }
+
   const handleMap = await resolveHandleColors(rows.map((row) => row.author));
-  return rows.map((row) => {
+  const baseNodes = rows.map((row) => {
     const ipHash = row.ip_hash || hashIp(row.raw_ip || "");
     const {
       raw_ip: _unusedIp,
       ip_hash: _unusedHash,
       author_is_admin: _unusedAuthorIsAdmin,
+      parent_snowflake_id: rawParentId,
       ...rest
     } = row;
+    const trimmedParent =
+      typeof rawParentId === "string" && rawParentId.trim().length
+        ? rawParentId.trim()
+        : null;
     return {
       ...rest,
+      parentId: trimmedParent,
+      rawParentId: trimmedParent,
       isAdminAuthor: Boolean(row.author_is_admin),
       authorRole: getHandleColor(row.author, handleMap),
       ipProfile: ipHash
@@ -192,6 +254,107 @@ export async function fetchPageComments(pageId, options = {}) {
         : null,
     };
   });
+
+  const nodesById = new Map();
+  for (const node of baseNodes) {
+    nodesById.set(node.snowflake_id, node);
+  }
+
+  for (const node of baseNodes) {
+    let parentId = node.rawParentId;
+    if (!parentId || !nodesById.has(parentId)) {
+      node.parentId = null;
+      continue;
+    }
+    const visited = new Set();
+    let currentId = parentId;
+    let hasCycle = false;
+    while (currentId) {
+      if (currentId === node.snowflake_id) {
+        hasCycle = true;
+        break;
+      }
+      if (visited.has(currentId)) {
+        hasCycle = true;
+        break;
+      }
+      visited.add(currentId);
+      const currentNode = nodesById.get(currentId);
+      if (!currentNode) {
+        parentId = null;
+        break;
+      }
+      currentId = currentNode.rawParentId || null;
+    }
+    node.parentId = hasCycle ? null : parentId;
+  }
+
+  const childMap = new Map();
+  for (const node of baseNodes) {
+    if (!node.parentId) continue;
+    if (!childMap.has(node.parentId)) {
+      childMap.set(node.parentId, []);
+    }
+    childMap.get(node.parentId).push(node.snowflake_id);
+  }
+
+  const allowedIds = new Set();
+  const collectSubtree = (snowflakeId) => {
+    if (!snowflakeId || allowedIds.has(snowflakeId)) {
+      return;
+    }
+    allowedIds.add(snowflakeId);
+    const children = childMap.get(snowflakeId) || [];
+    for (const childId of children) {
+      if (childId === snowflakeId) {
+        continue;
+      }
+      collectSubtree(childId);
+    }
+  };
+
+  for (const rootId of selectedRootIds) {
+    collectSubtree(rootId);
+  }
+
+  const nodeClones = new Map();
+  for (const node of baseNodes) {
+    if (!allowedIds.has(node.snowflake_id)) continue;
+    const { rawParentId: _discardedRawParent, ...rest } = node;
+    nodeClones.set(node.snowflake_id, {
+      ...rest,
+      children: [],
+    });
+  }
+
+  for (const node of nodeClones.values()) {
+    if (!node.parentId) continue;
+    const parentNode = nodeClones.get(node.parentId);
+    if (parentNode) {
+      parentNode.children.push(node);
+    }
+  }
+
+  const roots = [];
+  for (const rootId of selectedRootIds) {
+    const rootNode = nodeClones.get(rootId);
+    if (rootNode) {
+      roots.push(rootNode);
+    }
+  }
+
+  const assignDepth = (nodes, depth) => {
+    for (const node of nodes) {
+      node.depth = depth;
+      if (node.children && node.children.length) {
+        assignDepth(node.children, depth + 1);
+      }
+    }
+  };
+
+  assignDepth(roots, 0);
+
+  return roots;
 }
 
 export async function countPagesByTag(tagName, { includeUnpublished = false } = {}) {
@@ -231,7 +394,11 @@ export async function fetchPagesByTag({
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id) AS likes,
            (SELECT COUNT(*) FROM likes WHERE page_id = p.id AND ip = ?) AS userLiked,
-           COALESCE((SELECT COUNT(*) FROM comments WHERE page_id = p.id AND status = 'approved'), 0) AS comment_count,
+           COALESCE((SELECT COUNT(*)
+                     FROM comments
+                     WHERE page_id = p.id
+                       AND status = 'approved'
+                       AND parent_snowflake_id IS NULL), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
       JOIN page_tags pt ON p.id = pt.page_id
