@@ -160,6 +160,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
     author TEXT,
     body TEXT NOT NULL,
+    parent_snowflake_id TEXT REFERENCES comments(snowflake_id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME,
     ip TEXT,
@@ -268,6 +269,10 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "comments",
     "author_is_admin",
     "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn("comments", "parent_snowflake_id", "TEXT");
+  await db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_comments_page_parent ON comments(page_id, parent_snowflake_id)",
   );
   await ensureColumn("users", "display_name", "TEXT");
   await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");

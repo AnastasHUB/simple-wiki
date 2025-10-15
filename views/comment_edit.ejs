@@ -3,6 +3,7 @@
   <h1>Modifier votre commentaire</h1>
   <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/edit" class="comment-form">
     <%- include('partials/csrf_field') %>
+    <input type="hidden" name="parentId" value="<%= comment.parent_snowflake_id || '' %>">
     <div class="field">
       <label for="comment-author">Nom ou pseudo</label>
       <input id="comment-author" type="text" name="author" maxlength="80" value="<%= comment.author || '' %>">

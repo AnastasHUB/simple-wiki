@@ -1,0 +1,89 @@
+<%
+  const depth = Number.isFinite(comment?.depth) ? comment.depth : 0;
+  const commentId = comment?.snowflake_id || '';
+  const parentId = comment?.parentId || null;
+  const canReply = canComment && depth + 1 < maxCommentDepth;
+  const authorName = comment?.author || 'Anonyme';
+  const commentAuthorColor =
+    comment?.authorRole && comment.authorRole.color ? comment.authorRole.color : null;
+  const authorAttr = authorName.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  const authorClasses = ['comment-author', 'user-handle'];
+  const commentAuthorStyle =
+    commentAuthorColor && commentAuthorColor.hasColor ? commentAuthorColor.style : '';
+  if (comment?.isAdminAuthor) {
+    authorClasses.push('comment-author--admin');
+  }
+  if (commentAuthorColor && commentAuthorColor.hasColor) {
+    authorClasses.push('role-colored-text');
+    authorClasses.push(commentAuthorColor.className);
+  }
+  const canEditOwn = ownCommentTokens && commentId && ownCommentTokens[commentId];
+%>
+<li
+  id="comment-<%= commentId %>"
+  class="comment"
+  data-comment-id="<%= commentId %>"
+  data-comment-depth="<%= depth %>"
+  data-parent-id="<%= parentId || '' %>"
+  data-author-name="<%= authorAttr %>"
+  style="--comment-depth: <%= depth %>"
+>
+  <div class="comment-meta">
+    <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
+      <%= authorName %>
+      <% if (comment?.isAdminAuthor) { %>
+        <span class="comment-author-badge" title="Administrateur">⭐</span>
+      <% } %>
+    </strong>
+    <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
+    <% if (comment?.ipProfile) { %>
+      <span>
+        ·
+        <a class="comment-ip-profile" href="/profiles/ip/<%= comment.ipProfile.hash %>">
+          Profil IP #<%= comment.ipProfile.shortHash %>
+        </a>
+      </span>
+    <% } %>
+  </div>
+  <div class="comment-body"><%= comment.body %></div>
+  <% if (canReply || canEditOwn) { %>
+    <div class="comment-actions">
+      <% if (canReply) { %>
+        <button
+          class="btn secondary comment-reply-button"
+          type="button"
+          data-reply-to="<%= commentId %>"
+          data-reply-author="<%= authorAttr %>"
+        >
+          Répondre
+        </button>
+      <% } %>
+      <% if (canEditOwn) { %>
+        <a class="btn secondary" data-icon="✏️" href="/wiki/<%= page.slug_id %>/comments/<%= commentId %>/edit">
+          Modifier
+        </a>
+        <form
+          method="post"
+          action="/wiki/<%= page.slug_id %>/comments/<%= commentId %>/delete"
+          onsubmit="return confirm('Supprimer ce commentaire ?');"
+        >
+          <%- include('partials/csrf_field') %>
+          <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+        </form>
+      <% } %>
+    </div>
+  <% } %>
+  <% if (comment?.children && comment.children.length) { %>
+    <ul class="comment-list comment-children">
+      <% comment.children.forEach((child) => { %>
+        <%- include('partials/comment', {
+          comment: child,
+          page,
+          canComment,
+          ownCommentTokens,
+          maxCommentDepth,
+        }) %>
+      <% }); %>
+    </ul>
+  <% } %>
+</li>
