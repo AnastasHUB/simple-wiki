@@ -14,7 +14,7 @@
     <%= reactionSlug ? `data-reaction-slug="${reactionSlug}"` : '' %>
     <%= reactionCommentId ? `data-comment-id="${reactionCommentId}"` : '' %>
   >
-    <%- include('partials/csrf_field') %>
+    <%- include('csrf_field') %>
     <% reactionList.forEach((reaction) => { %>
       <%
         const buttonClasses = ['reaction-button'];
