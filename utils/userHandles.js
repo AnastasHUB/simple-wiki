@@ -28,6 +28,8 @@ export async function resolveHandleColors(handles = []) {
   const rows = await all(
     `SELECT u.username,
             u.display_name,
+            u.avatar_url,
+            u.banner_url,
             r.color AS role_color
        FROM users u
        LEFT JOIN roles r ON r.id = u.role_id
@@ -44,6 +46,8 @@ export async function resolveHandleColors(handles = []) {
       displayName: row.display_name || null,
       color,
       colorScheme: scheme,
+      avatarUrl: row.avatar_url || null,
+      bannerUrl: row.banner_url || null,
     };
     if (row.username) {
       mapping[row.username.toLowerCase()] = payload;
@@ -55,7 +59,7 @@ export async function resolveHandleColors(handles = []) {
   return mapping;
 }
 
-export function getHandleColor(handle, mapping = {}) {
+export function getHandleProfile(handle, mapping = {}) {
   if (typeof handle !== "string") {
     return null;
   }
@@ -64,4 +68,8 @@ export function getHandleColor(handle, mapping = {}) {
     return null;
   }
   return mapping[normalized] || null;
+}
+
+export function getHandleColor(handle, mapping = {}) {
+  return getHandleProfile(handle, mapping);
 }

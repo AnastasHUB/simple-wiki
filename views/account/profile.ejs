@@ -1,0 +1,124 @@
+<% title = 'Mon profil'; %>
+<%
+  const previewBannerStyle = profile.bannerUrl
+    ? `background-image: url('${encodeURI(profile.bannerUrl).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29')}')`
+    : '';
+  const previewInitialSource = (profile.displayName || profile.username || '?').trim();
+  const previewInitial = previewInitialSource
+    ? previewInitialSource.charAt(0).toUpperCase()
+    : '?';
+%>
+<section class="card profile-settings">
+  <header class="profile-settings__header">
+    <div class="profile-preview">
+      <div
+        class="profile-preview__banner"
+        style="<%= previewBannerStyle %>"
+      ></div>
+      <div class="profile-preview__avatar-wrapper">
+        <div class="profile-preview__avatar">
+          <% if (profile.avatarUrl) { %>
+            <img src="<%= profile.avatarUrl %>" alt="Avatar actuel" loading="lazy" />
+          <% } else { %>
+            <span aria-hidden="true"><%= previewInitial %></span>
+          <% } %>
+          <span class="sr-only">Avatar de <%= profile.displayName || profile.username %></span>
+        </div>
+      </div>
+    </div>
+    <div class="profile-settings__intro">
+      <h1 class="mt-0">Gérer mon profil</h1>
+      <p class="text-muted">
+        Personnalisez votre identité publique avec un avatar, une bannière et une biographie.
+      </p>
+      <p>
+        <a class="btn secondary" href="/members/<%= encodeURIComponent(profile.username) %>">Voir le profil public</a>
+      </p>
+    </div>
+  </header>
+
+  <% if (errors && errors.length) { %>
+    <div class="alert error">
+      <ul>
+        <% errors.forEach(function (error) { %>
+          <li><%= error %></li>
+        <% }) %>
+      </ul>
+    </div>
+  <% } %>
+
+  <form class="profile-form" method="post" action="/account/profile">
+    <%- include('../partials/csrf_field') %>
+    <div class="form-grid">
+      <div class="field">
+        <label for="profile-username">Identifiant <span class="text-required">*</span></label>
+        <input
+          id="profile-username"
+          type="text"
+          name="username"
+          value="<%= profile.username %>"
+          maxlength="32"
+          required
+        />
+        <p class="field-hint">Modifiez votre nom d'utilisateur. Les identifiants sont uniques.</p>
+      </div>
+
+      <div class="field">
+        <label for="profile-display-name">Nom affiché</label>
+        <input
+          id="profile-display-name"
+          type="text"
+          name="displayName"
+          value="<%= profile.displayName %>"
+          maxlength="80"
+          placeholder="Facultatif"
+        />
+        <p class="field-hint">Ce nom est montré sur vos commentaires et contributions.</p>
+      </div>
+
+      <div class="field">
+        <label for="profile-avatar">Avatar</label>
+        <input
+          id="profile-avatar"
+          type="url"
+          name="avatarUrl"
+          value="<%= profile.avatarUrl %>"
+          placeholder="https://exemple.com/avatar.png"
+        />
+        <p class="field-hint">
+          Utilisez une URL HTTPS ou un chemin commençant par «&nbsp;/&nbsp;». Laissez vide pour supprimer.
+        </p>
+      </div>
+
+      <div class="field">
+        <label for="profile-banner">Bannière</label>
+        <input
+          id="profile-banner"
+          type="url"
+          name="bannerUrl"
+          value="<%= profile.bannerUrl %>"
+          placeholder="https://exemple.com/banner.jpg"
+        />
+        <p class="field-hint">
+          Image affichée en en-tête du profil public. Laissez vide pour utiliser l'arrière-plan par défaut.
+        </p>
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="profile-bio">Biographie</label>
+      <textarea
+        id="profile-bio"
+        name="bio"
+        rows="4"
+        maxlength="500"
+        placeholder="Présentez-vous en quelques phrases."
+      ><%= profile.bio %></textarea>
+      <p class="field-hint">500 caractères maximum.</p>
+    </div>
+
+    <div class="form-actions">
+      <button class="btn primary" type="submit" data-icon="💾">Enregistrer les modifications</button>
+    </div>
+  </form>
+</section>

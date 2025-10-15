@@ -83,6 +83,7 @@ import {
 import {
   resolveHandleColors,
   getHandleColor,
+  getHandleProfile,
 } from "../utils/userHandles.js";
 import {
   renderMarkdownDiff,
@@ -1214,7 +1215,80 @@ r.post(
       message: "Votre commentaire a été supprimé.",
       timeout: 5000,
     });
-    res.redirect(`/wiki/${comment.slug_id}#comments`);
+  res.redirect(`/wiki/${comment.slug_id}#comments`);
+  }),
+);
+
+r.get(
+  "/members/:username",
+  asyncHandler(async (req, res) => {
+    const rawUsername =
+      typeof req.params.username === "string" ? req.params.username.trim() : "";
+    if (!rawUsername) {
+      return res.status(404).send("Profil introuvable");
+    }
+
+    const user = await get(
+      `SELECT u.id,
+              u.username,
+              u.display_name,
+              u.avatar_url,
+              u.banner_url,
+              u.bio,
+              r.name AS role_name,
+              r.color AS role_color
+         FROM users u
+         LEFT JOIN roles r ON r.id = u.role_id
+        WHERE LOWER(u.username) = LOWER(?)`,
+      [rawUsername],
+    );
+
+    if (!user) {
+      return res.status(404).send("Profil introuvable");
+    }
+
+    const handleMap = await resolveHandleColors(
+      [user.username, user.display_name].filter(Boolean),
+    );
+    const handleProfile =
+      getHandleProfile(user.display_name, handleMap) ||
+      getHandleProfile(user.username, handleMap);
+
+    const authorHandles = [user.username];
+    const trimmedDisplayName =
+      typeof user.display_name === "string" ? user.display_name.trim() : "";
+    if (trimmedDisplayName && trimmedDisplayName.toLowerCase() !== user.username.toLowerCase()) {
+      authorHandles.push(trimmedDisplayName);
+    }
+
+    const placeholders = authorHandles.map(() => "?").join(", ");
+    const recentPages = await all(
+      `SELECT title, slug_id, created_at
+         FROM pages
+        WHERE author IN (${placeholders})
+        ORDER BY created_at DESC
+        LIMIT 5`,
+      authorHandles,
+    );
+
+    const totalPagesRow = await get(
+      `SELECT COUNT(*) AS total FROM pages WHERE author IN (${placeholders})`,
+      authorHandles,
+    );
+
+    res.render("member_profile", {
+      profile: {
+        username: user.username,
+        displayName: trimmedDisplayName,
+        avatarUrl: user.avatar_url || "",
+        bannerUrl: user.banner_url || "",
+        bio: user.bio || "",
+        roleName: user.role_name || null,
+        roleColor: handleProfile?.color || null,
+        totalPages: Number(totalPagesRow?.total || 0),
+        recentPages,
+      },
+    });
   }),
 );
 

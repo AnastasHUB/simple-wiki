@@ -1,0 +1,73 @@
+<%
+  title = (profile.displayName || profile.username) + ' · Profil';
+  const bannerStyle = profile.bannerUrl
+    ? `background-image: url('${encodeURI(profile.bannerUrl).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29')}')`
+    : '';
+  const avatarInitialSource = (profile.displayName || profile.username || '?').trim();
+  const avatarInitial = avatarInitialSource
+    ? avatarInitialSource.charAt(0).toUpperCase()
+    : '?';
+%>
+<section class="profile-public">
+  <div
+    class="profile-public__banner"
+    style="<%= bannerStyle %>"
+  ></div>
+  <div class="profile-public__content card">
+    <div class="profile-public__header">
+      <div class="profile-public__avatar">
+        <% if (profile.avatarUrl) { %>
+          <img src="<%= profile.avatarUrl %>" alt="Avatar de <%= profile.displayName || profile.username %>" loading="lazy" />
+        <% } else { %>
+          <span aria-hidden="true"><%= avatarInitial %></span>
+        <% } %>
+        <span class="sr-only">Avatar de <%= profile.displayName || profile.username %></span>
+      </div>
+      <div class="profile-public__identity">
+        <% const heroName = profile.displayName || profile.username; %>
+        <% const roleColor = profile.roleColor && profile.roleColor.hasColor ? profile.roleColor : null; %>
+        <% const nameClasses = ['user-handle']; %>
+        <% const nameStyle = roleColor ? roleColor.style : ''; %>
+        <% if (roleColor) { nameClasses.push('role-colored-text'); if (roleColor.className) { nameClasses.push(roleColor.className); } } %>
+        <h1 class="profile-public__name <%= nameClasses.join(' ') %>" style="<%= nameStyle %>"><%= heroName %></h1>
+        <p class="profile-public__username">@<%= profile.username %></p>
+        <% if (profile.roleName) { %>
+          <p class="profile-public__role">Rôle&nbsp;: <strong><%= profile.roleName %></strong></p>
+        <% } %>
+      </div>
+    </div>
+
+    <% if (profile.bio) { %>
+      <p class="profile-public__bio"><%= profile.bio %></p>
+    <% } else { %>
+      <p class="profile-public__bio profile-public__bio--empty text-muted">
+        Aucun texte de présentation pour le moment.
+      </p>
+    <% } %>
+
+    <div class="profile-public__stats">
+      <div>
+        <span class="profile-public__stat-value"><%= profile.totalPages %></span>
+        <span class="profile-public__stat-label">Pages publiées</span>
+      </div>
+    </div>
+
+    <div class="profile-public__recent">
+      <h2>Publications récentes</h2>
+      <% if (profile.recentPages && profile.recentPages.length) { %>
+        <ul>
+          <% profile.recentPages.forEach(function(page) { %>
+            <li>
+              <a href="/wiki/<%= page.slug_id %>"><%= page.title %></a>
+              <span class="profile-public__recent-date">
+                <%= page.created_at ? new Date(page.created_at).toLocaleDateString('fr-FR') : '' %>
+              </span>
+            </li>
+          <% }) %>
+        </ul>
+      <% } else { %>
+        <p class="text-muted">Aucune page publiée à afficher.</p>
+      <% } %>
+    </div>
+  </div>
+</section>

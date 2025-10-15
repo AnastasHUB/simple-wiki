@@ -280,6 +280,9 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureColumn("users", "is_moderator", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_helper", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "is_contributor", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "avatar_url", "TEXT");
+  await ensureColumn("users", "banner_url", "TEXT");
+  await ensureColumn("users", "bio", "TEXT");
   await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
