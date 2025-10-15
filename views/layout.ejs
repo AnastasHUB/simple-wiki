@@ -206,6 +206,14 @@
                 </a>
               </li>
             <% } %>
+            <% if (!currentUser && registrationEnabled) { %>
+              <li>
+                <a href="/register">
+                  <span class="nav-item-icon" aria-hidden="true">🆕</span>
+                  <span class="nav-item-label">Créer un compte</span>
+                </a>
+              </li>
+            <% } %>
             <li>
               <a href="/account/submissions">
                 <span class="nav-item-icon" aria-hidden="true">📚</span>
