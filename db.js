@@ -126,6 +126,8 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     snowflake_id TEXT UNIQUE,
     ip TEXT UNIQUE NOT NULL,
     hash TEXT UNIQUE NOT NULL,
+    claimed_user_id INTEGER REFERENCES users(id),
+    claimed_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
@@ -454,6 +456,12 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureColumn(
     "ip_profiles",
+    "claimed_user_id",
+    "INTEGER REFERENCES users(id)",
+  );
+  await ensureColumn("ip_profiles", "claimed_at", "DATETIME");
+  await ensureColumn(
+    "ip_profiles",
     "reputation_auto_status",
     "TEXT NOT NULL DEFAULT 'unknown'",
   );
@@ -636,6 +644,7 @@ async function ensureDefaultRoles() {
          description=excluded.description,
          color=COALESCE(roles.color, excluded.color),
          is_system=excluded.is_system,
+         position=excluded.position,
          ${ROLE_FLAG_UPDATE_ASSIGNMENTS},
          updated_at=CURRENT_TIMESTAMP`,
       [

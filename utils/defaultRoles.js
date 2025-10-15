@@ -1,5 +1,6 @@
 export const DEFAULT_ROLE_KEYS = Object.freeze({
   EVERYONE: "everyone",
+  USER: "user",
   ADMINISTRATOR: "administrator",
 });
 
@@ -9,6 +10,20 @@ const baseDefinitions = [
     snowflake: "231903782071590912",
     name: "Everyone",
     description: "Permissions de base accordées à tous les visiteurs.",
+    color: null,
+    isSystem: true,
+    grantAllPermissions: false,
+    permissionOverrides: {
+      can_comment: true,
+      can_submit_pages: true,
+    },
+  },
+  {
+    key: DEFAULT_ROLE_KEYS.USER,
+    snowflake: "231903782071590913",
+    name: "Utilisateurs",
+    description:
+      "Rôle par défaut attribué aux visiteurs qui convertissent leur profil IP en compte.",
     color: null,
     isSystem: true,
     grantAllPermissions: false,
@@ -47,6 +62,7 @@ export const DEFAULT_ROLE_SNOWFLAKES = Object.freeze(
 
 export const EVERYONE_ROLE_SNOWFLAKE =
   DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.EVERYONE];
+export const USER_ROLE_SNOWFLAKE = DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.USER];
 export const ADMINISTRATOR_ROLE_SNOWFLAKE =
   DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.ADMINISTRATOR];
 
@@ -95,10 +111,12 @@ export function applyDefaultRoleMetadata(role) {
   const identifier = normalizeRoleIdentifier(role);
   const metadata = {
     isEveryone: identifier === EVERYONE_ROLE_SNOWFLAKE,
+    isUser: identifier === USER_ROLE_SNOWFLAKE,
     isAdministrator: identifier === ADMINISTRATOR_ROLE_SNOWFLAKE,
   };
   if (
     role.isEveryone === metadata.isEveryone &&
+    role.isUser === metadata.isUser &&
     role.isAdministrator === metadata.isAdministrator
   ) {
     return role;
