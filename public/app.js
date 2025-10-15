@@ -77,14 +77,18 @@
     }
   });
 
-  const mq = window.matchMedia("(min-width: 1025px)");
-  if (mq.addEventListener) {
+  let mq = null;
+  if (typeof window.matchMedia === "function") {
+    mq = window.matchMedia("(min-width: 1025px)");
+  }
+
+  if (mq?.addEventListener) {
     mq.addEventListener("change", (event) => {
       if (event.matches) {
         closeDrawer();
       }
     });
-  } else if (mq.addListener) {
+  } else if (mq?.addListener) {
     // Safari < 14
     mq.addListener((event) => {
       if (event.matches) {
@@ -999,8 +1003,12 @@ function initAmbientBackdrop() {
     return;
   }
 
+  if (typeof window.matchMedia !== "function") {
+    return;
+  }
+
   const motionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-  if (motionQuery.matches) {
+  if (!motionQuery || motionQuery.matches) {
     return;
   }
 
