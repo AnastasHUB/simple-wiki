@@ -1905,6 +1905,12 @@ input[type="radio"] {
   color: rgba(255, 255, 255, 0.4);
 }
 
+.visual-block-separator {
+  border: 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.24);
+  margin: 0.5rem 0 0;
+}
+
 .visual-editor-footer {
   display: flex;
   flex-wrap: wrap;
@@ -1946,6 +1952,56 @@ input[type="radio"] {
   font-size: 0.85rem;
   color: var(--color-text-muted);
   margin: 0;
+}
+
+.visual-block-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.visual-task-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.visual-task-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.visual-task-item input[type="checkbox"] {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+
+.visual-task-remove,
+.visual-task-add {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: var(--radius-small);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-text);
+  font-size: 0.85rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.visual-task-remove:hover,
+.visual-task-remove:focus-visible,
+.visual-task-add:hover,
+.visual-task-add:focus-visible {
+  background: rgba(255, 255, 255, 0.18);
+  border-color: var(--color-border);
+  outline: none;
+}
+
+.visual-task-add {
+  margin-top: 0.25rem;
+  align-self: flex-start;
 }
 
 .markdown-toolbar {

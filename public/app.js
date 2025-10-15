@@ -1596,10 +1596,73 @@ function initMarkdownEditor() {
       .replace(/\n{3,}/g, "\n\n");
   }
 
+  const CALL_OUT_VARIANTS = ["info", "warning", "success"];
+  const CALL_OUT_FALLBACK_TITLES = {
+    info: "Information",
+    warning: "Avertissement",
+    success: "Succès",
+  };
+
+  function toTaskItemObject(value) {
+    if (value && typeof value === "object") {
+      return {
+        text:
+          typeof value.text === "string"
+            ? value.text
+            : String(value.text || ""),
+        checked: Boolean(value.checked),
+      };
+    }
+    const match = String(value || "").match(/^\[(x|X| )]\s*(.*)$/);
+    return {
+      text: match ? match[2] || "" : String(value || ""),
+      checked: match ? /x/i.test(match[1]) : false,
+    };
+  }
+
+  function normalizeTaskItems(items) {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    return items
+      .map((item) => toTaskItemObject(item))
+      .map((item) => ({
+        text: item.text.trim(),
+        checked: item.checked,
+      }))
+      .filter((item) => item.text || item.checked);
+  }
+
+  function normalizeListItems(items) {
+    if (!Array.isArray(items)) {
+      return [];
+    }
+    return items
+      .map((item) => {
+        if (item && typeof item === "object") {
+          return String(item.text || "").trim();
+        }
+        return String(item || "").trim();
+      })
+      .filter(Boolean);
+  }
+
+  function resolveCalloutVariant(value) {
+    if (typeof value === "string") {
+      const lowered = value.toLowerCase();
+      if (CALL_OUT_VARIANTS.includes(lowered)) {
+        return lowered;
+      }
+    }
+    return "info";
+  }
+
   function createBlock(type, payload = {}) {
     switch (type) {
+      case "heading-1":
       case "heading-2":
       case "heading-3":
+      case "heading-4":
       case "paragraph":
         return {
           id: nextBlockId(),
@@ -1613,15 +1676,30 @@ function initMarkdownEditor() {
           text: typeof payload.text === "string" ? payload.text : "",
         };
       case "list": {
-        const items = Array.isArray(payload.items)
-          ? payload.items.map((item) => String(item || "").trim())
-          : [];
-        const style = payload.style === "ordered" ? "ordered" : "unordered";
+        const style =
+          payload.style === "ordered"
+            ? "ordered"
+            : payload.style === "task"
+              ? "task"
+              : "unordered";
+        const items =
+          style === "task"
+            ? normalizeTaskItems(payload.items)
+            : normalizeListItems(payload.items);
         return {
           id: nextBlockId(),
           type,
           items,
           style,
+        };
+      }
+      case "task-list": {
+        const items = normalizeTaskItems(payload.items);
+        return {
+          id: nextBlockId(),
+          type: "list",
+          items,
+          style: "task",
         };
       }
       case "image":
@@ -1639,6 +1717,62 @@ function initMarkdownEditor() {
           code: typeof payload.code === "string" ? payload.code : "",
           language:
             typeof payload.language === "string" ? payload.language : "",
+        };
+      case "math":
+        return {
+          id: nextBlockId(),
+          type,
+          formula:
+            typeof payload.formula === "string" && payload.formula
+              ? payload.formula
+              : "c^2 = a^2 + b^2",
+        };
+      case "mermaid":
+        return {
+          id: nextBlockId(),
+          type,
+          code:
+            typeof payload.code === "string" && payload.code
+              ? payload.code
+              : "graph TD;\n  A --> B;",
+        };
+      case "table":
+        return {
+          id: nextBlockId(),
+          type,
+          content:
+            typeof payload.content === "string" && payload.content
+              ? payload.content
+              : "| Colonne 1 | Colonne 2 |\n| --- | --- |\n| Valeur 1 | Valeur 2 |",
+        };
+      case "spoiler":
+      case "details":
+        return {
+          id: nextBlockId(),
+          type,
+          title: typeof payload.title === "string" ? payload.title : "",
+          body: typeof payload.body === "string" ? payload.body : "",
+        };
+      case "callout":
+      case "callout-info":
+      case "callout-warning":
+      case "callout-success": {
+        const variant =
+          type === "callout"
+            ? resolveCalloutVariant(payload.variant)
+            : resolveCalloutVariant(type.replace("callout-", ""));
+        return {
+          id: nextBlockId(),
+          type: "callout",
+          variant,
+          title: typeof payload.title === "string" ? payload.title : "",
+          body: typeof payload.body === "string" ? payload.body : "",
+        };
+      }
+      case "separator":
+        return {
+          id: nextBlockId(),
+          type,
         };
       default:
         return null;
@@ -1661,6 +1795,11 @@ function initMarkdownEditor() {
       }
       let output = "";
       switch (block.type) {
+        case "heading-1":
+          if (block.text && block.text.trim()) {
+            output = `# ${block.text.trim()}`;
+          }
+          break;
         case "heading-2":
           if (block.text && block.text.trim()) {
             output = `## ${block.text.trim()}`;
@@ -1669,6 +1808,11 @@ function initMarkdownEditor() {
         case "heading-3":
           if (block.text && block.text.trim()) {
             output = `### ${block.text.trim()}`;
+          }
+          break;
+        case "heading-4":
+          if (block.text && block.text.trim()) {
+            output = `#### ${block.text.trim()}`;
           }
           break;
         case "paragraph":
@@ -1690,6 +1834,28 @@ function initMarkdownEditor() {
               output = block.items
                 .map((item, index) => `${index + 1}. ${item}`)
                 .join("\n");
+            } else if (block.style === "task") {
+              const lines = [];
+              block.items.forEach((item) => {
+                if (item && typeof item === "object") {
+                  const text = String(item.text || "").trim();
+                  if (!text) {
+                    return;
+                  }
+                  const checked = item.checked ? "x" : " ";
+                  lines.push(`- [${checked}] ${text}`.trimEnd());
+                  return;
+                }
+                const match = String(item || "").match(/^(\[(?: |x|X)\]\s+)?(.*)$/);
+                const content = match ? match[2] : String(item || "");
+                const normalized = String(content || "").trim();
+                if (!normalized) {
+                  return;
+                }
+                const checked = match && match[1] && /x/i.test(match[1]) ? "x" : " ";
+                lines.push(`- [${checked}] ${normalized}`.trimEnd());
+              });
+              output = lines.join("\n");
             } else {
               output = block.items.map((item) => `- ${item}`).join("\n");
             }
@@ -1709,6 +1875,59 @@ function initMarkdownEditor() {
             const lang = block.language ? ` ${block.language.trim()}` : "";
             output = `\`\`\`${lang}\n${block.code}\n\`\`\``;
           }
+          break;
+        case "math":
+          if (block.formula && block.formula.trim()) {
+            output = `$$\n${block.formula.trim()}\n$$`;
+          }
+          break;
+        case "mermaid":
+          if (block.code && block.code.trim()) {
+            output = `\`\`\`mermaid\n${block.code}\n\`\`\``;
+          }
+          break;
+        case "table":
+          if (block.content && block.content.trim()) {
+            output = block.content.trim();
+          }
+          break;
+        case "spoiler": {
+          const title = block.title && block.title.trim() ? block.title.trim() : "Titre du spoiler";
+          const body = block.body ? block.body.trimEnd() : "";
+          const lines = [`::: spoiler ${title}`.trimEnd()];
+          if (body) {
+            lines.push(body);
+          }
+          lines.push(":::");
+          output = lines.join("\n");
+          break;
+        }
+        case "details": {
+          const title = block.title && block.title.trim() ? block.title.trim() : "Titre du bloc";
+          const body = block.body ? block.body.trimEnd() : "";
+          const lines = [`::: details ${title}`.trimEnd()];
+          if (body) {
+            lines.push(body);
+          }
+          lines.push(":::");
+          output = lines.join("\n");
+          break;
+        }
+        case "callout": {
+          const variant = resolveCalloutVariant(block.variant);
+          const fallbackTitle = CALL_OUT_FALLBACK_TITLES[variant] || "Information";
+          const title = block.title && block.title.trim() ? block.title.trim() : fallbackTitle;
+          const body = block.body ? block.body.trimEnd() : "";
+          const lines = [`::: ${variant} ${title}`.trimEnd()];
+          if (body) {
+            lines.push(body);
+          }
+          lines.push(":::");
+          output = lines.join("\n");
+          break;
+        }
+        case "separator":
+          output = "---";
           break;
         default:
           break;
@@ -1738,20 +1957,87 @@ function initMarkdownEditor() {
         const info = trimmed.slice(3).trim();
         const buffer = [];
         index += 1;
-        while (index < lines.length && !lines[index].startsWith("```") ) {
+        while (index < lines.length && !lines[index].startsWith("```")) {
           buffer.push(lines[index]);
           index += 1;
         }
         if (index < lines.length && lines[index].startsWith("```")) {
           index += 1;
         }
-        const block = createBlock("code", {
-          code: buffer.join("\n"),
-          language: info,
+        const content = buffer.join("\n");
+        const block = /^mermaid\b/i.test(info)
+          ? createBlock("mermaid", { code: content })
+          : createBlock("code", {
+              code: content,
+              language: info,
+            });
+        if (block) {
+          blocks.push(block);
+        }
+        continue;
+      }
+      if (trimmed === "$$") {
+        const buffer = [];
+        index += 1;
+        while (index < lines.length && lines[index].trim() !== "$$") {
+          buffer.push(lines[index]);
+          index += 1;
+        }
+        if (index < lines.length && lines[index].trim() === "$$") {
+          index += 1;
+        }
+        const block = createBlock("math", {
+          formula: buffer.join("\n").trimEnd(),
         });
         if (block) {
           blocks.push(block);
         }
+        continue;
+      }
+      const containerMatch = trimmed.match(/^:::\s*([a-z-]+)(?:\s+(.*))?$/i);
+      if (containerMatch) {
+        const kind = containerMatch[1].toLowerCase();
+        const titleText = containerMatch[2] ? containerMatch[2].trim() : "";
+        const bodyLines = [];
+        index += 1;
+        while (index < lines.length && !/^:::\s*$/i.test(lines[index].trim())) {
+          bodyLines.push(lines[index]);
+          index += 1;
+        }
+        if (index < lines.length && /^:::\s*$/i.test(lines[index].trim())) {
+          index += 1;
+        }
+        const body = bodyLines.join("\n").trimEnd();
+        if (["spoiler", "details"].includes(kind)) {
+          const block = createBlock(kind, {
+            title: titleText,
+            body,
+          });
+          if (block) {
+            blocks.push(block);
+          }
+          continue;
+        }
+        if (CALL_OUT_VARIANTS.includes(kind)) {
+          const block = createBlock("callout", {
+            variant: kind,
+            title: titleText,
+            body,
+          });
+          if (block) {
+            blocks.push(block);
+          }
+          continue;
+        }
+      }
+      if (/^####\s+/.test(trimmed)) {
+        const block = createBlock("heading-4", {
+          text: trimmed.replace(/^####\s+/, ""),
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        index += 1;
         continue;
       }
       if (/^###\s+/.test(trimmed)) {
@@ -1774,6 +2060,24 @@ function initMarkdownEditor() {
         index += 1;
         continue;
       }
+      if (/^#\s+/.test(trimmed)) {
+        const block = createBlock("heading-1", {
+          text: trimmed.replace(/^#\s+/, ""),
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        index += 1;
+        continue;
+      }
+      if (/^(?:-{3,}|\*{3,})$/.test(trimmed)) {
+        const block = createBlock("separator");
+        if (block) {
+          blocks.push(block);
+        }
+        index += 1;
+        continue;
+      }
       if (/^>\s?/.test(trimmed)) {
         const buffer = [];
         while (index < lines.length && /^>\s?/.test(lines[index])) {
@@ -1782,6 +2086,28 @@ function initMarkdownEditor() {
         }
         const block = createBlock("quote", {
           text: buffer.join("\n").trimEnd(),
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        continue;
+      }
+      if (/^[-*+]\s+\[(?: |x|X)\]\s+/.test(trimmed)) {
+        const items = [];
+        while (
+          index < lines.length &&
+          /^[-*+]\s+\[(?: |x|X)\]\s+/.test(lines[index].trim())
+        ) {
+          const taskLine = lines[index].trim();
+          const match = taskLine.match(/^[-*+]\s+\[( |x|X)\]\s+(.*)$/);
+          items.push({
+            text: match ? match[2] : taskLine.replace(/^[-*+]\s+\[(?: |x|X)\]\s+/, ""),
+            checked: match ? /x/i.test(match[1]) : false,
+          });
+          index += 1;
+        }
+        const block = createBlock("task-list", {
+          items,
         });
         if (block) {
           blocks.push(block);
@@ -1830,6 +2156,31 @@ function initMarkdownEditor() {
         index += 1;
         continue;
       }
+      if (/^\s*\|.+\|\s*$/.test(lines[index] || "")) {
+        const tableLines = [lines[index]];
+        const nextLine = lines[index + 1] ? lines[index + 1].trim() : "";
+        const alignmentPattern = /^\s*\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?\s*$/;
+        if (alignmentPattern.test(nextLine)) {
+          index += 1;
+          tableLines.push(lines[index]);
+          index += 1;
+          while (
+            index < lines.length &&
+            (lines[index] || "").includes("|") &&
+            lines[index].trim()
+          ) {
+            tableLines.push(lines[index]);
+            index += 1;
+          }
+          const block = createBlock("table", {
+            content: tableLines.join("\n").trimEnd(),
+          });
+          if (block) {
+            blocks.push(block);
+          }
+          continue;
+        }
+      }
       const paragraphBuffer = [];
       while (index < lines.length && lines[index].trim()) {
         paragraphBuffer.push(lines[index]);
@@ -1865,23 +2216,66 @@ function initMarkdownEditor() {
     const label = document.createElement("span");
     label.className = "visual-block-label";
     switch (block.type) {
+      case "heading-1":
+        label.textContent = "Titre (H1)";
+        break;
       case "heading-2":
         label.textContent = "Titre (H2)";
         break;
       case "heading-3":
         label.textContent = "Sous-titre (H3)";
         break;
+      case "heading-4":
+        label.textContent = "Sous-titre (H4)";
+        break;
       case "quote":
         label.textContent = "Citation";
         break;
       case "list":
-        label.textContent = "Liste";
+        if (block.style === "ordered") {
+          label.textContent = "Liste numérotée";
+        } else if (block.style === "task") {
+          label.textContent = "Liste de tâches";
+        } else {
+          label.textContent = "Liste à puces";
+        }
         break;
       case "image":
         label.textContent = "Image";
         break;
       case "code":
         label.textContent = "Bloc de code";
+        break;
+      case "math":
+        label.textContent = "Formule KaTeX";
+        break;
+      case "mermaid":
+        label.textContent = "Diagramme Mermaid";
+        break;
+      case "table":
+        label.textContent = "Tableau";
+        break;
+      case "callout":
+        switch (resolveCalloutVariant(block.variant)) {
+          case "warning":
+            label.textContent = "Bloc d'avertissement";
+            break;
+          case "success":
+            label.textContent = "Bloc de réussite";
+            break;
+          default:
+            label.textContent = "Bloc informatif";
+            break;
+        }
+        break;
+      case "details":
+        label.textContent = "Bloc détaillé";
+        break;
+      case "spoiler":
+        label.textContent = "Bloc spoiler";
+        break;
+      case "separator":
+        label.textContent = "Séparateur";
         break;
       default:
         label.textContent = "Paragraphe";
@@ -1931,17 +2325,117 @@ function initMarkdownEditor() {
 
   function buildListBlock(block) {
     const fragment = document.createDocumentFragment();
-    const textarea = document.createElement("textarea");
-    textarea.placeholder = "Un élément par ligne";
-    textarea.value = (block.items || []).join("\n");
-    textarea.addEventListener("input", () => {
-      const items = textarea.value
-        .split(/\r?\n/)
-        .map((item) => item.trim())
-        .filter(Boolean);
-      updateBlock(block.id, { items });
-    });
-    fragment.appendChild(textarea);
+    const currentStyle =
+      block.style === "ordered"
+        ? "ordered"
+        : block.style === "task"
+          ? "task"
+          : "unordered";
+
+    if (currentStyle === "task") {
+      const readCurrentTasks = () =>
+        Array.isArray(block.items)
+          ? block.items.map((item) => toTaskItemObject(item))
+          : [];
+      const tasks = readCurrentTasks();
+      const items = tasks.length ? tasks : [{ text: "", checked: false }];
+
+      const listContainer = document.createElement("div");
+      listContainer.className = "visual-task-list";
+
+      const applyTaskUpdates = (index, updates) => {
+        const nextItems = readCurrentTasks();
+        while (nextItems.length < index + 1) {
+          nextItems.push({ text: "", checked: false });
+        }
+        const current = nextItems[index] || { text: "", checked: false };
+        nextItems[index] = {
+          text:
+            typeof updates.text === "string"
+              ? updates.text
+              : current.text,
+          checked:
+            typeof updates.checked === "boolean"
+              ? updates.checked
+              : current.checked,
+        };
+        updateBlock(block.id, { items: nextItems, style: "task" });
+      };
+
+      const removeTask = (index) => {
+        const nextItems = readCurrentTasks();
+        nextItems.splice(index, 1);
+        updateBlock(block.id, { items: nextItems, style: "task" });
+      };
+
+      items.forEach((item, index) => {
+        const row = document.createElement("div");
+        row.className = "visual-task-item";
+
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.checked = Boolean(item.checked);
+        checkbox.addEventListener("change", () => {
+          applyTaskUpdates(index, { checked: checkbox.checked });
+        });
+        row.appendChild(checkbox);
+
+        const textField = document.createElement("input");
+        textField.type = "text";
+        textField.placeholder = "Nouvelle tâche";
+        textField.value = item.text || "";
+        textField.addEventListener("input", () => {
+          applyTaskUpdates(index, { text: textField.value });
+        });
+        row.appendChild(textField);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.type = "button";
+        removeBtn.className = "visual-task-remove";
+        removeBtn.textContent = "Retirer";
+        removeBtn.addEventListener("click", (event) => {
+          event.preventDefault();
+          removeTask(index);
+        });
+        row.appendChild(removeBtn);
+
+        listContainer.appendChild(row);
+      });
+
+      fragment.appendChild(listContainer);
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "visual-task-add";
+      addBtn.textContent = "Ajouter une tâche";
+      addBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        const nextItems = readCurrentTasks();
+        nextItems.push({ text: "", checked: false });
+        updateBlock(block.id, { items: nextItems, style: "task" });
+      });
+      fragment.appendChild(addBtn);
+    } else {
+      const textarea = document.createElement("textarea");
+      textarea.placeholder =
+        currentStyle === "ordered"
+          ? "Un élément par ligne (numérotation automatique)"
+          : "Un élément par ligne";
+      const values = Array.isArray(block.items)
+        ? block.items.map((item) =>
+            typeof item === "string" ? item : String(item?.text || ""),
+          )
+        : [];
+      textarea.value = values.join("\n");
+      textarea.addEventListener("input", () => {
+        const items = textarea.value
+          .split(/\r?\n/)
+          .map((item) => item.trim())
+          .filter(Boolean);
+        updateBlock(block.id, { items, style: currentStyle });
+      });
+      fragment.appendChild(textarea);
+    }
 
     const meta = document.createElement("div");
     meta.className = "visual-block-meta";
@@ -1952,12 +2446,36 @@ function initMarkdownEditor() {
     const orderedOption = document.createElement("option");
     orderedOption.value = "ordered";
     orderedOption.textContent = "Numérotation";
+    const taskOption = document.createElement("option");
+    taskOption.value = "task";
+    taskOption.textContent = "Liste de tâches";
     select.appendChild(unorderedOption);
     select.appendChild(orderedOption);
-    select.value = block.style === "ordered" ? "ordered" : "unordered";
+    select.appendChild(taskOption);
+    select.value = currentStyle;
     select.addEventListener("change", () => {
+      if (select.value === "task") {
+        const nextItems = Array.isArray(block.items)
+          ? block.items.map((item) => toTaskItemObject(item))
+          : [];
+        if (!nextItems.length) {
+          nextItems.push({ text: "", checked: false });
+        }
+        updateBlock(block.id, { style: "task", items: nextItems });
+        return;
+      }
+      const normalizedItems = Array.isArray(block.items)
+        ? block.items
+            .map((item) =>
+              typeof item === "string"
+                ? item.trim()
+                : String(item?.text || "").trim(),
+            )
+            .filter(Boolean)
+        : [];
       updateBlock(block.id, {
         style: select.value === "ordered" ? "ordered" : "unordered",
+        items: normalizedItems,
       });
     });
     meta.appendChild(select);
@@ -1965,8 +2483,148 @@ function initMarkdownEditor() {
 
     const note = document.createElement("p");
     note.className = "visual-block-note";
+    if (currentStyle === "ordered") {
+      note.textContent =
+        "Les numéros sont générés automatiquement à la publication.";
+    } else if (currentStyle === "task") {
+      note.textContent =
+        "Ajoutez des tâches, cochez celles terminées et réorganisez au besoin.";
+    } else {
+      note.textContent =
+        "Ajoutez chaque élément sur une nouvelle ligne pour créer une liste à puces.";
+    }
+    fragment.appendChild(note);
+
+    return fragment;
+  }
+
+  function buildCalloutBlock(block) {
+    const container = document.createElement("div");
+    container.className = "visual-block-stack";
+
+    const meta = document.createElement("div");
+    meta.className = "visual-block-meta";
+    const select = document.createElement("select");
+    const infoOption = document.createElement("option");
+    infoOption.value = "info";
+    infoOption.textContent = "Bloc informatif";
+    const warningOption = document.createElement("option");
+    warningOption.value = "warning";
+    warningOption.textContent = "Bloc d'avertissement";
+    const successOption = document.createElement("option");
+    successOption.value = "success";
+    successOption.textContent = "Bloc de réussite";
+    select.appendChild(infoOption);
+    select.appendChild(warningOption);
+    select.appendChild(successOption);
+    select.value = resolveCalloutVariant(block.variant);
+    select.addEventListener("change", () => {
+      updateBlock(block.id, { variant: resolveCalloutVariant(select.value) });
+    });
+    meta.appendChild(select);
+    container.appendChild(meta);
+
+    const titleField = document.createElement("input");
+    titleField.type = "text";
+    titleField.placeholder = "Titre du bloc";
+    titleField.value = block.title || "";
+    titleField.addEventListener("input", () => {
+      updateBlock(block.id, { title: titleField.value });
+    });
+    container.appendChild(titleField);
+
+    const bodyField = document.createElement("textarea");
+    bodyField.placeholder = "Contenu du bloc";
+    bodyField.value = block.body || "";
+    bodyField.addEventListener("input", () => {
+      updateBlock(block.id, { body: bodyField.value });
+    });
+    container.appendChild(bodyField);
+
+    const note = document.createElement("p");
+    note.className = "visual-block-note";
     note.textContent =
-      "Ajoutez un élément par ligne. Le style choisit entre puces et numérotation.";
+      "Le rendu final mettra en avant ce bloc avec un style adapté.";
+    container.appendChild(note);
+
+    return container;
+  }
+
+  function buildDisclosureBlock(block, { titlePlaceholder, bodyPlaceholder }) {
+    const container = document.createElement("div");
+    container.className = "visual-block-stack";
+
+    const titleField = document.createElement("input");
+    titleField.type = "text";
+    titleField.placeholder = titlePlaceholder;
+    titleField.value = block.title || "";
+    titleField.addEventListener("input", () => {
+      updateBlock(block.id, { title: titleField.value });
+    });
+    container.appendChild(titleField);
+
+    const bodyField = document.createElement("textarea");
+    bodyField.placeholder = bodyPlaceholder;
+    bodyField.value = block.body || "";
+    bodyField.addEventListener("input", () => {
+      updateBlock(block.id, { body: bodyField.value });
+    });
+    container.appendChild(bodyField);
+
+    return container;
+  }
+
+  function buildMathBlock(block) {
+    const fragment = document.createDocumentFragment();
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Formule KaTeX";
+    textarea.value = block.formula || "";
+    textarea.addEventListener("input", () => {
+      updateBlock(block.id, { formula: textarea.value });
+    });
+    fragment.appendChild(textarea);
+
+    const note = document.createElement("p");
+    note.className = "visual-block-note";
+    note.textContent = "Utilisez la syntaxe KaTeX (ex : c^2 = a^2 + b^2).";
+    fragment.appendChild(note);
+
+    return fragment;
+  }
+
+  function buildMermaidBlock(block) {
+    const fragment = document.createDocumentFragment();
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Diagramme Mermaid";
+    textarea.value = block.code || "";
+    textarea.addEventListener("input", () => {
+      updateBlock(block.id, { code: textarea.value });
+    });
+    fragment.appendChild(textarea);
+
+    const note = document.createElement("p");
+    note.className = "visual-block-note";
+    note.textContent =
+      "Définissez vos diagrammes Mermaid (ex : graph TD; A --> B;).";
+    fragment.appendChild(note);
+
+    return fragment;
+  }
+
+  function buildTableBlock(block) {
+    const fragment = document.createDocumentFragment();
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Tableau en Markdown";
+    textarea.value = block.content || "";
+    textarea.addEventListener("input", () => {
+      updateBlock(block.id, { content: textarea.value });
+    });
+    fragment.appendChild(textarea);
+
+    const note = document.createElement("p");
+    note.className = "visual-block-note";
+    note.textContent =
+      "Utilisez les séparateurs | et la deuxième ligne --- pour aligner vos colonnes.";
     fragment.appendChild(note);
 
     return fragment;
@@ -2042,6 +2700,11 @@ function initMarkdownEditor() {
     element.appendChild(toolbar);
 
     switch (block.type) {
+      case "heading-1":
+        element.appendChild(
+          buildContentEditableBlock(block, "Titre principal"),
+        );
+        break;
       case "heading-2":
         element.appendChild(
           buildContentEditableBlock(block, "Titre de section"),
@@ -2050,6 +2713,11 @@ function initMarkdownEditor() {
       case "heading-3":
         element.appendChild(
           buildContentEditableBlock(block, "Sous-titre"),
+        );
+        break;
+      case "heading-4":
+        element.appendChild(
+          buildContentEditableBlock(block, "Titre de niveau 4"),
         );
         break;
       case "quote":
@@ -2065,6 +2733,41 @@ function initMarkdownEditor() {
         break;
       case "code":
         element.appendChild(buildCodeBlock(block));
+        break;
+      case "math":
+        element.appendChild(buildMathBlock(block));
+        break;
+      case "mermaid":
+        element.appendChild(buildMermaidBlock(block));
+        break;
+      case "table":
+        element.appendChild(buildTableBlock(block));
+        break;
+      case "separator": {
+        const divider = document.createElement("hr");
+        divider.className = "visual-block-separator";
+        divider.setAttribute("aria-hidden", "true");
+        element.appendChild(divider);
+        break;
+      }
+      case "callout":
+        element.appendChild(buildCalloutBlock(block));
+        break;
+      case "details":
+        element.appendChild(
+          buildDisclosureBlock(block, {
+            titlePlaceholder: "Titre du bloc détaillé",
+            bodyPlaceholder: "Contenu détaillé",
+          }),
+        );
+        break;
+      case "spoiler":
+        element.appendChild(
+          buildDisclosureBlock(block, {
+            titlePlaceholder: "Titre du spoiler",
+            bodyPlaceholder: "Contenu masqué",
+          }),
+        );
         break;
       default:
         element.appendChild(
