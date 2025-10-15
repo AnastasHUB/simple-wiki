@@ -157,6 +157,18 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(page_id, ip)
   );
+  CREATE TABLE IF NOT EXISTS page_reactions(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    reaction_key TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(page_id, reaction_key, ip)
+  );
+  CREATE INDEX IF NOT EXISTS idx_page_reactions_page ON page_reactions(page_id);
+  CREATE INDEX IF NOT EXISTS idx_page_reactions_lookup
+    ON page_reactions(page_id, reaction_key);
   CREATE TABLE IF NOT EXISTS comments(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
@@ -172,6 +184,17 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   CREATE INDEX IF NOT EXISTS idx_comments_page_status
     ON comments(page_id, status);
+  CREATE TABLE IF NOT EXISTS comment_reactions(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    comment_snowflake_id TEXT NOT NULL REFERENCES comments(snowflake_id) ON DELETE CASCADE,
+    reaction_key TEXT NOT NULL,
+    ip TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(comment_snowflake_id, reaction_key, ip)
+  );
+  CREATE INDEX IF NOT EXISTS idx_comment_reactions_lookup
+    ON comment_reactions(comment_snowflake_id, reaction_key);
   CREATE TABLE IF NOT EXISTS page_submissions(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -502,7 +525,9 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureSnowflake("tags");
   await ensureSnowflake("page_tags");
   await ensureSnowflake("likes");
+  await ensureSnowflake("page_reactions");
   await ensureSnowflake("comments");
+  await ensureSnowflake("comment_reactions");
   await ensureSnowflake("page_submissions");
   await ensureSnowflake("ip_bans");
   await ensureSnowflake("ban_appeals");
