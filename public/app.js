@@ -212,6 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initNotifications();
   enhanceIconButtons();
   initLikeForms();
+  initReactionForms();
   initMarkdownEditor();
   initCodeHighlighting();
   initSearchFilters();
@@ -452,6 +453,25 @@ function initLikeForms() {
     form.addEventListener("submit", (event) => {
       event.preventDefault();
       handleLikeSubmit(event, form);
+    });
+  });
+}
+
+function initReactionForms() {
+  const forms = document.querySelectorAll("form[data-reaction-form]");
+  if (!forms.length) {
+    return;
+  }
+
+  forms.forEach((form) => {
+    if (form.dataset.reactionBound === "true") {
+      return;
+    }
+
+    form.dataset.reactionBound = "true";
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      handleReactionSubmit(event, form);
     });
   });
 }
@@ -1161,6 +1181,82 @@ async function handleLikeSubmit(event, form) {
   }
 }
 
+async function handleReactionSubmit(event, form) {
+  const submitter = event.submitter || form.querySelector("[data-reaction-option]");
+  if (submitter) {
+    submitter.disabled = true;
+    submitter.classList.add("is-loading");
+  }
+
+  try {
+    const formData = new FormData(form);
+    const reactionKey = submitter?.getAttribute("data-reaction-key");
+    if (submitter?.name) {
+      formData.set(submitter.name, submitter.value);
+    } else if (reactionKey) {
+      formData.set("reaction", reactionKey);
+    }
+
+    const response = await fetch(form.action, {
+      method: "POST",
+      headers: applyCsrfHeader({
+        "X-Requested-With": "XMLHttpRequest",
+        Accept: "application/json",
+      }),
+      body: formData,
+    });
+
+    const contentType = response.headers.get("content-type") || "";
+    const expectJson = contentType.includes("application/json");
+    const data = expectJson ? await response.json() : null;
+
+    if (!response.ok || data?.ok === false) {
+      const message = data?.message || "Impossible de mettre à jour la réaction.";
+      const error = new Error(message);
+      if (Array.isArray(data?.notifications) && data.notifications.length) {
+        error.notifications = data.notifications;
+      }
+      if (data?.redirect) {
+        error.redirect = data.redirect;
+      }
+      throw error;
+    }
+
+    if (!data || !Array.isArray(data.reactions)) {
+      if (!expectJson) {
+        window.location.reload();
+        return;
+      }
+      throw new Error("Réponse inattendue du serveur.");
+    }
+
+    updateReactionUi(data);
+    notifyClient(data.notifications);
+  } catch (err) {
+    const notifications =
+      Array.isArray(err.notifications) && err.notifications.length
+        ? err.notifications
+        : [
+            {
+              type: "error",
+              message: err.message || "Une erreur est survenue.",
+              timeout: 4000,
+            },
+          ];
+    notifyClient(notifications);
+    if (err.redirect) {
+      setTimeout(() => {
+        window.location.href = err.redirect;
+      }, 150);
+    }
+  } finally {
+    if (submitter) {
+      submitter.disabled = false;
+      submitter.classList.remove("is-loading");
+    }
+  }
+}
+
 function notifyClient(notifications) {
   if (!Array.isArray(notifications) || notifications.length === 0) {
     return;
@@ -1227,6 +1323,54 @@ function updateLikeUi(slug, state) {
         enhanceIconButtons();
       }
     });
+}
+
+function updateReactionUi(state) {
+  if (!state || !Array.isArray(state.reactions) || !state.target) {
+    return;
+  }
+
+  const targetType = state.target;
+  const identifier =
+    targetType === "comment" ? state.commentId || state.comment || "" : state.slug || "";
+  if (!identifier) {
+    return;
+  }
+
+  const selector =
+    targetType === "comment"
+      ? `form[data-reaction-form][data-reaction-target="comment"][data-comment-id="${CSS.escape(identifier)}"]`
+      : `form[data-reaction-form][data-reaction-target="page"][data-reaction-slug="${CSS.escape(identifier)}"]`;
+
+  const forms = document.querySelectorAll(selector);
+  if (!forms.length) {
+    return;
+  }
+
+  const reactionMap = new Map();
+  state.reactions.forEach((reaction) => {
+    const key = reaction?.key || reaction?.id;
+    if (typeof key === "string") {
+      reactionMap.set(key, reaction);
+    }
+  });
+
+  forms.forEach((form) => {
+    form.querySelectorAll("[data-reaction-option]").forEach((button) => {
+      const key = button.getAttribute("data-reaction-key");
+      const reactionState = key ? reactionMap.get(key) : null;
+      const count = Number.isFinite(reactionState?.count)
+        ? Number(reactionState.count)
+        : 0;
+      const reacted = Boolean(reactionState?.reacted);
+      const countElement = button.querySelector("[data-reaction-count]");
+      if (countElement) {
+        countElement.textContent = count;
+      }
+      button.classList.toggle("is-active", reacted);
+      button.setAttribute("aria-pressed", reacted ? "true" : "false");
+    });
+  });
 }
 
 function getNotificationIcon(type) {

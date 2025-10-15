@@ -80,6 +80,10 @@ Environment variables customize behavior. Only `SESSION_SECRET` is strongly reco
 
 Refer to [`utils/config.js`](./utils/config.js), [`utils/sessionSecrets.js`](./utils/sessionSecrets.js), and [`utils/ipProfiles.js`](./utils/ipProfiles.js) for full details. 【F:utils/config.js†L1-L45】【F:utils/sessionSecrets.js†L1-L120】【F:utils/ipProfiles.js†L1-L37】
 
+### Custom reactions
+
+Reader reactions for pages and comments are configurable through [`config/reactions.json`](./config/reactions.json). Each entry should define a unique `id`, a human-friendly `label`, and either an `emoji` or an `imageUrl` for custom artwork. The application sanitizes identifiers automatically and falls back to a built-in five-reaction set when the file is missing or invalid. Update the JSON file and restart the server to publish a new palette. 【F:config/reactions.json†L1-L17】【F:utils/reactionConfig.js†L1-L83】
+
 ## NPM Scripts
 
 | Command | Description |
