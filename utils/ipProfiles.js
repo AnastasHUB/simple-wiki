@@ -19,6 +19,11 @@ export const IP_REPUTATION_REFRESH_INTERVAL_MS = Number.isFinite(
 // ipapi.is fournit une API gratuite et sans quota pour détecter VPN/Proxy/Tor.
 const IP_REPUTATION_ENDPOINT =
   process.env.IP_REPUTATION_ENDPOINT || "https://api.ipapi.is";
+const STOP_FORUM_SPAM_ENDPOINT =
+  process.env.STOP_FORUM_SPAM_ENDPOINT ||
+  "https://api.stopforumspam.com/api";
+const IP_GEOLOCATION_ENDPOINT =
+  process.env.IP_GEOLOCATION_ENDPOINT || "https://ipwho.is";
 const DEFAULT_TIMEOUT_MS = 8000;
 const configuredTimeout =
   process.env.IP_REPUTATION_TIMEOUT_MS !== undefined
@@ -52,13 +57,36 @@ function normalizeIp(input) {
   return input.trim();
 }
 
+function normalizeReputationSources(data = {}) {
+  if (
+    data &&
+    typeof data === "object" &&
+    ("ipapi" in data || "stopForumSpam" in data || "ipwhois" in data)
+  ) {
+    return {
+      ipapi: data.ipapi || null,
+      stopForumSpam: data.stopForumSpam || null,
+      ipwhois: data.ipwhois || null,
+      errors: Array.isArray(data.errors) ? data.errors : [],
+    };
+  }
+  return { ipapi: data || null, stopForumSpam: null, ipwhois: null, errors: [] };
+}
+
 function computeReputationFlags(data = {}) {
+  const sources = normalizeReputationSources(data);
+  const ipapi = sources.ipapi || {};
+  const stopForumSpam = sources.stopForumSpam || {};
+
+  const isAbuserFromStopForumSpam = Boolean(stopForumSpam.appears);
+  const isAbuserFromIpapi = Boolean(ipapi?.is_abuser);
+
   return {
-    isVpn: Boolean(data?.is_vpn),
-    isProxy: Boolean(data?.is_proxy),
-    isTor: Boolean(data?.is_tor),
-    isDatacenter: Boolean(data?.is_datacenter),
-    isAbuser: Boolean(data?.is_abuser),
+    isVpn: Boolean(ipapi?.is_vpn),
+    isProxy: Boolean(ipapi?.is_proxy),
+    isTor: Boolean(ipapi?.is_tor),
+    isDatacenter: Boolean(ipapi?.is_datacenter),
+    isAbuser: isAbuserFromIpapi || isAbuserFromStopForumSpam,
   };
 }
 
@@ -75,26 +103,101 @@ function computeAutoStatus(flags) {
   return suspicious ? "suspicious" : "clean";
 }
 
+function formatLocation(ipapi, ipwhois) {
+  const city = ipapi?.location?.city || ipwhois?.city || null;
+  const region = ipapi?.location?.region || ipwhois?.region || null;
+  const country = ipapi?.location?.country || ipwhois?.country || null;
+  const parts = [];
+  if (city) {
+    parts.push(city);
+  }
+  if (region && region !== city) {
+    parts.push(region);
+  }
+  if (country && country !== region) {
+    parts.push(country);
+  }
+  if (!parts.length && country) {
+    parts.push(country);
+  }
+  return parts.length ? parts.join(", ") : null;
+}
+
 function buildReputationSummary(data, flags) {
+  const sources = normalizeReputationSources(data);
+  const ipapi = sources.ipapi || {};
+  const stopForumSpam = sources.stopForumSpam || null;
+  const ipwhois = sources.ipwhois || {};
   const reasons = [];
   if (flags.isVpn) reasons.push("VPN");
   if (flags.isProxy) reasons.push("Proxy");
   if (flags.isTor) reasons.push("Tor");
   if (flags.isDatacenter) reasons.push("Hébergement");
   if (flags.isAbuser) reasons.push("Risque d'abus");
+  if (stopForumSpam?.appears) {
+    const confidence = Number.isFinite(stopForumSpam.confidence)
+      ? Math.round(stopForumSpam.confidence)
+      : null;
+    if (confidence !== null) {
+      reasons.push(`StopForumSpam (${confidence}% confiance)`);
+    } else {
+      reasons.push("Signalement StopForumSpam");
+    }
+  }
 
   const baseSummary = reasons.length
     ? `Signaux détectés : ${reasons.join(", ")}.`
     : "Aucun signal VPN/Proxy connu pour cette IP.";
 
   const details = [];
-  if (data?.company?.name) {
-    details.push(`Fournisseur : ${data.company.name}`);
-  } else if (data?.datacenter?.datacenter) {
-    details.push(`Fournisseur : ${data.datacenter.datacenter}`);
+  if (ipapi?.company?.name) {
+    details.push(`Fournisseur : ${ipapi.company.name}`);
+  } else if (ipapi?.datacenter?.datacenter) {
+    details.push(`Fournisseur : ${ipapi.datacenter.datacenter}`);
+  } else if (ipwhois?.connection?.isp) {
+    details.push(`Fournisseur : ${ipwhois.connection.isp}`);
+  } else if (ipwhois?.connection?.org) {
+    details.push(`Fournisseur : ${ipwhois.connection.org}`);
   }
-  if (data?.location?.country) {
-    details.push(`Localisation estimée : ${data.location.country}`);
+
+  const ipType = ipapi?.connection_type || ipapi?.type || null;
+  if (ipType) {
+    details.push(`Type de connexion : ${ipType}`);
+  }
+
+  const location = formatLocation(ipapi, ipwhois);
+  if (location) {
+    details.push(`Localisation estimée : ${location}`);
+  }
+
+  const timezone =
+    ipapi?.location?.time_zone || ipapi?.timezone?.id || ipwhois?.timezone || null;
+  if (timezone) {
+    details.push(`Fuseau horaire : ${timezone}`);
+  }
+
+  const asnNumber =
+    ipapi?.asn?.asn ||
+    (typeof ipapi?.asn === "string" ? ipapi.asn : null) ||
+    ipwhois?.connection?.asn ||
+    null;
+  const asnName = ipapi?.asn?.name || null;
+  if (asnNumber || asnName) {
+    const parts = [asnNumber, asnName].filter(Boolean);
+    details.push(`ASN : ${parts.join(" - ")}`);
+  }
+
+  if (stopForumSpam?.appears) {
+    const frequency = Number.isFinite(stopForumSpam.frequency)
+      ? `${stopForumSpam.frequency} signalements`
+      : "Signalements";
+    const confidence = Number.isFinite(stopForumSpam.confidence)
+      ? ` (confiance ${Math.round(stopForumSpam.confidence)}%)`
+      : "";
+    const lastSeen = stopForumSpam.lastSeenAt
+      ? ` · Dernier signalement : ${stopForumSpam.lastSeenAt}`
+      : "";
+    details.push(`StopForumSpam : ${frequency}${confidence}${lastSeen}`);
   }
 
   if (!details.length) {
@@ -128,25 +231,132 @@ function scheduleIpReputationRefresh(ip, options = {}) {
   return refreshPromise;
 }
 
-async function queryIpReputation(ip) {
+function toNumber(value) {
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+async function fetchJsonWithTimeout(url, {
+  timeoutMs = IP_REPUTATION_TIMEOUT_MS,
+  headers = {},
+  signal,
+} = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(
-    () => controller.abort(),
-    IP_REPUTATION_TIMEOUT_MS,
-  );
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const endpoint = `${IP_REPUTATION_ENDPOINT}?q=${encodeURIComponent(ip)}`;
-    const response = await fetch(endpoint, {
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
+    let finalSignal = controller.signal;
+    if (signal) {
+      if (
+        typeof AbortSignal !== "undefined" &&
+        typeof AbortSignal.any === "function"
+      ) {
+        try {
+          finalSignal = AbortSignal.any([signal, controller.signal]);
+        } catch {
+          finalSignal = signal;
+        }
+      } else {
+        finalSignal = signal;
+      }
+    }
+    const response = await fetch(url, {
+      signal: finalSignal,
+      headers: { Accept: "application/json", ...headers },
     });
     if (!response.ok) {
-      throw new Error(`Requête IPAPI échouée (${response.status})`);
+      throw new Error(`Requête échouée (${response.status})`);
     }
     return await response.json();
   } finally {
     clearTimeout(timeout);
   }
+}
+
+async function queryIpapi(ip) {
+  const endpoint = `${IP_REPUTATION_ENDPOINT}?q=${encodeURIComponent(ip)}`;
+  return fetchJsonWithTimeout(endpoint);
+}
+
+async function queryStopForumSpam(ip) {
+  const url = new URL(STOP_FORUM_SPAM_ENDPOINT);
+  url.searchParams.set("ip", ip);
+  url.searchParams.set("json", "1");
+  const json = await fetchJsonWithTimeout(url.toString(), {
+    headers: { "User-Agent": "simple-wiki-ip-check" },
+  });
+  if (!json || json.success !== 1 || !json.ip) {
+    throw new Error("Réponse StopForumSpam invalide");
+  }
+  const appears = Boolean(json.ip.appears);
+  return {
+    appears,
+    confidence: toNumber(json.ip.confidence),
+    frequency: toNumber(json.ip.frequency),
+    lastSeenAt: json.ip.lastseen || null,
+    raw: json.ip,
+  };
+}
+
+async function queryIpWhois(ip) {
+  const endpoint = `${IP_GEOLOCATION_ENDPOINT}/${encodeURIComponent(ip)}`;
+  const json = await fetchJsonWithTimeout(endpoint);
+  if (!json || json.success === false) {
+    throw new Error(json?.message || "Réponse ipwho.is invalide");
+  }
+  return {
+    country: json.country || null,
+    region: json.region || null,
+    city: json.city || null,
+    connection: {
+      isp: json.connection?.isp || null,
+      org: json.connection?.org || null,
+      asn: json.connection?.asn || null,
+    },
+    timezone: json.timezone?.id || null,
+    raw: json,
+  };
+}
+
+async function queryIpReputation(ip) {
+  const [ipapiResult, stopForumSpamResult, ipwhoisResult] =
+    await Promise.allSettled([
+      queryIpapi(ip),
+      queryStopForumSpam(ip),
+      queryIpWhois(ip),
+    ]);
+
+  const errors = [];
+  const result = { ipapi: null, stopForumSpam: null, ipwhois: null, errors };
+
+  if (ipapiResult.status === "fulfilled") {
+    result.ipapi = ipapiResult.value;
+  } else {
+    errors.push(`IPAPI: ${ipapiResult.reason?.message || ipapiResult.reason}`);
+  }
+
+  if (stopForumSpamResult.status === "fulfilled") {
+    result.stopForumSpam = stopForumSpamResult.value;
+  } else {
+    errors.push(
+      `StopForumSpam: ${
+        stopForumSpamResult.reason?.message || stopForumSpamResult.reason
+      }`,
+    );
+  }
+
+  if (ipwhoisResult.status === "fulfilled") {
+    result.ipwhois = ipwhoisResult.value;
+  } else {
+    errors.push(
+      `ipwho.is: ${ipwhoisResult.reason?.message || ipwhoisResult.reason}`,
+    );
+  }
+
+  if (!result.ipapi && !result.stopForumSpam && !result.ipwhois) {
+    throw new Error(errors.join(" | ") || "Aucune donnée de réputation");
+  }
+
+  return result;
 }
 
 export function hashIp(ip) {
