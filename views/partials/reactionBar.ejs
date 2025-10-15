@@ -1,6 +1,8 @@
 <%
   const reactionList = Array.isArray(reactions) ? reactions : [];
   const showLabels = !condensed;
+  const reactionSlug = typeof slug !== 'undefined' && slug ? slug : null;
+  const reactionCommentId = typeof commentId !== 'undefined' && commentId ? commentId : null;
 %>
 <% if (reactionList.length) { %>
   <form
@@ -9,8 +11,8 @@
     action="<%= formAction %>"
     data-reaction-form
     data-reaction-target="<%= target %>"
-    <%= slug ? `data-reaction-slug="${slug}"` : '' %>
-    <%= commentId ? `data-comment-id="${commentId}"` : '' %>
+    <%= reactionSlug ? `data-reaction-slug="${reactionSlug}"` : '' %>
+    <%= reactionCommentId ? `data-comment-id="${reactionCommentId}"` : '' %>
   >
     <%- include('partials/csrf_field') %>
     <% reactionList.forEach((reaction) => { %>
