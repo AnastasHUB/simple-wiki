@@ -25,7 +25,17 @@ import {
   hashIp,
   touchIpProfile,
   IP_PROFILE_COMMENT_PAGE_SIZES,
+  claimIpProfile,
+  getIpProfileClaim,
 } from "../utils/ipProfiles.js";
+import { hashPassword } from "../utils/passwords.js";
+import {
+  ROLE_FLAG_FIELDS,
+  buildSessionUser,
+  deriveRoleFlags,
+} from "../utils/roleFlags.js";
+import { getDefaultUserRole } from "../utils/roleService.js";
+import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
 import {
   fetchPaginatedPages,
   fetchPageWithStats,
@@ -40,6 +50,7 @@ import {
   validateCommentBody,
 } from "../utils/commentValidation.js";
 import {
+  describeRecaptcha,
   getRecaptchaConfig,
   verifyRecaptchaResponse,
 } from "../utils/captcha.js";
@@ -86,6 +97,12 @@ const commentRateLimiter = createRateLimiter({
     "Trop de commentaires ont été envoyés en peu de temps depuis votre adresse IP. Veuillez patienter avant de réessayer.",
 });
 
+const USER_ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
+const USER_ROLE_FLAG_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
+const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
+  (field) => `r.${field} AS role_${field}`,
+).join(", ");
+
 const MAX_COMMENT_DEPTH = 4;
 
 const PAGE_STATUS_LABELS = {
@@ -93,6 +110,46 @@ const PAGE_STATUS_LABELS = {
   published: "Publié",
   scheduled: "Planifié",
 };
+
+const CLAIMED_PROFILE_LOGIN_NOTICE =
+  "Ce profil IP a été converti en compte utilisateur. Connectez-vous pour continuer.";
+
+function getSessionUserId(req) {
+  if (!req?.session?.user) {
+    return null;
+  }
+  const rawId = req.session.user.id;
+  if (typeof rawId === "number" && Number.isInteger(rawId)) {
+    return rawId;
+  }
+  if (typeof rawId === "string" && rawId.trim()) {
+    const parsed = Number.parseInt(rawId, 10);
+    if (Number.isInteger(parsed)) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function shouldForceLoginForClaimedProfile(req, profile, isOwner) {
+  if (!profile?.isClaimed || !isOwner) {
+    return false;
+  }
+  const claimedUserId =
+    typeof profile?.claim?.userId === "number"
+      ? profile.claim.userId
+      : profile?.claim?.userId
+        ? Number.parseInt(profile.claim.userId, 10)
+        : null;
+  const sessionUserId = getSessionUserId(req);
+  if (!Number.isInteger(sessionUserId)) {
+    return true;
+  }
+  if (Number.isInteger(claimedUserId) && claimedUserId !== sessionUserId) {
+    return true;
+  }
+  return false;
+}
 
 function buildStatusOptions(selectedStatus = "published", { canSchedule = false } = {}) {
   const allowedStatuses = PAGE_STATUS_VALUES.filter(
@@ -1907,10 +1964,326 @@ r.get(
       return res.status(404).render("page404");
     }
     const viewerHash = hashIp(req.clientIp);
+    const isOwner = viewerHash ? viewerHash === profile.hash : false;
+    if (shouldForceLoginForClaimedProfile(req, profile, isOwner)) {
+      pushNotification(req, {
+        type: "info",
+        message: CLAIMED_PROFILE_LOGIN_NOTICE,
+        action: { href: "/login", label: "Se connecter" },
+      });
+      return res.redirect("/login");
+    }
     res.render("ip_profile", {
       profile,
-      isOwner: viewerHash ? viewerHash === profile.hash : false,
+      isOwner,
+      claimContext: null,
     });
+  }),
+);
+
+r.get(
+  "/profiles/ip/:hash/claim",
+  asyncHandler(async (req, res) => {
+    const requestedHash = (req.params.hash || "").trim().toLowerCase();
+    if (!requestedHash) {
+      return res.status(404).render("page404");
+    }
+    const profile = await getIpProfileByHash(requestedHash);
+    if (!profile) {
+      return res.status(404).render("page404");
+    }
+    const viewerHash = hashIp(req.clientIp);
+    const isOwner = viewerHash ? viewerHash === profile.hash : false;
+    if (shouldForceLoginForClaimedProfile(req, profile, isOwner)) {
+      pushNotification(req, {
+        type: "info",
+        message: CLAIMED_PROFILE_LOGIN_NOTICE,
+        action: { href: "/login", label: "Se connecter" },
+      });
+      return res.redirect("/login");
+    }
+    if (!isOwner) {
+      return res.status(403).render("error", {
+        message:
+          "Vous devez consulter ce profil depuis l'adresse IP correspondante pour le convertir en compte.",
+      });
+    }
+    if (profile.isClaimed) {
+      return res.status(409).render("ip_profile", {
+        profile,
+        isOwner,
+        claimContext: {
+          showForm: false,
+          errors: [
+            "Ce profil IP a déjà été converti en compte utilisateur.",
+          ],
+        },
+      });
+    }
+
+    const sessionUserId = getSessionUserId(req);
+    if (Number.isInteger(sessionUserId)) {
+      const sessionUser = req.session.user || {};
+      return res.render("ip_profile", {
+        profile,
+        isOwner,
+        claimContext: {
+          mode: "link",
+          showLink: true,
+          errors: [],
+          linkUser: {
+            username: sessionUser.username || null,
+            displayName:
+              sessionUser.displayName ||
+              sessionUser.display_name ||
+              sessionUser.username ||
+              null,
+          },
+        },
+      });
+    }
+    const captchaConfig = getRecaptchaConfig();
+    if (!captchaConfig) {
+      return res.status(503).render("ip_profile", {
+        profile,
+        isOwner,
+        claimContext: {
+          mode: "register",
+          showForm: true,
+          disabled: true,
+          captcha: null,
+          values: { username: "" },
+          errors: [
+            "La conversion en compte est temporairement indisponible car aucun captcha n'est configuré.",
+          ],
+        },
+      });
+    }
+    return res.render("ip_profile", {
+      profile,
+      isOwner,
+      claimContext: {
+        mode: "register",
+        showForm: true,
+        captcha: captchaConfig,
+        values: { username: "" },
+        errors: [],
+      },
+    });
+  }),
+);
+
+r.post(
+  "/profiles/ip/:hash/claim",
+  asyncHandler(async (req, res) => {
+    const requestedHash = (req.params.hash || "").trim().toLowerCase();
+    if (!requestedHash) {
+      return res.status(404).render("page404");
+    }
+    const profile = await getIpProfileByHash(requestedHash);
+    if (!profile) {
+      return res.status(404).render("page404");
+    }
+    const viewerHash = hashIp(req.clientIp);
+    const isOwner = viewerHash ? viewerHash === profile.hash : false;
+    if (!isOwner) {
+      return res.status(403).render("error", {
+        message:
+          "Vous devez consulter ce profil depuis l'adresse IP correspondante pour le convertir en compte.",
+      });
+    }
+
+    const claimState = await getIpProfileClaim(profile.hash);
+    if (claimState?.claimed) {
+      return res.status(409).render("ip_profile", {
+        profile,
+        isOwner,
+        claimContext: {
+          showForm: false,
+          errors: [
+            "Ce profil IP a déjà été converti en compte utilisateur.",
+          ],
+        },
+      });
+    }
+
+    const sessionUserId = getSessionUserId(req);
+    const sessionUser = Number.isInteger(sessionUserId)
+      ? req.session.user || { id: sessionUserId }
+      : null;
+    const requestMode =
+      typeof req.body.mode === "string"
+        ? req.body.mode.trim().toLowerCase()
+        : null;
+
+    const buildLinkContext = (overrides = {}) => ({
+      profile,
+      isOwner,
+      claimContext: {
+        mode: "link",
+        showLink: true,
+        errors: overrides.errors || [],
+        linkUser: {
+          username: sessionUser?.username || null,
+          displayName:
+            sessionUser?.displayName ||
+            sessionUser?.display_name ||
+            sessionUser?.username ||
+            null,
+        },
+        disabled: overrides.disabled || false,
+      },
+    });
+
+    if (sessionUser && requestMode === "link") {
+      const claimResult = await claimIpProfile(profile.hash, sessionUserId);
+      if (!claimResult.updated) {
+        const refreshed = await getIpProfileByHash(profile.hash);
+        const linkContext = buildLinkContext({
+          errors: [
+            "Ce profil IP a déjà été converti en compte utilisateur.",
+          ],
+        });
+        return res.status(409).render("ip_profile", {
+          profile: refreshed || profile,
+          isOwner,
+          claimContext: linkContext.claimContext,
+        });
+      }
+
+      pushNotification(req, {
+        type: "success",
+        message:
+          "Ce profil IP est désormais associé à votre compte utilisateur.",
+      });
+
+      await sendAdminEvent(
+        "Association de profil IP",
+        {
+          user: sessionUser?.username || `#${sessionUserId}`,
+          extra: {
+            ip: req.clientIp,
+            profileHash: profile.hash,
+            mode: "link",
+          },
+        },
+        { includeScreenshot: false },
+      );
+
+      return res.redirect(`/profiles/ip/${profile.hash}`);
+    }
+
+    const captchaToken =
+      typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
+    const validation = await validateRegistrationSubmission({
+      username: req.body.username,
+      password: req.body.password,
+      captchaToken,
+      remoteIp: req.clientIp,
+    });
+
+    const buildFormContext = (overrides = {}) => ({
+      profile,
+      isOwner,
+      claimContext: {
+        mode: "register",
+        showForm: true,
+        captcha: validation.captcha,
+        values: { username: validation.sanitizedUsername },
+        errors: overrides.errors || [],
+        disabled: overrides.disabled || false,
+      },
+    });
+
+    if (validation.captchaMissing) {
+      return res.status(503).render(
+        "ip_profile",
+        buildFormContext({
+          disabled: true,
+          errors: [
+            "La conversion en compte est temporairement indisponible car aucun captcha n'est configuré.",
+          ],
+        }),
+      );
+    }
+
+    if (validation.errors.length) {
+      return res
+        .status(400)
+        .render("ip_profile", buildFormContext({ errors: validation.errors }));
+    }
+
+    const sanitizedUsername = validation.sanitizedUsername;
+    const passwordValue = validation.passwordValue;
+    const captchaConfig = validation.captcha;
+
+    const userRole = await getDefaultUserRole();
+    const roleId = userRole?.numeric_id || null;
+    const roleFlagValues = ROLE_FLAG_FIELDS.map((field) =>
+      userRole && userRole[field] ? 1 : 0,
+    );
+
+    const hashedPassword = await hashPassword(passwordValue);
+    const insertResult = await run(
+      `INSERT INTO users(snowflake_id, username, password, display_name, role_id, ${USER_ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,?,${USER_ROLE_FLAG_PLACEHOLDERS})`,
+      [
+        generateSnowflake(),
+        sanitizedUsername,
+        hashedPassword,
+        sanitizedUsername,
+        roleId,
+        ...roleFlagValues,
+      ],
+    );
+
+    const createdUser = await get(
+      `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
+         FROM users u
+         LEFT JOIN roles r ON r.id = u.role_id
+        WHERE u.id=?`,
+      [insertResult.lastID],
+    );
+
+    const claimResult = await claimIpProfile(profile.hash, createdUser.id);
+    if (!claimResult.updated) {
+      await run("DELETE FROM users WHERE id=?", [createdUser.id]);
+      const refreshed = await getIpProfileByHash(profile.hash);
+      return res.status(409).render("ip_profile", {
+        profile: refreshed || profile,
+        isOwner,
+        claimContext: {
+          showForm: false,
+          errors: [
+            "Ce profil IP a déjà été converti en compte utilisateur.",
+          ],
+        },
+      });
+    }
+
+    const flags = deriveRoleFlags(createdUser);
+    req.session.user = buildSessionUser(createdUser, flags);
+
+    const providerDescription = describeRecaptcha();
+    await sendAdminEvent(
+      "Conversion de profil IP",
+      {
+        user: sanitizedUsername,
+        extra: {
+          ip: req.clientIp,
+          profileHash: profile.hash,
+          captchaProvider: providerDescription?.id || captchaConfig?.id,
+          captchaLabel: providerDescription?.label || captchaConfig?.label,
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    pushNotification(req, {
+      type: "success",
+      message: "Félicitations ! Votre profil IP a été converti en compte utilisateur.",
+    });
+
+    return res.redirect("/");
   }),
 );
 

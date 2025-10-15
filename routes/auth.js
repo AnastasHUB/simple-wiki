@@ -17,12 +17,9 @@ import {
 } from "../utils/roleFlags.js";
 import { getEveryoneRole } from "../utils/roleService.js";
 import { generateSnowflake } from "../utils/snowflake.js";
-import {
-  describeRecaptcha,
-  getRecaptchaConfig,
-  verifyRecaptchaResponse,
-} from "../utils/captcha.js";
+import { describeRecaptcha, getRecaptchaConfig } from "../utils/captcha.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
+import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
 
 const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
   (field) => `r.${field} AS role_${field}`,
@@ -129,67 +126,34 @@ r.post("/login", loginRateLimiter, async (req, res) => {
   res.redirect("/");
 });
 r.post("/register", registerRateLimiter, async (req, res) => {
-  const captcha = getRecaptchaConfig();
   const { username, password } = req.body;
   const captchaToken =
     typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
-  const sanitizedUsername = typeof username === "string" ? username.trim() : "";
-  const errors = [];
-
-  if (!captcha) {
-    return res.status(503).render("register", {
-      registrationDisabled: true,
-      captcha,
-    });
-  }
-
-  if (!sanitizedUsername) {
-    errors.push("Veuillez indiquer un nom d'utilisateur.");
-  } else if (sanitizedUsername.length < 3 || sanitizedUsername.length > 32) {
-    errors.push(
-      "Le nom d'utilisateur doit contenir entre 3 et 32 caractères.",
-    );
-  } else if (!/^[A-Za-z0-9_.-]+$/.test(sanitizedUsername)) {
-    errors.push(
-      "Le nom d'utilisateur ne peut contenir que des lettres, chiffres, points, tirets et underscores.",
-    );
-  }
-
-  const passwordValue = typeof password === "string" ? password : "";
-  if (!passwordValue) {
-    errors.push("Veuillez indiquer un mot de passe.");
-  } else if (passwordValue.length < 8) {
-    errors.push("Le mot de passe doit contenir au moins 8 caractères.");
-  }
-
-  let captchaResult = { success: false, errorCodes: [] };
-  captchaResult = await verifyRecaptchaResponse(captchaToken, {
+  const validation = await validateRegistrationSubmission({
+    username,
+    password,
+    captchaToken,
     remoteIp: getClientIp(req),
   });
-  if (!captchaResult.success) {
-    const codes = captchaResult.errorCodes.length
-      ? ` (${captchaResult.errorCodes.join(", ")})`
-      : "";
-    errors.push(`La vérification du captcha a échoué${codes}.`);
-  }
 
-  if (!errors.length) {
-    const existing = await get(
-      "SELECT 1 FROM users WHERE username=? COLLATE NOCASE",
-      [sanitizedUsername],
-    );
-    if (existing) {
-      errors.push("Ce nom d'utilisateur est déjà utilisé.");
-    }
-  }
-
-  if (errors.length) {
-    return res.status(400).render("register", {
-      errors,
-      captcha,
-      values: { username: sanitizedUsername },
+  if (validation.captchaMissing) {
+    return res.status(503).render("register", {
+      registrationDisabled: true,
+      captcha: validation.captcha,
     });
   }
+
+  if (validation.errors.length) {
+    return res.status(400).render("register", {
+      errors: validation.errors,
+      captcha: validation.captcha,
+      values: { username: validation.sanitizedUsername },
+    });
+  }
+
+  const sanitizedUsername = validation.sanitizedUsername;
+  const passwordValue = validation.passwordValue;
+  const captcha = validation.captcha;
 
   const everyoneRole = await getEveryoneRole();
   const roleId = everyoneRole?.numeric_id || null;

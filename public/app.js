@@ -157,6 +157,8 @@ document.addEventListener("DOMContentLoaded", () => {
   initCodeHighlighting();
   initSearchFilters();
   initLiveStatsCard();
+  initIpLinkForm();
+  initIpClaimForm();
 });
 
 function enhanceIconButtons() {
@@ -896,6 +898,44 @@ function initLiveStatsCard() {
 
   connect();
   restartTimer();
+}
+
+function initIpClaimForm() {
+  const form = document.getElementById("ipClaimForm");
+  if (!form || form.dataset.claimFormBound === "true") {
+    return;
+  }
+  form.dataset.claimFormBound = "true";
+  const submitButton = form.querySelector("#ipClaimSubmit");
+  form.addEventListener("submit", () => {
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.setAttribute("aria-busy", "true");
+      if (!submitButton.dataset.originalLabel) {
+        submitButton.dataset.originalLabel = submitButton.textContent || "";
+      }
+      submitButton.textContent = "Conversion en cours…";
+    }
+  });
+}
+
+function initIpLinkForm() {
+  const form = document.getElementById("ipLinkForm");
+  if (!form || form.dataset.linkFormBound === "true") {
+    return;
+  }
+  form.dataset.linkFormBound = "true";
+  const submitButton = form.querySelector("#ipLinkSubmit");
+  form.addEventListener("submit", () => {
+    if (submitButton) {
+      submitButton.disabled = true;
+      submitButton.setAttribute("aria-busy", "true");
+      if (!submitButton.dataset.originalLabel) {
+        submitButton.dataset.originalLabel = submitButton.textContent || "";
+      }
+      submitButton.textContent = "Association en cours…";
+    }
+  });
 }
 function initAmbientBackdrop() {
   const scene = document.querySelector(".theme-liquid .background-scene");

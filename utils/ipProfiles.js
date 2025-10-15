@@ -382,7 +382,8 @@ export async function getIpProfileByHash(hash) {
             reputation_status, reputation_auto_status, reputation_override,
             reputation_summary, reputation_checked_at,
             is_vpn, is_proxy, is_datacenter, is_abuser, is_tor,
-            last_user_agent, is_bot, bot_reason
+            last_user_agent, is_bot, bot_reason,
+            claimed_user_id, claimed_at
        FROM ip_profiles
       WHERE hash = ?`,
     [normalized],
@@ -483,6 +484,13 @@ export async function getIpProfileByHash(hash) {
     {},
   );
 
+  const numericClaimedUserId = Number.parseInt(profile.claimed_user_id, 10);
+  const claimInfo = {
+    claimed: Number.isInteger(numericClaimedUserId),
+    userId: Number.isInteger(numericClaimedUserId) ? numericClaimedUserId : null,
+    claimedAt: profile.claimed_at || null,
+  };
+
   return {
     id: profile.snowflake_id || null,
     legacyId: profile.id || null,
@@ -569,7 +577,47 @@ export async function getIpProfileByHash(hash) {
           createdAt: ban.created_at,
         }))
       : [],
+    claim: claimInfo,
+    isClaimed: claimInfo.claimed,
   };
+}
+
+export async function getIpProfileClaim(hash) {
+  const normalized = normalizeIp(hash);
+  if (!normalized) {
+    return null;
+  }
+  const row = await get(
+    `SELECT claimed_user_id, claimed_at FROM ip_profiles WHERE hash = ?`,
+    [normalized],
+  );
+  if (!row) {
+    return null;
+  }
+  const numericUserId = Number.parseInt(row.claimed_user_id, 10);
+  return {
+    claimed: Number.isInteger(numericUserId),
+    userId: Number.isInteger(numericUserId) ? numericUserId : null,
+    claimedAt: row.claimed_at || null,
+  };
+}
+
+export async function claimIpProfile(hash, userId) {
+  const normalizedHash = normalizeIp(hash);
+  if (!normalizedHash) {
+    return { updated: false };
+  }
+  const numericUserId = Number.parseInt(userId, 10);
+  if (!Number.isInteger(numericUserId)) {
+    throw new Error("Identifiant utilisateur invalide pour l'association du profil IP.");
+  }
+  const result = await run(
+    `UPDATE ip_profiles
+        SET claimed_user_id=?, claimed_at=CURRENT_TIMESTAMP
+      WHERE hash=? AND claimed_user_id IS NULL`,
+    [numericUserId, normalizedHash],
+  );
+  return { updated: Boolean(result?.changes) };
 }
 
 export async function countIpProfiles({ search = null } = {}) {
