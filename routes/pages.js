@@ -9,7 +9,8 @@ import {
   removePageFts,
 } from "../db.js";
 import { requireAdmin } from "../middleware/auth.js";
-import { slugify, linkifyInternal } from "../utils/linkify.js";
+import { slugify } from "../utils/linkify.js";
+import { renderMarkdown } from "../utils/markdownRenderer.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { listUploads } from "../utils/uploads.js";
 import { getClientIp, getClientUserAgent } from "../utils/ip.js";
@@ -841,7 +842,7 @@ r.get(
       comments,
       req.session.commentTokens || {},
     );
-    const html = linkifyInternal(page.content);
+    const html = renderMarkdown(page.content);
     const host = req.get("host") || "localhost";
     const baseUrl = `${req.protocol}://${host}`;
     const meta = buildPageMeta({
@@ -2299,7 +2300,7 @@ r.get(
       ? getHandleColor(compareRevision.author, revisionHandleMap)
       : null;
 
-    const html = linkifyInternal(revision.content);
+    const html = renderMarkdown(revision.content);
     const diffHtml =
       compareRevision && hasMeaningfulDiff(compareRevision.content, revision.content)
         ? renderMarkdownDiff({

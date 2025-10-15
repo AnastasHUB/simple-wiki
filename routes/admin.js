@@ -9,7 +9,8 @@ import {
   SNOWFLAKE_EPOCH_MS,
   SNOWFLAKE_STRUCTURE,
 } from "../utils/snowflake.js";
-import { slugify, linkifyInternal } from "../utils/linkify.js";
+import { slugify } from "../utils/linkify.js";
+import { renderMarkdown } from "../utils/markdownRenderer.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { hashPassword } from "../utils/passwords.js";
 import {
@@ -1324,9 +1325,9 @@ r.get(
 
   const proposedTags = mapSubmissionTags(submission);
   const currentTags = targetPage ? await fetchPageTags(targetPage.id) : [];
-  const proposedHtml = linkifyInternal(submission.content || "");
+  const proposedHtml = renderMarkdown(submission.content || "");
   const currentHtml = targetPage
-    ? linkifyInternal(targetPage.content || "")
+    ? renderMarkdown(targetPage.content || "")
     : null;
 
   res.render("admin/submission_detail", {

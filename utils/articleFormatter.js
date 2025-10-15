@@ -40,7 +40,7 @@ turndown.addRule("fencedCodeBlockWithLanguage", {
   },
 });
 
-const CONTENT_SANITIZE_OPTIONS = {
+export const CONTENT_SANITIZE_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
     "h1",
     "h2",
@@ -57,10 +57,30 @@ const CONTENT_SANITIZE_OPTIONS = {
     "blockquote",
     "mark",
     "hr",
+    "math",
+    "semantics",
+    "annotation",
+    "mrow",
+    "mi",
+    "mn",
+    "mo",
+    "msup",
+    "msub",
+    "mfrac",
+    "msqrt",
+    "mtext",
+    "mspace",
+    "mtable",
+    "mtr",
+    "mtd",
+    "mstyle",
+    "munderover",
+    "munder",
+    "mover",
   ]),
   allowedAttributes: {
     ...sanitizeHtml.defaults.allowedAttributes,
-    a: ["href", "title", "target", "rel"],
+    a: ["href", "title", "target", "rel", "class"],
     code: ["class"],
     pre: ["class"],
     div: ["class"],
@@ -68,6 +88,11 @@ const CONTENT_SANITIZE_OPTIONS = {
     summary: ["class"],
     td: ["colspan", "rowspan"],
     th: ["colspan", "rowspan"],
+    span: ["class", "aria-hidden"],
+    math: ["xmlns"],
+    annotation: ["encoding"],
+    mstyle: ["displaystyle"],
+    mspace: ["width"],
   },
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: {
