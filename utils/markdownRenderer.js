@@ -2,6 +2,7 @@ import MarkdownIt from "markdown-it";
 import { full as markdownItEmoji } from "markdown-it-emoji";
 import markdownItContainer from "markdown-it-container";
 import markdownItKatex from "markdown-it-katex";
+import markdownItTaskLists from "markdown-it-task-lists";
 import sanitizeHtml from "sanitize-html";
 
 import { slugify } from "./linkify.js";
@@ -79,6 +80,10 @@ function createMarkdownRenderer() {
   });
 
   md.use(markdownItKatex);
+
+  md.use(markdownItTaskLists, {
+    enabled: true,
+  });
 
   md.core.ruler.after("inline", "wiki-links", (state) => {
     const Token = state.Token;
