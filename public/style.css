@@ -1821,11 +1821,6 @@ input[type="radio"] {
   font-size: 0.9rem;
 }
 
-@media (min-width: 960px) {
-  .markdown-editor-body {
-    flex-direction: row;
-  }
-}
 
 .editor-status {
   margin: 0.25rem 0 0.5rem;
