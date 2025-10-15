@@ -1,6 +1,10 @@
 import { all, get } from "../db.js";
 import { formatIpProfileLabel, hashIp } from "./ipProfiles.js";
-import { resolveHandleColors, getHandleColor } from "./userHandles.js";
+import {
+  resolveHandleColors,
+  getHandleColor,
+  getHandleProfile,
+} from "./userHandles.js";
 
 const TAGS_CSV_SUBQUERY = `(
   SELECT GROUP_CONCAT(t.name, ',')
@@ -228,6 +232,7 @@ export async function fetchPageComments(pageId, options = {}) {
 
   const handleMap = await resolveHandleColors(rows.map((row) => row.author));
   const baseNodes = rows.map((row) => {
+    const handleProfile = getHandleProfile(row.author, handleMap);
     const ipHash = row.ip_hash || hashIp(row.raw_ip || "");
     const {
       raw_ip: _unusedIp,
@@ -245,7 +250,9 @@ export async function fetchPageComments(pageId, options = {}) {
       parentId: trimmedParent,
       rawParentId: trimmedParent,
       isAdminAuthor: Boolean(row.author_is_admin),
-      authorRole: getHandleColor(row.author, handleMap),
+      authorRole: handleProfile,
+      authorAvatar: handleProfile?.avatarUrl || null,
+      authorBanner: handleProfile?.bannerUrl || null,
       ipProfile: ipHash
         ? {
             hash: ipHash,

@@ -10,6 +10,11 @@
   const authorClasses = ['comment-author', 'user-handle'];
   const commentAuthorStyle =
     commentAuthorColor && commentAuthorColor.hasColor ? commentAuthorColor.style : '';
+  const avatarSource =
+    (typeof comment?.authorAvatar === 'string' && comment.authorAvatar) ||
+    (comment?.authorRole && comment.authorRole.avatarUrl ? comment.authorRole.avatarUrl : null);
+  const trimmedName = authorName.trim();
+  const avatarInitial = trimmedName ? trimmedName.charAt(0).toUpperCase() : '•';
   if (comment?.isAdminAuthor) {
     authorClasses.push('comment-author--admin');
   }
@@ -28,22 +33,32 @@
   data-author-name="<%= authorAttr %>"
   style="--comment-depth: <%= depth %>"
 >
-  <div class="comment-meta">
-    <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
-      <%= authorName %>
-      <% if (comment?.isAdminAuthor) { %>
-        <span class="comment-author-badge" title="Administrateur">⭐</span>
+  <div class="comment-header">
+    <div class="comment-avatar">
+      <% if (avatarSource) { %>
+        <img src="<%= avatarSource %>" alt="" loading="lazy" />
+      <% } else { %>
+        <span class="comment-avatar-initial"><%= avatarInitial %></span>
       <% } %>
-    </strong>
-    <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
-    <% if (comment?.ipProfile) { %>
-      <span>
-        ·
-        <a class="comment-ip-profile" href="/profiles/ip/<%= comment.ipProfile.hash %>">
-          Profil IP #<%= comment.ipProfile.shortHash %>
-        </a>
-      </span>
-    <% } %>
+      <span class="sr-only">Avatar de <%= authorName %></span>
+    </div>
+    <div class="comment-meta">
+      <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
+        <%= authorName %>
+        <% if (comment?.isAdminAuthor) { %>
+          <span class="comment-author-badge" title="Administrateur">⭐</span>
+        <% } %>
+      </strong>
+      <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
+      <% if (comment?.ipProfile) { %>
+        <span>
+          ·
+          <a class="comment-ip-profile" href="/profiles/ip/<%= comment.ipProfile.hash %>">
+            Profil IP #<%= comment.ipProfile.shortHash %>
+          </a>
+        </span>
+      <% } %>
+    </div>
   </div>
   <div class="comment-body"><%= comment.body %></div>
   <% if (canReply || canEditOwn) { %>
