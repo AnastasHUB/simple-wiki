@@ -1,6 +1,10 @@
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
-import { getReactionConfig } from "./reactionConfig.js";
+import {
+  listReactionOptions,
+  getReactionOptionByKey,
+} from "./reactionOptions.js";
+import { DEFAULT_REACTIONS, sanitizeReactionKey } from "./reactionHelpers.js";
 
 function ensureIntegerId(value, name) {
   const parsed = Number.parseInt(value, 10);
@@ -10,29 +14,42 @@ function ensureIntegerId(value, name) {
   return parsed;
 }
 
-function normalizeKey(rawKey) {
-  if (typeof rawKey !== "string" || !rawKey.trim()) {
-    return null;
-  }
-  return rawKey.trim().toLowerCase().replace(/[^a-z0-9_-]+/g, "-");
-}
-
 export async function listAvailableReactions() {
-  const reactions = await getReactionConfig();
-  return reactions.map((reaction) => ({ ...reaction }));
+  const reactions = await listReactionOptions();
+  if (!reactions.length) {
+    return DEFAULT_REACTIONS.map((reaction) => ({ ...reaction }));
+  }
+  return reactions.map((reaction) => ({
+    id: reaction.id,
+    label: reaction.label,
+    emoji: reaction.emoji || "",
+    imageUrl: reaction.imageUrl || null,
+  }));
 }
 
 export async function resolveReactionOption(rawKey) {
-  const normalized = normalizeKey(rawKey);
-  if (!normalized) {
-    return null;
+  const normalized = sanitizeReactionKey(rawKey);
+  const attempts = [];
+  if (normalized) {
+    attempts.push(normalized);
   }
-  const reactions = await listAvailableReactions();
-  return (
-    reactions.find((reaction) => reaction.id === normalized) ||
-    reactions.find((reaction) => reaction.id === rawKey) ||
-    null
-  );
+  const trimmed = typeof rawKey === "string" ? rawKey.trim() : "";
+  if (trimmed && trimmed !== normalized) {
+    attempts.push(trimmed);
+  }
+  for (const key of attempts) {
+    const option = await getReactionOptionByKey(key);
+    if (option) {
+      return {
+        id: option.id,
+        label: option.label,
+        emoji: option.emoji || "",
+        imageUrl: option.imageUrl || null,
+      };
+    }
+  }
+  const fallback = DEFAULT_REACTIONS.find((reaction) => reaction.id === normalized);
+  return fallback ? { ...fallback } : null;
 }
 
 export function combineReactionState(reactions, state) {

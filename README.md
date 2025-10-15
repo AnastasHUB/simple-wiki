@@ -82,7 +82,7 @@ Refer to [`utils/config.js`](./utils/config.js), [`utils/sessionSecrets.js`](./u
 
 ### Custom reactions
 
-Reader reactions for pages and comments are configurable through [`config/reactions.json`](./config/reactions.json). Each entry should define a unique `id`, a human-friendly `label`, and either an `emoji` or an `imageUrl` for custom artwork. The application sanitizes identifiers automatically and falls back to a built-in five-reaction set when the file is missing or invalid. Update the JSON file and restart the server to publish a new palette. 【F:config/reactions.json†L1-L17】【F:utils/reactionConfig.js†L1-L83】
+Administrators can manage the reaction palette for articles and comments from the **Réactions** tab of the admin panel (`/admin/reactions`). Each reaction must have a unique identifier plus either an emoji or a custom image URL, and the list can be reordered, edited, or trimmed in real time. 【F:views/admin/reactions.ejs†L1-L164】【F:routes/admin.js†L2583-L2754】
 
 ## NPM Scripts
 

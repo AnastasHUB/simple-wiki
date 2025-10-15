@@ -11,6 +11,11 @@ import {
   toggleCommentReaction,
   getCommentReactionState,
 } from "../utils/reactionService.js";
+import {
+  createReactionOption,
+  updateReactionOption,
+  deleteReactionOption,
+} from "../utils/reactionOptions.js";
 
 async function createPage(slug) {
   const snowflake = generateSnowflake();
@@ -113,4 +118,52 @@ test("comment reactions aggregate counts across multiple IPs", async (t) => {
   assert.ok(ideaAfter);
   assert.equal(ideaAfter.count, 1);
   assert.equal(ideaAfter.reacted, false);
+});
+
+test("custom reactions can be created, updated, and removed", async (t) => {
+  await initDb();
+  const slug = `custom-reaction-${Date.now()}`;
+  const page = await createPage(slug);
+  const customKey = `essai-${Date.now()}`;
+
+  t.after(async () => {
+    await deleteReactionOption(customKey);
+    await cleanupPage(slug);
+  });
+
+  await createReactionOption({ id: customKey, label: "Expérience", emoji: "🧪" });
+  let reactions = await listAvailableReactions();
+  let custom = reactions.find((reaction) => reaction.id === customKey);
+  assert.ok(custom);
+  assert.equal(custom.emoji, "🧪");
+
+  await updateReactionOption(customKey, {
+    label: "Expérience visuelle",
+    emoji: "",
+    imageUrl: "https://example.com/reactions/experiment.png",
+  });
+
+  reactions = await listAvailableReactions();
+  custom = reactions.find((reaction) => reaction.id === customKey);
+  assert.ok(custom);
+  assert.equal(custom.label, "Expérience visuelle");
+  assert.equal(custom.emoji, "");
+  assert.equal(custom.imageUrl, "https://example.com/reactions/experiment.png");
+
+  const ip = "203.0.113.42";
+  await togglePageReaction({ pageId: page.id, reactionKey: customKey, ip });
+  let state = await getPageReactionState(page.id, ip);
+  let display = combineReactionState(await listAvailableReactions(), state);
+  custom = display.find((reaction) => reaction.id === customKey);
+  assert.ok(custom);
+  assert.equal(custom.count, 1);
+  assert.equal(custom.reacted, true);
+
+  await deleteReactionOption(customKey);
+  reactions = await listAvailableReactions();
+  assert.ok(!reactions.some((reaction) => reaction.id === customKey));
+
+  state = await getPageReactionState(page.id, ip);
+  display = combineReactionState(reactions, state);
+  assert.ok(!display.some((reaction) => reaction.id === customKey));
 });
