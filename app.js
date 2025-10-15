@@ -12,6 +12,7 @@ import adminRoutes from "./routes/admin.js";
 import accountRoutes from "./routes/account.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
+import cookieRoutes from "./routes/cookies.js";
 import { consumeNotifications } from "./utils/notifications.js";
 import { getClientIp, getClientUserAgent } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
@@ -29,6 +30,7 @@ import { createRateLimiter } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
 import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFeed.js";
+import { cookieConsentMiddleware } from "./middleware/cookieConsent.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,6 +62,7 @@ app.use(globalRateLimiter);
 const sessionMiddleware = session(sessionConfig);
 app.use(sessionMiddleware);
 app.use(csrfProtection());
+app.use(cookieConsentMiddleware);
 
 app.use((req, res, next) => {
   const originalUrl = req.originalUrl || req.url || "/";
@@ -213,6 +216,7 @@ app.get("/rss.xml", async (req, res) => {
   res.type("application/rss+xml").send(xml);
 });
 
+app.use("/", cookieRoutes);
 app.use("/", pagesRoutes);
 app.use("/", authRoutes);
 app.use("/account", accountRoutes);
