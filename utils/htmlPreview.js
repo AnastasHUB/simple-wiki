@@ -1,64 +1,15 @@
 import sanitizeHtml from "sanitize-html";
+import { CONTENT_SANITIZE_OPTIONS } from "./articleFormatter.js";
 import { renderMarkdown } from "./markdownRenderer.js";
 
+const basePreAttributes =
+  CONTENT_SANITIZE_OPTIONS.allowedAttributes?.pre ?? [];
+
 const PREVIEW_SANITIZE_OPTIONS = {
-  allowedTags: sanitizeHtml.defaults.allowedTags.concat([
-    "h1",
-    "h2",
-    "h3",
-    "h4",
-    "h5",
-    "h6",
-    "pre",
-    "code",
-    "span",
-    "div",
-    "blockquote",
-    "mark",
-    "hr",
-    "math",
-    "semantics",
-    "annotation",
-    "mrow",
-    "mi",
-    "mn",
-    "mo",
-    "msup",
-    "msub",
-    "mfrac",
-    "msqrt",
-    "mtext",
-    "mspace",
-    "mtable",
-    "mtr",
-    "mtd",
-    "mstyle",
-    "munderover",
-    "munder",
-    "mover",
-  ]),
+  ...CONTENT_SANITIZE_OPTIONS,
   allowedAttributes: {
-    ...sanitizeHtml.defaults.allowedAttributes,
-    a: ["href", "title", "target", "rel", "class"],
-    code: ["class"],
-    pre: ["class", "spellcheck"],
-    span: ["class", "aria-hidden"],
-    div: ["class"],
-    math: ["xmlns"],
-    annotation: ["encoding"],
-    mstyle: ["displaystyle"],
-    mspace: ["width"],
-  },
-  allowedSchemes: ["http", "https", "mailto"],
-  allowedSchemesByTag: {
-    a: ["http", "https", "mailto"],
-  },
-  transformTags: {
-    a: sanitizeHtml.simpleTransform(
-      "a",
-      { target: "_blank", rel: "noreferrer noopener" },
-      true,
-    ),
+    ...CONTENT_SANITIZE_OPTIONS.allowedAttributes,
+    pre: Array.from(new Set([...basePreAttributes, "spellcheck"])),
   },
 };
 
