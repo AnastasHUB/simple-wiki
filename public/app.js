@@ -1282,11 +1282,6 @@ function initMarkdownEditor() {
     return;
   }
 
-  const renderer = createMarkdownRenderer();
-  input.value = field.value || field.textContent || "";
-  field.value = input.value;
-  lastMarkdownSnapshot = input.value;
-
   let renderFrame = null;
   let suggestionRequestToken = 0;
   let suggestionAbortController = null;
@@ -1302,6 +1297,11 @@ function initMarkdownEditor() {
   let lastMarkdownSnapshot = "";
   let isSyncingFromBlocks = false;
   let currentMode = "markdown";
+
+  const renderer = createMarkdownRenderer();
+  input.value = field.value || field.textContent || "";
+  field.value = input.value;
+  lastMarkdownSnapshot = input.value;
 
   if (suggestionsBox) {
     suggestionsBox.hidden = true;
