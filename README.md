@@ -80,6 +80,10 @@ Environment variables customize behavior. Only `SESSION_SECRET` is strongly reco
 
 Refer to [`utils/config.js`](./utils/config.js), [`utils/sessionSecrets.js`](./utils/sessionSecrets.js), and [`utils/ipProfiles.js`](./utils/ipProfiles.js) for full details. 【F:utils/config.js†L1-L45】【F:utils/sessionSecrets.js†L1-L120】【F:utils/ipProfiles.js†L1-L37】
 
+### Custom reactions
+
+Administrators can manage the reaction palette for articles and comments from the **Réactions** tab of the admin panel (`/admin/reactions`). Each reaction must have a unique identifier plus either an emoji or a custom image URL, and the list can be reordered, edited, or trimmed in real time. 【F:views/admin/reactions.ejs†L1-L164】【F:routes/admin.js†L2583-L2754】
+
 ## NPM Scripts
 
 | Command | Description |
