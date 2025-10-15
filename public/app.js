@@ -1168,6 +1168,17 @@ function initMarkdownEditor() {
   );
   const emojiTrigger = container.querySelector("[data-emoji-trigger]");
   const emojiPanel = container.querySelector("[data-emoji-picker]");
+  const editorWrapper = container.closest("[data-editor-shell]");
+  const modeSwitchElement = editorWrapper
+    ? editorWrapper.parentElement?.querySelector("[data-editor-mode-switch]")
+    : null;
+  const visualEditor = editorWrapper?.querySelector("[data-visual-editor]") || null;
+  const blockList = editorWrapper?.querySelector("[data-block-list]") || null;
+  const blockEmptyState = editorWrapper?.querySelector("[data-block-empty]") || null;
+  const blockEditor = editorWrapper?.querySelector("[data-block-editor]") || null;
+  const addBlockButtons = editorWrapper
+    ? Array.from(editorWrapper.querySelectorAll("[data-add-block]"))
+    : [];
 
   if (!input) {
     field.hidden = false;
@@ -1178,6 +1189,7 @@ function initMarkdownEditor() {
   const renderer = createMarkdownRenderer();
   input.value = field.value || field.textContent || "";
   field.value = input.value;
+  lastMarkdownSnapshot = input.value;
 
   let renderFrame = null;
   let suggestionRequestToken = 0;
@@ -1188,6 +1200,12 @@ function initMarkdownEditor() {
     anchor: null,
     query: "",
   };
+  const blockState = [];
+  let blockIdCounter = 0;
+  let visualInitialized = false;
+  let lastMarkdownSnapshot = "";
+  let isSyncingFromBlocks = false;
+  let currentMode = "markdown";
 
   if (suggestionsBox) {
     suggestionsBox.hidden = true;
@@ -1317,6 +1335,764 @@ function initMarkdownEditor() {
     "❗",
   ];
 
+  function nextBlockId() {
+    blockIdCounter += 1;
+    return `block-${blockIdCounter}`;
+  }
+
+  function sanitizeEditableContent(value) {
+    return (value || "")
+      .replace(/\u00a0/g, " ")
+      .replace(/\r/g, "")
+      .replace(/\s+$/g, "")
+      .replace(/\n{3,}/g, "\n\n");
+  }
+
+  function createBlock(type, payload = {}) {
+    switch (type) {
+      case "heading-2":
+      case "heading-3":
+      case "paragraph":
+        return {
+          id: nextBlockId(),
+          type,
+          text: typeof payload.text === "string" ? payload.text : "",
+        };
+      case "quote":
+        return {
+          id: nextBlockId(),
+          type,
+          text: typeof payload.text === "string" ? payload.text : "",
+        };
+      case "list": {
+        const items = Array.isArray(payload.items)
+          ? payload.items.map((item) => String(item || "").trim())
+          : [];
+        const style = payload.style === "ordered" ? "ordered" : "unordered";
+        return {
+          id: nextBlockId(),
+          type,
+          items,
+          style,
+        };
+      }
+      case "image":
+        return {
+          id: nextBlockId(),
+          type,
+          url: typeof payload.url === "string" ? payload.url : "",
+          alt: typeof payload.alt === "string" ? payload.alt : "",
+          caption: typeof payload.caption === "string" ? payload.caption : "",
+        };
+      case "code":
+        return {
+          id: nextBlockId(),
+          type,
+          code: typeof payload.code === "string" ? payload.code : "",
+          language:
+            typeof payload.language === "string" ? payload.language : "",
+        };
+      default:
+        return null;
+    }
+  }
+
+  function cloneBlock(block) {
+    if (!block) return null;
+    return createBlock(block.type, block);
+  }
+
+  function blocksToMarkdown(blocks) {
+    if (!Array.isArray(blocks) || !blocks.length) {
+      return "";
+    }
+    const parts = [];
+    blocks.forEach((block) => {
+      if (!block || typeof block !== "object") {
+        return;
+      }
+      let output = "";
+      switch (block.type) {
+        case "heading-2":
+          if (block.text && block.text.trim()) {
+            output = `## ${block.text.trim()}`;
+          }
+          break;
+        case "heading-3":
+          if (block.text && block.text.trim()) {
+            output = `### ${block.text.trim()}`;
+          }
+          break;
+        case "paragraph":
+          if (block.text && block.text.trim()) {
+            output = block.text.trim();
+          }
+          break;
+        case "quote":
+          if (block.text && block.text.trim()) {
+            output = block.text
+              .split(/\r?\n/)
+              .map((line) => `> ${line}`)
+              .join("\n");
+          }
+          break;
+        case "list":
+          if (Array.isArray(block.items) && block.items.length) {
+            if (block.style === "ordered") {
+              output = block.items
+                .map((item, index) => `${index + 1}. ${item}`)
+                .join("\n");
+            } else {
+              output = block.items.map((item) => `- ${item}`).join("\n");
+            }
+          }
+          break;
+        case "image":
+          if (block.url && block.url.trim()) {
+            const alt = block.alt ? block.alt.trim() : "";
+            output = `![${alt}](${block.url.trim()})`;
+            if (block.caption && block.caption.trim()) {
+              output += `\n\n_${block.caption.trim()}_`;
+            }
+          }
+          break;
+        case "code":
+          if (block.code && block.code.length) {
+            const lang = block.language ? ` ${block.language.trim()}` : "";
+            output = `\`\`\`${lang}\n${block.code}\n\`\`\``;
+          }
+          break;
+        default:
+          break;
+      }
+      if (output) {
+        parts.push(output.trimEnd());
+      }
+    });
+    return parts.join("\n\n").trim();
+  }
+
+  function parseMarkdownToBlocks(markdown) {
+    const blocks = [];
+    if (!markdown) {
+      return blocks;
+    }
+    const lines = String(markdown).replace(/\r/g, "").split("\n");
+    let index = 0;
+    while (index < lines.length) {
+      const line = lines[index] || "";
+      if (!line.trim()) {
+        index += 1;
+        continue;
+      }
+      const trimmed = line.trim();
+      if (trimmed.startsWith("```")) {
+        const info = trimmed.slice(3).trim();
+        const buffer = [];
+        index += 1;
+        while (index < lines.length && !lines[index].startsWith("```") ) {
+          buffer.push(lines[index]);
+          index += 1;
+        }
+        if (index < lines.length && lines[index].startsWith("```")) {
+          index += 1;
+        }
+        const block = createBlock("code", {
+          code: buffer.join("\n"),
+          language: info,
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        continue;
+      }
+      if (/^###\s+/.test(trimmed)) {
+        const block = createBlock("heading-3", {
+          text: trimmed.replace(/^###\s+/, ""),
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        index += 1;
+        continue;
+      }
+      if (/^##\s+/.test(trimmed)) {
+        const block = createBlock("heading-2", {
+          text: trimmed.replace(/^##\s+/, ""),
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        index += 1;
+        continue;
+      }
+      if (/^>\s?/.test(trimmed)) {
+        const buffer = [];
+        while (index < lines.length && /^>\s?/.test(lines[index])) {
+          buffer.push(lines[index].replace(/^>\s?/, ""));
+          index += 1;
+        }
+        const block = createBlock("quote", {
+          text: buffer.join("\n").trimEnd(),
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        continue;
+      }
+      if (/^\d+\.\s+/.test(trimmed)) {
+        const items = [];
+        while (index < lines.length && /^\d+\.\s+/.test(lines[index].trim())) {
+          items.push(lines[index].trim().replace(/^\d+\.\s+/, ""));
+          index += 1;
+        }
+        const block = createBlock("list", {
+          items,
+          style: "ordered",
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        continue;
+      }
+      if (/^[-*]\s+/.test(trimmed)) {
+        const items = [];
+        while (index < lines.length && /^[-*]\s+/.test(lines[index].trim())) {
+          items.push(lines[index].trim().replace(/^[-*]\s+/, ""));
+          index += 1;
+        }
+        const block = createBlock("list", {
+          items,
+          style: "unordered",
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        continue;
+      }
+      const imageMatch = trimmed.match(/^!\[(.*?)]\((.*?)\)$/);
+      if (imageMatch) {
+        const block = createBlock("image", {
+          alt: imageMatch[1] || "",
+          url: imageMatch[2] || "",
+        });
+        if (block) {
+          blocks.push(block);
+        }
+        index += 1;
+        continue;
+      }
+      const paragraphBuffer = [];
+      while (index < lines.length && lines[index].trim()) {
+        paragraphBuffer.push(lines[index]);
+        index += 1;
+      }
+      const block = createBlock("paragraph", {
+        text: paragraphBuffer.join("\n").trimEnd(),
+      });
+      if (block) {
+        blocks.push(block);
+      }
+    }
+    return blocks;
+  }
+
+  function updateEmptyState() {
+    if (!blockEmptyState) {
+      return;
+    }
+    blockEmptyState.hidden = blockState.length > 0;
+  }
+
+  function buildBlockToolbar(block) {
+    const toolbar = document.createElement("div");
+    toolbar.className = "visual-block-toolbar";
+
+    const handle = document.createElement("span");
+    handle.className = "visual-block-handle";
+    handle.setAttribute("aria-hidden", "true");
+    handle.textContent = "⋮⋮";
+    toolbar.appendChild(handle);
+
+    const label = document.createElement("span");
+    label.className = "visual-block-label";
+    switch (block.type) {
+      case "heading-2":
+        label.textContent = "Titre (H2)";
+        break;
+      case "heading-3":
+        label.textContent = "Sous-titre (H3)";
+        break;
+      case "quote":
+        label.textContent = "Citation";
+        break;
+      case "list":
+        label.textContent = "Liste";
+        break;
+      case "image":
+        label.textContent = "Image";
+        break;
+      case "code":
+        label.textContent = "Bloc de code";
+        break;
+      default:
+        label.textContent = "Paragraphe";
+        break;
+    }
+    toolbar.appendChild(label);
+
+    const actions = document.createElement("div");
+    actions.className = "visual-block-actions";
+
+    const duplicateBtn = document.createElement("button");
+    duplicateBtn.type = "button";
+    duplicateBtn.textContent = "Dupliquer";
+    duplicateBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      duplicateBlock(block.id);
+    });
+    actions.appendChild(duplicateBtn);
+
+    const deleteBtn = document.createElement("button");
+    deleteBtn.type = "button";
+    deleteBtn.setAttribute("aria-label", "Supprimer le bloc");
+    deleteBtn.textContent = "Supprimer";
+    deleteBtn.addEventListener("click", (event) => {
+      event.preventDefault();
+      removeBlock(block.id);
+    });
+    actions.appendChild(deleteBtn);
+
+    toolbar.appendChild(actions);
+
+    return toolbar;
+  }
+
+  function buildContentEditableBlock(block, placeholder) {
+    const body = document.createElement("div");
+    body.className = "visual-block-body";
+    body.contentEditable = "true";
+    body.dataset.placeholder = placeholder;
+    body.textContent = block.text || "";
+    body.addEventListener("input", () => {
+      const value = sanitizeEditableContent(body.innerText || "");
+      updateBlock(block.id, { text: value });
+    });
+    return body;
+  }
+
+  function buildListBlock(block) {
+    const fragment = document.createDocumentFragment();
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Un élément par ligne";
+    textarea.value = (block.items || []).join("\n");
+    textarea.addEventListener("input", () => {
+      const items = textarea.value
+        .split(/\r?\n/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+      updateBlock(block.id, { items });
+    });
+    fragment.appendChild(textarea);
+
+    const meta = document.createElement("div");
+    meta.className = "visual-block-meta";
+    const select = document.createElement("select");
+    const unorderedOption = document.createElement("option");
+    unorderedOption.value = "unordered";
+    unorderedOption.textContent = "Puces";
+    const orderedOption = document.createElement("option");
+    orderedOption.value = "ordered";
+    orderedOption.textContent = "Numérotation";
+    select.appendChild(unorderedOption);
+    select.appendChild(orderedOption);
+    select.value = block.style === "ordered" ? "ordered" : "unordered";
+    select.addEventListener("change", () => {
+      updateBlock(block.id, {
+        style: select.value === "ordered" ? "ordered" : "unordered",
+      });
+    });
+    meta.appendChild(select);
+    fragment.appendChild(meta);
+
+    const note = document.createElement("p");
+    note.className = "visual-block-note";
+    note.textContent =
+      "Ajoutez un élément par ligne. Le style choisit entre puces et numérotation.";
+    fragment.appendChild(note);
+
+    return fragment;
+  }
+
+  function buildImageBlock(block) {
+    const container = document.createElement("div");
+    container.className = "visual-block-meta";
+
+    const urlField = document.createElement("input");
+    urlField.type = "url";
+    urlField.placeholder = "URL de l'image";
+    urlField.value = block.url || "";
+    urlField.addEventListener("input", () => {
+      updateBlock(block.id, { url: urlField.value.trim() });
+    });
+    container.appendChild(urlField);
+
+    const altField = document.createElement("input");
+    altField.type = "text";
+    altField.placeholder = "Texte alternatif";
+    altField.value = block.alt || "";
+    altField.addEventListener("input", () => {
+      updateBlock(block.id, { alt: altField.value });
+    });
+    container.appendChild(altField);
+
+    const captionField = document.createElement("input");
+    captionField.type = "text";
+    captionField.placeholder = "Légende (optionnelle)";
+    captionField.value = block.caption || "";
+    captionField.addEventListener("input", () => {
+      updateBlock(block.id, { caption: captionField.value });
+    });
+    container.appendChild(captionField);
+
+    return container;
+  }
+
+  function buildCodeBlock(block) {
+    const fragment = document.createDocumentFragment();
+    const textarea = document.createElement("textarea");
+    textarea.placeholder = "Votre code";
+    textarea.value = block.code || "";
+    textarea.addEventListener("input", () => {
+      updateBlock(block.id, { code: textarea.value });
+    });
+    fragment.appendChild(textarea);
+
+    const meta = document.createElement("div");
+    meta.className = "visual-block-meta";
+    const languageField = document.createElement("input");
+    languageField.type = "text";
+    languageField.placeholder = "Langage (ex: js, python)";
+    languageField.value = block.language || "";
+    languageField.addEventListener("input", () => {
+      updateBlock(block.id, { language: languageField.value.trim() });
+    });
+    meta.appendChild(languageField);
+    fragment.appendChild(meta);
+
+    return fragment;
+  }
+
+  function buildBlockElement(block) {
+    const element = document.createElement("div");
+    element.className = "visual-block";
+    element.draggable = true;
+    element.dataset.blockId = block.id;
+    element.dataset.blockType = block.type;
+
+    const toolbar = buildBlockToolbar(block);
+    element.appendChild(toolbar);
+
+    switch (block.type) {
+      case "heading-2":
+        element.appendChild(
+          buildContentEditableBlock(block, "Titre de section"),
+        );
+        break;
+      case "heading-3":
+        element.appendChild(
+          buildContentEditableBlock(block, "Sous-titre"),
+        );
+        break;
+      case "quote":
+        element.appendChild(
+          buildContentEditableBlock(block, "Citation"),
+        );
+        break;
+      case "list":
+        element.appendChild(buildListBlock(block));
+        break;
+      case "image":
+        element.appendChild(buildImageBlock(block));
+        break;
+      case "code":
+        element.appendChild(buildCodeBlock(block));
+        break;
+      default:
+        element.appendChild(
+          buildContentEditableBlock(block, "Paragraphe"),
+        );
+        break;
+    }
+
+    element.addEventListener("dragstart", (event) => {
+      element.classList.add("is-dragging");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", block.id);
+    });
+
+    element.addEventListener("dragend", () => {
+      element.classList.remove("is-dragging");
+    });
+
+    element.addEventListener("dragover", (event) => {
+      event.preventDefault();
+      const draggingId = event.dataTransfer.getData("text/plain");
+      if (!draggingId || draggingId === block.id) {
+        return;
+      }
+      const draggingElement = blockList?.querySelector(
+        `[data-block-id="${draggingId}"]`,
+      );
+      if (!draggingElement || !blockList) {
+        return;
+      }
+      const bounding = element.getBoundingClientRect();
+      const after = event.clientY > bounding.top + bounding.height / 2;
+      if (after) {
+        blockList.insertBefore(draggingElement, element.nextSibling);
+      } else {
+        blockList.insertBefore(draggingElement, element);
+      }
+    });
+
+    element.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const draggingId = event.dataTransfer.getData("text/plain");
+      if (!draggingId || draggingId === block.id) {
+        return;
+      }
+      reorderBlocks(draggingId, block.id, event);
+    });
+
+    return element;
+  }
+
+  function reorderBlocks(sourceId, targetId, event) {
+    const sourceIndex = blockState.findIndex((item) => item.id === sourceId);
+    const targetIndex = blockState.findIndex((item) => item.id === targetId);
+    if (sourceIndex === -1 || targetIndex === -1) {
+      return;
+    }
+    const targetElement = blockList?.querySelector(
+      `[data-block-id="${targetId}"]`,
+    );
+    const after = targetElement
+      ? event.clientY >
+        targetElement.getBoundingClientRect().top +
+          targetElement.getBoundingClientRect().height / 2
+      : false;
+    const [item] = blockState.splice(sourceIndex, 1);
+    let newIndex = targetIndex;
+    if (after) {
+      newIndex = targetIndex + 1;
+    }
+    if (sourceIndex < newIndex) {
+      newIndex -= 1;
+    }
+    blockState.splice(newIndex, 0, item);
+    renderBlocks();
+    syncMarkdownFromBlocks();
+  }
+
+  function renderBlocks() {
+    if (!blockList) {
+      return;
+    }
+    blockList.innerHTML = "";
+    blockState.forEach((block) => {
+      if (!block.id) {
+        block.id = nextBlockId();
+      }
+      const element = buildBlockElement(block);
+      blockList.appendChild(element);
+    });
+    updateEmptyState();
+  }
+
+  function updateBlock(blockId, updates) {
+    const block = blockState.find((item) => item.id === blockId);
+    if (!block) {
+      return;
+    }
+    Object.assign(block, updates);
+    syncMarkdownFromBlocks();
+  }
+
+  function removeBlock(blockId) {
+    const index = blockState.findIndex((item) => item.id === blockId);
+    if (index === -1) {
+      return;
+    }
+    blockState.splice(index, 1);
+    renderBlocks();
+    syncMarkdownFromBlocks();
+  }
+
+  function duplicateBlock(blockId) {
+    const index = blockState.findIndex((item) => item.id === blockId);
+    if (index === -1) {
+      return;
+    }
+    const copy = cloneBlock(blockState[index]);
+    if (!copy) {
+      return;
+    }
+    blockState.splice(index + 1, 0, copy);
+    renderBlocks();
+    syncMarkdownFromBlocks();
+    window.setTimeout(() => {
+      focusBlock(copy.id);
+    }, 0);
+  }
+
+  function focusBlock(blockId) {
+    if (!blockList) {
+      return;
+    }
+    const element = blockList.querySelector(`[data-block-id="${blockId}"]`);
+    if (!element) {
+      return;
+    }
+    const editable = element.querySelector("[contenteditable='true']");
+    if (editable) {
+      editable.focus();
+      const selection = window.getSelection();
+      if (selection) {
+        const range = document.createRange();
+        range.selectNodeContents(editable);
+        range.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(range);
+      }
+      return;
+    }
+    const focusable = element.querySelector("textarea, input, select");
+    if (focusable) {
+      focusable.focus();
+    }
+  }
+
+  function ensureVisualFromMarkdown() {
+    if (!visualEditor || !blockList) {
+      return;
+    }
+    if (!visualInitialized || lastMarkdownSnapshot !== input.value) {
+      const parsed = parseMarkdownToBlocks(input.value || "");
+      blockState.length = 0;
+      parsed.forEach((block) => {
+        if (block) {
+          blockState.push(block);
+        }
+      });
+      renderBlocks();
+      visualInitialized = true;
+      lastMarkdownSnapshot = input.value;
+    }
+    updateEmptyState();
+  }
+
+  function syncMarkdownFromBlocks() {
+    if (!blockEditor) {
+      return;
+    }
+    const markdown = blocksToMarkdown(blockState);
+    isSyncingFromBlocks = true;
+    input.value = markdown;
+    field.value = markdown;
+    handleValueChange();
+    isSyncingFromBlocks = false;
+    lastMarkdownSnapshot = markdown;
+  }
+
+  function updateModeButtons() {
+    if (!modeSwitchElement) {
+      return;
+    }
+    const buttons = Array.from(
+      modeSwitchElement.querySelectorAll("[data-editor-mode]"),
+    );
+    buttons.forEach((button) => {
+      const mode = button.getAttribute("data-editor-mode");
+      const isActive = mode === currentMode;
+      button.classList.toggle("is-active", isActive);
+      button.setAttribute("aria-pressed", isActive ? "true" : "false");
+    });
+  }
+
+  function setEditorMode(mode) {
+    const normalized = mode === "visual" ? "visual" : "markdown";
+    if (normalized === currentMode) {
+      return;
+    }
+    if (normalized === "visual" && !visualEditor) {
+      return;
+    }
+    currentMode = normalized;
+    if (currentMode === "visual") {
+      ensureVisualFromMarkdown();
+    }
+    if (visualEditor) {
+      visualEditor.hidden = currentMode !== "visual";
+    }
+    container.hidden = currentMode !== "markdown";
+    updateModeButtons();
+    if (currentMode === "markdown") {
+      handleValueChange();
+      scheduleRender();
+    }
+  }
+
+  function registerModeSwitch() {
+    if (!modeSwitchElement) {
+      return;
+    }
+    const buttons = Array.from(
+      modeSwitchElement.querySelectorAll("[data-editor-mode]"),
+    );
+    buttons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const mode = button.getAttribute("data-editor-mode");
+        if (mode) {
+          setEditorMode(mode);
+        }
+      });
+    });
+  }
+
+  function registerAddBlockButtons() {
+    if (!addBlockButtons.length) {
+      return;
+    }
+    addBlockButtons.forEach((button) => {
+      button.addEventListener("click", (event) => {
+        event.preventDefault();
+        const type = button.getAttribute("data-add-block");
+        if (!type) {
+          return;
+        }
+        const block = createBlock(type);
+        if (!block) {
+          return;
+        }
+        blockState.push(block);
+        renderBlocks();
+        syncMarkdownFromBlocks();
+        window.setTimeout(() => {
+          focusBlock(block.id);
+        }, 0);
+      });
+    });
+  }
+
+  registerModeSwitch();
+  registerAddBlockButtons();
+  updateModeButtons();
+  if (visualEditor) {
+    visualEditor.hidden = currentMode !== "visual";
+  }
+
   const CALLOUT_META = {
     info: {
       fallbackTitle: "Information",
@@ -1412,6 +2188,9 @@ function initMarkdownEditor() {
 
   function handleValueChange() {
     syncField();
+    if (!isSyncingFromBlocks) {
+      lastMarkdownSnapshot = input.value;
+    }
     updateStatus();
     scheduleRender();
     evaluateSuggestions();
@@ -2100,7 +2879,12 @@ function initMarkdownEditor() {
     });
   }
 
-  input.addEventListener("input", handleValueChange);
+  input.addEventListener("input", () => {
+    if (!isSyncingFromBlocks) {
+      visualInitialized = false;
+    }
+    handleValueChange();
+  });
   input.addEventListener("keydown", handleSuggestionKeydown);
   input.addEventListener("click", () => {
     evaluateSuggestions();
