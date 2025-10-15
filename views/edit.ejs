@@ -40,11 +40,30 @@
   <input type="text" name="title" value="<%= titleFieldValue %>" required />
   <label>Contenu (liens [[internes]])</label>
   <textarea name="content" id="contentField" rows="18" required hidden><%- contentFieldValue %></textarea>
-  <div
-    class="markdown-editor-shell"
-    data-markdown-editor
-    data-target="#contentField"
-  >
+  <div class="editor-mode-switch" data-editor-mode-switch>
+    <button
+      type="button"
+      class="mode-toggle is-active"
+      data-editor-mode="markdown"
+      aria-pressed="true"
+    >
+      Markdown avancé
+    </button>
+    <button
+      type="button"
+      class="mode-toggle"
+      data-editor-mode="visual"
+      aria-pressed="false"
+    >
+      Mode visuel (drag &amp; drop)
+    </button>
+  </div>
+  <div class="editor-shell" data-editor-shell>
+    <div
+      class="markdown-editor-shell"
+      data-markdown-editor
+      data-target="#contentField"
+    >
     <div
       class="markdown-toolbar"
       role="toolbar"
@@ -103,6 +122,33 @@
       </div>
     </div>
     <div class="editor-status" data-editor-status role="status" aria-live="polite"></div>
+    </div>
+    <div class="visual-editor-shell" data-visual-editor hidden>
+      <div class="visual-editor-header">
+        <p>
+          Composez votre article bloc par bloc, puis réorganisez-les librement en les
+          faisant glisser. Les blocs sont convertis automatiquement en Markdown
+          compatible avec l’aperçu et la publication.
+        </p>
+      </div>
+      <div class="visual-editor-body" data-block-editor>
+        <div class="visual-blocks" data-block-list aria-live="polite"></div>
+        <div class="visual-empty" data-block-empty hidden>
+          <p>Aucun bloc pour le moment. Ajoutez un premier bloc à l’aide des boutons ci-dessous.</p>
+        </div>
+      </div>
+      <div class="visual-editor-footer">
+        <div class="block-add-menu" role="toolbar" aria-label="Ajouter un bloc">
+          <button type="button" class="block-add-btn" data-add-block="paragraph">Paragraphe</button>
+          <button type="button" class="block-add-btn" data-add-block="heading-2">Titre (niveau 2)</button>
+          <button type="button" class="block-add-btn" data-add-block="heading-3">Sous-titre</button>
+          <button type="button" class="block-add-btn" data-add-block="quote">Citation</button>
+          <button type="button" class="block-add-btn" data-add-block="list">Liste</button>
+          <button type="button" class="block-add-btn" data-add-block="image">Image</button>
+          <button type="button" class="block-add-btn" data-add-block="code">Bloc de code</button>
+        </div>
+      </div>
+    </div>
   </div>
   <label for="author-field">Auteur affiché</label>
   <input
