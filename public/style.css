@@ -2148,6 +2148,26 @@ input[type="radio"] {
     Consolas, "Liberation Mono", "Courier New", monospace;
 }
 
+:where(.markdown-preview, .prose) .task-list {
+  list-style: none;
+  margin: 0.65rem 0;
+  padding-left: 0;
+}
+
+:where(.markdown-preview, .prose) .task-list .task-list-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+:where(.markdown-preview, .prose)
+  .task-list
+  .task-list-item-checkbox {
+  margin-top: 0.2rem;
+  accent-color: var(--color-accent);
+}
+
 .markdown-preview mark {
   background: rgba(250, 204, 21, 0.3);
   color: var(--color-text);

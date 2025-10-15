@@ -3240,6 +3240,10 @@ function createMarkdownRenderer() {
     md.use(window.markdownitKatex);
   }
 
+  if (window.markdownitTaskLists) {
+    md.use(window.markdownitTaskLists, { enabled: true });
+  }
+
   md.core.ruler.after("inline", "wiki-links", (state) => {
     const Token = state.Token;
     state.tokens.forEach((blockToken) => {
