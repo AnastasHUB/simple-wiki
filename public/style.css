@@ -2401,61 +2401,61 @@ input[type="radio"] {
   accent-color: var(--color-accent);
 }
 
-.markdown-preview mark {
+:where(.markdown-preview, .prose) mark {
   background: rgba(250, 204, 21, 0.3);
   color: var(--color-text);
   padding: 0.1rem 0.25rem;
   border-radius: 4px;
 }
 
-.markdown-preview table {
+:where(.markdown-preview, .prose) table {
   width: 100%;
   border-collapse: collapse;
   margin: 1rem 0;
 }
 
-.markdown-preview table th,
-.markdown-preview table td {
+:where(.markdown-preview, .prose) table th,
+:where(.markdown-preview, .prose) table td {
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.5rem 0.75rem;
 }
 
-.markdown-preview a {
+:where(.markdown-preview, .prose) a {
   color: var(--color-accent);
   text-decoration: underline;
 }
 
-.markdown-preview .md-spoiler,
-.markdown-preview .md-details {
+:where(.markdown-preview, .prose) .md-spoiler,
+:where(.markdown-preview, .prose) .md-details {
   border-radius: var(--radius-medium);
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(9, 22, 44, 0.6);
   padding: 0.5rem 0.75rem;
 }
 
-.markdown-preview .md-spoiler summary {
+:where(.markdown-preview, .prose) .md-spoiler summary {
   cursor: pointer;
   font-weight: 600;
   margin: -0.5rem -0.75rem 0.5rem;
   padding: 0.5rem 0.75rem;
 }
 
-.markdown-preview .md-spoiler-body {
+:where(.markdown-preview, .prose) .md-spoiler-body {
   padding-top: 0.25rem;
 }
 
-.markdown-preview .md-details summary {
+:where(.markdown-preview, .prose) .md-details summary {
   cursor: pointer;
   font-weight: 600;
   margin: -0.5rem -0.75rem 0.5rem;
   padding: 0.5rem 0.75rem;
 }
 
-.markdown-preview .md-details summary::-webkit-details-marker {
+:where(.markdown-preview, .prose) .md-details summary::-webkit-details-marker {
   display: none;
 }
 
-.markdown-preview .md-details summary::before {
+:where(.markdown-preview, .prose) .md-details summary::before {
   content: "▸";
   display: inline-block;
   margin-right: 0.5rem;
@@ -2463,19 +2463,19 @@ input[type="radio"] {
   opacity: 0.75;
 }
 
-.markdown-preview .md-details[open] summary::before {
+:where(.markdown-preview, .prose) .md-details[open] summary::before {
   transform: rotate(90deg);
 }
 
-.markdown-preview .md-details-body {
+:where(.markdown-preview, .prose) .md-details-body {
   padding-top: 0.25rem;
 }
 
-.markdown-preview .md-details-body > :last-child {
+:where(.markdown-preview, .prose) .md-details-body > :last-child {
   margin-bottom: 0;
 }
 
-.markdown-preview .md-callout {
+:where(.markdown-preview, .prose) .md-callout {
   border-radius: var(--radius-medium);
   padding: 0.75rem 1rem;
   margin: 0.85rem 0;
@@ -2484,44 +2484,44 @@ input[type="radio"] {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }
 
-.markdown-preview .md-callout-title {
+:where(.markdown-preview, .prose) .md-callout-title {
   font-weight: 600;
   margin: 0 0 0.4rem;
   color: var(--color-text);
 }
 
-.markdown-preview .md-callout-body > :last-child {
+:where(.markdown-preview, .prose) .md-callout-body > :last-child {
   margin-bottom: 0;
 }
 
-.markdown-preview .md-callout-info {
+:where(.markdown-preview, .prose) .md-callout-info {
   border-left-color: var(--color-info);
   background: rgba(96, 165, 250, 0.14);
 }
 
-.markdown-preview .md-callout-info .md-callout-title {
+:where(.markdown-preview, .prose) .md-callout-info .md-callout-title {
   color: var(--color-info);
 }
 
-.markdown-preview .md-callout-warning {
+:where(.markdown-preview, .prose) .md-callout-warning {
   border-left-color: var(--color-warning);
   background: rgba(250, 204, 21, 0.16);
 }
 
-.markdown-preview .md-callout-warning .md-callout-title {
+:where(.markdown-preview, .prose) .md-callout-warning .md-callout-title {
   color: var(--color-warning);
 }
 
-.markdown-preview .md-callout-success {
+:where(.markdown-preview, .prose) .md-callout-success {
   border-left-color: var(--color-success);
   background: rgba(56, 226, 160, 0.16);
 }
 
-.markdown-preview .md-callout-success .md-callout-title {
+:where(.markdown-preview, .prose) .md-callout-success .md-callout-title {
   color: var(--color-success);
 }
 
-.markdown-preview .mermaid-diagram {
+:where(.markdown-preview, .prose) .mermaid-diagram {
   border-radius: var(--radius-medium);
   border: 1px solid rgba(255, 255, 255, 0.1);
   padding: 0.75rem;
@@ -2529,7 +2529,7 @@ input[type="radio"] {
   overflow-x: auto;
 }
 
-.markdown-preview .mermaid-error {
+:where(.markdown-preview, .prose) .mermaid-error {
   color: var(--color-text-muted);
   font-size: 0.9rem;
 }
