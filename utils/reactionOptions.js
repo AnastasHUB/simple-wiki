@@ -109,17 +109,33 @@ export function invalidateReactionEmojiCache() {
 }
 
 export async function getReactionOptionByKey(rawKey) {
-  const key = sanitizeReactionKey(rawKey);
-  if (!key) {
+  if (typeof rawKey !== "string") {
     return null;
   }
-  const row = await get(
-    `SELECT reaction_key, label, emoji, image_url, display_order, snowflake_id
-       FROM reaction_options
-      WHERE reaction_key = ?`,
-    [key],
-  );
-  return mapRow(row);
+
+  const attempts = [];
+  const normalized = sanitizeReactionKey(rawKey);
+  if (normalized) {
+    attempts.push(normalized);
+  }
+  const trimmed = rawKey.trim();
+  if (trimmed && (!normalized || trimmed !== normalized)) {
+    attempts.push(trimmed);
+  }
+
+  for (const key of attempts) {
+    const row = await get(
+      `SELECT reaction_key, label, emoji, image_url, display_order, snowflake_id
+         FROM reaction_options
+        WHERE reaction_key = ?`,
+      [key],
+    );
+    if (row) {
+      return mapRow(row);
+    }
+  }
+
+  return null;
 }
 
 export async function createReactionOption(input) {
@@ -152,11 +168,7 @@ export async function createReactionOption(input) {
 }
 
 export async function updateReactionOption(rawKey, input) {
-  const key = sanitizeReactionKey(rawKey);
-  if (!key) {
-    throw new Error("Réaction introuvable.");
-  }
-  const existing = await getReactionOptionByKey(key);
+  const existing = await getReactionOptionByKey(rawKey);
   if (!existing) {
     throw new Error("Réaction introuvable.");
   }
@@ -169,7 +181,7 @@ export async function updateReactionOption(rawKey, input) {
   if (!finalEmoji && !finalImage) {
     throw new Error("Une réaction doit contenir un emoji ou une image.");
   }
-  const label = normalizeLabel(input?.label, existing.label || key);
+  const label = normalizeLabel(input?.label, existing.label || existing.id);
   await run(
     `UPDATE reaction_options
         SET label = ?,
@@ -177,10 +189,10 @@ export async function updateReactionOption(rawKey, input) {
             image_url = ?,
             updated_at = CURRENT_TIMESTAMP
       WHERE reaction_key = ?`,
-    [label, finalEmoji || null, finalImage, key],
+    [label, finalEmoji || null, finalImage, existing.id],
   );
   invalidateReactionEmojiCache();
-  return getReactionOptionByKey(key);
+  return getReactionOptionByKey(existing.id);
 }
 
 async function normalizeReactionOrdering() {
@@ -200,17 +212,17 @@ async function normalizeReactionOrdering() {
 }
 
 export async function deleteReactionOption(rawKey) {
-  const key = sanitizeReactionKey(rawKey);
-  if (!key) {
+  const existing = await getReactionOptionByKey(rawKey);
+  if (!existing) {
     return false;
   }
   const result = await run(
     `DELETE FROM reaction_options WHERE reaction_key = ?`,
-    [key],
+    [existing.id],
   );
   if (result.changes > 0) {
-    await run(`DELETE FROM page_reactions WHERE reaction_key = ?`, [key]);
-    await run(`DELETE FROM comment_reactions WHERE reaction_key = ?`, [key]);
+    await run(`DELETE FROM page_reactions WHERE reaction_key = ?`, [existing.id]);
+    await run(`DELETE FROM comment_reactions WHERE reaction_key = ?`, [existing.id]);
     await normalizeReactionOrdering();
     invalidateReactionEmojiCache();
     return true;
@@ -219,8 +231,8 @@ export async function deleteReactionOption(rawKey) {
 }
 
 export async function moveReactionOption(rawKey, direction) {
-  const key = sanitizeReactionKey(rawKey);
-  if (!key) {
+  const existing = await getReactionOptionByKey(rawKey);
+  if (!existing) {
     throw new Error("Réaction introuvable.");
   }
   const rows = await all(
@@ -228,7 +240,7 @@ export async function moveReactionOption(rawKey, direction) {
        FROM reaction_options
       ORDER BY display_order ASC, reaction_key ASC`,
   );
-  const index = rows.findIndex((row) => row.reaction_key === key);
+  const index = rows.findIndex((row) => row.reaction_key === existing.id);
   if (index === -1) {
     throw new Error("Réaction introuvable.");
   }
