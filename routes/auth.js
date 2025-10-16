@@ -125,7 +125,7 @@ r.post("/login", loginRateLimiter, async (req, res) => {
   });
   res.redirect("/");
 });
-r.post("/register", registerRateLimiter, async (req, res) => {
+r.post("/register", registerRateLimiter, async (req, res, next) => {
   const { username, password } = req.body;
   const captchaToken =
     typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
@@ -163,25 +163,37 @@ r.post("/register", registerRateLimiter, async (req, res) => {
   const hashedPassword = await hashPassword(passwordValue);
   const ip = getClientIp(req);
   const displayName = sanitizedUsername;
-  const result = await run(
-    `INSERT INTO users(snowflake_id, username, password, display_name, role_id, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})`,
-    [
-      generateSnowflake(),
-      sanitizedUsername,
-      hashedPassword,
-      displayName,
-      roleId,
-      ...roleFlagValues,
-    ],
-  );
+  let createdUser;
+  try {
+    const result = await run(
+      `INSERT INTO users(snowflake_id, username, password, display_name, role_id, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})`,
+      [
+        generateSnowflake(),
+        sanitizedUsername,
+        hashedPassword,
+        displayName,
+        roleId,
+        ...roleFlagValues,
+      ],
+    );
 
-  const createdUser = await get(
-    `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
-     FROM users u
-     LEFT JOIN roles r ON r.id = u.role_id
-     WHERE u.id=?`,
-    [result.lastID],
-  );
+    createdUser = await get(
+      `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+       WHERE u.id=?`,
+      [result.lastID],
+    );
+  } catch (err) {
+    if (err?.code === "SQLITE_CONSTRAINT" || err?.code === "SQLITE_CONSTRAINT_UNIQUE") {
+      return res.status(409).render("register", {
+        errors: ["Ce nom d'utilisateur est déjà utilisé."],
+        captcha,
+        values: { username: sanitizedUsername },
+      });
+    }
+    return next(err);
+  }
 
   const flags = deriveRoleFlags(createdUser);
   req.session.user = buildSessionUser(createdUser, flags);
