@@ -125,6 +125,22 @@ const PAGE_STATUS_LABELS = {
   scheduled: "Planifié",
 };
 
+async function safeSendAdminEvent(req, eventName, payload) {
+  const sendAdminEventImpl =
+    req?.app?.locals?.sendAdminEvent || sendAdminEvent;
+  try {
+    await sendAdminEventImpl(eventName, payload);
+  } catch (error) {
+    const logger =
+      req?.app?.locals?.logger || req?.app?.locals?.log || console;
+    if (typeof logger?.error === "function") {
+      logger.error(`Failed to send admin event: ${eventName}`, error);
+    } else {
+      console.error(`Failed to send admin event: ${eventName}`, error);
+    }
+  }
+}
+
 const CLAIMED_PROFILE_LOGIN_NOTICE =
   "Ce profil IP a été converti en compte utilisateur. Connectez-vous pour continuer.";
 
@@ -1475,7 +1491,7 @@ r.post(
 
     if (existingLike) {
       await run("DELETE FROM likes WHERE page_id=? AND ip=?", [page.id, ip]);
-      await sendAdminEvent("Like removed", {
+      await safeSendAdminEvent(req, "Like removed", {
         user: req.session.user?.username,
         page,
         extra: { ip, likeSnowflake: existingLike.snowflake_id || null },
@@ -1495,7 +1511,7 @@ r.post(
         page.id,
         ip,
       ]);
-      await sendAdminEvent("Like added", {
+      await safeSendAdminEvent(req, "Like added", {
         user: req.session.user?.username,
         page,
         extra: { ip, likeSnowflake },
@@ -1640,15 +1656,19 @@ r.post(
 
     payload.notifications = [notification];
 
-    await sendAdminEvent(result?.added ? "Reaction added" : "Reaction removed", {
-      user: req.session.user?.username || null,
-      page,
-      extra: {
-        ip,
-        reaction: option.id,
-        target: "page",
+    await safeSendAdminEvent(
+      req,
+      result?.added ? "Reaction added" : "Reaction removed",
+      {
+        user: req.session.user?.username || null,
+        page,
+        extra: {
+          ip,
+          reaction: option.id,
+          target: "page",
+        },
       },
-    });
+    );
 
     if (wantsJson) {
       return res.json(payload);
