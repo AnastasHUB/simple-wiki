@@ -1,5 +1,5 @@
 import { createHash } from "crypto";
-import fetch from "node-fetch";
+import nodeFetch from "node-fetch";
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
 import { getActiveBans } from "./ipBans.js";
@@ -125,9 +125,21 @@ function formatLocation(ipapi, ipwhois) {
 
 function buildReputationSummary(data, flags) {
   const sources = normalizeReputationSources(data);
-  const ipapi = sources.ipapi || {};
+  const ipapi = sources.ipapi || null;
   const stopForumSpam = sources.stopForumSpam || null;
-  const ipwhois = sources.ipwhois || {};
+  const ipwhois = sources.ipwhois || null;
+  const hasSourceData = Boolean(ipapi || stopForumSpam || ipwhois);
+
+  if (!hasSourceData) {
+    if (sources.errors?.length) {
+      const errorSummary = sources.errors.join(" | ");
+      return `Échec de la récupération des données de réputation (${errorSummary}).`;
+    }
+    return "Aucune donnée de réputation disponible.";
+  }
+
+  const ipapiDetails = ipapi || {};
+  const ipwhoisDetails = ipwhois || {};
   const reasons = [];
   if (flags.isVpn) reasons.push("VPN");
   if (flags.isProxy) reasons.push("Proxy");
@@ -150,38 +162,41 @@ function buildReputationSummary(data, flags) {
     : "Aucun signal VPN/Proxy connu pour cette IP.";
 
   const details = [];
-  if (ipapi?.company?.name) {
-    details.push(`Fournisseur : ${ipapi.company.name}`);
-  } else if (ipapi?.datacenter?.datacenter) {
-    details.push(`Fournisseur : ${ipapi.datacenter.datacenter}`);
-  } else if (ipwhois?.connection?.isp) {
-    details.push(`Fournisseur : ${ipwhois.connection.isp}`);
-  } else if (ipwhois?.connection?.org) {
-    details.push(`Fournisseur : ${ipwhois.connection.org}`);
+  if (ipapiDetails?.company?.name) {
+    details.push(`Fournisseur : ${ipapiDetails.company.name}`);
+  } else if (ipapiDetails?.datacenter?.datacenter) {
+    details.push(`Fournisseur : ${ipapiDetails.datacenter.datacenter}`);
+  } else if (ipwhoisDetails?.connection?.isp) {
+    details.push(`Fournisseur : ${ipwhoisDetails.connection.isp}`);
+  } else if (ipwhoisDetails?.connection?.org) {
+    details.push(`Fournisseur : ${ipwhoisDetails.connection.org}`);
   }
 
-  const ipType = ipapi?.connection_type || ipapi?.type || null;
+  const ipType = ipapiDetails?.connection_type || ipapiDetails?.type || null;
   if (ipType) {
     details.push(`Type de connexion : ${ipType}`);
   }
 
-  const location = formatLocation(ipapi, ipwhois);
+  const location = formatLocation(ipapiDetails, ipwhoisDetails);
   if (location) {
     details.push(`Localisation estimée : ${location}`);
   }
 
   const timezone =
-    ipapi?.location?.time_zone || ipapi?.timezone?.id || ipwhois?.timezone || null;
+    ipapiDetails?.location?.time_zone ||
+    ipapiDetails?.timezone?.id ||
+    ipwhoisDetails?.timezone ||
+    null;
   if (timezone) {
     details.push(`Fuseau horaire : ${timezone}`);
   }
 
   const asnNumber =
-    ipapi?.asn?.asn ||
-    (typeof ipapi?.asn === "string" ? ipapi.asn : null) ||
-    ipwhois?.connection?.asn ||
+    ipapiDetails?.asn?.asn ||
+    (typeof ipapiDetails?.asn === "string" ? ipapiDetails.asn : null) ||
+    ipwhoisDetails?.connection?.asn ||
     null;
-  const asnName = ipapi?.asn?.name || null;
+  const asnName = ipapiDetails?.asn?.name || null;
   if (asnNumber || asnName) {
     const parts = [asnNumber, asnName].filter(Boolean);
     details.push(`ASN : ${parts.join(" - ")}`);
@@ -200,10 +215,20 @@ function buildReputationSummary(data, flags) {
     details.push(`StopForumSpam : ${frequency}${confidence}${lastSeen}`);
   }
 
-  if (!details.length) {
+  if (!details.length && !sources.errors?.length) {
     return baseSummary;
   }
-  return `${baseSummary} ${details.join(" · ")}.`;
+
+  const detailSummary = details.length
+    ? `${baseSummary} ${details.join(" · ")}.`
+    : `${baseSummary}`;
+
+  if (sources.errors?.length) {
+    const suffix = `Sources incomplètes : ${sources.errors.join(" | ")}.`;
+    return `${detailSummary} ${suffix}`;
+  }
+
+  return detailSummary;
 }
 
 const pendingReputationRefreshes = new Map();
@@ -236,6 +261,13 @@ function toNumber(value) {
   return Number.isFinite(numeric) ? numeric : null;
 }
 
+function resolveFetch() {
+  if (typeof globalThis.fetch === "function") {
+    return globalThis.fetch.bind(globalThis);
+  }
+  return nodeFetch;
+}
+
 async function fetchJsonWithTimeout(url, {
   timeoutMs = IP_REPUTATION_TIMEOUT_MS,
   headers = {},
@@ -243,6 +275,7 @@ async function fetchJsonWithTimeout(url, {
 } = {}) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  const fetchFn = resolveFetch();
   try {
     let finalSignal = controller.signal;
     if (signal) {
@@ -259,7 +292,7 @@ async function fetchJsonWithTimeout(url, {
         finalSignal = signal;
       }
     }
-    const response = await fetch(url, {
+    const response = await fetchFn(url, {
       signal: finalSignal,
       headers: { Accept: "application/json", ...headers },
     });
@@ -350,10 +383,6 @@ async function queryIpReputation(ip) {
     errors.push(
       `ipwho.is: ${ipwhoisResult.reason?.message || ipwhoisResult.reason}`,
     );
-  }
-
-  if (!result.ipapi && !result.stopForumSpam && !result.ipwhois) {
-    throw new Error(errors.join(" | ") || "Aucune donnée de réputation");
   }
 
   return result;
@@ -534,7 +563,14 @@ export async function refreshIpReputation(ip, { force = false } = {}) {
   }
 
   const flags = computeReputationFlags(data);
-  const autoStatus = computeAutoStatus(flags);
+  const sources = normalizeReputationSources(data);
+  const hasSourceData = Boolean(
+    sources.ipapi || sources.stopForumSpam || sources.ipwhois,
+  );
+  let autoStatus = computeAutoStatus(flags);
+  if (!hasSourceData) {
+    autoStatus = "unknown";
+  }
   let finalStatus = autoStatus;
   if (override === "safe") {
     finalStatus = "safe";
