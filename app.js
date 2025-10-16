@@ -25,7 +25,7 @@ import {
 } from "./utils/roleFlags.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
-import { getRecaptchaConfig } from "./utils/captcha.js";
+import { isCaptchaAvailable } from "./utils/captcha.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
@@ -140,8 +140,7 @@ app.use(async (req, res, next) => {
     };
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
-    const captchaConfig = getRecaptchaConfig();
-    res.locals.registrationEnabled = Boolean(captchaConfig);
+  res.locals.registrationEnabled = isCaptchaAvailable();
     try {
       const emoji = await listReactionEmoji();
       res.locals.customReactionEmoji = emoji;

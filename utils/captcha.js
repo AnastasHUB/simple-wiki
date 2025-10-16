@@ -1,72 +1,81 @@
-const RECAPTCHA_CONFIG = {
-  id: "recaptcha",
-  label: "reCAPTCHA",
-  scriptUrl: "https://www.google.com/recaptcha/api.js?render=explicit",
-  global: "grecaptcha",
-  verifyUrl: "https://www.google.com/recaptcha/api/siteverify",
-};
+import crypto from "node:crypto";
 
-function getSiteKeyFromEnv() {
-  return (
-    process.env.RECAPTCHA_SITE_KEY ||
-    process.env.RECAPTCHA_SITEKEY ||
-    null
-  );
+const CAPTCHA_ID = "math";
+const CAPTCHA_LABEL = "Captcha mathématique";
+const CHALLENGE_TTL_MS = 10 * 60 * 1000;
+const MIN_OPERAND = 1;
+const MAX_OPERAND = 9;
+
+function getRandomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-function getSecretFromEnv() {
-  return (
-    process.env.RECAPTCHA_SECRET ||
-    process.env.RECAPTCHA_SECRET_KEY ||
-    null
-  );
-}
-
-function buildVerificationPayload({ secret, token, remoteIp }) {
-  const body = new URLSearchParams();
-  body.set("secret", secret);
-  body.set("response", token);
-  if (remoteIp) {
-    body.set("remoteip", remoteIp);
-  }
-  return { body };
-}
-
-function getProvider() {
-  const siteKey = getSiteKeyFromEnv();
-  const secret = getSecretFromEnv();
-  if (!siteKey || !secret) {
+function ensureSessionStore(req) {
+  if (!req || typeof req !== "object") {
     return null;
   }
+  const session = req.session;
+  if (!session || typeof session !== "object") {
+    return null;
+  }
+  if (!session.captchaChallenges || typeof session.captchaChallenges !== "object") {
+    session.captchaChallenges = {};
+  }
+  return session.captchaChallenges;
+}
+
+function cleanupExpiredChallenges(store) {
+  const now = Date.now();
+  for (const [token, challenge] of Object.entries(store)) {
+    if (!challenge || typeof challenge !== "object") {
+      delete store[token];
+      continue;
+    }
+    if (typeof challenge.expiresAt === "number" && challenge.expiresAt <= now) {
+      delete store[token];
+    }
+  }
+}
+
+function createMathQuestion() {
+  const a = getRandomInt(MIN_OPERAND, MAX_OPERAND);
+  const b = getRandomInt(MIN_OPERAND, MAX_OPERAND);
   return {
-    ...RECAPTCHA_CONFIG,
-    siteKey,
-    secret,
+    question: `${a} + ${b}`,
+    answer: String(a + b),
   };
 }
 
-export function getRecaptchaConfig() {
-  const provider = getProvider();
-  if (!provider) {
+export function createCaptchaChallenge(req) {
+  const store = ensureSessionStore(req);
+  if (!store) {
     return null;
   }
-  const { id, label, siteKey, scriptUrl, global } = provider;
-  return { id, label, siteKey, scriptUrl, global };
+  cleanupExpiredChallenges(store);
+  const token = crypto.randomBytes(16).toString("hex");
+  const { question, answer } = createMathQuestion();
+  store[token] = {
+    answer,
+    createdAt: Date.now(),
+    expiresAt: Date.now() + CHALLENGE_TTL_MS,
+  };
+  return {
+    id: CAPTCHA_ID,
+    label: CAPTCHA_LABEL,
+    token,
+    question,
+  };
 }
 
-export function isCaptchaAvailable() {
-  return Boolean(getProvider());
-}
-
-export async function verifyRecaptchaResponse(token, options = {}) {
-  const provider = getProvider();
-  if (!provider) {
+export function verifyCaptchaResponse(req, { token, answer }) {
+  const store = ensureSessionStore(req);
+  if (!store) {
     return {
       success: false,
-      errorCodes: ["missing-configuration"],
+      errorCodes: ["session-missing"],
     };
   }
-
+  cleanupExpiredChallenges(store);
   const trimmedToken = typeof token === "string" ? token.trim() : "";
   if (!trimmedToken) {
     return {
@@ -74,48 +83,49 @@ export async function verifyRecaptchaResponse(token, options = {}) {
       errorCodes: ["missing-token"],
     };
   }
-
-  try {
-    const payload = buildVerificationPayload({
-      secret: provider.secret,
-      token: trimmedToken,
-      remoteIp: options.remoteIp || null,
-    });
-    const response = await fetch(provider.verifyUrl, {
-      method: "POST",
-      ...payload,
-    });
-    if (!response.ok) {
-      return {
-        success: false,
-        errorCodes: ["verification-error"],
-      };
-    }
-    const data = await response.json();
-    const success = Boolean(data?.success);
-    const errorCodes = Array.isArray(data?.["error-codes"])
-      ? data["error-codes"].map((code) => String(code))
-      : Array.isArray(data?.errorCodes)
-        ? data.errorCodes.map((code) => String(code))
-        : [];
-    return {
-      success,
-      errorCodes: success ? [] : errorCodes,
-    };
-  } catch (err) {
-    console.error("Captcha verification failed", err);
+  const storedChallenge = store[trimmedToken];
+  delete store[trimmedToken];
+  if (!storedChallenge) {
     return {
       success: false,
-      errorCodes: ["verification-error"],
+      errorCodes: ["invalid-token"],
     };
   }
+  if (
+    typeof storedChallenge.expiresAt === "number" &&
+    storedChallenge.expiresAt <= Date.now()
+  ) {
+    return {
+      success: false,
+      errorCodes: ["expired"],
+    };
+  }
+  const trimmedAnswer = typeof answer === "string" ? answer.trim() : "";
+  if (!trimmedAnswer) {
+    return {
+      success: false,
+      errorCodes: ["missing-answer"],
+    };
+  }
+  if (trimmedAnswer !== storedChallenge.answer) {
+    return {
+      success: false,
+      errorCodes: ["incorrect-answer"],
+    };
+  }
+  return {
+    success: true,
+    errorCodes: [],
+  };
 }
 
-export function describeRecaptcha() {
-  const provider = getRecaptchaConfig();
-  if (!provider) {
-    return null;
-  }
-  const { id, label } = provider;
-  return { id, label };
+export function describeCaptcha() {
+  return {
+    id: CAPTCHA_ID,
+    label: CAPTCHA_LABEL,
+  };
+}
+
+export function isCaptchaAvailable() {
+  return true;
 }

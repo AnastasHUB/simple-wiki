@@ -1,18 +1,19 @@
 import { get } from "../db.js";
 import {
-  getRecaptchaConfig,
-  verifyRecaptchaResponse,
+  createCaptchaChallenge,
+  verifyCaptchaResponse,
 } from "./captcha.js";
 
 const USERNAME_PATTERN = /^[A-Za-z0-9_.-]+$/;
 
 export async function validateRegistrationSubmission({
+  req,
   username,
   password,
   captchaToken,
-  remoteIp = null,
+  captchaAnswer,
 } = {}) {
-  const captcha = getRecaptchaConfig();
+  const captcha = createCaptchaChallenge(req);
   const sanitizedUsername = typeof username === "string" ? username.trim() : "";
   const passwordValue = typeof password === "string" ? password : "";
   const errors = [];
@@ -45,15 +46,13 @@ export async function validateRegistrationSubmission({
     errors.push("Le mot de passe doit contenir au moins 8 caractères.");
   }
 
-  const verification = await verifyRecaptchaResponse(captchaToken, {
-    remoteIp,
+  const verification = verifyCaptchaResponse(req, {
+    token: captchaToken,
+    answer: captchaAnswer,
   });
   result.captchaResult = verification;
   if (!verification.success) {
-    const codes = verification.errorCodes.length
-      ? ` (${verification.errorCodes.join(", ")})`
-      : "";
-    errors.push(`La vérification du captcha a échoué${codes}.`);
+    errors.push("Merci de répondre correctement à la question anti-spam.");
   }
 
   if (!errors.length && sanitizedUsername) {

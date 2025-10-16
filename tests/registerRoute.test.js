@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 
 import authRouter from "../routes/auth.js";
 import { initDb, run, all } from "../db.js";
-import { getRecaptchaConfig } from "../utils/captcha.js";
+import { createCaptchaChallenge } from "../utils/captcha.js";
 
 function findRouteHandlers(path, method = "post") {
   const layer = authRouter.stack.find((entry) => {
@@ -85,14 +85,22 @@ function createResponseRecorder(onFinish) {
   return res;
 }
 
-function buildRegisterRequest({ username, password, captchaToken }) {
-  return {
-    body: { username, password, captchaToken },
+function buildRegisterRequest({ username, password, captchaOverride } = {}) {
+  const req = {
+    body: { username, password, captchaToken: "", captcha: "" },
     headers: {},
     ip: "127.0.0.1",
     session: {},
     locals: {},
   };
+  const challenge = createCaptchaChallenge(req);
+  if (!challenge) {
+    throw new Error("Le captcha devrait être disponible");
+  }
+  const answer = req.session.captchaChallenges?.[challenge.token]?.answer || "";
+  req.body.captchaToken = challenge.token;
+  req.body.captcha = captchaOverride ?? answer;
+  return req;
 }
 
 function dispatchRegister(req) {
@@ -141,40 +149,6 @@ function dispatchRegister(req) {
 test("les inscriptions concurrentes renvoient une erreur conviviale", async (t) => {
   await initDb();
 
-  const originalFetch = globalThis.fetch;
-  const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-  const originalSecret = process.env.RECAPTCHA_SECRET;
-
-  process.env.RECAPTCHA_SITE_KEY = "test-key";
-  process.env.RECAPTCHA_SECRET = "test-secret";
-
-  const fetchCalls = [];
-  globalThis.fetch = async (url, init = {}) => {
-    fetchCalls.push({ url, init });
-    return {
-      ok: true,
-      async json() {
-        return { success: true };
-      },
-    };
-  };
-
-  t.after(async () => {
-    globalThis.fetch = originalFetch;
-    if (originalSiteKey === undefined) {
-      delete process.env.RECAPTCHA_SITE_KEY;
-    } else {
-      process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-    }
-    if (originalSecret === undefined) {
-      delete process.env.RECAPTCHA_SECRET;
-    } else {
-      process.env.RECAPTCHA_SECRET = originalSecret;
-    }
-  });
-
-  assert.ok(getRecaptchaConfig(), "la configuration du captcha doit être disponible");
-
   const username = `test-concurrent-${Date.now()}`;
   const password = "P@ssword123";
 
@@ -184,15 +158,12 @@ test("les inscriptions concurrentes renvoient une erreur conviviale", async (t) 
     await run("DELETE FROM users WHERE username=? COLLATE NOCASE", [username]);
   });
 
-  const requestFactory = () =>
-    buildRegisterRequest({ username, password, captchaToken: "token-ok" });
+  const requestFactory = () => buildRegisterRequest({ username, password });
 
   const results = await Promise.all([
     dispatchRegister(requestFactory()),
     dispatchRegister(requestFactory()),
   ]);
-
-  assert.equal(fetchCalls.length, 2, "les deux requêtes doivent valider le captcha");
 
   const successResponse = results.find((res) => res.redirectLocation === "/");
   assert.ok(successResponse, "une requête doit réussir");
