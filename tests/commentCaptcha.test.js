@@ -186,6 +186,58 @@ test(
 );
 
 test(
+  "la création de commentaire redirige même si l'envoi du webhook échoue",
+  { concurrency: false },
+  async (t) => {
+    await initDb();
+    const slug = `captcha-webhook-fail-${Date.now()}`;
+    const page = await createPage(slug);
+
+    t.after(async () => {
+      await cleanupPage(slug);
+    });
+
+    const req = buildRequest({
+      slug,
+      body: {
+        author: "Cap",
+        body: "Webhook en panne",
+        captchaToken: "",
+        captcha: "",
+        website: "",
+      },
+    });
+
+    let sendAttemptCount = 0;
+    req.app = {
+      locals: {
+        sendAdminEvent: async () => {
+          sendAttemptCount += 1;
+          throw new Error("Webhook indisponible");
+        },
+      },
+    };
+
+    const { challenge, answer } = attachCaptcha(req);
+    req.body.captchaToken = challenge.token;
+    req.body.captcha = answer;
+
+    const res = await dispatchComment(req);
+
+    assert.strictEqual(res.redirectedTo, `/wiki/${slug}#comments`);
+    assert.strictEqual(res.statusCode, 302);
+    assert.strictEqual(sendAttemptCount, 1);
+
+    const insertedComment = await get(
+      `SELECT page_id, author, body, status FROM comments WHERE page_id=?`,
+      [page.id],
+    );
+    assert.ok(insertedComment);
+    assert.strictEqual(insertedComment.body, "Webhook en panne");
+  },
+);
+
+test(
   "la création de commentaire rejette un captcha invalide",
   { concurrency: false },
   async (t) => {

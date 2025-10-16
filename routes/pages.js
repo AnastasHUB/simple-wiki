@@ -1074,20 +1074,27 @@ r.post(
       timeout: 6000,
     });
 
-    await sendAdminEvent("Nouveau commentaire", {
-      page,
-      comment: {
-        id: commentSnowflake,
-        author: authorToUse || "Anonyme",
-        preview: validation.body.slice(0, 200),
-        parentId: parentSnowflake,
-      },
-      user: req.session.user?.username || null,
-      extra: {
-        ip,
-        status: commentStatus,
-      },
-    });
+    const sendAdminEventImpl =
+      req?.app?.locals?.sendAdminEvent || sendAdminEvent;
+
+    try {
+      await sendAdminEventImpl("Nouveau commentaire", {
+        page,
+        comment: {
+          id: commentSnowflake,
+          author: authorToUse || "Anonyme",
+          preview: validation.body.slice(0, 200),
+          parentId: parentSnowflake,
+        },
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          status: commentStatus,
+        },
+      });
+    } catch (error) {
+      console.error("Failed to send admin event for new comment", error);
+    }
 
     res.redirect(`/wiki/${page.slug_id}#comments`);
   }),
