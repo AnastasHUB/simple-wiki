@@ -46,6 +46,7 @@ import {
   fetchPagesByTag,
   countPages,
   countPagesByTag,
+  buildPublishedFilter,
 } from "../utils/pageService.js";
 import {
   validateCommentSubmission,
@@ -314,16 +315,22 @@ r.get(
     const sanitized = searchTerm.replace(/[%_]/g, "\\$&");
     const likeTerm = `%${sanitized}%`;
 
+    const visibility = buildPublishedFilter({ alias: "p" });
+    const params = [likeTerm];
+    if (visibility.params.length) {
+      params.push(...visibility.params);
+    }
+
     const rows = await all(
       `
-      SELECT title, slug_id
-      FROM pages
-      WHERE title LIKE ? ESCAPE '\\'
-        AND status = 'published'
-      ORDER BY updated_at DESC, created_at DESC
+      SELECT p.title, p.slug_id
+      FROM pages p
+      WHERE p.title LIKE ? ESCAPE '\\'
+        AND ${visibility.clause}
+      ORDER BY p.updated_at DESC, p.created_at DESC
       LIMIT 8
     `,
-      [likeTerm],
+      params,
     );
 
     res.set("Cache-Control", "no-store");
