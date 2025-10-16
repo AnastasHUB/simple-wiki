@@ -27,6 +27,7 @@
   --radius-medium: 18px;
   --radius-small: 12px;
   --transition-base: 200ms ease;
+  --nav-drawer-width: 320px;
 }
 
 * {
@@ -518,7 +519,8 @@ pre code {
   top: clamp(1rem, env(safe-area-inset-top) + 0.75rem, 2.5rem);
   left: clamp(0.75rem, env(safe-area-inset-left) + 0.75rem, 3rem);
   bottom: clamp(1rem, env(safe-area-inset-bottom) + 0.75rem, 2.5rem);
-  width: min(320px, calc(100% - 2rem));
+  width: var(--nav-drawer-width);
+  max-width: var(--nav-drawer-width);
   display: flex;
   flex-direction: column;
   padding: 1.5rem;
@@ -719,6 +721,18 @@ html.drawer-open .nav-drawer {
 html.drawer-open .drawer-overlay {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (max-width: calc(var(--nav-drawer-width) + 1.5rem)) {
+  .nav-drawer {
+    left: max(env(safe-area-inset-left), 0px);
+  }
+}
+
+@media (max-width: 344px) {
+  .nav-drawer {
+    left: max(env(safe-area-inset-left), 0px);
+  }
 }
 
 @media (max-width: 600px) {
@@ -1853,8 +1867,10 @@ input[type="radio"] {
     transform: none;
     opacity: 1;
     max-height: calc(100vh - 6rem);
-    width: 280px;
+    width: var(--nav-drawer-width);
+    max-width: var(--nav-drawer-width);
     overflow: hidden;
+    flex: 0 0 var(--nav-drawer-width);
   }
 
   .app-main {

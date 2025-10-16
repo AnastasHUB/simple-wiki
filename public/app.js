@@ -19,11 +19,10 @@
       clearOverlayBounds();
       return;
     }
-    const styles = window.getComputedStyle(drawer);
-    const leftValue = parseFloat(styles.left) || 0;
+    const rect = drawer.getBoundingClientRect();
     const overlayLeft = Math.min(
       window.innerWidth,
-      Math.max(0, leftValue + drawer.offsetWidth),
+      Math.max(0, rect.left + rect.width),
     );
     overlayHit.style.setProperty("--overlay-left", `${overlayLeft}px`);
   };
