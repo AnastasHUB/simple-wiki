@@ -103,6 +103,8 @@
   const uploadActionsSelector = '.upload-actions';
   const copyDefaultLabel = 'Copier le lien';
   const copySuccessLabel = 'Lien copié !';
+  const csrfTokenInput = document.querySelector('input[name="_csrf"]');
+  const csrfToken = csrfTokenInput?.value || '';
 
   function buildCopyValue(url) {
     return url || '';
@@ -165,6 +167,10 @@
     const originalName = data.originalName || data.name || '';
     const safeUrl = escapeHtml(data.url);
     const safeId = escapeHtml(data.id);
+    const csrfField = csrfToken
+      ? `<input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}" />`
+      : '';
+
     tr.innerHTML = `
       <td>
         <img src="${safeUrl}" alt="" class="upload-thumb" />
@@ -178,6 +184,7 @@
       </td>
       <td>
         <form method="post" action="/admin/uploads/${safeId}/name" class="stack-form">
+          ${csrfField}
           <input type="text" name="displayName" value="${escapeHtml(displayName)}" maxlength="120" placeholder="Nom personnalisé" />
           <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
         </form>
@@ -186,6 +193,7 @@
         <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}">
           <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
           <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
+            ${csrfField}
             <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
           </form>
         </div>
@@ -226,7 +234,16 @@
         const formData = new FormData(uploadForm);
         const dn = formData.get('displayName');
         if (dn) formData.set('displayName', dn.toString().trim());
-        const response = await fetch(uploadForm.action, { method: 'POST', body: formData });
+        const headers = { Accept: 'application/json' };
+        if (csrfToken) {
+          headers['X-CSRF-Token'] = csrfToken;
+        }
+        const response = await fetch(uploadForm.action, {
+          method: 'POST',
+          body: formData,
+          headers,
+          credentials: 'same-origin',
+        });
         const contentType = response.headers.get('content-type') || '';
         let payload = null;
         if (contentType.includes('application/json')) {
