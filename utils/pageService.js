@@ -253,6 +253,9 @@ export async function fetchPageComments(pageId, options = {}) {
       authorRole: handleProfile,
       authorAvatar: handleProfile?.avatarUrl || null,
       authorBanner: handleProfile?.bannerUrl || null,
+      authorBadges: Array.isArray(handleProfile?.badges)
+        ? handleProfile.badges
+        : [],
       ipProfile: ipHash
         ? {
             hash: ipHash,

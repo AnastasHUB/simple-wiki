@@ -191,6 +191,27 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
+  CREATE TABLE IF NOT EXISTS badges(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    name TEXT UNIQUE NOT NULL,
+    description TEXT,
+    emoji TEXT,
+    image_url TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME
+  );
+  CREATE TABLE IF NOT EXISTS user_badges(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    badge_id INTEGER NOT NULL REFERENCES badges(id) ON DELETE CASCADE,
+    assigned_by_user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, badge_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_badges_user ON user_badges(user_id);
+  CREATE INDEX IF NOT EXISTS idx_user_badges_badge ON user_badges(badge_id);
   CREATE TABLE IF NOT EXISTS comments(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,

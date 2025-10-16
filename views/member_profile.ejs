@@ -34,6 +34,22 @@
         <% if (profile.roleName) { %>
           <p class="profile-public__role">Rôle&nbsp;: <strong><%= profile.roleName %></strong></p>
         <% } %>
+        <% if (Array.isArray(profile.badges) && profile.badges.length) { %>
+          <ul class="profile-public__badges" aria-label="Badges">
+            <% profile.badges.forEach(function (badge) { %>
+              <li class="profile-public__badge" title="<%= badge.name %>">
+                <span class="profile-public__badge-icon">
+                  <% if (badge.imageUrl) { %>
+                    <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
+                  <% } else { %>
+                    <%= badge.emoji || '🏅' %>
+                  <% } %>
+                </span>
+                <span class="profile-public__badge-label"><%= badge.name %></span>
+              </li>
+            <% }) %>
+          </ul>
+        <% } %>
       </div>
     </div>
 

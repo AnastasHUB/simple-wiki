@@ -63,6 +63,7 @@ import {
   decoratePagination,
   buildPaginationView,
 } from "../utils/pagination.js";
+import { listBadgesForUserId } from "../utils/badgeService.js";
 import {
   resolvePublicationState,
   formatPublishAtForInput,
@@ -1333,6 +1334,7 @@ r.get(
       `SELECT COUNT(*) AS total FROM pages WHERE author IN (${placeholders})`,
       authorHandles,
     );
+    const badges = await listBadgesForUserId(user.id);
 
     res.render("member_profile", {
       profile: {
@@ -1345,6 +1347,7 @@ r.get(
         roleColor: handleProfile?.color || null,
         totalPages: Number(totalPagesRow?.total || 0),
         recentPages,
+        badges,
       },
     });
   }),

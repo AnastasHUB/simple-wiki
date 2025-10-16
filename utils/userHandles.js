@@ -3,6 +3,7 @@ import {
   parseStoredRoleColor,
   buildRoleColorPresentation,
 } from "./roleColors.js";
+import { listBadgesForUserIds } from "./badgeService.js";
 
 function normalizeHandles(handles = []) {
   const normalized = new Set();
@@ -26,7 +27,8 @@ export async function resolveHandleColors(handles = []) {
   }
   const placeholders = normalized.map(() => "?").join(", ");
   const rows = await all(
-    `SELECT u.username,
+    `SELECT u.id,
+            u.username,
             u.display_name,
             u.avatar_url,
             u.banner_url,
@@ -37,17 +39,23 @@ export async function resolveHandleColors(handles = []) {
          OR (u.display_name IS NOT NULL AND LOWER(u.display_name) IN (${placeholders}))`,
     [...normalized, ...normalized],
   );
+  const userIds = rows
+    .map((row) => (typeof row.id === "number" ? row.id : null))
+    .filter((value) => Number.isInteger(value) && value > 0);
+  const badgesMap = await listBadgesForUserIds(userIds);
   const mapping = {};
   for (const row of rows) {
     const scheme = parseStoredRoleColor(row.role_color);
     const color = buildRoleColorPresentation(scheme);
     const payload = {
+      userId: typeof row.id === "number" ? row.id : null,
       username: row.username || null,
       displayName: row.display_name || null,
       color,
       colorScheme: scheme,
       avatarUrl: row.avatar_url || null,
       bannerUrl: row.banner_url || null,
+      badges: badgesMap.get(row.id) || [],
     };
     if (row.username) {
       mapping[row.username.toLowerCase()] = payload;

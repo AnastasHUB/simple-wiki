@@ -605,6 +605,60 @@ export const PERMISSION_CATEGORIES = [
     ],
   },
   {
+    key: "badges",
+    label: "Badges",
+    description: "Création et attribution de distinctions visibles sur les profils.",
+    groups: [
+      {
+        label: "Accès global",
+        permissions: [
+          {
+            field: "can_manage_badges",
+            label: "Gestion complète",
+            description:
+              "Autorise toutes les opérations sur les badges et leurs attributions.",
+            isAggregate: true,
+          },
+        ],
+      },
+      {
+        label: "Actions détaillées",
+        permissions: [
+          {
+            field: "can_view_badges",
+            label: "Voir les badges",
+            description: "Consulter la liste des badges disponibles et leurs détenteurs.",
+          },
+          {
+            field: "can_create_badges",
+            label: "Créer",
+            description: "Ajouter un nouveau badge à la collection.",
+          },
+          {
+            field: "can_edit_badges",
+            label: "Modifier",
+            description: "Mettre à jour le nom, l'emoji ou la description d'un badge.",
+          },
+          {
+            field: "can_delete_badges",
+            label: "Supprimer",
+            description: "Retirer un badge et toutes ses attributions.",
+          },
+          {
+            field: "can_assign_badges",
+            label: "Attribuer",
+            description: "Décerner un badge à un utilisateur.",
+          },
+          {
+            field: "can_revoke_badges",
+            label: "Retirer",
+            description: "Retirer un badge précédemment attribué.",
+          },
+        ],
+      },
+    ],
+  },
+  {
     key: "likes",
     label: "Mentions J'aime",
     description: "Contrôle des réactions des lecteurs.",
@@ -1106,6 +1160,19 @@ export const PERMISSION_DEPENDENCIES = {
     "can_impersonate_users",
     "can_assign_roles",
   ],
+  can_manage_badges: [
+    "can_view_badges",
+    "can_create_badges",
+    "can_edit_badges",
+    "can_delete_badges",
+    "can_assign_badges",
+    "can_revoke_badges",
+  ],
+  can_create_badges: ["can_view_badges"],
+  can_edit_badges: ["can_view_badges"],
+  can_delete_badges: ["can_view_badges"],
+  can_assign_badges: ["can_view_badges"],
+  can_revoke_badges: ["can_view_badges"],
   can_manage_likes: ["can_view_likes", "can_remove_likes"],
   can_manage_trash: ["can_view_trash", "can_restore_trash", "can_purge_trash"],
   can_view_events: ["can_view_event_log", "can_export_event_log"],

@@ -293,6 +293,15 @@
           permissionFlags.can_delete_roles ||
           permissionFlags.can_assign_roles
         ); %>
+        <% const canManageBadges = !!(
+          permissionFlags.can_manage_badges ||
+          permissionFlags.can_view_badges ||
+          permissionFlags.can_create_badges ||
+          permissionFlags.can_edit_badges ||
+          permissionFlags.can_delete_badges ||
+          permissionFlags.can_assign_badges ||
+          permissionFlags.can_revoke_badges
+        ); %>
         <% const canManageLikes = !!(
           permissionFlags.can_manage_likes ||
           permissionFlags.can_view_likes ||
@@ -362,6 +371,7 @@
           canManagePages ||
           canViewStats ||
           canManageUsers ||
+          canManageBadges ||
           canManageRoles ||
           canManageLikes ||
           canManageTrash ||
@@ -434,6 +444,14 @@
                   <a href="/admin/users">
                     <span class="nav-item-icon" aria-hidden="true">👥</span>
                     <span class="nav-item-label">Utilisateurs</span>
+                  </a>
+                </li>
+              <% } %>
+              <% if (canManageBadges) { %>
+                <li>
+                  <a href="/admin/badges">
+                    <span class="nav-item-icon" aria-hidden="true">🏅</span>
+                    <span class="nav-item-label">Badges</span>
                   </a>
                 </li>
               <% } %>
@@ -561,6 +579,8 @@
 <div id="overlayHit" class="drawer-overlay" aria-hidden="true"></div>
 <% const initialNotifications = typeof notifications !== 'undefined' ? notifications : []; %>
 <script type="application/json" id="initial-notifications"><%- JSON.stringify(initialNotifications).replace(/</g, '\\u003c') %></script>
+<% const reactionEmoji = Array.isArray(customReactionEmoji) ? customReactionEmoji : []; %>
+<script type="application/json" id="custom-reaction-emoji"><%- JSON.stringify(reactionEmoji).replace(/</g, '\\u003c') %></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.2/dist/markdown-it.min.js"></script>
