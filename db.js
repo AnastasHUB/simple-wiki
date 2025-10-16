@@ -1,4 +1,3 @@
-import fs from "fs/promises";
 import path from "path";
 import { fileURLToPath } from "url";
 import sqlite3 from "sqlite3";
@@ -15,15 +14,10 @@ import {
   ADMINISTRATOR_ROLE_SNOWFLAKE,
   EVERYONE_ROLE_SNOWFLAKE,
 } from "./utils/defaultRoles.js";
-import {
-  DEFAULT_REACTIONS,
-  normalizeReactionList,
-} from "./utils/reactionHelpers.js";
+import { DEFAULT_REACTIONS } from "./utils/reactionHelpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const REACTION_CONFIG_PATH = path.resolve(__dirname, "config/reactions.json");
-
 let db;
 let ftsAvailable = null;
 const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
@@ -660,23 +654,6 @@ async function ensureSnowflake(table, column = "snowflake_id") {
   );
 }
 
-async function loadReactionSeedFromFile() {
-  try {
-    const content = await fs.readFile(REACTION_CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(content);
-    const normalized = normalizeReactionList(parsed);
-    return normalized.length ? normalized : null;
-  } catch (err) {
-    if (err && err.code !== "ENOENT") {
-      console.warn(
-        "Impossible de charger config/reactions.json : utilisation des réactions par défaut.",
-        err,
-      );
-    }
-    return null;
-  }
-}
-
 async function ensureReactionOptionsSeed() {
   const row = await db.get(
     `SELECT COUNT(*) AS total FROM reaction_options`,
@@ -685,13 +662,8 @@ async function ensureReactionOptionsSeed() {
   if (total > 0) {
     return;
   }
-  let seeds = DEFAULT_REACTIONS;
-  const fromFile = await loadReactionSeedFromFile();
-  if (fromFile && fromFile.length) {
-    seeds = fromFile;
-  }
   let order = 1;
-  for (const reaction of seeds) {
+  for (const reaction of DEFAULT_REACTIONS) {
     const emojiValue =
       typeof reaction.emoji === "string" && reaction.emoji.trim()
         ? reaction.emoji.trim()
