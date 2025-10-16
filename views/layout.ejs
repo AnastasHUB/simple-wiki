@@ -187,7 +187,7 @@
                 </a>
               </li>
             <% } %>
-            <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+            <% const permissionFlags = typeof permissions === 'object' && permissions ? permissions : {}; %>
             <% const isAdminUser = !!permissionFlags.is_admin; %>
             <% const canSubmitContent = !!permissionFlags.can_submit_pages; %>
             <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>

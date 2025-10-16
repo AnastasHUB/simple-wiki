@@ -1,5 +1,5 @@
 <% title = `Historique · ${page.title}`; %>
-<% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+<% const permissionFlags = typeof permissions === 'object' && permissions ? permissions : {}; %>
 <% const canRevertHistory = !!permissionFlags.can_revert_page_history; %>
 <div class="card">
   <h1>Historique de « <%= page.title %> »</h1>
