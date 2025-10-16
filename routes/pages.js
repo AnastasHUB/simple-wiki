@@ -1146,7 +1146,9 @@ r.post(
         errors.push("Un commentaire ne peut pas répondre à lui-même.");
       } else {
         const parentComment = await get(
-          `SELECT snowflake_id, page_id, status, parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
+          `SELECT snowflake_id, page_id, status, parent_snowflake_id
+             FROM comments
+            WHERE snowflake_id = ?`,
           [parentSnowflake],
         );
         if (!parentComment || parentComment.page_id !== comment.page_id) {
@@ -1156,9 +1158,15 @@ r.post(
         } else if (parentComment.status !== "approved") {
           errors.push("Seuls les commentaires publiés peuvent recevoir une réponse.");
         } else {
+          const parentCandidate = parentComment
+            ? {
+                snowflake_id: parentComment.snowflake_id,
+                parent_snowflake_id: parentComment.parent_snowflake_id,
+              }
+            : null;
           const createsCycle = await isCommentDescendant(
             comment.snowflake_id,
-            parentComment,
+            parentCandidate,
           );
           if (createsCycle) {
             errors.push(
@@ -2846,6 +2854,17 @@ async function isCommentDescendant(rootSnowflakeId, initialParent) {
     return false;
   }
   let current = initialParent;
+  if (
+    current &&
+    typeof current === "object" &&
+    current.snowflake_id &&
+    !Object.prototype.hasOwnProperty.call(current, "parent_snowflake_id")
+  ) {
+    current = await get(
+      `SELECT snowflake_id, parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
+      [current.snowflake_id],
+    );
+  }
   const visited = new Set();
   while (current) {
     if (current.snowflake_id === rootSnowflakeId) {

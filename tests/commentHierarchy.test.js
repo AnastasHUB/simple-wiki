@@ -165,43 +165,6 @@ test("la modification refuse de créer un cycle parent/enfant", async (t) => {
     throw new Error("Impossible de localiser le gestionnaire d'édition");
   }
 
-  const descendantCheck = await get(
-    `WITH RECURSIVE subtree(snowflake_id) AS (
-       SELECT snowflake_id FROM comments WHERE parent_snowflake_id = ?
-       UNION
-       SELECT c.snowflake_id FROM comments c JOIN subtree s ON c.parent_snowflake_id = s.snowflake_id
-     )
-     SELECT 1 AS found FROM subtree WHERE snowflake_id = ? LIMIT 1`,
-    [child.snowflake, grandchild.snowflake],
-  );
-  assert.ok(descendantCheck?.found);
-  const immediateRow = await get(
-    `SELECT parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
-    [grandchild.snowflake],
-  );
-
-  let debugCurrent = grandchild.snowflake;
-  const debugVisited = new Set();
-  let debugFound = false;
-  while (debugCurrent) {
-    if (debugCurrent === child.snowflake) {
-      debugFound = true;
-      break;
-    }
-    if (debugVisited.has(debugCurrent)) {
-      break;
-    }
-    debugVisited.add(debugCurrent);
-    const row = await get(
-      `SELECT parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
-      [debugCurrent],
-    );
-    if (!row) {
-      break;
-    }
-    debugCurrent = row.parent_snowflake_id || null;
-  }
-
   const req = {
     params: { slugid: slug, commentId: child.snowflake },
     body: {
@@ -241,11 +204,6 @@ test("la modification refuse de créer un cycle parent/enfant", async (t) => {
     }
   });
 
-  // Debug output for failing expectations (will be removed once assertions pass)
-  const childRow = await get(
-    `SELECT parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
-    [child.snowflake],
-  );
   assert.strictEqual(res.redirectUrl, undefined);
   assert.strictEqual(res.view, "comment_edit");
   assert.ok(Array.isArray(res.data?.notifications));
@@ -254,5 +212,9 @@ test("la modification refuse de créer un cycle parent/enfant", async (t) => {
     /Impossible de déplacer ce commentaire sous l'un de ses propres descendants/,
   );
 
+  const childRow = await get(
+    `SELECT parent_snowflake_id FROM comments WHERE snowflake_id = ?`,
+    [child.snowflake],
+  );
   assert.strictEqual(childRow.parent_snowflake_id, child.parentSnowflakeId);
 });
