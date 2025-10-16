@@ -1197,13 +1197,20 @@ async function handleReactionSubmit(event, form) {
       formData.set("reaction", reactionKey);
     }
 
+    const payload = new URLSearchParams();
+    formData.forEach((value, key) => {
+      if (typeof value === "string") {
+        payload.append(key, value);
+      }
+    });
+
     const response = await fetch(form.action, {
       method: "POST",
       headers: applyCsrfHeader({
         "X-Requested-With": "XMLHttpRequest",
         Accept: "application/json",
       }),
-      body: formData,
+      body: payload,
     });
 
     const contentType = response.headers.get("content-type") || "";
