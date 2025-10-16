@@ -52,15 +52,59 @@ export function createRateLimiter({
 
   const hits = new Map();
 
-  return function rateLimiter(req, res, next) {
+  function deleteEntry(key, entry) {
+    const current = hits.get(key);
+    if (current && (!entry || current === entry)) {
+      if (current.timeout) {
+        clearTimeout(current.timeout);
+        current.timeout = null;
+      }
+      hits.delete(key);
+    }
+  }
+
+  function scheduleCleanup(key, entry) {
+    const delay = entry.expiresAt - Date.now();
+    if (delay <= 0) {
+      deleteEntry(key, entry);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      const current = hits.get(key);
+      if (current === entry) {
+        hits.delete(key);
+      }
+    }, delay);
+
+    if (typeof timeout.unref === "function") {
+      timeout.unref();
+    }
+
+    entry.timeout = timeout;
+  }
+
+  function registerHit(key, now, windowMs) {
+    let entry = hits.get(key);
+    if (entry && entry.expiresAt <= now) {
+      deleteEntry(key, entry);
+      entry = undefined;
+    }
+
+    if (!entry) {
+      entry = { count: 0, expiresAt: now + windowMs, timeout: null };
+      hits.set(key, entry);
+      scheduleCleanup(key, entry);
+    }
+
+    return entry;
+  }
+
+  function rateLimiter(req, res, next) {
     const now = Date.now();
     const key = resolveClientKey(req, keyGenerator);
-    let entry = hits.get(key);
-    if (!entry || entry.expiresAt <= now) {
-      entry = { count: 0, expiresAt: now + windowMs };
-    }
+    const entry = registerHit(key, now, windowMs);
     entry.count += 1;
-    hits.set(key, entry);
 
     if (entry.count > limit) {
       const retryAfterMs = entry.expiresAt - now;
@@ -73,7 +117,14 @@ export function createRateLimiter({
     next();
 
     if (entry.expiresAt <= Date.now()) {
-      hits.delete(key);
+      deleteEntry(key, entry);
     }
   };
+
+  Object.defineProperty(rateLimiter, "_getHitsForTesting", {
+    value: () => hits,
+    enumerable: false,
+  });
+
+  return rateLimiter;
 }
