@@ -139,7 +139,7 @@
           <button class="btn" type="submit">Déconnexion</button>
         </form>
       <% } else { %>
-        <% if (registrationEnabled) { %>
+        <% if (typeof registrationEnabled !== "undefined" && registrationEnabled) { %>
           <a class="btn primary" href="/register">Inscription</a>
         <% } %>
         <a class="btn" href="/login">Connexion</a>
@@ -206,7 +206,7 @@
                 </a>
               </li>
             <% } %>
-            <% if (!currentUser && registrationEnabled) { %>
+            <% if (!currentUser && typeof registrationEnabled !== "undefined" && registrationEnabled) { %>
               <li>
                 <a href="/register">
                   <span class="nav-item-icon" aria-hidden="true">🆕</span>
