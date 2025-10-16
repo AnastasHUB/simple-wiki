@@ -1631,6 +1631,8 @@ r.post(
       timeout: 3000,
     };
 
+    payload.notifications = [notification];
+
     await sendAdminEvent(result?.added ? "Reaction added" : "Reaction removed", {
       user: req.session.user?.username || null,
       page,
@@ -1771,6 +1773,8 @@ r.post(
         : `Réaction “${option.label}” retirée du commentaire.`,
       timeout: 3000,
     };
+
+    payload.notifications = [notification];
 
     await sendAdminEvent(
       result?.added ? "Comment reaction added" : "Comment reaction removed",
