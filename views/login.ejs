@@ -1,5 +1,16 @@
 <% title = 'Connexion'; %>
 <h1>Connexion</h1>
+<% if (typeof bannedAccountInfo !== 'undefined' && bannedAccountInfo) { %>
+  <div class="card alert alert-error">
+    <p><strong>Votre compte est suspendu.</strong></p>
+    <% if (bannedAccountInfo.reason) { %>
+      <p>Motif&nbsp;: <%= bannedAccountInfo.reason %></p>
+    <% } %>
+    <% if (bannedAccountInfo.bannedAt) { %>
+      <p>Depuis le <%= new Date(bannedAccountInfo.bannedAt).toLocaleString('fr-FR') %>.</p>
+    <% } %>
+  </div>
+<% } %>
 <% if (typeof error !== 'undefined') { %>
   <div class="card"><%= error %></div>
 <% } %>

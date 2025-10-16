@@ -96,6 +96,36 @@ r.post("/login", loginRateLimiter, async (req, res) => {
     );
     return res.render("login", { error: "Identifiants invalides" });
   }
+  if (u.is_banned) {
+    const reasonText = u.ban_reason
+      ? `Votre compte est suspendu : ${u.ban_reason}`
+      : "Votre compte a été suspendu.";
+    const bannedInfo = {
+      reason: u.ban_reason || null,
+      bannedAt: u.banned_at || null,
+    };
+    req.session.bannedAccountInfo = bannedInfo;
+    res.locals.bannedAccountInfo = bannedInfo;
+    pushNotification(req, {
+      type: "error",
+      message: reasonText,
+      timeout: 7000,
+    });
+    await sendAdminEvent(
+      "Connexion bloquée (compte banni)",
+      {
+        user: username,
+        extra: {
+          ip,
+          reason: u.ban_reason || null,
+        },
+      },
+      { includeScreenshot: false },
+    );
+    return res.status(403).render("login", {
+      error: "Ce compte est actuellement suspendu.",
+    });
+  }
   if (!isBcryptHash(storedHash)) {
     const newHash = await hashPassword(password);
     await run("UPDATE users SET password=? WHERE id=?", [newHash, u.id]);

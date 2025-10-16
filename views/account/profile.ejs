@@ -47,7 +47,12 @@
     </div>
   <% } %>
 
-  <form class="profile-form" method="post" action="/account/profile">
+  <form
+    class="profile-form"
+    method="post"
+    action="/account/profile"
+    enctype="multipart/form-data"
+  >
     <%- include('../partials/csrf_field') %>
     <div class="form-grid">
       <div class="field">
@@ -88,6 +93,20 @@
         <p class="field-hint">
           Utilisez une URL HTTPS ou un chemin commençant par «&nbsp;/&nbsp;». Laissez vide pour supprimer.
         </p>
+        <label class="sr-only" for="profile-avatar-upload">Téléverser un avatar</label>
+        <input
+          id="profile-avatar-upload"
+          type="file"
+          name="avatarFile"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+        />
+        <p class="field-hint">Images jusqu'à 5&nbsp;Mo. Les formats JPG, PNG, GIF et WebP sont acceptés.</p>
+        <p class="field-hint">
+          <label>
+            <input type="checkbox" name="removeAvatar" value="1" />
+            Supprimer l'avatar actuel
+          </label>
+        </p>
       </div>
 
       <div class="field">
@@ -102,8 +121,86 @@
         <p class="field-hint">
           Image affichée en en-tête du profil public. Laissez vide pour utiliser l'arrière-plan par défaut.
         </p>
+        <label class="sr-only" for="profile-banner-upload">Téléverser une bannière</label>
+        <input
+          id="profile-banner-upload"
+          type="file"
+          name="bannerFile"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+        />
+        <p class="field-hint">Images jusqu'à 5&nbsp;Mo. Les formats JPG, PNG, GIF et WebP sont acceptés.</p>
+        <p class="field-hint">
+          <label>
+            <input type="checkbox" name="removeBanner" value="1" />
+            Supprimer la bannière actuelle
+          </label>
+        </p>
       </div>
     </div>
+
+    <fieldset class="profile-options">
+      <legend>Options d'affichage</legend>
+      <div class="field">
+        <label>
+          <input
+            type="checkbox"
+            name="showBio"
+            value="1"
+            <%= profile.showBio ? 'checked' : '' %>
+          />
+          Afficher ma biographie
+        </label>
+        <p class="field-hint">Décochez cette option pour masquer votre texte de présentation sur la page publique.</p>
+      </div>
+      <div class="field">
+        <label>
+          <input
+            type="checkbox"
+            name="showStats"
+            value="1"
+            <%= profile.showStats ? 'checked' : '' %>
+          />
+          Afficher mes statistiques
+        </label>
+        <p class="field-hint">Inclut le nombre total de pages publiées sur votre profil public.</p>
+      </div>
+      <div class="field">
+        <label>
+          <input
+            type="checkbox"
+            name="showBadges"
+            value="1"
+            <%= profile.showBadges ? 'checked' : '' %>
+          />
+          Afficher mes badges publics
+        </label>
+        <p class="field-hint">Masquez cette section si vous souhaitez conserver vos distinctions privées.</p>
+      </div>
+      <div class="field">
+        <label>
+          <input
+            type="checkbox"
+            name="showRecentPages"
+            value="1"
+            <%= profile.showRecentPages ? 'checked' : '' %>
+          />
+          Afficher mes publications récentes
+        </label>
+        <p class="field-hint">Désactivez cette option pour masquer la liste des dernières pages que vous avez publiées.</p>
+      </div>
+      <div class="field">
+        <label>
+          <input
+            type="checkbox"
+            name="showIpProfiles"
+            value="1"
+            <%= profile.showIpProfiles ? 'checked' : '' %>
+          />
+          Afficher les profils IP associés
+        </label>
+        <p class="field-hint">Les profils IP permettent aux administrateurs d'enquêter sur les abus. Activez cette option seulement si vous souhaitez rendre ce lien visible publiquement.</p>
+      </div>
+    </fieldset>
 
     <div class="field">
       <label for="profile-bio">Biographie</label>
@@ -121,4 +218,47 @@
       <button class="btn primary" type="submit" data-icon="💾">Enregistrer les modifications</button>
     </div>
   </form>
+</section>
+
+<section class="card mt-md">
+  <h2>Profils IP associés</h2>
+  <p class="text-muted">
+    Les profils IP regroupent vos activités effectuées sans compte. Vous pouvez les dissocier ici.
+  </p>
+  <% if (Array.isArray(linkedIpProfiles) && linkedIpProfiles.length) { %>
+    <ul>
+      <% linkedIpProfiles.forEach(function (ipProfile) { %>
+        <li class="flex flex-wrap gap-sm items-center">
+          <code>#<%= ipProfile.shortHash || '?' %></code>
+          <a class="btn secondary" href="/profiles/ip/<%= encodeURIComponent(ipProfile.hash) %>">
+            Consulter le profil IP
+          </a>
+          <% if (ipProfile.claimedAt) { %>
+            <span class="text-muted">
+              Associé le <%= new Date(ipProfile.claimedAt).toLocaleString('fr-FR') %>
+            </span>
+          <% } %>
+          <form
+            method="post"
+            action="/account/profile/ip-profiles/<%= encodeURIComponent(ipProfile.hash) %>/unlink"
+            onsubmit="return confirm('Retirer le lien avec ce profil IP&nbsp;?');"
+          >
+            <%- include('../partials/csrf_field') %>
+            <button class="btn danger" data-icon="🗑️" type="submit">Dissocier</button>
+          </form>
+        </li>
+      <% }) %>
+    </ul>
+  <% } else { %>
+    <p class="text-muted">Aucun profil IP n'est actuellement associé à votre compte.</p>
+  <% } %>
+  <% if (currentIpHash) { %>
+    <p class="mt-sm">
+      Pour lier votre adresse IP actuelle, visitez la page
+      <a href="/profiles/ip/<%= currentIpHash %>">/profiles/ip/<%= currentIpHash %></a>
+      depuis cette connexion.
+    </p>
+  <% } else { %>
+    <p class="mt-sm text-muted">Nous n'avons pas pu détecter votre adresse IP actuelle.</p>
+  <% } %>
 </section>

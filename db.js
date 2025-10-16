@@ -349,6 +349,27 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureColumn("users", "avatar_url", "TEXT");
   await ensureColumn("users", "banner_url", "TEXT");
   await ensureColumn("users", "bio", "TEXT");
+  await ensureColumn("users", "profile_show_badges", "INTEGER NOT NULL DEFAULT 1");
+  await ensureColumn(
+    "users",
+    "profile_show_recent_pages",
+    "INTEGER NOT NULL DEFAULT 1",
+  );
+  await ensureColumn(
+    "users",
+    "profile_show_ip_profiles",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "users",
+    "profile_show_bio",
+    "INTEGER NOT NULL DEFAULT 1",
+  );
+  await ensureColumn(
+    "users",
+    "profile_show_stats",
+    "INTEGER NOT NULL DEFAULT 1",
+  );
   await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
@@ -518,6 +539,10 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureRolePositions();
   await ensureColumn("users", "role_id", "INTEGER REFERENCES roles(id)");
+  await ensureColumn("users", "is_banned", "INTEGER NOT NULL DEFAULT 0");
+  await ensureColumn("users", "banned_at", "DATETIME");
+  await ensureColumn("users", "banned_by", "TEXT");
+  await ensureColumn("users", "ban_reason", "TEXT");
   await ensureColumn(
     "ip_profiles",
     "reputation_status",

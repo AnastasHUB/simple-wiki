@@ -123,6 +123,26 @@ export function buildSessionUser(rawUser, overrides = null) {
     avatar_url: rawUser.avatar_url || null,
     banner_url: rawUser.banner_url || null,
     bio: rawUser.bio || null,
+    profile_show_badges:
+      rawUser.profile_show_badges === undefined
+        ? true
+        : rawUser.profile_show_badges !== 0,
+    profile_show_recent_pages:
+      rawUser.profile_show_recent_pages === undefined
+        ? true
+        : rawUser.profile_show_recent_pages !== 0,
+    profile_show_ip_profiles:
+      rawUser.profile_show_ip_profiles !== undefined
+        ? rawUser.profile_show_ip_profiles !== 0
+        : false,
+    profile_show_bio:
+      rawUser.profile_show_bio === undefined ? true : rawUser.profile_show_bio !== 0,
+    profile_show_stats:
+      rawUser.profile_show_stats === undefined ? true : rawUser.profile_show_stats !== 0,
+    is_banned: Boolean(rawUser.is_banned),
+    banned_at: rawUser.banned_at || null,
+    banned_by: rawUser.banned_by || null,
+    ban_reason: rawUser.ban_reason || null,
     role_id: snowflakeRoleId,
     role_numeric_id: numericRoleId,
     role_name: rawUser.role_name || null,

@@ -43,6 +43,8 @@ import {
   touchIpProfile,
   triggerIpReputationRefresh,
   deleteIpProfileByHash,
+  linkIpProfileToUser,
+  unlinkIpProfile,
 } from "../utils/ipProfiles.js";
 import { getClientIp } from "../utils/ip.js";
 import {
@@ -3163,7 +3165,7 @@ r.get(
   const offset = (basePagination.page - 1) * basePagination.perPage;
 
   const users = await all(
-    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.can_comment, u.can_submit_pages, u.role_id, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color
+    `SELECT u.id, u.username, u.display_name, u.is_admin, u.is_moderator, u.is_helper, u.is_contributor, u.can_comment, u.can_submit_pages, u.role_id, u.is_banned, u.ban_reason, u.banned_at, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color
      FROM users u
      LEFT JOIN roles r ON r.id = u.role_id
      ${where}
@@ -3178,6 +3180,35 @@ r.get(
     availableRoles.find((role) => role.isAdministrator) || null;
   const fallbackEveryoneName = everyoneRole?.name || "Everyone";
   const fallbackAdministratorName = administratorRole?.name || "Administrateur";
+  const userIds = users
+    .map((user) => Number.parseInt(user.id, 10))
+    .filter((id) => Number.isInteger(id));
+  let ipProfilesByUser = {};
+  if (userIds.length) {
+    const ipPlaceholders = userIds.map(() => "?").join(", ");
+    const ipRows = await all(
+      `SELECT claimed_user_id AS user_id, hash, claimed_at
+         FROM ip_profiles
+        WHERE claimed_user_id IN (${ipPlaceholders})
+        ORDER BY claimed_at DESC`,
+      userIds,
+    );
+    ipProfilesByUser = ipRows.reduce((acc, row) => {
+      const id = Number.parseInt(row.user_id, 10);
+      if (!Number.isInteger(id)) {
+        return acc;
+      }
+      if (!acc[id]) {
+        acc[id] = [];
+      }
+      acc[id].push({
+        hash: row.hash,
+        shortHash: formatIpProfileLabel(row.hash),
+        claimedAt: row.claimed_at || null,
+      });
+      return acc;
+    }, {});
+  }
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
     const canComment = Boolean(user.can_comment);
@@ -3187,6 +3218,7 @@ r.get(
       (isAdmin ? fallbackAdministratorName : fallbackEveryoneName);
     const colorScheme = parseStoredRoleColor(user.role_color);
     const colorPresentation = buildRoleColorPresentation(colorScheme);
+    const numericId = Number.parseInt(user.id, 10);
     return {
       ...user,
       is_admin: isAdmin,
@@ -3198,6 +3230,10 @@ r.get(
       role_color_serialized:
         typeof user.role_color === "string" ? user.role_color : colorScheme ? JSON.stringify(colorScheme) : null,
       role_snowflake_id: user.role_snowflake_id || null,
+      is_banned: Boolean(user.is_banned),
+      ban_reason: user.ban_reason || null,
+      banned_at: user.banned_at || null,
+      ipProfiles: Number.isInteger(numericId) ? ipProfilesByUser[numericId] || [] : [],
     };
   });
   const pagination = decoratePagination(req, basePagination);
@@ -3484,6 +3520,261 @@ r.post(
     message: target?.username
       ? `Utilisateur ${target.username} supprimé.`
       : "Utilisateur supprimé.",
+  });
+  res.redirect("/admin/users");
+  },
+);
+
+r.post(
+  "/users/:id/ban",
+  requirePermission(["can_manage_users", "can_suspend_users"]),
+  async (req, res) => {
+  const target = await get(
+    "SELECT id, username, is_banned FROM users WHERE id=?",
+    [req.params.id],
+  );
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+  if (target.is_banned) {
+    pushNotification(req, {
+      type: "info",
+      message: `${target.username} est déjà banni.`,
+    });
+    return res.redirect("/admin/users");
+  }
+  const reason = (req.body.reason || "").trim().slice(0, 200);
+  const normalizedReason = reason || null;
+  await run(
+    `UPDATE users
+        SET is_banned=1,
+            ban_reason=?,
+            banned_at=CURRENT_TIMESTAMP,
+            banned_by=?
+      WHERE id=?`,
+    [normalizedReason, req.session.user?.username || null, target.id],
+  );
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Compte utilisateur banni",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        reason: normalizedReason,
+      },
+    },
+    { includeScreenshot: false },
+  );
+  if (req.session.user?.id === target.id) {
+    req.session.user = {
+      ...req.session.user,
+      is_banned: true,
+      ban_reason: normalizedReason,
+      banned_at: new Date().toISOString(),
+    };
+  }
+  const banMessage = normalizedReason
+    ? `${target.username} a été banni (${normalizedReason}).`
+    : `${target.username} a été banni.`;
+  pushNotification(req, {
+    type: "success",
+    message: banMessage,
+  });
+  res.redirect("/admin/users");
+  },
+);
+
+r.post(
+  "/users/:id/unban",
+  requirePermission(["can_manage_users", "can_suspend_users"]),
+  async (req, res) => {
+  const target = await get(
+    "SELECT id, username, is_banned FROM users WHERE id=?",
+    [req.params.id],
+  );
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+  if (!target.is_banned) {
+    pushNotification(req, {
+      type: "info",
+      message: `${target.username} n'est pas banni.`,
+    });
+    return res.redirect("/admin/users");
+  }
+  await run(
+    `UPDATE users
+        SET is_banned=0,
+            ban_reason=NULL,
+            banned_at=NULL,
+            banned_by=NULL
+      WHERE id=?`,
+    [target.id],
+  );
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Compte utilisateur débanni",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+      },
+    },
+    { includeScreenshot: false },
+  );
+  if (req.session.user?.id === target.id) {
+    req.session.user = {
+      ...req.session.user,
+      is_banned: false,
+      ban_reason: null,
+      banned_at: null,
+    };
+  }
+  pushNotification(req, {
+    type: "success",
+    message: `${target.username} a été débanni.`,
+  });
+  res.redirect("/admin/users");
+  },
+);
+
+r.post(
+  "/users/:id/ip-profiles/link",
+  requirePermission(["can_manage_users", "can_manage_ip_profiles"]),
+  async (req, res) => {
+  const target = await get(
+    "SELECT id, username FROM users WHERE id=?",
+    [req.params.id],
+  );
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+  const rawHash = typeof req.body.hash === "string" ? req.body.hash.trim().toLowerCase() : "";
+  if (!rawHash) {
+    pushNotification(req, {
+      type: "error",
+      message: "Merci de fournir un hash de profil IP.",
+    });
+    return res.redirect("/admin/users");
+  }
+  const force = req.body.force === "1" || req.body.force === "on";
+  const result = await linkIpProfileToUser(rawHash, target.id, { force });
+  if (!result.updated) {
+    let message = "Impossible d'associer ce profil IP.";
+    if (result.reason === "invalid") {
+      message = "Hash de profil IP invalide.";
+    } else if (result.reason === "not_found") {
+      message = "Profil IP introuvable.";
+    } else if (result.reason === "already_claimed") {
+      message = "Ce profil IP est déjà associé à un autre compte. Activez l'option forcer pour écraser l'association.";
+    } else if (result.reason === "already_linked") {
+      message = "Ce profil IP est déjà associé à cet utilisateur.";
+    }
+    pushNotification(req, {
+      type: "error",
+      message,
+    });
+    return res.redirect("/admin/users");
+  }
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Profil IP associé à un utilisateur",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        profileHash: rawHash,
+        shortHash: formatIpProfileLabel(rawHash),
+        previousUserId: result.previousUserId || null,
+        forced: Boolean(force),
+      },
+    },
+    { includeScreenshot: false },
+  );
+  pushNotification(req, {
+    type: "success",
+    message: `Profil IP ${formatIpProfileLabel(rawHash)} associé à ${target.username}.`,
+  });
+  res.redirect("/admin/users");
+  },
+);
+
+r.post(
+  "/users/:id/ip-profiles/:hash/unlink",
+  requirePermission(["can_manage_users", "can_manage_ip_profiles"]),
+  async (req, res) => {
+  const target = await get(
+    "SELECT id, username FROM users WHERE id=?",
+    [req.params.id],
+  );
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+  const rawHash = typeof req.params.hash === "string" ? req.params.hash.trim().toLowerCase() : "";
+  if (!rawHash) {
+    pushNotification(req, {
+      type: "error",
+      message: "Profil IP introuvable.",
+    });
+    return res.redirect("/admin/users");
+  }
+  const result = await unlinkIpProfile(rawHash, { expectedUserId: target.id });
+  if (!result.updated) {
+    let message = "Impossible de retirer ce profil IP.";
+    if (result.reason === "invalid") {
+      message = "Hash de profil IP invalide.";
+    } else if (result.reason === "not_found") {
+      message = "Profil IP introuvable.";
+    } else if (result.reason === "mismatch") {
+      message = "Ce profil IP est associé à un autre compte.";
+    }
+    pushNotification(req, {
+      type: "error",
+      message,
+    });
+    return res.redirect("/admin/users");
+  }
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Profil IP retiré d'un utilisateur",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        profileHash: rawHash,
+        shortHash: formatIpProfileLabel(rawHash),
+      },
+    },
+    { includeScreenshot: false },
+  );
+  pushNotification(req, {
+    type: "success",
+    message: `Profil IP ${formatIpProfileLabel(rawHash)} retiré de ${target.username}.`,
   });
   res.redirect("/admin/users");
   },

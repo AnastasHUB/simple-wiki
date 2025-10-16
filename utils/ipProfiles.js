@@ -830,6 +830,87 @@ export async function claimIpProfile(hash, userId) {
   return { updated: Boolean(result?.changes) };
 }
 
+export async function linkIpProfileToUser(hash, userId, { force = false } = {}) {
+  const normalizedHash = normalizeIp(hash);
+  if (!normalizedHash) {
+    return { updated: false, reason: "invalid" };
+  }
+  const numericUserId = Number.parseInt(userId, 10);
+  if (!Number.isInteger(numericUserId)) {
+    throw new Error("Identifiant utilisateur invalide pour l'association du profil IP.");
+  }
+  const existing = await get(
+    `SELECT claimed_user_id FROM ip_profiles WHERE hash = ?`,
+    [normalizedHash],
+  );
+  if (!existing) {
+    return { updated: false, reason: "not_found" };
+  }
+  const currentClaimedId = Number.parseInt(existing.claimed_user_id, 10);
+  if (Number.isInteger(currentClaimedId)) {
+    if (currentClaimedId === numericUserId && !force) {
+      return { updated: false, reason: "already_linked", previousUserId: currentClaimedId };
+    }
+    if (currentClaimedId !== numericUserId && !force) {
+      return {
+        updated: false,
+        reason: "already_claimed",
+        claimedUserId: currentClaimedId,
+      };
+    }
+  }
+  const result = await run(
+    `UPDATE ip_profiles
+        SET claimed_user_id=?, claimed_at=CURRENT_TIMESTAMP
+      WHERE hash=?`,
+    [numericUserId, normalizedHash],
+  );
+  return {
+    updated: Boolean(result?.changes),
+    previousUserId: Number.isInteger(currentClaimedId) ? currentClaimedId : null,
+  };
+}
+
+export async function unlinkIpProfile(hash, { expectedUserId = null } = {}) {
+  const normalizedHash = normalizeIp(hash);
+  if (!normalizedHash) {
+    return { updated: false, reason: "invalid" };
+  }
+  const existing = await get(
+    `SELECT claimed_user_id FROM ip_profiles WHERE hash = ?`,
+    [normalizedHash],
+  );
+  if (!existing) {
+    return { updated: false, reason: "not_found" };
+  }
+  const currentClaimedId = Number.parseInt(existing.claimed_user_id, 10);
+  const expectedId = Number.parseInt(expectedUserId, 10);
+  if (
+    Number.isInteger(expectedId) &&
+    (!Number.isInteger(currentClaimedId) || currentClaimedId !== expectedId)
+  ) {
+    return {
+      updated: false,
+      reason: "mismatch",
+      currentUserId: Number.isInteger(currentClaimedId) ? currentClaimedId : null,
+    };
+  }
+  const params = Number.isInteger(expectedId)
+    ? [normalizedHash, expectedId]
+    : [normalizedHash];
+  const result = await run(
+    `UPDATE ip_profiles
+        SET claimed_user_id=NULL,
+            claimed_at=NULL
+      WHERE hash=?${Number.isInteger(expectedId) ? " AND claimed_user_id=?" : ""}`,
+    params,
+  );
+  return {
+    updated: Boolean(result?.changes),
+    previousUserId: Number.isInteger(currentClaimedId) ? currentClaimedId : null,
+  };
+}
+
 export async function countIpProfiles({ search = null } = {}) {
   const clauses = [];
   const params = [];

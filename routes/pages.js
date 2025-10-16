@@ -28,6 +28,7 @@ import {
   IP_PROFILE_COMMENT_PAGE_SIZES,
   claimIpProfile,
   getIpProfileClaim,
+  formatIpProfileLabel,
 } from "../utils/ipProfiles.js";
 import { hashPassword } from "../utils/passwords.js";
 import {
@@ -1294,6 +1295,14 @@ r.get(
               u.avatar_url,
               u.banner_url,
               u.bio,
+              u.profile_show_badges,
+              u.profile_show_recent_pages,
+              u.profile_show_ip_profiles,
+              u.profile_show_bio,
+              u.profile_show_stats,
+              u.is_banned,
+              u.ban_reason,
+              u.banned_at,
               r.name AS role_name,
               r.color AS role_color
          FROM users u
@@ -1320,21 +1329,45 @@ r.get(
       authorHandles.push(trimmedDisplayName);
     }
 
-    const placeholders = authorHandles.map(() => "?").join(", ");
-    const recentPages = await all(
-      `SELECT title, slug_id, created_at
-         FROM pages
-        WHERE author IN (${placeholders})
-        ORDER BY created_at DESC
-        LIMIT 5`,
-      authorHandles,
-    );
+    const showBadges = user.profile_show_badges !== 0;
+    const showRecentPages = user.profile_show_recent_pages !== 0;
+    const showIpProfiles = user.profile_show_ip_profiles !== 0;
+    const showBio = user.profile_show_bio !== 0;
+    const showStats = user.profile_show_stats !== 0;
 
-    const totalPagesRow = await get(
-      `SELECT COUNT(*) AS total FROM pages WHERE author IN (${placeholders})`,
-      authorHandles,
-    );
-    const badges = await listBadgesForUserId(user.id);
+    const placeholders = authorHandles.map(() => "?").join(", ");
+    const recentPages = showRecentPages
+      ? await all(
+          `SELECT title, slug_id, created_at
+             FROM pages
+            WHERE author IN (${placeholders})
+            ORDER BY created_at DESC
+            LIMIT 5`,
+          authorHandles,
+        )
+      : [];
+
+    const totalPagesRow = showStats
+      ? await get(
+          `SELECT COUNT(*) AS total FROM pages WHERE author IN (${placeholders})`,
+          authorHandles,
+        )
+      : null;
+    const badges = showBadges ? await listBadgesForUserId(user.id) : [];
+    const ipProfileRows = showIpProfiles
+      ? await all(
+          `SELECT hash, claimed_at
+             FROM ip_profiles
+            WHERE claimed_user_id=?
+            ORDER BY claimed_at DESC`,
+          [user.id],
+        )
+      : [];
+    const ipProfiles = ipProfileRows.map((row) => ({
+      hash: row.hash,
+      shortHash: formatIpProfileLabel(row.hash),
+      claimedAt: row.claimed_at || null,
+    }));
 
     res.render("member_profile", {
       profile: {
@@ -1345,9 +1378,18 @@ r.get(
         bio: user.bio || "",
         roleName: user.role_name || null,
         roleColor: handleProfile?.color || null,
-        totalPages: Number(totalPagesRow?.total || 0),
+        totalPages: showStats ? Number(totalPagesRow?.total || 0) : 0,
         recentPages,
         badges,
+        showBadges,
+        showRecentPages,
+        showIpProfiles,
+        showBio,
+        showStats,
+        ipProfiles,
+        isBanned: Boolean(user.is_banned),
+        banReason: user.ban_reason || null,
+        bannedAt: user.banned_at || null,
       },
     });
   }),
