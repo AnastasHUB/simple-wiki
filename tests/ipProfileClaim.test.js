@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import pagesRouter from "../routes/pages.js";
 import { initDb, run, get } from "../db.js";
 import { touchIpProfile } from "../utils/ipProfiles.js";
-import { getRecaptchaConfig } from "../utils/captcha.js";
+import { createCaptchaChallenge } from "../utils/captcha.js";
 import { hashPassword } from "../utils/passwords.js";
 
 function findRouteHandlers(path, method = "post") {
@@ -115,6 +115,15 @@ function buildClaimRequest({ hash, ip, body = {} }) {
   };
 }
 
+function attachCaptcha(req) {
+  const challenge = createCaptchaChallenge(req);
+  if (!challenge) {
+    throw new Error("Le captcha devrait être disponible pour les tests");
+  }
+  const answer = req.session.captchaChallenges?.[challenge.token]?.answer || "";
+  return { challenge, answer };
+}
+
 const claimHandlers = findRouteHandlers("/profiles/ip/:hash/claim", "post");
 const claimPostHandler = claimHandlers.at(-1);
 
@@ -145,34 +154,8 @@ test("le rôle Utilisateurs est configuré avec les permissions de base", { conc
   assert.equal(usersRole.can_submit_pages, everyone?.can_submit_pages);
 });
 
-test("un profil IP peut être converti en compte utilisateur", { concurrency: false }, async (t) => {
+test("un profil IP peut être converti en compte utilisateur", { concurrency: false }, async () => {
   await initDb();
-  const originalFetch = globalThis.fetch;
-  const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-  const originalSecret = process.env.RECAPTCHA_SECRET;
-
-  process.env.RECAPTCHA_SITE_KEY = "site-test";
-  process.env.RECAPTCHA_SECRET = "secret-test";
-
-  const fetchCalls = [];
-  globalThis.fetch = async (url, init = {}) => {
-    fetchCalls.push({ url, init });
-    return {
-      ok: true,
-      async json() {
-        return { success: true };
-      },
-    };
-  };
-
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-    process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-    process.env.RECAPTCHA_SECRET = originalSecret;
-  });
-
-  assert.ok(getRecaptchaConfig(), "La configuration reCAPTCHA devrait être disponible");
-
   const ip = "203.0.113.42";
   const profile = await touchIpProfile(ip, { skipRefresh: true });
   await run(
@@ -186,9 +169,14 @@ test("un profil IP peut être converti en compte utilisateur", { concurrency: fa
     body: {
       username,
       password: "MotdepasseUltraSecurise",
-      captchaToken: "token-test",
+      captchaToken: "",
+      captcha: "",
     },
   });
+
+  const { challenge, answer } = attachCaptcha(request);
+  request.body.captchaToken = challenge.token;
+  request.body.captcha = answer;
 
   const response = await dispatchHandler(claimPostHandler, request);
   assert.equal(response.statusCode, 302);
@@ -211,7 +199,6 @@ test("un profil IP peut être converti en compte utilisateur", { concurrency: fa
   assert.ok(claimedProfile?.claimed_at, "La date de revendication doit être renseignée");
 
   assert.equal(request.session.user?.username, username);
-  assert.ok(Array.isArray(fetchCalls) && fetchCalls.length > 0);
 
   // Nettoyage
   await run(
@@ -329,27 +316,8 @@ test("le propriétaire déconnecté d'un profil revendiqué est redirigé vers l
   );
 });
 
-test("la conversion est refusée si le hash ne correspond pas à l'adresse IP", { concurrency: false }, async (t) => {
+test("la conversion est refusée si le hash ne correspond pas à l'adresse IP", { concurrency: false }, async () => {
   await initDb();
-  const originalFetch = globalThis.fetch;
-  const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-  const originalSecret = process.env.RECAPTCHA_SECRET;
-
-  process.env.RECAPTCHA_SITE_KEY = "site-test";
-  process.env.RECAPTCHA_SECRET = "secret-test";
-  globalThis.fetch = async () => ({
-    ok: true,
-    async json() {
-      return { success: true };
-    },
-  });
-
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-    process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-    process.env.RECAPTCHA_SECRET = originalSecret;
-  });
-
   const ip = "198.51.100.77";
   const profile = await touchIpProfile(ip, { skipRefresh: true });
   const request = buildClaimRequest({
@@ -358,9 +326,14 @@ test("la conversion est refusée si le hash ne correspond pas à l'adresse IP", 
     body: {
       username: `refus-${Date.now()}`,
       password: "MotdepasseUltraSecurise",
-      captchaToken: "token-test",
+      captchaToken: "",
+      captcha: "",
     },
   });
+
+  const { challenge, answer } = attachCaptcha(request);
+  request.body.captchaToken = challenge.token;
+  request.body.captcha = answer;
 
   const response = await dispatchHandler(claimPostHandler, request);
   assert.equal(response.statusCode, 403);
@@ -373,27 +346,8 @@ test("la conversion est refusée si le hash ne correspond pas à l'adresse IP", 
   assert.equal(claimedProfile?.claimed_user_id, null);
 });
 
-test("la conversion échoue si le profil est déjà revendiqué", { concurrency: false }, async (t) => {
+test("la conversion échoue si le profil est déjà revendiqué", { concurrency: false }, async () => {
   await initDb();
-  const originalFetch = globalThis.fetch;
-  const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-  const originalSecret = process.env.RECAPTCHA_SECRET;
-
-  process.env.RECAPTCHA_SITE_KEY = "site-test";
-  process.env.RECAPTCHA_SECRET = "secret-test";
-  globalThis.fetch = async () => ({
-    ok: true,
-    async json() {
-      return { success: true };
-    },
-  });
-
-  t.after(() => {
-    globalThis.fetch = originalFetch;
-    process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-    process.env.RECAPTCHA_SECRET = originalSecret;
-  });
-
   const ip = "203.0.113.88";
   const profile = await touchIpProfile(ip, { skipRefresh: true });
   await run(
@@ -408,9 +362,13 @@ test("la conversion échoue si le profil est déjà revendiqué", { concurrency:
     body: {
       username: primaryUsername,
       password: "MotdepasseUltraSecurise",
-      captchaToken: "token-test",
+      captchaToken: "",
+      captcha: "",
     },
   });
+  const { challenge: baseChallenge, answer: baseAnswer } = attachCaptcha(baseRequest);
+  baseRequest.body.captchaToken = baseChallenge.token;
+  baseRequest.body.captcha = baseAnswer;
   const firstResponse = await dispatchHandler(claimPostHandler, baseRequest);
   assert.equal(firstResponse.statusCode, 302);
   const primaryUser = await get(
@@ -425,9 +383,14 @@ test("la conversion échoue si le profil est déjà revendiqué", { concurrency:
     body: {
       username: `secondaire-${Date.now()}`,
       password: "MotdepasseUltraSecurise",
-      captchaToken: "token-test",
+      captchaToken: "",
+      captcha: "",
     },
   });
+
+  const { challenge: conflictChallenge, answer: conflictAnswer } = attachCaptcha(conflictingRequest);
+  conflictingRequest.body.captchaToken = conflictChallenge.token;
+  conflictingRequest.body.captcha = conflictAnswer;
 
   const conflictResponse = await dispatchHandler(claimPostHandler, conflictingRequest);
   assert.equal(conflictResponse.statusCode, 409);

@@ -17,7 +17,10 @@ import {
 } from "../utils/roleFlags.js";
 import { getEveryoneRole } from "../utils/roleService.js";
 import { generateSnowflake } from "../utils/snowflake.js";
-import { describeRecaptcha, getRecaptchaConfig } from "../utils/captcha.js";
+import {
+  createCaptchaChallenge,
+  describeCaptcha,
+} from "../utils/captcha.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
 import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
 
@@ -48,7 +51,7 @@ const registerRateLimiter = createRateLimiter({
 
 r.get("/login", (req, res) => res.render("login"));
 r.get("/register", (req, res) => {
-  const captcha = getRecaptchaConfig();
+  const captcha = createCaptchaChallenge(req);
   if (!captcha) {
     return res
       .status(503)
@@ -159,11 +162,14 @@ r.post("/register", registerRateLimiter, async (req, res, next) => {
   const { username, password } = req.body;
   const captchaToken =
     typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
+  const captchaAnswer =
+    typeof req.body.captcha === "string" ? req.body.captcha : "";
   const validation = await validateRegistrationSubmission({
+    req,
     username,
     password,
     captchaToken,
-    remoteIp: getClientIp(req),
+    captchaAnswer,
   });
 
   if (validation.captchaMissing) {
@@ -227,7 +233,7 @@ r.post("/register", registerRateLimiter, async (req, res, next) => {
 
   const flags = deriveRoleFlags(createdUser);
   req.session.user = buildSessionUser(createdUser, flags);
-  const providerDescription = describeRecaptcha();
+  const providerDescription = describeCaptcha();
   await sendAdminEvent(
     "Nouvelle inscription",
     {

@@ -52,9 +52,9 @@ import {
   validateCommentBody,
 } from "../utils/commentValidation.js";
 import {
-  describeRecaptcha,
-  getRecaptchaConfig,
-  verifyRecaptchaResponse,
+  createCaptchaChallenge,
+  describeCaptcha,
+  verifyCaptchaResponse,
 } from "../utils/captcha.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import {
@@ -856,7 +856,7 @@ r.get(
       protocol: req.protocol,
     });
 
-    const captchaConfig = getRecaptchaConfig();
+    const captchaConfig = createCaptchaChallenge(req);
 
     res.render("page", {
       page,
@@ -926,9 +926,10 @@ r.post(
     }
 
     const ip = req.clientIp;
-    const captchaConfig = getRecaptchaConfig();
     const captchaToken =
       typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
+    const captchaAnswer =
+      typeof req.body.captcha === "string" ? req.body.captcha : "";
     const adminDisplayName = permissions.is_admin
       ? getUserDisplayName(req.session.user)
       : null;
@@ -959,23 +960,21 @@ r.post(
       return res.redirect(`/wiki/${page.slug_id}#comments`);
     }
 
-    const validation = validateCommentSubmission(
-      {
-        authorInput: req.body.author,
-        bodyInput: req.body.body,
-        captchaInput: req.body.captcha,
-        honeypotInput: req.body.website,
-      },
-      { skipCaptchaQuestion: Boolean(captchaConfig) },
-    );
+    const validation = validateCommentSubmission({
+      authorInput: req.body.author,
+      bodyInput: req.body.body,
+      captchaInput: req.body.captcha,
+      honeypotInput: req.body.website,
+    });
 
-    if (captchaConfig && validation.errors.length === 0) {
-      const captchaResult = await verifyRecaptchaResponse(captchaToken, {
-        remoteIp: ip,
+    if (validation.errors.length === 0) {
+      const captchaResult = verifyCaptchaResponse(req, {
+        token: captchaToken,
+        answer: captchaAnswer,
       });
       if (!captchaResult.success) {
         validation.errors.push(
-          "Merci de répondre correctement à la question anti-spam (3 + 4).",
+          "Merci de répondre correctement à la question anti-spam.",
         );
       }
     }
@@ -2492,7 +2491,7 @@ r.get(
         },
       });
     }
-    const captchaConfig = getRecaptchaConfig();
+    const captchaConfig = createCaptchaChallenge(req);
     if (!captchaConfig) {
       return res.status(503).render("ip_profile", {
         profile,
@@ -2625,11 +2624,14 @@ r.post(
 
     const captchaToken =
       typeof req.body.captchaToken === "string" ? req.body.captchaToken : "";
+    const captchaAnswer =
+      typeof req.body.captcha === "string" ? req.body.captcha : "";
     const validation = await validateRegistrationSubmission({
+      req,
       username: req.body.username,
       password: req.body.password,
       captchaToken,
-      remoteIp: req.clientIp,
+      captchaAnswer,
     });
 
     const buildFormContext = (overrides = {}) => ({
@@ -2713,7 +2715,7 @@ r.post(
     const flags = deriveRoleFlags(createdUser);
     req.session.user = buildSessionUser(createdUser, flags);
 
-    const providerDescription = describeRecaptcha();
+    const providerDescription = describeCaptcha();
     await sendAdminEvent(
       "Conversion de profil IP",
       {

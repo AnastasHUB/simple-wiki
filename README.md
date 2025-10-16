@@ -6,7 +6,7 @@ SimpleWiki is a self-hosted wiki and knowledge base built with Node.js, Express,
 
 - **Editorial workflow** – Create, edit, and publish pages with support for drafts, scheduled publications, revision history, and diff rendering to highlight changes before publishing. Administrator tooling ensures the default `admin` account is created with full permissions on first run. 【F:app.js†L92-L154】【F:db.js†L714-L741】
 - **Taggable content library** – Organize pages with tags, full-text search (FTS5) indexing, and RSS feeds for the latest publications. Scheduled jobs aggregate historical page views into daily summaries for analytics. 【F:db.js†L764-L814】【F:scripts/aggregateViews.js†L1-L66】
-- **Community features** – Nested comment threads with preview and validation, reactions, and rate limiting. Optional reCAPTCHA support protects comment and registration forms. 【F:routes/pages.js†L1-L120】【F:routes/pages.js†L136-L204】
+- **Community features** – Nested comment threads with preview and validation, reactions, and rate limiting. A captcha mathématique dynamique protège les formulaires de commentaire et d'inscription. 【F:routes/pages.js†L1-L120】【F:routes/pages.js†L136-L204】
 - **Account & role management** – Session-backed authentication, configurable role flags, IP profile claims, and granular admin permissions configurable through default roles. Session secrets can be sourced from environment variables or a watched file. 【F:utils/config.js†L1-L45】【F:utils/sessionSecrets.js†L1-L83】【F:routes/pages.js†L17-L68】
 - **Operational visibility** – Live visitor tracking with WebSocket updates, bot detection hooks, cookie consent middleware, and integration points for Discord/webhook notifications. 【F:utils/liveStats.js†L1-L83】【F:utils/liveStatsWebsocket.js†L1-L119】【F:app.js†L38-L88】
 
@@ -15,7 +15,7 @@ SimpleWiki is a self-hosted wiki and knowledge base built with Node.js, Express,
 - **Runtime:** Node.js (ES modules)
 - **Web framework:** Express with EJS templates and `express-ejs-layouts`
 - **Database:** SQLite (via `sqlite` and `sqlite3` packages) with optional FTS5 full-text search
-- **Authentication & security:** `express-session`, CSRF protection middleware, bcrypt password hashing, reCAPTCHA integration
+- **Authentication & security:** `express-session`, CSRF protection middleware, bcrypt password hashing, captcha mathématique intégré
 - **Realtime:** `ws` WebSocket server for admin live statistics
 
 ## Getting Started
@@ -73,7 +73,6 @@ Environment variables customize behavior. Only `SESSION_SECRET` is strongly reco
 | `SESSION_SECRET`, `SESSION_SECRETS` | One or more secrets for signing sessions. Multiple values can be comma-separated. |
 | `SESSION_SECRET_FILE` | File path containing newline-delimited session secrets; watched for hot reloads. |
 | `SESSION_COOKIE_*` | Fine-grained cookie flags (`SECURE`, `HTTP_ONLY`, `SAMESITE`, `MAX_AGE`, `NAME`, `ROLLING`). |
-| `RECAPTCHA_SITE_KEY`, `RECAPTCHA_SECRET` | Enables Google reCAPTCHA checks for registrations and comments. |
 | `BOT_DETECTION_ENDPOINT`, `BOT_DETECTION_TIMEOUT_MS` | External bot detection service and timeout used when tracking visitors. |
 | `IP_REPUTATION_*` | Configure IP reputation API endpoints and timeouts for ban and profile workflows. |
 | `IP_PROFILE_SALT` | Secret salt for hashing IP profile identifiers. |
@@ -123,7 +122,7 @@ tests/                # Node test suites covering routes, UI, and services
 - [ ] Change the default administrator password after initialization.
 - [ ] Configure HTTPS and reverse proxy support for WebSockets.
 - [ ] Schedule the view aggregation script to keep the `page_views` table compact.
-- [ ] Provide reCAPTCHA credentials if public registrations or comments are enabled.
+- [ ] Vérifier que le captcha mathématique dynamique fonctionne avant d'activer les inscriptions publiques.
 
 ## Contributing
 

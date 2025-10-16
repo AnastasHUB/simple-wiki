@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import pagesRouter from "../routes/pages.js";
 import { initDb, run, get } from "../db.js";
 import { generateSnowflake } from "../utils/snowflake.js";
-import { getRecaptchaConfig } from "../utils/captcha.js";
+import { createCaptchaChallenge } from "../utils/captcha.js";
 
 function findRouteHandlers(path, method = "post") {
   const layer = pagesRouter.stack.find((entry) => {
@@ -132,6 +132,15 @@ function buildRequest({ slug, body, permissions = { can_comment: true } }) {
   };
 }
 
+function attachCaptcha(req) {
+  const challenge = createCaptchaChallenge(req);
+  if (!challenge) {
+    throw new Error("Le captcha devrait être disponible pour les tests");
+  }
+  const answer = req.session.captchaChallenges?.[challenge.token]?.answer;
+  return { challenge, answer };
+}
+
 test(
   "la création de commentaire accepte un captcha valide",
   { concurrency: false },
@@ -144,49 +153,20 @@ test(
       await cleanupPage(slug);
     });
 
-    const originalFetch = globalThis.fetch;
-    const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-    const originalSecret = process.env.RECAPTCHA_SECRET;
-
-    process.env.RECAPTCHA_SITE_KEY = "site-test";
-    process.env.RECAPTCHA_SECRET = "secret-test";
-
-    assert.ok(getRecaptchaConfig());
-
-    const fetchCalls = [];
-    globalThis.fetch = async (url, init = {}) => {
-      fetchCalls.push({ url, init });
-      return {
-        ok: true,
-        async json() {
-          return { success: true };
-        },
-      };
-    };
-
-    t.after(() => {
-      globalThis.fetch = originalFetch;
-      if (originalSiteKey === undefined) {
-        delete process.env.RECAPTCHA_SITE_KEY;
-      } else {
-        process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-      }
-      if (originalSecret === undefined) {
-        delete process.env.RECAPTCHA_SECRET;
-      } else {
-        process.env.RECAPTCHA_SECRET = originalSecret;
-      }
-    });
-
     const req = buildRequest({
       slug,
       body: {
         author: "Cap",
         body: "Bonjour le monde",
-        captchaToken: "token-ok",
+        captchaToken: "",
+        captcha: "",
         website: "",
       },
     });
+
+    const { challenge, answer } = attachCaptcha(req);
+    req.body.captchaToken = challenge.token;
+    req.body.captcha = answer;
 
     const res = await dispatchComment(req);
 
@@ -194,11 +174,6 @@ test(
     assert.strictEqual(res.statusCode, 302);
     assert.ok(Array.isArray(req.session.notifications));
     assert.match(req.session.notifications.at(-1).message, /Merci !/);
-    assert.strictEqual(fetchCalls.length, 1);
-    assert.strictEqual(
-      fetchCalls[0].url,
-      "https://www.google.com/recaptcha/api/siteverify",
-    );
 
     const insertedComment = await get(
       `SELECT page_id, author, body, status FROM comments WHERE page_id=?`,
@@ -222,49 +197,20 @@ test(
       await cleanupPage(slug);
     });
 
-    const originalFetch = globalThis.fetch;
-    const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-    const originalSecret = process.env.RECAPTCHA_SECRET;
-
-    process.env.RECAPTCHA_SITE_KEY = "site-test";
-    process.env.RECAPTCHA_SECRET = "secret-test";
-
-    assert.ok(getRecaptchaConfig());
-
-    const fetchCalls = [];
-    globalThis.fetch = async (url, init = {}) => {
-      fetchCalls.push({ url, init });
-      return {
-        ok: true,
-        async json() {
-          return { success: false, "error-codes": ["invalid-input-response"] };
-        },
-      };
-    };
-
-    t.after(() => {
-      globalThis.fetch = originalFetch;
-      if (originalSiteKey === undefined) {
-        delete process.env.RECAPTCHA_SITE_KEY;
-      } else {
-        process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-      }
-      if (originalSecret === undefined) {
-        delete process.env.RECAPTCHA_SECRET;
-      } else {
-        process.env.RECAPTCHA_SECRET = originalSecret;
-      }
-    });
-
     const req = buildRequest({
       slug,
       body: {
         author: "Cap",
         body: "Message sans captcha",
-        captchaToken: "bad-token",
+        captchaToken: "",
+        captcha: "",
         website: "",
       },
     });
+
+    const { challenge } = attachCaptcha(req);
+    req.body.captchaToken = challenge.token;
+    req.body.captcha = "réponse incorrecte";
 
     const res = await dispatchComment(req);
 
@@ -273,12 +219,9 @@ test(
     assert.ok(Array.isArray(req.session.notifications));
     const messages = req.session.notifications.map((notif) => notif.message);
     assert.ok(
-      messages.includes(
-        "Merci de répondre correctement à la question anti-spam (3 + 4).",
-      ),
+      messages.includes("Merci de répondre correctement à la question anti-spam."),
     );
     assert.ok(req.session.commentFeedback);
-    assert.strictEqual(fetchCalls.length, 1);
 
     const commentCount = await get(
       `SELECT COUNT(*) AS count FROM comments WHERE page_id=(SELECT id FROM pages WHERE slug_id=?)`,
@@ -289,7 +232,7 @@ test(
 );
 
 test(
-  "la validation serveur bloque avant l'appel reCAPTCHA en cas d'erreurs",
+  "la validation serveur bloque avant la vérification du captcha en cas d'erreurs",
   { concurrency: false },
   async (t) => {
     await initDb();
@@ -300,49 +243,18 @@ test(
       await cleanupPage(slug);
     });
 
-    const originalFetch = globalThis.fetch;
-    const originalSiteKey = process.env.RECAPTCHA_SITE_KEY;
-    const originalSecret = process.env.RECAPTCHA_SECRET;
-
-    process.env.RECAPTCHA_SITE_KEY = "site-test";
-    process.env.RECAPTCHA_SECRET = "secret-test";
-
-    assert.ok(getRecaptchaConfig());
-
-    const fetchCalls = [];
-    globalThis.fetch = async (url, init = {}) => {
-      fetchCalls.push({ url, init });
-      return {
-        ok: true,
-        async json() {
-          return { success: true };
-        },
-      };
-    };
-
-    t.after(() => {
-      globalThis.fetch = originalFetch;
-      if (originalSiteKey === undefined) {
-        delete process.env.RECAPTCHA_SITE_KEY;
-      } else {
-        process.env.RECAPTCHA_SITE_KEY = originalSiteKey;
-      }
-      if (originalSecret === undefined) {
-        delete process.env.RECAPTCHA_SECRET;
-      } else {
-        process.env.RECAPTCHA_SECRET = originalSecret;
-      }
-    });
-
     const req = buildRequest({
       slug,
       body: {
         author: "",
         body: "   ",
-        captchaToken: "token-should-not-be-used",
+        captchaToken: "",
+        captcha: "",
         website: "",
       },
     });
+
+    attachCaptcha(req);
 
     const res = await dispatchComment(req);
 
@@ -351,7 +263,6 @@ test(
     assert.ok(Array.isArray(req.session.notifications));
     const messages = req.session.notifications.map((notif) => notif.message);
     assert.ok(messages.includes("Le message est requis."));
-    assert.strictEqual(fetchCalls.length, 0);
 
     const commentCount = await get(
       `SELECT COUNT(*) AS count FROM comments WHERE page_id=(SELECT id FROM pages WHERE slug_id=?)`,

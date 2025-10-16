@@ -51,18 +51,24 @@
 
     <fieldset class="captcha-selector">
       <legend>Vérification anti-robot</legend>
-      <p>Complétez le reCAPTCHA pour continuer.</p>
-      <div
-        id="captcha-container"
-        class="captcha-container"
-        aria-live="polite"
-        data-sitekey="<%= captchaConfig.siteKey %>"
-        data-script="<%= captchaConfig.scriptUrl %>"
-        data-global="<%= captchaConfig.global %>"
-      ></div>
+      <p class="form-help">
+        Résolvez l'opération ci-dessous pour confirmer que vous n'êtes pas un robot.
+      </p>
+      <p class="captcha-question">
+        <strong><%= captchaConfig.question %> = ?</strong>
+      </p>
+      <label for="captcha-answer">Votre réponse <span class="text-required">*</span></label>
+      <input
+        id="captcha-answer"
+        type="text"
+        name="captcha"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        required
+        autocomplete="off"
+      />
+      <input type="hidden" name="captchaToken" value="<%= captchaConfig.token %>" />
     </fieldset>
-
-    <input type="hidden" name="captchaToken" id="captcha-token" required />
 
     <div class="actions">
       <button class="btn success" type="submit" data-icon="✨">Créer mon compte</button>
@@ -72,89 +78,4 @@
     Vous avez déjà un compte&nbsp;?<a href="/login">Connectez-vous ici</a>.
   </p>
 
-  <script>
-    (function () {
-      const container = document.getElementById("captcha-container");
-      const tokenInput = document.getElementById("captcha-token");
-      if (!container || !tokenInput) {
-        return;
-      }
-      const siteKey = container.dataset.sitekey;
-      const scriptUrl = container.dataset.script;
-      const globalName = container.dataset.global;
-      if (!siteKey || !scriptUrl || !globalName) {
-        return;
-      }
-
-      let scriptPromise = null;
-
-      function ensureScript(scriptUrl, globalName) {
-        if (window[globalName]) {
-          return Promise.resolve(window[globalName]);
-        }
-        if (scriptPromise) {
-          return scriptPromise;
-        }
-        scriptPromise = new Promise((resolve, reject) => {
-          const script = document.createElement("script");
-          script.src = scriptUrl;
-          script.async = true;
-          script.defer = true;
-          script.onload = () => {
-            const checkReady = () => {
-              if (window[globalName]) {
-                resolve(window[globalName]);
-              } else {
-                window.setTimeout(checkReady, 30);
-              }
-            };
-            checkReady();
-          };
-          script.onerror = () => reject(new Error("Impossible de charger le script du captcha."));
-          document.head.appendChild(script);
-        });
-        return scriptPromise;
-      }
-
-      function resetContainer() {
-        tokenInput.value = "";
-        container.innerHTML = "";
-      }
-
-      function renderCaptcha(library) {
-        resetContainer();
-        const placeholder = document.createElement("div");
-        placeholder.className = "captcha-frame";
-        container.appendChild(placeholder);
-
-        function handleToken(token) {
-          tokenInput.value = token || "";
-        }
-        function handleError() {
-          tokenInput.value = "";
-        }
-
-        if (!library || typeof library.render !== "function") {
-          throw new Error("Captcha non supporté.");
-        }
-
-        library.render(placeholder, {
-          sitekey: siteKey,
-          callback: handleToken,
-          "expired-callback": handleError,
-          "error-callback": handleError,
-        });
-      }
-
-      ensureScript(scriptUrl, globalName)
-        .then((library) => {
-          renderCaptcha(library);
-        })
-        .catch((error) => {
-          console.error(error);
-          container.innerHTML =
-            '<p class="form-help error">Impossible de charger le captcha. Veuillez rafraîchir la page.</p>';
-        });
-    })();
-  </script>
 <% } %>

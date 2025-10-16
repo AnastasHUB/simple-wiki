@@ -4,25 +4,24 @@ export function validateCommentSubmission(
     bodyInput = "",
     captchaInput = "",
     honeypotInput = "",
-  },
-  { skipCaptchaQuestion = false } = {},
+  } = {},
 ) {
   const author = authorInput.trim().slice(0, 80);
   const { body, errors } = validateCommentBody(bodyInput);
-  const captcha = captchaInput.trim();
-  const honeypot = honeypotInput.trim();
+  const captcha = typeof captchaInput === "string" ? captchaInput.trim() : "";
+  const honeypot = typeof honeypotInput === "string"
+    ? honeypotInput.trim()
+    : "";
 
   if (honeypot) {
     errors.push("Soumission invalide.");
   }
 
-  if (!skipCaptchaQuestion && captcha !== "7") {
-    errors.push(
-      "Merci de répondre correctement à la question anti-spam (3 + 4).",
-    );
+  if (!captcha) {
+    errors.push("Merci de répondre à la question anti-spam.");
   }
 
-  return { author, body, errors };
+  return { author, body, errors, captcha };
 }
 
 export function validateCommentBody(bodyInput = "") {

@@ -212,17 +212,32 @@
           <% if (claimCaptchaConfig) { %>
             <fieldset class="captcha-selector">
               <legend>Vérification anti-robot</legend>
-              <p>Complétez le reCAPTCHA pour confirmer la création du compte.</p>
-              <div
-                id="ip-claim-captcha"
-                class="captcha-container"
-                aria-live="polite"
-                data-sitekey="<%= claimCaptchaConfig.siteKey %>"
-                data-script="<%= claimCaptchaConfig.scriptUrl %>"
-                data-global="<%= claimCaptchaConfig.global %>"
-              ></div>
+              <p class="form-help">
+                Répondez correctement pour confirmer la création du compte.
+              </p>
+              <p class="captcha-question">
+                <strong><%= claimCaptchaConfig.question %> = ?</strong>
+              </p>
+              <label for="ip-claim-captcha-answer">
+                Votre réponse <span class="text-required">*</span>
+              </label>
+              <input
+                id="ip-claim-captcha-answer"
+                type="text"
+                name="captcha"
+                inputmode="numeric"
+                pattern="[0-9]*"
+                required
+                autocomplete="off"
+              />
+              <input
+                type="hidden"
+                name="captchaToken"
+                id="ip-claim-captcha-token"
+                value="<%= claimCaptchaConfig.token %>"
+                required
+              />
             </fieldset>
-            <input type="hidden" name="captchaToken" id="ip-claim-captcha-token" required />
           <% } %>
 
           <div class="actions">
@@ -234,82 +249,16 @@
         <% if (claimCaptchaConfig) { %>
           <script>
             (function () {
-              const container = document.getElementById("ip-claim-captcha");
-              const tokenInput = document.getElementById("ip-claim-captcha-token");
-              if (!container || !tokenInput) {
+              const form = document.querySelector("form[action$='/claim']");
+              if (!form) {
                 return;
               }
-              const siteKey = container.dataset.sitekey;
-              const scriptUrl = container.dataset.script;
-              const globalName = container.dataset.global;
-              if (!siteKey || !scriptUrl || !globalName) {
-                return;
-              }
-
-              function ensureScript(url, global) {
-                if (window[global]) {
-                  return Promise.resolve(window[global]);
+              form.addEventListener("submit", () => {
+                const tokenInput = document.getElementById("ip-claim-captcha-token");
+                if (tokenInput) {
+                  tokenInput.value = tokenInput.value?.trim();
                 }
-                if (window.__simpleWikiCaptchaLoader) {
-                  return window.__simpleWikiCaptchaLoader;
-                }
-                window.__simpleWikiCaptchaLoader = new Promise((resolve, reject) => {
-                  const script = document.createElement("script");
-                  script.src = url;
-                  script.async = true;
-                  script.defer = true;
-                  script.onload = () => {
-                    const checkReady = () => {
-                      if (window[global]) {
-                        resolve(window[global]);
-                      } else {
-                        window.setTimeout(checkReady, 30);
-                      }
-                    };
-                    checkReady();
-                  };
-                  script.onerror = () =>
-                    reject(new Error("Impossible de charger le script du captcha."));
-                  document.head.appendChild(script);
-                });
-                return window.__simpleWikiCaptchaLoader;
-              }
-
-              function renderCaptcha(library) {
-                container.innerHTML = "";
-                const placeholder = document.createElement("div");
-                placeholder.className = "captcha-frame";
-                container.appendChild(placeholder);
-
-                function handleToken(token) {
-                  tokenInput.value = token || "";
-                }
-
-                function handleError() {
-                  tokenInput.value = "";
-                }
-
-                if (!library || typeof library.render !== "function") {
-                  throw new Error("Captcha non supporté.");
-                }
-
-                library.render(placeholder, {
-                  sitekey: siteKey,
-                  callback: handleToken,
-                  "expired-callback": handleError,
-                  "error-callback": handleError,
-                });
-              }
-
-              ensureScript(scriptUrl, globalName)
-                .then((library) => {
-                  renderCaptcha(library);
-                })
-                .catch((error) => {
-                  console.error(error);
-                  container.innerHTML =
-                    '<p class="form-help error">Impossible de charger le captcha. Veuillez rafraîchir la page.</p>';
-                });
+              });
             })();
           </script>
         <% } %>
