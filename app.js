@@ -13,7 +13,7 @@ import accountRoutes from "./routes/account.js";
 import pagesRoutes from "./routes/pages.js";
 import searchRoutes from "./routes/search.js";
 import cookieRoutes from "./routes/cookies.js";
-import { consumeNotifications } from "./utils/notifications.js";
+import { consumeNotifications, pushNotification } from "./utils/notifications.js";
 import { getClientIp, getClientUserAgent } from "./utils/ip.js";
 import { getAdminActionCounts } from "./utils/adminTasks.js";
 import { trackLiveVisitor } from "./utils/liveStats.js";
@@ -64,6 +64,33 @@ const sessionMiddleware = session(sessionConfig);
 app.use(sessionMiddleware);
 app.use(csrfProtection());
 app.use(cookieConsentMiddleware);
+
+app.use((req, res, next) => {
+  if (req.session?.bannedAccountInfo) {
+    res.locals.bannedAccountInfo = req.session.bannedAccountInfo;
+    delete req.session.bannedAccountInfo;
+  }
+  const currentUser = req.session?.user;
+  if (currentUser?.is_banned) {
+    const reasonText = currentUser.ban_reason
+      ? `Votre compte est suspendu : ${currentUser.ban_reason}`
+      : "Votre compte a été suspendu.";
+    pushNotification(req, {
+      type: "error",
+      message: reasonText,
+      timeout: 7000,
+    });
+    req.session.bannedAccountInfo = {
+      reason: currentUser.ban_reason || null,
+      bannedAt: currentUser.banned_at || null,
+    };
+    req.session.user = null;
+    if (req.originalUrl !== "/login") {
+      return res.redirect("/login");
+    }
+  }
+  next();
+});
 
 app.use((req, res, next) => {
   const originalUrl = req.originalUrl || req.url || "/";

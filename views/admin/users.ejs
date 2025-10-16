@@ -52,7 +52,7 @@
   <div class="table-wrap mt-md">
     <table class="data-table">
       <thead>
-        <tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Rôle</th><th>Actions</th></tr>
+        <tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Rôle</th><th>Statut</th><th>Profils IP</th><th>Actions</th></tr>
       </thead>
       <tbody>
       <% users.forEach(u=>{ %>
@@ -82,6 +82,65 @@
           </td>
           <td><%= u.role_label %></td>
           <td>
+            <% if (u.is_banned) { %>
+              <span class="text-danger">Banni</span>
+              <% if (u.ban_reason) { %>
+                <br /><small>Motif&nbsp;: <%= u.ban_reason %></small>
+              <% } %>
+              <% if (u.banned_at) { %>
+                <br /><small>Depuis le <%= new Date(u.banned_at).toLocaleString('fr-FR') %></small>
+              <% } %>
+            <% } else { %>
+              <span>Actif</span>
+            <% } %>
+          </td>
+          <td>
+            <% if (Array.isArray(u.ipProfiles) && u.ipProfiles.length) { %>
+              <ul>
+                <% u.ipProfiles.forEach(function (ipProfile) { %>
+                  <li>
+                    <a href="/profiles/ip/<%= encodeURIComponent(ipProfile.hash) %>">Profil #<%= ipProfile.shortHash || '?' %></a>
+                    <% if (ipProfile.claimedAt) { %>
+                      <span class="text-muted">– <%= new Date(ipProfile.claimedAt).toLocaleDateString('fr-FR') %></span>
+                    <% } %>
+                    <% if (permissions.can_manage_ip_profiles) { %>
+                      <form
+                        method="post"
+                        action="/admin/users/<%= u.id %>/ip-profiles/<%= encodeURIComponent(ipProfile.hash) %>/unlink"
+                        onsubmit="return confirm('Retirer ce profil IP de <%= u.username %> ?');"
+                      >
+                        <%- include('../partials/csrf_field') %>
+                        <button class="btn danger" data-icon="🗑️" type="submit">Retirer</button>
+                      </form>
+                    <% } %>
+                  </li>
+                <% }) %>
+              </ul>
+            <% } else { %>
+              <span class="text-muted">Aucun</span>
+            <% } %>
+            <% if (permissions.can_manage_ip_profiles) { %>
+              <form
+                method="post"
+                action="/admin/users/<%= u.id %>/ip-profiles/link"
+                class="flex flex-wrap gap-sm items-center mt-sm"
+              >
+                <%- include('../partials/csrf_field') %>
+                <input
+                  type="text"
+                  name="hash"
+                  placeholder="hash du profil"
+                  class="flex-basis-200"
+                  required
+                />
+                <label class="text-sm">
+                  <input type="checkbox" name="force" value="1" /> Forcer
+                </label>
+                <button class="btn secondary" data-icon="🔗" type="submit">Associer</button>
+              </form>
+            <% } %>
+          </td>
+          <td>
             <div class="flex flex-wrap gap-sm items-center">
               <form method="post" action="/admin/users/<%= u.id %>/role" class="flex gap-sm items-center">
                 <%- include('../partials/csrf_field') %>
@@ -97,6 +156,26 @@
                 <% } %>
                 <button class="btn secondary" data-icon="⭐" type="submit">Choisir le rôle</button>
               </form>
+              <% if (permissions.can_suspend_users) { %>
+                <% if (u.is_banned) { %>
+                  <form method="post" action="/admin/users/<%= u.id %>/unban" class="flex gap-sm items-center">
+                    <%- include('../partials/csrf_field') %>
+                    <button class="btn success" data-icon="✅" type="submit">Débannir</button>
+                  </form>
+                <% } else { %>
+                  <form method="post" action="/admin/users/<%= u.id %>/ban" class="flex flex-wrap gap-sm items-center">
+                    <%- include('../partials/csrf_field') %>
+                    <input
+                      type="text"
+                      name="reason"
+                      maxlength="200"
+                      placeholder="Motif (optionnel)"
+                      class="flex-basis-220"
+                    />
+                    <button class="btn danger" data-icon="⛔" type="submit">Bannir</button>
+                  </form>
+                <% } %>
+              <% } %>
               <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
                 <%- include('../partials/csrf_field') %>
                 <button class="btn danger" data-icon="🗑️">Supprimer</button>
