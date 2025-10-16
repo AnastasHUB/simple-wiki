@@ -29,7 +29,10 @@
       </button>
     </form>
     <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')">Copier le lien</button>
-    <% const permissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+    <% const permissionFlags =
+      typeof permissions !== 'undefined' && permissions && typeof permissions === 'object'
+        ? permissions
+        : {}; %>
     <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
     <% const isAdmin = !!permissionFlags.is_admin; %>
     <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
@@ -77,7 +80,10 @@
 <% } %>
 
   <% const commentUser = typeof user !== 'undefined' && user ? user : null; %>
-  <% const commentPermissionFlags = permissions && typeof permissions === 'object' ? permissions : {}; %>
+  <% const commentPermissionFlags =
+    typeof permissions !== 'undefined' && permissions && typeof permissions === 'object'
+      ? permissions
+      : {}; %>
   <% const canComment = !!commentPermissionFlags.can_comment; %>
   <% const adminPreferredName = commentUser && commentPermissionFlags.is_admin
     ? (commentUser.display_name || commentUser.username)
