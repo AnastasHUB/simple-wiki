@@ -18,7 +18,7 @@ const VIEW_COUNT_SELECT = `
   COALESCE((SELECT COUNT(*) FROM page_views WHERE page_id = p.id), 0)
 `;
 
-function buildPublishedFilter({ includeUnpublished = false, alias = "p" } = {}) {
+export function buildPublishedFilter({ includeUnpublished = false, alias = "p" } = {}) {
   if (includeUnpublished) {
     return { clause: "1=1", params: [] };
   }
