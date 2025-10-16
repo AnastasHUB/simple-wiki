@@ -1497,7 +1497,7 @@ r.post(
 
     const option = await resolveReactionOption(rawReaction);
     if (!option) {
-      const message = "Réaction inconnue.";
+      const message = "Réaction introuvable.";
       if (wantsJson) {
         return res.status(400).json({ ok: false, message });
       }
@@ -1637,7 +1637,7 @@ r.post(
 
     const option = await resolveReactionOption(rawReaction);
     if (!option) {
-      const message = "Réaction inconnue.";
+      const message = "Réaction introuvable.";
       if (wantsJson) {
         return res.status(400).json({ ok: false, message });
       }

@@ -22,6 +22,7 @@
         <input type="url" name="imageUrl" maxlength="500" placeholder="https://exemple.com/badges/honneur.png" />
       </label>
     </div>
+    <%- include('../partials/uploadHelper') %>
     <label class="stack-form mt-sm">
       <span class="text-sm text-muted">Description</span>
       <textarea name="description" rows="2" maxlength="240" placeholder="Expliquez la signification du badge."></textarea>
@@ -79,6 +80,7 @@
                   <input type="url" name="imageUrl" maxlength="500" value="<%= badge.imageUrl || '' %>" />
                 </label>
               </div>
+              <%- include('../partials/uploadHelper') %>
               <label class="stack-form mt-sm">
                 <span class="text-sm text-muted">Description</span>
                 <textarea name="description" rows="2" maxlength="240"><%= badge.description %></textarea>

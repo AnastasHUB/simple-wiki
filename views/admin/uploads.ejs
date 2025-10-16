@@ -79,7 +79,7 @@
           <td>
             <% const altText = displayName || upload.originalName || ''; %>
             <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>">
-              <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
+              <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
               <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
                 <%- include('../partials/csrf_field') %>
                 <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
@@ -101,23 +101,23 @@
   const uploadMessage = document.getElementById('uploadMessage');
   const uploadsTable = document.getElementById('uploadsTable');
   const uploadActionsSelector = '.upload-actions';
+  const copyDefaultLabel = 'Copier le lien';
+  const copySuccessLabel = 'Lien copié !';
 
-  function buildSnippet(url, alt) {
-    const img = document.createElement('img');
-    img.src = url || '';
-    if (alt) img.alt = alt;
-    img.loading = 'lazy';
-    img.decoding = 'async';
-    return img.outerHTML;
+  function buildCopyValue(url) {
+    return url || '';
   }
 
   function prepareCopyActions(container) {
     if (!container) return;
     const url = container.dataset.url || '';
-    const alt = container.dataset.alt || '';
-    const snippet = buildSnippet(url, alt);
     const button = container.querySelector('.copy-upload');
-    if (button) button.dataset.snippet = snippet;
+    if (button) {
+      button.dataset.snippet = buildCopyValue(url);
+      if (!button.dataset.originalText) {
+        button.dataset.originalText = button.textContent || copyDefaultLabel;
+      }
+    }
   }
 
   function escapeHtml(value) {
@@ -184,7 +184,7 @@
       </td>
       <td>
         <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}">
-          <button class="btn copy-upload" data-icon="📋" type="button">Copier le code</button>
+          <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
           <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
             <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
           </form>
@@ -203,9 +203,12 @@
     const snippet = button.dataset.snippet || '';
     if (!snippet) return;
     navigator.clipboard.writeText(snippet).then(() => {
-      const originalText = button.textContent;
-      button.textContent = 'Copié !';
-      setTimeout(() => { button.textContent = originalText || 'Copier le code'; }, 1500);
+      const originalText = button.dataset.originalText || button.textContent || copyDefaultLabel;
+      button.dataset.originalText = originalText;
+      button.textContent = copySuccessLabel;
+      setTimeout(() => {
+        button.textContent = originalText || copyDefaultLabel;
+      }, 1500);
     });
   });
 
@@ -224,8 +227,29 @@
         const dn = formData.get('displayName');
         if (dn) formData.set('displayName', dn.toString().trim());
         const response = await fetch(uploadForm.action, { method: 'POST', body: formData });
-        const payload = await response.json();
-        if (!payload.ok) throw new Error(payload.message || 'Erreur lors de l\'upload');
+        const contentType = response.headers.get('content-type') || '';
+        let payload = null;
+        if (contentType.includes('application/json')) {
+          try {
+            payload = await response.json();
+          } catch (parseError) {
+            console.error('Erreur lors de la lecture de la réponse JSON de l\'upload', parseError);
+          }
+        }
+        if (!payload) {
+          const status = response.status || 0;
+          const message =
+            status >= 400
+              ? `Le serveur a renvoyé une erreur (${status}). Réessayez après avoir actualisé la page.`
+              : "Le serveur a renvoyé une réponse inattendue. Vérifiez votre connexion puis réessayez.";
+          throw new Error(message);
+        }
+        if (!response.ok || payload.ok === false) {
+          throw new Error(payload.message || 'Erreur lors de l\'upload');
+        }
+        if (typeof payload.ok === 'undefined') {
+          throw new Error('Réponse inattendue du serveur.');
+        }
         setMessage('Image envoyée avec succès.', 'success');
         prependUploadRow(payload);
         uploadForm.reset();
