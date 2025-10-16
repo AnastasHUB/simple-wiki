@@ -54,6 +54,7 @@
       <span class="text-sm text-muted">&nbsp;</span>
       <button class="btn" data-icon="➕" type="submit">Ajouter</button>
     </div>
+    <%- include('../partials/uploadHelper') %>
     <p class="text-sm text-muted" style="flex-basis: 100%;">
       Fournissez au moins un emoji ou une image. Si les deux sont renseignés, l'image sera affichée.
     </p>
@@ -137,6 +138,7 @@
               />
             </label>
           </div>
+          <%- include('../partials/uploadHelper') %>
           <p class="text-sm text-muted mt-sm">
             Laissez l'emoji ou l'URL vide pour conserver la valeur actuelle. Au moins l'un des deux doit être renseigné.
           </p>

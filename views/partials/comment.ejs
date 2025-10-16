@@ -79,7 +79,7 @@
   <div class="comment-body"><%= comment.body %></div>
   <% if (Array.isArray(comment.reactions) && comment.reactions.length) { %>
     <div class="comment-reactions" data-comment-reactions>
-      <%- include('partials/reactionBar', {
+      <%- include('reactionBar', {
         target: 'comment',
         slug: page.slug_id,
         commentId: comment.snowflake_id,

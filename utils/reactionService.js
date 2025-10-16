@@ -114,7 +114,7 @@ export async function getPageReactionState(pageId, ip = null) {
 export async function togglePageReaction({ pageId, reactionKey, ip }) {
   const option = await resolveReactionOption(reactionKey);
   if (!option) {
-    const error = new Error("Réaction inconnue");
+    const error = new Error("Réaction introuvable.");
     error.statusCode = 400;
     throw error;
   }
@@ -241,7 +241,7 @@ export async function toggleCommentReaction({ commentSnowflakeId, reactionKey, i
   }
   const option = await resolveReactionOption(reactionKey);
   if (!option) {
-    const error = new Error("Réaction inconnue");
+    const error = new Error("Réaction introuvable.");
     error.statusCode = 400;
     throw error;
   }
