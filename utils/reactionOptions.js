@@ -5,6 +5,10 @@ import {
   DEFAULT_REACTIONS,
 } from "./reactionHelpers.js";
 
+const REACTION_EMOJI_CACHE_TTL_MS = 60 * 1000;
+let cachedReactionEmoji = null;
+let cachedReactionEmojiAt = 0;
+
 function mapRow(row) {
   if (!row) {
     return null;
@@ -75,6 +79,35 @@ export async function listReactionOptions() {
   return rows.map((row) => mapRow(row));
 }
 
+export async function listReactionEmoji() {
+  const now = Date.now();
+  if (
+    Array.isArray(cachedReactionEmoji) &&
+    cachedReactionEmojiAt &&
+    now - cachedReactionEmojiAt < REACTION_EMOJI_CACHE_TTL_MS
+  ) {
+    return cachedReactionEmoji;
+  }
+  const options = await listReactionOptions();
+  const emojiSet = new Set();
+  for (const option of options) {
+    if (typeof option.emoji === "string") {
+      const trimmed = option.emoji.trim();
+      if (trimmed) {
+        emojiSet.add(trimmed);
+      }
+    }
+  }
+  cachedReactionEmoji = Array.from(emojiSet);
+  cachedReactionEmojiAt = now;
+  return cachedReactionEmoji;
+}
+
+export function invalidateReactionEmojiCache() {
+  cachedReactionEmoji = null;
+  cachedReactionEmojiAt = 0;
+}
+
 export async function getReactionOptionByKey(rawKey) {
   const key = sanitizeReactionKey(rawKey);
   if (!key) {
@@ -114,6 +147,7 @@ export async function createReactionOption(input) {
      VALUES(?,?,?,?,?,?)`,
     [snowflake, key, label, emoji || null, imageUrl, order],
   );
+  invalidateReactionEmojiCache();
   return getReactionOptionByKey(key);
 }
 
@@ -145,6 +179,7 @@ export async function updateReactionOption(rawKey, input) {
       WHERE reaction_key = ?`,
     [label, finalEmoji || null, finalImage, key],
   );
+  invalidateReactionEmojiCache();
   return getReactionOptionByKey(key);
 }
 
@@ -161,6 +196,7 @@ async function normalizeReactionOrdering() {
       [order++, row.reaction_key],
     );
   }
+  invalidateReactionEmojiCache();
 }
 
 export async function deleteReactionOption(rawKey) {
@@ -176,6 +212,7 @@ export async function deleteReactionOption(rawKey) {
     await run(`DELETE FROM page_reactions WHERE reaction_key = ?`, [key]);
     await run(`DELETE FROM comment_reactions WHERE reaction_key = ?`, [key]);
     await normalizeReactionOrdering();
+    invalidateReactionEmojiCache();
     return true;
   }
   return false;
@@ -214,5 +251,6 @@ export async function moveReactionOption(rawKey, direction) {
     `UPDATE reaction_options SET display_order = ? WHERE reaction_key = ?`,
     [current.display_order, swap.reaction_key],
   );
+  invalidateReactionEmojiCache();
   return true;
 }

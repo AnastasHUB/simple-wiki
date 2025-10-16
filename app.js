@@ -31,6 +31,7 @@ import { csrfProtection } from "./middleware/csrf.js";
 import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
 import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFeed.js";
 import { cookieConsentMiddleware } from "./middleware/cookieConsent.js";
+import { listReactionEmoji } from "./utils/reactionOptions.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -114,6 +115,13 @@ app.use(async (req, res, next) => {
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
     const captchaConfig = getRecaptchaConfig();
     res.locals.registrationEnabled = Boolean(captchaConfig);
+    try {
+      const emoji = await listReactionEmoji();
+      res.locals.customReactionEmoji = emoji;
+    } catch (reactionErr) {
+      console.error("Unable to load reaction emoji", reactionErr);
+      res.locals.customReactionEmoji = [];
+    }
     const hasAdminActionPermission = currentUser
       ? ADMIN_ACTION_FLAGS.some((flag) => currentUser[flag])
       : false;

@@ -1471,7 +1471,7 @@ function initMarkdownEditor() {
       ? new Intl.NumberFormat("fr-FR")
       : null;
 
-  const EMOJI_SET = [
+  const BASE_EMOJI_SET = [
     "😀",
     "😁",
     "😂",
@@ -1582,6 +1582,31 @@ function initMarkdownEditor() {
     "✅",
     "❗",
   ];
+
+  function getCustomReactionEmoji() {
+    const element = document.getElementById("custom-reaction-emoji");
+    if (!element || !element.textContent) {
+      return [];
+    }
+    try {
+      const parsed = JSON.parse(element.textContent);
+      if (!Array.isArray(parsed)) {
+        return [];
+      }
+      return parsed
+        .map((value) => (typeof value === "string" ? value.trim() : ""))
+        .filter((value) => value)
+        .map((value) => value.slice(0, 16));
+    } catch (err) {
+      console.error("Unable to parse custom reaction emoji", err);
+      return [];
+    }
+  }
+
+  const CUSTOM_REACTION_EMOJI = getCustomReactionEmoji();
+  const EMOJI_SET = Array.from(
+    new Set([...BASE_EMOJI_SET, ...CUSTOM_REACTION_EMOJI]),
+  );
 
   function nextBlockId() {
     blockIdCounter += 1;

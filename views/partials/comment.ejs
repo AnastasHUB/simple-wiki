@@ -49,6 +49,22 @@
           <span class="comment-author-badge" title="Administrateur">⭐</span>
         <% } %>
       </strong>
+      <% if (Array.isArray(comment?.authorBadges) && comment.authorBadges.length) { %>
+        <ul class="comment-author-badges" aria-label="Badges de l'auteur">
+          <% comment.authorBadges.forEach((badge) => { %>
+            <li class="comment-author-badge-item">
+              <span class="comment-author-badge-icon" title="<%= badge.name %>">
+                <% if (badge.imageUrl) { %>
+                  <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
+                <% } else { %>
+                  <%= badge.emoji || '🏅' %>
+                <% } %>
+              </span>
+              <span class="sr-only"><%= badge.name %></span>
+            </li>
+          <% }); %>
+        </ul>
+      <% } %>
       <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
       <% if (comment?.ipProfile) { %>
         <span>
