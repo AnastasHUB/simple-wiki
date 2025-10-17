@@ -4,6 +4,7 @@ import {
   normalizeChangelogMode,
   verifyGitHubRepoExists,
 } from "./githubService.js";
+import { normalizeHttpUrl, normalizeStoredHttpUrl } from "./urlValidation.js";
 
 const SETTINGS_CACHE_TTL_MS = 30 * 1000;
 const DEFAULT_SETTINGS = {
@@ -24,7 +25,9 @@ const CACHE_STATE = {
 function normalizeSettings(row = {}) {
   return {
     wikiName: row.wiki_name ?? row.wikiName ?? DEFAULT_SETTINGS.wikiName,
-    logoUrl: row.logo_url ?? row.logoUrl ?? DEFAULT_SETTINGS.logoUrl,
+    logoUrl: normalizeStoredHttpUrl(
+      row.logo_url ?? row.logoUrl ?? DEFAULT_SETTINGS.logoUrl,
+    ),
     adminWebhook:
       row.admin_webhook_url ??
       row.adminWebhook ??
@@ -100,6 +103,24 @@ export async function updateSiteSettingsFromForm(input = {}) {
       input.githubChangelogMode,
   );
 
+  const rawLogoInput =
+    typeof input.logo_url === "string"
+      ? input.logo_url
+      : typeof input.logoUrl === "string"
+      ? input.logoUrl
+      : "";
+  let logoUrl = "";
+  if (rawLogoInput) {
+    try {
+      logoUrl =
+        normalizeHttpUrl(rawLogoInput, {
+          fieldName: "L'URL du logo",
+        }) || "";
+    } catch (err) {
+      throw new Error(err?.message || "L'URL du logo est invalide.");
+    }
+  }
+
   if (githubRepo) {
     const exists = await verifyGitHubRepoExists(githubRepo);
     if (!exists) {
@@ -112,7 +133,7 @@ export async function updateSiteSettingsFromForm(input = {}) {
   const normalized = normalizeSettings({
     wiki_name:
       typeof input.wiki_name === "string" ? input.wiki_name.trim() : null,
-    logo_url: typeof input.logo_url === "string" ? input.logo_url.trim() : null,
+    logo_url: logoUrl,
     admin_webhook_url:
       typeof input.admin_webhook_url === "string"
         ? input.admin_webhook_url.trim()

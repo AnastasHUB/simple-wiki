@@ -1,5 +1,6 @@
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
+import { normalizeHttpUrl } from "./urlValidation.js";
 
 function normalizeName(rawName) {
   if (typeof rawName !== "string") {
@@ -30,7 +31,7 @@ function normalizeImageUrl(rawUrl) {
   if (!trimmed) {
     return null;
   }
-  return trimmed.slice(0, 500);
+  return normalizeHttpUrl(trimmed, { fieldName: "L'URL de l'image" });
 }
 
 function mapBadgeRow(row) {

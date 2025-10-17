@@ -167,3 +167,18 @@ test("custom reactions can be created, updated, and removed", async (t) => {
   display = combineReactionState(reactions, state);
   assert.ok(!display.some((reaction) => reaction.id === customKey));
 });
+
+test("reaction image URLs must be absolute", async () => {
+  await initDb();
+
+  await assert.rejects(
+    () =>
+      createReactionOption({
+        id: `relative-reaction-${Date.now()}`,
+        label: "Relative",
+        emoji: "",
+        imageUrl: "/images/reaction.png",
+      }),
+    /http:\/\/ ou https:\/\//,
+  );
+});

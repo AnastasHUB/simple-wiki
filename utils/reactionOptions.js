@@ -4,6 +4,7 @@ import {
   sanitizeReactionKey,
   DEFAULT_REACTIONS,
 } from "./reactionHelpers.js";
+import { normalizeHttpUrl } from "./urlValidation.js";
 
 const REACTION_EMOJI_CACHE_TTL_MS = 60 * 1000;
 let cachedReactionEmoji = null;
@@ -49,7 +50,10 @@ function normalizeImageUrl(rawUrl) {
     return null;
   }
   const trimmed = rawUrl.trim();
-  return trimmed ? trimmed.slice(0, 500) : null;
+  if (!trimmed) {
+    return null;
+  }
+  return normalizeHttpUrl(trimmed, { fieldName: "L'URL de l'image" });
 }
 
 async function getCurrentMaxOrder() {
