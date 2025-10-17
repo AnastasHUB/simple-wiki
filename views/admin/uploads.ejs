@@ -48,6 +48,8 @@
   </div>
 </form>
 
+<% const avatarUploads = Array.isArray(profileUploads) ? profileUploads : []; %>
+
 <% if (uploads.length) { %>
   <div class="table-wrap">
     <table class="data-table" id="uploadsTable">
@@ -100,6 +102,46 @@
   <%- include('./paginationControls', { pagination }) %>
 <% } else { %>
   <p class="card text-muted">Aucune image disponible pour le moment.</p>
+<% } %>
+
+<% if (avatarUploads.length) { %>
+  <div class="card mb-md">
+    <h2>Avatars de profil</h2>
+    <p class="mt-xs text-muted">Fichiers stockés dans <code>/public/uploads/profiles</code>.</p>
+    <div class="table-wrap">
+      <table class="data-table" id="profileUploadsTable">
+        <thead>
+          <tr>
+            <th>Aperçu</th>
+            <th>Détails</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% avatarUploads.forEach((avatar) => { %>
+            <% const createdAt = avatar.createdAt ? new Date(avatar.createdAt).toLocaleString('fr-FR') : '—'; %>
+            <% const sizeLabel = avatar.size ? Math.max(1, Math.round(avatar.size / 1024)) + ' Ko' : '—'; %>
+            <tr>
+              <td>
+                <img src="<%= avatar.url %>" alt="" class="upload-thumb" />
+              </td>
+              <td class="leading-snug">
+                <div><strong>Chemin relatif :</strong> <code><%= avatar.relativePath %></code></div>
+                <div><strong>Nom de fichier :</strong> <%= avatar.filename %></div>
+                <div><strong>Taille :</strong> <%= sizeLabel %></div>
+                <div><strong>Modifié :</strong> <%= createdAt %></div>
+              </td>
+              <td>
+                <div class="upload-actions" data-url="<%= avatar.url %>" data-alt="<%= avatar.filename %>">
+                  <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </div>
 <% } %>
 
 <script>

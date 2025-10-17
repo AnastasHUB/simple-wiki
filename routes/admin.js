@@ -18,6 +18,7 @@ import {
   ensureUploadDir,
   recordUpload,
   listUploads,
+  listProfileUploads,
   removeUpload,
   updateUploadName,
   optimizeUpload,
@@ -2555,7 +2556,10 @@ r.get(
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const normalizedSearch = searchTerm.toLowerCase();
-  const uploadsList = await listUploads();
+  const [uploadsList, profileUploads] = await Promise.all([
+    listUploads(),
+    listProfileUploads(),
+  ]);
   const ordered = [...uploadsList].sort(
     (a, b) => (b.mtime || 0) - (a.mtime || 0),
   );
@@ -2580,7 +2584,12 @@ r.get(
   const uploads = filtered.slice(start, start + basePagination.perPage);
   const pagination = decoratePagination(req, basePagination);
 
-  res.render("admin/uploads", { uploads, pagination, searchTerm });
+  res.render("admin/uploads", {
+    uploads,
+    pagination,
+    searchTerm,
+    profileUploads,
+  });
   },
 );
 
