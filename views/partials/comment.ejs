@@ -110,7 +110,7 @@
           action="/wiki/<%= page.slug_id %>/comments/<%= commentId %>/delete"
           onsubmit="return confirm('Supprimer ce commentaire ?');"
         >
-          <%- include('partials/csrf_field') %>
+          <%- include('csrf_field') %>
           <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
         </form>
       <% } %>
@@ -119,7 +119,7 @@
   <% if (comment?.children && comment.children.length) { %>
     <ul class="comment-list comment-children">
       <% comment.children.forEach((child) => { %>
-        <%- include('partials/comment', {
+        <%- include('comment', {
           comment: child,
           page,
           canComment,
