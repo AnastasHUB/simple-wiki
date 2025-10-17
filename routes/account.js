@@ -195,6 +195,32 @@ async function fetchLinkedIpProfilesForUser(userId) {
   }));
 }
 
+function getRequestOrigin(req) {
+  const host = req.get("host");
+  if (!host) {
+    return `${req.protocol}://localhost`;
+  }
+  return `${req.protocol}://${host}`;
+}
+
+function buildProfileLinks(origin, username, linkedIpProfiles, currentIpHash) {
+  const normalizedLinkedProfiles = Array.isArray(linkedIpProfiles)
+    ? linkedIpProfiles
+    : [];
+  const encodedUsername = typeof username === "string" ? encodeURIComponent(username) : "";
+  const profilePublicUrl = encodedUsername
+    ? `${origin}/members/${encodedUsername}`
+    : `${origin}/members`;
+  const decoratedProfiles = normalizedLinkedProfiles.map((profile) => ({
+    ...profile,
+    url: `${origin}/profiles/ip/${encodeURIComponent(profile.hash)}`,
+  }));
+  const currentIpLink = currentIpHash
+    ? `${origin}/profiles/ip/${encodeURIComponent(currentIpHash)}`
+    : null;
+  return { profilePublicUrl, linkedIpProfiles: decoratedProfiles, currentIpLink };
+}
+
 const r = Router();
 
 function ensureAuthenticated(req, res, next) {
@@ -355,6 +381,9 @@ r.get(
     const linkedIpProfiles = await fetchLinkedIpProfilesForUser(profile.id);
     const currentIp = getClientIp(req);
     const currentIpHash = hashIp(currentIp);
+    const origin = getRequestOrigin(req);
+    const { profilePublicUrl, linkedIpProfiles: decoratedProfiles, currentIpLink } =
+      buildProfileLinks(origin, profile.username, linkedIpProfiles, currentIpHash);
     res.render("account/profile", {
       errors: [],
       profile: {
@@ -369,8 +398,10 @@ r.get(
         showBio: profile.profile_show_bio !== 0,
         showStats: profile.profile_show_stats !== 0,
       },
-      linkedIpProfiles,
+      linkedIpProfiles: decoratedProfiles,
       currentIpHash,
+      currentIpLink,
+      profilePublicUrl,
     });
   }),
 );
@@ -469,6 +500,9 @@ r.post(
 
     const linkedIpProfiles = await fetchLinkedIpProfilesForUser(sessionUser.id);
     const currentIpHash = hashIp(getClientIp(req));
+    const origin = getRequestOrigin(req);
+    const { profilePublicUrl, linkedIpProfiles: decoratedProfiles, currentIpLink } =
+      buildProfileLinks(origin, rawUsername || sessionUser.username, linkedIpProfiles, currentIpHash);
 
     if (errors.length) {
       await cleanupProfileUploads(uploadedFiles);
@@ -493,8 +527,10 @@ r.post(
           showBio,
           showStats,
         },
-        linkedIpProfiles,
+        linkedIpProfiles: decoratedProfiles,
         currentIpHash,
+        currentIpLink,
+        profilePublicUrl,
       });
     }
 

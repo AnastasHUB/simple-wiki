@@ -11,6 +11,16 @@
     typeof csrfToken === 'string' && csrfToken.length
       ? `?_csrf=${encodeURIComponent(csrfToken)}`
       : '';
+  const publicProfileHref =
+    typeof profilePublicUrl === 'string' && profilePublicUrl.length
+      ? profilePublicUrl
+      : `/members/${encodeURIComponent(profile.username)}`;
+  const currentIpAbsoluteLink =
+    typeof currentIpLink === 'string' && currentIpLink.length
+      ? currentIpLink
+      : currentIpHash
+        ? `/profiles/ip/${encodeURIComponent(currentIpHash)}`
+        : '';
 %>
 <section class="card profile-settings">
   <header class="profile-settings__header">
@@ -36,7 +46,7 @@
         Personnalisez votre identité publique avec un avatar, une bannière et une biographie.
       </p>
       <p>
-        <a class="btn secondary" href="/members/<%= encodeURIComponent(profile.username) %>">Voir le profil public</a>
+        <a class="btn secondary" href="<%= publicProfileHref %>">Voir le profil public</a>
       </p>
     </div>
   </header>
@@ -95,7 +105,7 @@
           placeholder="https://exemple.com/avatar.png"
         />
         <p class="field-hint">
-          Utilisez une URL HTTPS ou un chemin commençant par «&nbsp;/&nbsp;». Laissez vide pour supprimer.
+          Utilisez une URL commençant par http:// ou https://. Laissez vide pour supprimer.
         </p>
         <label class="sr-only" for="profile-avatar-upload">Téléverser un avatar</label>
         <input
@@ -234,7 +244,12 @@
       <% linkedIpProfiles.forEach(function (ipProfile) { %>
         <li class="flex flex-wrap gap-sm items-center">
           <code>#<%= ipProfile.shortHash || '?' %></code>
-          <a class="btn secondary" href="/profiles/ip/<%= encodeURIComponent(ipProfile.hash) %>">
+          <% const ipProfileHref =
+            typeof ipProfile.url === 'string' && ipProfile.url.length
+              ? ipProfile.url
+              : `/profiles/ip/${encodeURIComponent(ipProfile.hash)}`;
+          %>
+          <a class="btn secondary" href="<%= ipProfileHref %>">
             Consulter le profil IP
           </a>
           <% if (ipProfile.claimedAt) { %>
@@ -259,7 +274,11 @@
   <% if (currentIpHash) { %>
     <p class="mt-sm">
       Pour lier votre adresse IP actuelle, visitez la page
-      <a href="/profiles/ip/<%= currentIpHash %>">/profiles/ip/<%= currentIpHash %></a>
+      <% if (currentIpAbsoluteLink) { %>
+        <a href="<%= currentIpAbsoluteLink %>"><%= currentIpAbsoluteLink %></a>
+      <% } else if (currentIpHash) { %>
+        <a href="/profiles/ip/<%= currentIpHash %>">/profiles/ip/<%= currentIpHash %></a>
+      <% } %>
       depuis cette connexion.
     </p>
   <% } else { %>
