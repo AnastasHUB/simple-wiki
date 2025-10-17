@@ -9,6 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 export const uploadDir = path.join(__dirname, "..", "public", "uploads");
+export const profilesDir = path.join(uploadDir, "profiles");
 
 const MAX_DIMENSION = 1920;
 const OPTIMIZE_FORMATS = new Set([
@@ -36,6 +37,10 @@ function determineFormatFromMime(mimeType, fallbackExtension) {
 
 export async function ensureUploadDir() {
   await fs.mkdir(uploadDir, { recursive: true });
+}
+
+async function ensureProfilesDir() {
+  await fs.mkdir(profilesDir, { recursive: true });
 }
 
 export function buildFilename(id, extension) {
@@ -145,6 +150,10 @@ export async function listUploads() {
     const filePath = path.join(uploadDir, filename);
     try {
       const stat = await fs.stat(filePath);
+      if (!stat.isFile()) {
+        await run("DELETE FROM uploads WHERE id=?", [row.id]);
+        continue;
+      }
       const createdAtIso = row.created_at
         ? new Date(row.created_at).toISOString()
         : new Date(stat.mtimeMs).toISOString();
@@ -172,12 +181,20 @@ export async function listUploads() {
     }
   }
 
-  const files = await fs.readdir(uploadDir);
-  for (const name of files) {
+  const items = await fs.readdir(uploadDir, { withFileTypes: true });
+  for (const dirent of items) {
+    const name = dirent.name;
     if (name.startsWith(".")) continue;
     if (seen.has(name)) continue;
     const filePath = path.join(uploadDir, name);
-    const stat = await fs.stat(filePath);
+    let stat;
+    try {
+      stat = await fs.stat(filePath);
+    } catch (err) {
+      if (err.code === "ENOENT") continue;
+      throw err;
+    }
+    if (!stat.isFile()) continue;
     const ext = path.extname(name).toLowerCase();
     const id = path.basename(name, ext);
     await run(
@@ -197,6 +214,50 @@ export async function listUploads() {
     });
     seen.add(name);
   }
+
+  entries.sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0));
+  return entries;
+}
+
+export async function listProfileUploads() {
+  await ensureUploadDir();
+  await ensureProfilesDir();
+
+  const entries = [];
+
+  async function walk(currentDir) {
+    const dirents = await fs.readdir(currentDir, { withFileTypes: true });
+    for (const dirent of dirents) {
+      const { name } = dirent;
+      if (name.startsWith(".")) continue;
+      const fullPath = path.join(currentDir, name);
+      let stat;
+      try {
+        stat = await fs.stat(fullPath);
+      } catch (err) {
+        if (err.code === "ENOENT") continue;
+        throw err;
+      }
+      if (dirent.isDirectory()) {
+        await walk(fullPath);
+        continue;
+      }
+      if (!stat.isFile()) continue;
+      const relativePath = path.relative(uploadDir, fullPath);
+      const normalizedRelativePath = relativePath.split(path.sep).join("/");
+      entries.push({
+        id: normalizedRelativePath,
+        filename: name,
+        url: "/public/uploads/" + normalizedRelativePath,
+        relativePath: normalizedRelativePath,
+        size: stat.size,
+        createdAt: new Date(stat.mtimeMs).toISOString(),
+        mtime: stat.mtimeMs,
+      });
+    }
+  }
+
+  await walk(profilesDir);
 
   entries.sort((a, b) => (b.mtime ?? 0) - (a.mtime ?? 0));
   return entries;
