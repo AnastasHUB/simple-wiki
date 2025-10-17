@@ -212,6 +212,7 @@ document.addEventListener("DOMContentLoaded", () => {
   enhanceIconButtons();
   initLikeForms();
   initReactionForms();
+  initReactionWebsocket();
   initMarkdownEditor();
   initCodeHighlighting();
   initSearchFilters();
@@ -473,6 +474,165 @@ function initReactionForms() {
       handleReactionSubmit(event, form);
     });
   });
+}
+
+function initReactionWebsocket() {
+  if (typeof window.WebSocket !== "function") {
+    return;
+  }
+
+  const forms = document.querySelectorAll("form[data-reaction-form]");
+  if (!forms.length) {
+    return;
+  }
+
+  const MAX_PAGE_SUBSCRIPTIONS = 8;
+  const MAX_COMMENT_SUBSCRIPTIONS = 400;
+
+  const pageSlugs = new Set();
+  const commentIds = new Set();
+
+  forms.forEach((form) => {
+    const target = form.getAttribute("data-reaction-target");
+    if (target === "page") {
+      const slug = form.getAttribute("data-reaction-slug");
+      if (slug && pageSlugs.size < MAX_PAGE_SUBSCRIPTIONS) {
+        pageSlugs.add(slug);
+      }
+    } else if (target === "comment") {
+      const commentId = form.getAttribute("data-comment-id");
+      if (commentId && commentIds.size < MAX_COMMENT_SUBSCRIPTIONS) {
+        commentIds.add(commentId);
+      }
+    }
+  });
+
+  if (!pageSlugs.size && !commentIds.size) {
+    return;
+  }
+
+  const state = {
+    socket: null,
+    reconnectDelay: 1000,
+    reconnectTimer: null,
+  };
+
+  const pages = Array.from(pageSlugs);
+  const comments = Array.from(commentIds);
+
+  function buildSocketUrl() {
+    const protocol = window.location.protocol === "https:" ? "wss" : "ws";
+    const host = window.location.host;
+    const params = new URLSearchParams();
+    pages.forEach((slug) => {
+      params.append("page", slug);
+    });
+    comments.forEach((id) => {
+      params.append("comment", id);
+    });
+    const query = params.toString();
+    return `${protocol}://${host}/ws/reactions${query ? `?${query}` : ""}`;
+  }
+
+  function scheduleReconnect() {
+    if (state.reconnectTimer !== null) {
+      return;
+    }
+    const delay = state.reconnectDelay;
+    state.reconnectDelay = Math.min(state.reconnectDelay * 2, 15000);
+    state.reconnectTimer = window.setTimeout(() => {
+      state.reconnectTimer = null;
+      connect();
+    }, delay);
+  }
+
+  function connect() {
+    if (state.socket && state.socket.readyState === WebSocket.OPEN) {
+      return;
+    }
+
+    if (state.reconnectTimer !== null) {
+      window.clearTimeout(state.reconnectTimer);
+      state.reconnectTimer = null;
+    }
+
+    let socket;
+    try {
+      socket = new WebSocket(buildSocketUrl());
+    } catch (error) {
+      console.warn("Impossible d'ouvrir la connexion WebSocket des réactions", error);
+      scheduleReconnect();
+      return;
+    }
+
+    state.socket = socket;
+
+    socket.addEventListener("open", () => {
+      state.reconnectDelay = 1000;
+      try {
+        socket.send(
+          JSON.stringify({
+            type: "setSubscriptions",
+            pages,
+            comments,
+          }),
+        );
+      } catch (error) {
+        console.warn("Impossible d'envoyer les abonnements de réactions", error);
+      }
+    });
+
+    socket.addEventListener("message", (event) => {
+      if (!event.data) {
+        return;
+      }
+      let message;
+      try {
+        message = JSON.parse(event.data);
+      } catch {
+        return;
+      }
+      if (!message || typeof message !== "object") {
+        return;
+      }
+      switch (message.type) {
+        case "reactionUpdate":
+          if (message.payload) {
+            updateReactionUi(message.payload);
+          }
+          break;
+        case "error":
+          if (message.message) {
+            console.warn("Erreur du socket de réactions :", message.message);
+          }
+          break;
+        default:
+          break;
+      }
+    });
+
+    const handleClose = () => {
+      socket.removeEventListener("close", handleClose);
+      socket.removeEventListener("error", handleError);
+      if (state.socket === socket) {
+        state.socket = null;
+      }
+      scheduleReconnect();
+    };
+
+    const handleError = () => {
+      try {
+        socket.close();
+      } catch {
+        // ignore closing errors
+      }
+    };
+
+    socket.addEventListener("close", handleClose);
+    socket.addEventListener("error", handleError);
+  }
+
+  connect();
 }
 
 
@@ -1368,13 +1528,15 @@ function updateReactionUi(state) {
       const count = Number.isFinite(reactionState?.count)
         ? Number(reactionState.count)
         : 0;
-      const reacted = Boolean(reactionState?.reacted);
       const countElement = button.querySelector("[data-reaction-count]");
       if (countElement) {
         countElement.textContent = count;
       }
-      button.classList.toggle("is-active", reacted);
-      button.setAttribute("aria-pressed", reacted ? "true" : "false");
+      if (reactionState && Object.prototype.hasOwnProperty.call(reactionState, "reacted")) {
+        const reacted = Boolean(reactionState.reacted);
+        button.classList.toggle("is-active", reacted);
+        button.setAttribute("aria-pressed", reacted ? "true" : "false");
+      }
     });
   });
 }

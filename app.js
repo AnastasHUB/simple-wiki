@@ -25,6 +25,7 @@ import {
 } from "./utils/roleFlags.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
+import { setupReactionWebSocket } from "./utils/reactionWebsocket.js";
 import { isCaptchaAvailable } from "./utils/captcha.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrf.js";
@@ -275,4 +276,13 @@ const server = app.listen(port, () =>
 );
 
 setupLiveStatsWebSocket(server, sessionMiddleware);
+setupReactionWebSocket(server, sessionMiddleware);
+
+const SOCKET_HANDLED_FLAG = Symbol.for("simpleWiki.websocketHandled");
+server.on("upgrade", (request, socket) => {
+  if (request[SOCKET_HANDLED_FLAG]) {
+    return;
+  }
+  socket.destroy();
+});
 startScheduledPublicationJob();

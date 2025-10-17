@@ -10,6 +10,7 @@ import {
 
 const LIVE_STATS_SOCKET_PATH = "/admin/stats/live";
 const HEARTBEAT_INTERVAL_MS = 30000;
+const SOCKET_HANDLED_FLAG = Symbol.for("simpleWiki.websocketHandled");
 
 function clampPerPage(value) {
   const numeric = Number.parseInt(value, 10);
@@ -112,11 +113,15 @@ export function setupLiveStatsWebSocket(server, sessionMiddleware) {
   const wss = new WebSocketServer({ noServer: true });
 
   server.on("upgrade", (request, socket, head) => {
-    const { url } = request;
-    if (!url || !url.startsWith(LIVE_STATS_SOCKET_PATH)) {
-      socket.destroy();
+    if (request[SOCKET_HANDLED_FLAG]) {
       return;
     }
+    const { url } = request;
+    if (!url || !url.startsWith(LIVE_STATS_SOCKET_PATH)) {
+      return;
+    }
+
+    request[SOCKET_HANDLED_FLAG] = true;
 
     sessionMiddleware(request, {}, (err) => {
       if (err) {
