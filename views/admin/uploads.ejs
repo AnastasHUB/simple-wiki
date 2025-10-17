@@ -1,4 +1,10 @@
 <% title='Images'; %>
+<%
+  const csrfQuerySuffix =
+    typeof csrfToken === 'string' && csrfToken.length
+      ? `?_csrf=${encodeURIComponent(csrfToken)}`
+      : '';
+%>
 <h1>Gestion des images</h1>
 <div class="card mb-md">
   <h2>Ajouter une image</h2>
@@ -6,7 +12,7 @@
     Chaque image reçoit un identifiant unique (snowflake). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
     Vous pouvez définir un nom personnalisé sans changer le snowflake. Laissez le champ vide pour effacer le nom personnalisé.
   </p>
-  <form id="uploadForm" action="/admin/uploads" method="post" enctype="multipart/form-data" class="flex flex-wrap gap-sm mt-sm">
+  <form id="uploadForm" action="/admin/uploads<%= csrfQuerySuffix %>" method="post" enctype="multipart/form-data" class="flex flex-wrap gap-sm mt-sm">
     <%- include('../partials/csrf_field') %>
     <div class="flex-basis-220">
       <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="Image" />

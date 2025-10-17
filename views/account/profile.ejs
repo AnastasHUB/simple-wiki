@@ -7,6 +7,10 @@
   const previewInitial = previewInitialSource
     ? previewInitialSource.charAt(0).toUpperCase()
     : '?';
+  const csrfQuerySuffix =
+    typeof csrfToken === 'string' && csrfToken.length
+      ? `?_csrf=${encodeURIComponent(csrfToken)}`
+      : '';
 %>
 <section class="card profile-settings">
   <header class="profile-settings__header">
@@ -50,7 +54,7 @@
   <form
     class="profile-form"
     method="post"
-    action="/account/profile"
+    action="/account/profile<%= csrfQuerySuffix %>"
     enctype="multipart/form-data"
   >
     <%- include('../partials/csrf_field') %>
