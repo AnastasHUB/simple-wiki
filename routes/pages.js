@@ -103,6 +103,7 @@ import {
   togglePageReaction,
   toggleCommentReaction,
 } from "../utils/reactionService.js";
+import { broadcastReactionUpdate } from "../utils/reactionWebsocket.js";
 
 const r = Router();
 const commentRateLimiter = createRateLimiter({
@@ -1663,6 +1664,12 @@ r.post(
 
     payload.notifications = [notification];
 
+    broadcastReactionUpdate({
+      target: "page",
+      slug: page.slug_id,
+      reactions,
+    });
+
     await safeSendAdminEvent(
       req,
       result?.added ? "Reaction added" : "Reaction removed",
@@ -1809,6 +1816,13 @@ r.post(
     };
 
     payload.notifications = [notification];
+
+    broadcastReactionUpdate({
+      target: "comment",
+      slug: comment.slug_id,
+      commentId: comment.snowflake_id,
+      reactions,
+    });
 
     await sendAdminEvent(
       result?.added ? "Comment reaction added" : "Comment reaction removed",
