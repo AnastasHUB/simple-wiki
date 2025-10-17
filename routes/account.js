@@ -70,14 +70,31 @@ function buildProfileFilename(originalName, mimeType) {
   return `${Date.now()}-${randomPart}${ext}`;
 }
 
-function buildProfileAssetUrl(filename) {
-  return PROFILE_URL_PREFIX + filename;
+function buildProfileAssetUrl(origin, filename) {
+  const relativePath = PROFILE_URL_PREFIX + filename;
+  if (!origin) {
+    return relativePath;
+  }
+  try {
+    return new URL(relativePath, origin).toString();
+  } catch (_err) {
+    return relativePath;
+  }
 }
 
 async function deleteProfileAsset(url) {
   if (typeof url !== "string") return;
-  if (!url.startsWith(PROFILE_URL_PREFIX)) return;
-  const filename = path.basename(url);
+  let normalizedUrl = url;
+  if (/^https?:\/\//i.test(url)) {
+    try {
+      const parsed = new URL(url);
+      normalizedUrl = parsed.pathname || "";
+    } catch (_err) {
+      return;
+    }
+  }
+  if (!normalizedUrl.startsWith(PROFILE_URL_PREFIX)) return;
+  const filename = path.basename(normalizedUrl);
   if (!filename) return;
   const targetPath = path.join(PROFILE_UPLOAD_DIR, filename);
   try {
@@ -107,7 +124,7 @@ async function cleanupProfileUploads(files = []) {
   );
 }
 
-async function finalizeProfileUpload(file) {
+async function finalizeProfileUpload(req, file) {
   if (!file) return null;
   try {
     await optimizeUpload(file.path, file.mimetype, path.extname(file.filename));
@@ -118,7 +135,8 @@ async function finalizeProfileUpload(file) {
       err?.message || err,
     );
   }
-  return buildProfileAssetUrl(file.filename);
+  const origin = getRequestOrigin(req);
+  return buildProfileAssetUrl(origin, file.filename);
 }
 
 const profileUploadStorage = multer.diskStorage({
@@ -540,13 +558,13 @@ r.post(
     if (removeAvatar) {
       avatarUrl = null;
     } else if (avatarFile) {
-      avatarUrl = await finalizeProfileUpload(avatarFile);
+      avatarUrl = await finalizeProfileUpload(req, avatarFile);
     }
 
     if (removeBanner) {
       bannerUrl = null;
     } else if (bannerFile) {
-      bannerUrl = await finalizeProfileUpload(bannerFile);
+      bannerUrl = await finalizeProfileUpload(req, bannerFile);
     }
 
     try {
