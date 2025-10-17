@@ -24,6 +24,7 @@ import {
   formatIpProfileLabel,
 } from "../utils/ipProfiles.js";
 import { sendAdminEvent } from "../utils/webhook.js";
+import { normalizeHttpUrl } from "../utils/urlValidation.js";
 
 const PROFILE_UPLOAD_SUBDIR = "profiles";
 const PROFILE_UPLOAD_DIR = path.join(uploadDir, PROFILE_UPLOAD_SUBDIR);
@@ -214,7 +215,10 @@ function resolveIdentity(req) {
   };
 }
 
-function normalizeMediaUrl(rawValue, { allowRelative = true } = {}) {
+function normalizeMediaUrl(
+  rawValue,
+  { allowRelative = false, fieldName = "L'URL de l'image" } = {},
+) {
   if (typeof rawValue !== "string") {
     return { value: null, error: null };
   }
@@ -228,16 +232,21 @@ function normalizeMediaUrl(rawValue, { allowRelative = true } = {}) {
       error: "L'URL fournie est trop longue (500 caractères maximum).",
     };
   }
-  const isHttp = /^https?:\/\//i.test(trimmed);
   const isRelative = trimmed.startsWith("/");
-  if (isHttp || (allowRelative && isRelative)) {
+  if (allowRelative && isRelative) {
     return { value: trimmed, error: null };
   }
-  return {
-    value: null,
-    error:
-      "Les images doivent utiliser une URL absolue (http/https) ou commencer par un slash (/).",
-  };
+  try {
+    const normalized = normalizeHttpUrl(trimmed, { fieldName });
+    return { value: normalized, error: null };
+  } catch (err) {
+    return {
+      value: null,
+      error:
+        err?.message ||
+        "Les images doivent utiliser une URL absolue commençant par http:// ou https://.",
+    };
+  }
 }
 
 async function buildSection(
@@ -400,8 +409,12 @@ r.post(
     const removeAvatar = req.body.removeAvatar === "on";
     const removeBanner = req.body.removeBanner === "on";
 
-    const avatarResult = normalizeMediaUrl(req.body.avatarUrl || "");
-    const bannerResult = normalizeMediaUrl(req.body.bannerUrl || "");
+    const avatarResult = normalizeMediaUrl(req.body.avatarUrl || "", {
+      fieldName: "L'URL de l'avatar",
+    });
+    const bannerResult = normalizeMediaUrl(req.body.bannerUrl || "", {
+      fieldName: "L'URL de la bannière",
+    });
 
     const errors = [...uploadErrors];
     if (avatarResult.error) {

@@ -82,3 +82,18 @@ test("badges can be created, attribued, and revoked", async (t) => {
   const userBadgesAfter = await listBadgesForUserId(user.id);
   assert.equal(userBadgesAfter.length, 0);
 });
+
+test("badge image URLs must be absolute", async () => {
+  await initDb();
+
+  await assert.rejects(
+    () =>
+      createBadge({
+        name: `Badge relatif ${Date.now()}`,
+        description: "Badge avec image relative",
+        emoji: "",
+        imageUrl: "/images/test.png",
+      }),
+    /http:\/\/ ou https:\/\//,
+  );
+});
