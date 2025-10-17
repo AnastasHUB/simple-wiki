@@ -155,7 +155,12 @@
   const csrfToken = csrfTokenInput?.value || '';
 
   function buildCopyValue(url) {
-    return url || '';
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).toString();
+    } catch (error) {
+      return url;
+    }
   }
 
   function prepareCopyActions(container) {
