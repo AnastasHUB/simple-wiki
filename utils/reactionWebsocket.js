@@ -174,11 +174,14 @@ function isClientSubscribed(ws, payload) {
   if (!ws || !ws.subscriptions || !payload) {
     return false;
   }
-  if (payload.target === "page") {
-    return ws.subscriptions.pages.has(payload.slug);
+  const slugValue = typeof payload.slug === "string" ? payload.slug : null;
+  const slug = slugValue ? sanitizeSlug(slugValue) : null;
+  if (slug && ws.subscriptions.pages.has(slug)) {
+    return true;
   }
   if (payload.target === "comment") {
-    return ws.subscriptions.comments.has(payload.commentId);
+    const commentId = sanitizeCommentId(payload.commentId);
+    return commentId ? ws.subscriptions.comments.has(commentId) : false;
   }
   return false;
 }
@@ -322,6 +325,55 @@ export function broadcastReactionUpdate(update) {
       delivered += 1;
     } catch (error) {
       console.warn("Failed to deliver reaction update", error);
+      clients.delete(ws);
+    }
+  }
+  return delivered;
+}
+
+function normalizeLikePayload(update) {
+  if (!update || typeof update !== "object") {
+    return null;
+  }
+  const slug = sanitizeSlug(
+    typeof update.slug === "string"
+      ? update.slug
+      : typeof update.page === "string"
+      ? update.page
+      : typeof update.pageSlug === "string"
+      ? update.pageSlug
+      : "",
+  );
+  if (!slug) {
+    return null;
+  }
+  const likes = Number.isFinite(update.likes) ? Number(update.likes) : 0;
+  const payload = { slug, likes };
+  if (Object.prototype.hasOwnProperty.call(update, "liked")) {
+    payload.liked = Boolean(update.liked);
+  }
+  return payload;
+}
+
+export function broadcastLikeUpdate(update) {
+  const payload = normalizeLikePayload(update);
+  if (!payload) {
+    return 0;
+  }
+  const message = JSON.stringify({ type: "likeUpdate", payload });
+  let delivered = 0;
+  for (const ws of clients) {
+    if (!ws || ws.readyState !== ws.OPEN) {
+      continue;
+    }
+    if (!isClientSubscribed(ws, payload)) {
+      continue;
+    }
+    try {
+      ws.send(message);
+      delivered += 1;
+    } catch (error) {
+      console.warn("Failed to deliver like update", error);
       clients.delete(ws);
     }
   }

@@ -104,7 +104,7 @@ import {
   togglePageReaction,
   toggleCommentReaction,
 } from "../utils/reactionService.js";
-import { broadcastReactionUpdate } from "../utils/reactionWebsocket.js";
+import { broadcastLikeUpdate, broadcastReactionUpdate } from "../utils/reactionWebsocket.js";
 
 const r = Router();
 const commentRateLimiter = createRateLimiter({
@@ -1545,6 +1545,11 @@ r.post(
       [page.id],
     );
     const likeCount = total?.totalLikes || 0;
+
+    broadcastLikeUpdate({
+      slug: page.slug_id,
+      likes: likeCount,
+    });
 
     if (wantsJson) {
       return res.json({
