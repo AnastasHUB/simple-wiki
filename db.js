@@ -184,6 +184,17 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   CREATE INDEX IF NOT EXISTS idx_page_reactions_page ON page_reactions(page_id);
   CREATE INDEX IF NOT EXISTS idx_page_reactions_lookup
     ON page_reactions(page_id, reaction_key);
+  CREATE TABLE IF NOT EXISTS premium_codes(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    code TEXT UNIQUE NOT NULL,
+    created_by INTEGER REFERENCES users(id),
+    premium_duration_seconds INTEGER NOT NULL,
+    expires_at DATETIME,
+    redeemed_by INTEGER REFERENCES users(id),
+    redeemed_at DATETIME,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
   CREATE TABLE IF NOT EXISTS reaction_options(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -377,6 +388,8 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "profile_show_stats",
     "INTEGER NOT NULL DEFAULT 1",
   );
+  await ensureColumn("users", "premium_expires_at", "DATETIME");
+  await ensureColumn("users", "premium_via_code", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
   await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
@@ -603,6 +616,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureSnowflake("likes");
   await ensureSnowflake("page_reactions");
   await ensureSnowflake("reaction_options");
+  await ensureSnowflake("premium_codes");
   await ensureSnowflake("comments");
   await ensureSnowflake("comment_reactions");
   await ensureSnowflake("page_submissions");

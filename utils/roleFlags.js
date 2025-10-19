@@ -121,6 +121,24 @@ export function buildSessionUser(rawUser, overrides = null) {
   const mergedFlags = overrides
     ? mergeRoleFlags(baseFlags, overrides)
     : baseFlags;
+  const rawPremiumExpiry =
+    rawUser.premium_expires_at ?? rawUser.premiumExpiresAt ?? rawUser.premium_expires_at_iso ?? null;
+  const premiumExpiryDate =
+    rawPremiumExpiry instanceof Date
+      ? rawPremiumExpiry
+      : rawPremiumExpiry
+        ? new Date(rawPremiumExpiry)
+        : null;
+  const premiumExpiresAtIso =
+    premiumExpiryDate && !Number.isNaN(premiumExpiryDate.getTime())
+      ? premiumExpiryDate.toISOString()
+      : null;
+  const premiumViaCodeRaw =
+    rawUser.premium_via_code ?? rawUser.premiumViaCode ?? rawUser.premium_via_code_flag ?? null;
+  const premiumViaCode = premiumViaCodeRaw != null ? Boolean(premiumViaCodeRaw) : false;
+  const premiumIsActive = premiumExpiresAtIso
+    ? new Date(premiumExpiresAtIso).getTime() > Date.now()
+    : false;
   const numericRoleId =
     primaryRole?.numeric_id ??
     (typeof rawUser.role_numeric_id === "number"
@@ -177,6 +195,9 @@ export function buildSessionUser(rawUser, overrides = null) {
     role_color_serialized:
       typeof rawColorValue === "string" ? rawColorValue : colorScheme ? JSON.stringify(colorScheme) : null,
     roles: normalizedRoles,
+    premium_expires_at: premiumExpiresAtIso,
+    premium_via_code: premiumViaCode,
+    premium_is_active: premiumIsActive,
     ...mergedFlags,
   };
 }

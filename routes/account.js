@@ -25,6 +25,13 @@ import {
 } from "../utils/ipProfiles.js";
 import { sendAdminEvent } from "../utils/webhook.js";
 import { normalizeHttpUrl } from "../utils/urlValidation.js";
+import {
+  PremiumCodeError,
+  redeemPremiumCodeForUser,
+  getPremiumStatusForUser,
+} from "../utils/premiumService.js";
+import { loadSessionUserById } from "../utils/sessionUser.js";
+import { formatDateTimeLocalized, formatRelativeDurationMs } from "../utils/time.js";
 
 const PROFILE_UPLOAD_SUBDIR = "profiles";
 const PROFILE_UPLOAD_DIR = path.join(uploadDir, PROFILE_UPLOAD_SUBDIR);
@@ -383,7 +390,7 @@ r.get(
     const profile = await get(
       `SELECT id, username, display_name, avatar_url, banner_url, bio,
               profile_show_badges, profile_show_recent_pages, profile_show_ip_profiles,
-              profile_show_bio, profile_show_stats
+              profile_show_bio, profile_show_stats, premium_expires_at, premium_via_code
          FROM users
         WHERE id=?`,
       [sessionUser.id],
@@ -402,6 +409,13 @@ r.get(
     const origin = getRequestOrigin(req);
     const { profilePublicUrl, linkedIpProfiles: decoratedProfiles, currentIpLink } =
       buildProfileLinks(origin, profile.username, linkedIpProfiles, currentIpHash);
+    const premiumStatus = await getPremiumStatusForUser(profile.id);
+    const premiumExpiresAtFormatted = premiumStatus.expiresAt
+      ? formatDateTimeLocalized(premiumStatus.expiresAt)
+      : null;
+    const premiumRelative = premiumStatus.expiresAt
+      ? formatRelativeDurationMs(Date.now() - premiumStatus.expiresAt.getTime())
+      : null;
     res.render("account/profile", {
       errors: [],
       profile: {
@@ -420,6 +434,11 @@ r.get(
       currentIpHash,
       currentIpLink,
       profilePublicUrl,
+      premium: {
+        ...premiumStatus,
+        expiresAtFormatted: premiumExpiresAtFormatted,
+        expiresAtRelative: premiumRelative,
+      },
     });
   }),
 );
@@ -650,6 +669,65 @@ r.post(
     });
 
     res.redirect("/account/profile");
+  }),
+);
+
+r.post(
+  "/premium/redeem",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const rawCode = typeof req.body.code === "string" ? req.body.code.trim() : "";
+    if (!rawCode) {
+      pushNotification(req, {
+        type: "error",
+        message: "Veuillez renseigner un code premium valide.",
+      });
+      return res.redirect("/account/profile");
+    }
+    try {
+      const redemption = await redeemPremiumCodeForUser({
+        code: rawCode,
+        userId: sessionUser.id,
+      });
+      const refreshed = await loadSessionUserById(sessionUser.id);
+      if (refreshed) {
+        req.session.user = refreshed;
+      } else {
+        req.session.user = null;
+      }
+      const expiresAtFormatted = formatDateTimeLocalized(redemption.expiresAt);
+      pushNotification(req, {
+        type: "success",
+        message: `Votre accès premium est actif jusqu'au ${expiresAtFormatted}.`,
+      });
+      await sendAdminEvent(
+        "Code premium utilisé",
+        {
+          user: sessionUser.username,
+          extra: {
+            code: redemption.code.code,
+            expiresAt: redemption.expiresAt.toISOString(),
+          },
+        },
+        { includeScreenshot: false },
+      );
+      return res.redirect("/account/profile");
+    } catch (error) {
+      if (error instanceof PremiumCodeError) {
+        pushNotification(req, {
+          type: "error",
+          message: error.message,
+        });
+        return res.redirect("/account/profile");
+      }
+      console.error("Unable to redeem premium code", error);
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible d'activer ce code premium pour le moment.",
+      });
+      return res.redirect("/account/profile");
+    }
   }),
 );
 
