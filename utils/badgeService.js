@@ -2,28 +2,28 @@ import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
 import { normalizeHttpUrl } from "./urlValidation.js";
 
-function normalizeName(rawName) {
+export function normalizeBadgeName(rawName) {
   if (typeof rawName !== "string") {
     return "";
   }
   return rawName.trim().slice(0, 80);
 }
 
-function normalizeDescription(rawDescription) {
+export function normalizeBadgeDescription(rawDescription) {
   if (typeof rawDescription !== "string") {
     return "";
   }
   return rawDescription.trim().slice(0, 240);
 }
 
-function normalizeEmoji(rawEmoji) {
+export function normalizeBadgeEmoji(rawEmoji) {
   if (typeof rawEmoji !== "string") {
     return "";
   }
   return rawEmoji.trim().slice(0, 16);
 }
 
-function normalizeImageUrl(rawUrl) {
+export function normalizeBadgeImageUrl(rawUrl) {
   if (typeof rawUrl !== "string") {
     return null;
   }
@@ -47,6 +47,10 @@ function mapBadgeRow(row) {
     imageUrl: typeof row.image_url === "string" && row.image_url.trim()
       ? row.image_url.trim()
       : null,
+    category:
+      typeof row.category === "string" && row.category.trim()
+        ? row.category.trim()
+        : "custom",
     automaticKey:
       typeof row.automatic_key === "string" && row.automatic_key.trim()
         ? row.automatic_key.trim()
@@ -74,6 +78,7 @@ export async function listBadgesWithAssignments() {
            b.description,
            b.emoji,
            b.image_url,
+           b.category,
            b.automatic_key,
            b.created_at,
            b.updated_at,
@@ -81,7 +86,7 @@ export async function listBadgesWithAssignments() {
       FROM badges b
       LEFT JOIN user_badges ub ON ub.badge_id = b.id
      GROUP BY b.id
-     ORDER BY LOWER(b.name) ASC, b.created_at ASC
+     ORDER BY LOWER(b.category) ASC, LOWER(b.name) ASC, b.created_at ASC
   `);
 
   if (!badgeRows.length) {
@@ -126,6 +131,7 @@ export async function listBadgesWithAssignments() {
       description: base.description,
       emoji: base.emoji,
       imageUrl: base.imageUrl,
+      category: base.category,
       automaticKey: base.automaticKey,
       isAutomatic: Boolean(base.automaticKey),
       createdAt: base.createdAt,
@@ -149,6 +155,7 @@ export async function getBadgeBySnowflake(snowflakeId) {
             description,
             emoji,
             image_url,
+            category,
             automatic_key,
             created_at,
             updated_at
@@ -168,6 +175,7 @@ export async function getBadgeBySnowflake(snowflakeId) {
     description: badge.description,
     emoji: badge.emoji,
     imageUrl: badge.imageUrl,
+    category: badge.category,
     automaticKey: badge.automaticKey,
     isAutomatic: Boolean(badge.automaticKey),
     createdAt: badge.createdAt,
@@ -176,10 +184,10 @@ export async function getBadgeBySnowflake(snowflakeId) {
 }
 
 export async function createBadge(input) {
-  const name = normalizeName(input?.name);
-  const description = normalizeDescription(input?.description || "");
-  const emoji = normalizeEmoji(input?.emoji);
-  const imageUrl = normalizeImageUrl(input?.imageUrl);
+  const name = normalizeBadgeName(input?.name);
+  const description = normalizeBadgeDescription(input?.description || "");
+  const emoji = normalizeBadgeEmoji(input?.emoji);
+  const imageUrl = normalizeBadgeImageUrl(input?.imageUrl);
 
   if (!name) {
     throw new Error("Le nom du badge est requis.");
@@ -220,12 +228,14 @@ export async function updateBadge(snowflakeId, input) {
   const hasEmoji = Object.prototype.hasOwnProperty.call(input || {}, "emoji");
   const hasImage = Object.prototype.hasOwnProperty.call(input || {}, "imageUrl");
 
-  const name = hasName ? normalizeName(input?.name) : existing.name;
+  const name = hasName ? normalizeBadgeName(input?.name) : existing.name;
   const description = hasDescription
-    ? normalizeDescription(input?.description || "")
+    ? normalizeBadgeDescription(input?.description || "")
     : existing.description;
-  const emoji = hasEmoji ? normalizeEmoji(input?.emoji) : existing.emoji;
-  const imageUrl = hasImage ? normalizeImageUrl(input?.imageUrl) : existing.imageUrl;
+  const emoji = hasEmoji ? normalizeBadgeEmoji(input?.emoji) : existing.emoji;
+  const imageUrl = hasImage
+    ? normalizeBadgeImageUrl(input?.imageUrl)
+    : existing.imageUrl;
 
   if (!name) {
     throw new Error("Le nom du badge est requis.");
@@ -374,6 +384,7 @@ export async function listBadgesForUserIds(userIds = []) {
             b.description,
             b.emoji,
             b.image_url,
+            b.category,
             b.automatic_key
        FROM user_badges ub
        JOIN badges b ON b.id = ub.badge_id
@@ -397,6 +408,10 @@ export async function listBadgesForUserIds(userIds = []) {
         typeof row.image_url === "string" && row.image_url.trim()
           ? row.image_url.trim()
           : null,
+      category:
+        typeof row.category === "string" && row.category.trim()
+          ? row.category.trim()
+          : "custom",
       assignmentId: row.assignment_snowflake_id || null,
       assignedAt: row.assigned_at || null,
       automaticKey:

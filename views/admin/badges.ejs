@@ -4,6 +4,175 @@
   Créez des badges personnalisés pour mettre en avant vos membres les plus actifs. Chaque badge peut afficher un emoji ou une image et être attribué à plusieurs utilisateurs.
 </p>
 
+<% const success = Array.isArray(successBadges) ? successBadges : []; %>
+<% const customBadges = Array.isArray(manualBadges) ? manualBadges : Array.isArray(badges) ? badges : []; %>
+<% const criteria = Array.isArray(achievementCriteria) ? achievementCriteria : []; %>
+<% const assignedCriterionSet = new Set(Array.isArray(assignedCriterionKeys) ? assignedCriterionKeys : []); %>
+
+<section class="card mt-md">
+  <h2 class="mt-0">Badges de succès</h2>
+  <p class="text-sm text-muted">
+    Ces badges sont attribués automatiquement lorsqu'un membre remplit l'un des <strong><%= criteria.length %></strong> critères de réussite disponibles. Personnalisez leur nom, leur description ainsi que l'emoji ou l'image affichée.
+  </p>
+
+  <% if (canCreateBadges) { %>
+    <form method="post" action="/admin/badges/success" class="badge-form mt-sm">
+      <%- include('../partials/csrf_field') %>
+      <div class="grid grid-cols-responsive gap-sm">
+        <label class="stack-form">
+          <span class="text-sm text-muted">Critère de réussite</span>
+          <select name="criterionKey" required>
+            <option value="">Sélectionnez un critère</option>
+            <% criteria.forEach(function (criterion) { %>
+              <% const disabled = assignedCriterionSet.has(criterion.key); %>
+              <option value="<%= criterion.key %>" <%= disabled ? 'disabled' : '' %>>
+                <%= criterion.name %>
+              </option>
+            <% }); %>
+          </select>
+        </label>
+        <label class="stack-form">
+          <span class="text-sm text-muted">Nom</span>
+          <input type="text" name="name" maxlength="80" placeholder="Badge de réussite" />
+        </label>
+        <label class="stack-form">
+          <span class="text-sm text-muted">Emoji</span>
+          <input type="text" name="emoji" maxlength="16" placeholder="🏆" />
+        </label>
+        <label class="stack-form">
+          <span class="text-sm text-muted">Image (URL)</span>
+          <input type="url" name="imageUrl" maxlength="500" placeholder="https://exemple.com/badges/succes.png" />
+        </label>
+      </div>
+      <%- include('../partials/uploadHelper') %>
+      <label class="stack-form mt-sm">
+        <span class="text-sm text-muted">Description</span>
+        <textarea name="description" rows="2" maxlength="240" placeholder="Expliquez quand ce badge est attribué."></textarea>
+      </label>
+      <p class="text-sm text-muted mt-sm">
+        Fournissez au moins un emoji ou une image. Lorsque l'un de vos membres atteint le critère choisi, le badge est attribué automatiquement.
+      </p>
+      <button class="btn success mt-sm" data-icon="⭐" type="submit">Créer un badge de succès</button>
+    </form>
+  <% } %>
+
+  <% if (!success.length) { %>
+    <p class="text-muted mt-md">Aucun badge de succès n'a encore été défini.</p>
+  <% } else { %>
+    <div class="badge-grid mt-md">
+      <% success.forEach(function (badge) { %>
+        <article class="card badge-card" id="success-badge-<%= badge.snowflakeId %>">
+          <header class="badge-card__header">
+            <div class="badge-card__icon" aria-hidden="true">
+              <% if (badge.imageUrl) { %>
+                <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
+              <% } else { %>
+                <%= badge.emoji || '🏆' %>
+              <% } %>
+            </div>
+            <div class="badge-card__summary">
+              <h2 class="badge-card__title"><%= badge.name %></h2>
+              <% if (badge.description) { %>
+                <p class="badge-card__description"><%= badge.description %></p>
+              <% } else { %>
+                <p class="badge-card__description text-muted">Aucune description fournie.</p>
+              <% } %>
+              <div class="badge-card__meta">
+                <span class="badge">
+                  <%= badge.assignmentCount %> détenteur<%= badge.assignmentCount > 1 ? 's' : '' %>
+                </span>
+                <span class="badge badge-automatic" title="Attribué automatiquement">Automatique</span>
+              </div>
+              <% if (badge.criterion) { %>
+                <p class="text-sm text-muted mt-xs">
+                  Critère&nbsp;: <strong><%= badge.criterion.name %></strong>
+                </p>
+              <% } %>
+            </div>
+          </header>
+
+          <% if (canEditBadges) { %>
+            <section class="badge-card__section">
+              <h3 class="badge-card__section-title">Modifier ce badge de succès</h3>
+              <form method="post" action="/admin/badges/success/<%= badge.snowflakeId %>/update" class="badge-card__form">
+                <%- include('../partials/csrf_field') %>
+                <div class="grid grid-cols-responsive gap-sm">
+                  <label class="stack-form">
+                    <span class="text-sm text-muted">Critère de réussite</span>
+                    <select name="criterionKey" required>
+                      <% criteria.forEach(function (criterion) { %>
+                        <% const disabled = assignedCriterionSet.has(criterion.key) && criterion.key !== badge.automaticKey; %>
+                        <option value="<%= criterion.key %>" <%= criterion.key === badge.automaticKey ? 'selected' : '' %> <%= disabled ? 'disabled' : '' %>>
+                          <%= criterion.name %>
+                        </option>
+                      <% }); %>
+                    </select>
+                  </label>
+                  <label class="stack-form">
+                    <span class="text-sm text-muted">Nom</span>
+                    <input type="text" name="name" maxlength="80" value="<%= badge.name %>" required />
+                  </label>
+                  <label class="stack-form">
+                    <span class="text-sm text-muted">Emoji</span>
+                    <input type="text" name="emoji" maxlength="16" value="<%= badge.emoji %>" />
+                  </label>
+                  <label class="stack-form">
+                    <span class="text-sm text-muted">Image (URL)</span>
+                    <input type="url" name="imageUrl" maxlength="500" value="<%= badge.imageUrl || '' %>" />
+                  </label>
+                </div>
+                <%- include('../partials/uploadHelper') %>
+                <label class="stack-form mt-sm">
+                  <span class="text-sm text-muted">Description</span>
+                  <textarea name="description" rows="2" maxlength="240"><%= badge.description %></textarea>
+                </label>
+                <div class="badge-card__actions">
+                  <button class="btn secondary" data-icon="💾" type="submit">Mettre à jour</button>
+                </div>
+              </form>
+              <% if (canDeleteBadges) { %>
+                <form
+                  method="post"
+                  action="/admin/badges/success/<%= badge.snowflakeId %>/delete"
+                  onsubmit="return confirm('Supprimer ce badge de succès ?');"
+                  class="badge-card__form badge-card__delete"
+                >
+                  <%- include('../partials/csrf_field') %>
+                  <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                </form>
+              <% } %>
+            </section>
+          <% } %>
+
+          <section class="badge-card__section">
+            <h3 class="badge-card__section-title">Détenteurs</h3>
+            <% if (badge.assignees && badge.assignees.length) { %>
+              <ul class="badge-card__assignees">
+                <% badge.assignees.forEach(function (assignment) { %>
+                  <li class="badge-card__assignee">
+                    <div>
+                      <strong><%= assignment.username %></strong>
+                      <% if (assignment.displayName && assignment.displayName.trim()) { %>
+                        <span class="text-muted">(<%= assignment.displayName %>)</span>
+                      <% } %>
+                      <% if (assignment.assignedAt) { %>
+                        <span class="text-muted">· <%= new Date(assignment.assignedAt).toLocaleDateString('fr-FR') %></span>
+                      <% } %>
+                    </div>
+                  </li>
+                <% }); %>
+              </ul>
+            <% } else { %>
+              <p class="text-muted">Aucun utilisateur ne possède encore ce badge.</p>
+            <% } %>
+            <p class="text-muted mt-xs">Les détenteurs sont mis à jour automatiquement en fonction du critère.</p>
+          </section>
+        </article>
+      <% }); %>
+    </div>
+  <% } %>
+</section>
+
 <% if (canCreateBadges) { %>
   <form method="post" class="card mt-md badge-form">
     <%- include('../partials/csrf_field') %>
@@ -34,11 +203,11 @@
   </form>
 <% } %>
 
-<% if (!Array.isArray(badges) || !badges.length) { %>
+<% if (!Array.isArray(customBadges) || !customBadges.length) { %>
   <p class="card mt-md">Aucun badge n'a encore été défini.</p>
 <% } else { %>
   <div class="badge-grid mt-md">
-    <% badges.forEach(function (badge) { %>
+    <% customBadges.forEach(function (badge) { %>
       <article class="card badge-card" id="badge-<%= badge.snowflakeId %>">
         <header class="badge-card__header">
           <div class="badge-card__icon" aria-hidden="true">

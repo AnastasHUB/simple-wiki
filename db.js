@@ -321,6 +321,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureColumn("deleted_pages", "publish_at", "DATETIME");
   await ensureColumn("page_submissions", "author_name", "TEXT");
   await ensureColumn("badges", "automatic_key", "TEXT UNIQUE");
+  await ensureColumn("badges", "category", "TEXT NOT NULL DEFAULT 'custom'");
   await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
   await ensureColumn(
     "settings",

@@ -93,6 +93,12 @@ import {
   getBadgeBySnowflake,
 } from "../utils/badgeService.js";
 import {
+  getAchievementDefinitions,
+  createAchievementBadge,
+  updateAchievementBadge,
+  deleteAchievementBadge,
+} from "../utils/achievementService.js";
+import {
   listRoles,
   listRolesWithUsage,
   getRoleById,
@@ -3887,9 +3893,27 @@ r.get(
   async (req, res, next) => {
     try {
       const badges = await listBadgesWithAssignments();
+      const achievementCriteria = getAchievementDefinitions();
+      const criteriaByKey = new Map(
+        achievementCriteria.map((criterion) => [criterion.key, criterion]),
+      );
+      const successBadges = badges
+        .filter((badge) => badge.category === "success")
+        .map((badge) => ({
+          ...badge,
+          criterion: criteriaByKey.get(badge.automaticKey || "") || null,
+        }));
+      const manualBadges = badges.filter((badge) => badge.category !== "success");
+      const assignedCriterionKeys = successBadges
+        .map((badge) => badge.automaticKey)
+        .filter((key) => typeof key === "string" && key.trim().length > 0);
       const permissions = req.permissionFlags || {};
       res.render("admin/badges", {
-        badges,
+        badges: manualBadges,
+        manualBadges,
+        successBadges,
+        achievementCriteria,
+        assignedCriterionKeys,
         canCreateBadges:
           permissions.can_manage_badges || permissions.can_create_badges,
         canEditBadges:
@@ -3904,6 +3928,138 @@ r.get(
     } catch (err) {
       next(err);
     }
+  },
+);
+
+r.post(
+  "/badges/success",
+  requirePermission(["can_manage_badges", "can_create_badges"]),
+  async (req, res) => {
+    try {
+      const badge = await createAchievementBadge({
+        criterionKey: req.body?.criterionKey,
+        name: req.body?.name,
+        description: req.body?.description,
+        emoji: req.body?.emoji,
+        imageUrl: req.body?.imageUrl,
+      });
+      const ip = getClientIp(req);
+      await sendAdminEvent(
+        "Badge de succès créé",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            badgeId: badge?.snowflakeId || null,
+            badgeName: badge?.name || null,
+            criterionKey: badge?.automaticKey || null,
+          },
+        },
+        { includeScreenshot: false },
+      );
+      pushNotification(req, {
+        type: "success",
+        message: badge?.name
+          ? `Badge de succès « ${badge.name} » créé.`
+          : "Badge de succès créé.",
+      });
+    } catch (err) {
+      console.error("Impossible de créer le badge de succès", err);
+      pushNotification(req, {
+        type: "error",
+        message:
+          err?.message ||
+          "Impossible de créer le badge de succès. Vérifiez les informations saisies.",
+      });
+    }
+    res.redirect("/admin/badges");
+  },
+);
+
+r.post(
+  "/badges/success/:badgeId/update",
+  requirePermission(["can_manage_badges", "can_edit_badges"]),
+  async (req, res) => {
+    const badgeId = req.params.badgeId;
+    try {
+      const badge = await updateAchievementBadge(badgeId, {
+        criterionKey: req.body?.criterionKey,
+        name: req.body?.name,
+        description: req.body?.description,
+        emoji: req.body?.emoji,
+        imageUrl: req.body?.imageUrl,
+      });
+      const ip = getClientIp(req);
+      await sendAdminEvent(
+        "Badge de succès mis à jour",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            badgeId: badge?.snowflakeId || badgeId,
+            badgeName: badge?.name || null,
+            criterionKey: badge?.automaticKey || null,
+          },
+        },
+        { includeScreenshot: false },
+      );
+      pushNotification(req, {
+        type: "success",
+        message: badge?.name
+          ? `Badge de succès « ${badge.name} » mis à jour.`
+          : "Badge de succès mis à jour.",
+      });
+    } catch (err) {
+      console.error("Impossible de mettre à jour le badge de succès", err);
+      pushNotification(req, {
+        type: "error",
+        message:
+          err?.message ||
+          "Impossible de mettre à jour ce badge de succès. Vérifiez les informations saisies.",
+      });
+    }
+    res.redirect("/admin/badges");
+  },
+);
+
+r.post(
+  "/badges/success/:badgeId/delete",
+  requirePermission(["can_manage_badges", "can_delete_badges"]),
+  async (req, res) => {
+    const badgeId = req.params.badgeId;
+    try {
+      const badge = await getBadgeBySnowflake(badgeId);
+      await deleteAchievementBadge(badgeId);
+      const ip = getClientIp(req);
+      await sendAdminEvent(
+        "Badge de succès supprimé",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            ip,
+            badgeId,
+            badgeName: badge?.name || null,
+            criterionKey: badge?.automaticKey || null,
+          },
+        },
+        { includeScreenshot: false },
+      );
+      pushNotification(req, {
+        type: "success",
+        message: badge?.name
+          ? `Badge de succès « ${badge.name} » supprimé.`
+          : "Badge de succès supprimé.",
+      });
+    } catch (err) {
+      console.error("Impossible de supprimer le badge de succès", err);
+      pushNotification(req, {
+        type: "error",
+        message:
+          err?.message ||
+          "Impossible de supprimer ce badge de succès. Merci de réessayer.",
+      });
+    }
+    res.redirect("/admin/badges");
   },
 );
 
