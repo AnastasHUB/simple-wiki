@@ -42,6 +42,7 @@ turndown.addRule("fencedCodeBlockWithLanguage", {
 
 export const CONTENT_SANITIZE_OPTIONS = {
   allowedTags: sanitizeHtml.defaults.allowedTags.concat([
+    "img",
     "h1",
     "h2",
     "h3",
@@ -92,6 +93,17 @@ export const CONTENT_SANITIZE_OPTIONS = {
     a: ["href", "title", "target", "rel", "class"],
     code: ["class"],
     pre: ["class"],
+    img: [
+      "src",
+      "alt",
+      "title",
+      "width",
+      "height",
+      "loading",
+      "decoding",
+      "class",
+      "srcset",
+    ],
     div: ["class", "style"],
     details: ["class", "open"],
     summary: ["class"],
@@ -110,6 +122,7 @@ export const CONTENT_SANITIZE_OPTIONS = {
   allowedSchemes: ["http", "https", "mailto"],
   allowedSchemesByTag: {
     a: ["http", "https", "mailto"],
+    img: ["http", "https", "data"],
   },
   transformTags: {
     a: sanitizeHtml.simpleTransform(
