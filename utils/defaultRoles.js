@@ -1,6 +1,7 @@
 export const DEFAULT_ROLE_KEYS = Object.freeze({
   EVERYONE: "everyone",
   USER: "user",
+  PREMIUM: "premium",
   ADMINISTRATOR: "administrator",
 });
 
@@ -30,6 +31,20 @@ const baseDefinitions = [
     permissionOverrides: {
       can_comment: true,
       can_submit_pages: true,
+    },
+  },
+  {
+    key: DEFAULT_ROLE_KEYS.PREMIUM,
+    snowflake: "231903782071590914",
+    name: "Premium",
+    description: "Accès aux avantages réservés aux abonnés premium.",
+    color: "#F59E0B",
+    isSystem: true,
+    grantAllPermissions: false,
+    permissionOverrides: {
+      can_comment: true,
+      can_submit_pages: true,
+      can_view_stats_basic: true,
     },
   },
   {
@@ -63,6 +78,8 @@ export const DEFAULT_ROLE_SNOWFLAKES = Object.freeze(
 export const EVERYONE_ROLE_SNOWFLAKE =
   DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.EVERYONE];
 export const USER_ROLE_SNOWFLAKE = DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.USER];
+export const PREMIUM_ROLE_SNOWFLAKE =
+  DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.PREMIUM];
 export const ADMINISTRATOR_ROLE_SNOWFLAKE =
   DEFAULT_ROLE_SNOWFLAKES[DEFAULT_ROLE_KEYS.ADMINISTRATOR];
 
@@ -112,11 +129,13 @@ export function applyDefaultRoleMetadata(role) {
   const metadata = {
     isEveryone: identifier === EVERYONE_ROLE_SNOWFLAKE,
     isUser: identifier === USER_ROLE_SNOWFLAKE,
+    isPremium: identifier === PREMIUM_ROLE_SNOWFLAKE,
     isAdministrator: identifier === ADMINISTRATOR_ROLE_SNOWFLAKE,
   };
   if (
     role.isEveryone === metadata.isEveryone &&
     role.isUser === metadata.isUser &&
+    role.isPremium === metadata.isPremium &&
     role.isAdministrator === metadata.isAdministrator
   ) {
     return role;
