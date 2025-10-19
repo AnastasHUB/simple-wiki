@@ -481,8 +481,9 @@ function initReactionWebsocket() {
     return;
   }
 
-  const forms = document.querySelectorAll("form[data-reaction-form]");
-  if (!forms.length) {
+  const reactionForms = document.querySelectorAll("form[data-reaction-form]");
+  const likeForms = document.querySelectorAll("form[data-like-form-for]");
+  if (!reactionForms.length && !likeForms.length) {
     return;
   }
 
@@ -492,7 +493,7 @@ function initReactionWebsocket() {
   const pageSlugs = new Set();
   const commentIds = new Set();
 
-  forms.forEach((form) => {
+  reactionForms.forEach((form) => {
     const target = form.getAttribute("data-reaction-target");
     if (target === "page") {
       const slug = form.getAttribute("data-reaction-slug");
@@ -504,6 +505,13 @@ function initReactionWebsocket() {
       if (commentId && commentIds.size < MAX_COMMENT_SUBSCRIPTIONS) {
         commentIds.add(commentId);
       }
+    }
+  });
+
+  likeForms.forEach((form) => {
+    const slug = form.getAttribute("data-like-form-for");
+    if (slug && pageSlugs.size < MAX_PAGE_SUBSCRIPTIONS) {
+      pageSlugs.add(slug);
     }
   });
 
@@ -599,6 +607,11 @@ function initReactionWebsocket() {
         case "reactionUpdate":
           if (message.payload) {
             updateReactionUi(message.payload);
+          }
+          break;
+        case "likeUpdate":
+          if (message.payload?.slug) {
+            updateLikeUi(message.payload.slug, message.payload);
           }
           break;
         case "error":
@@ -1441,12 +1454,12 @@ function notifyClient(notifications) {
 }
 
 function updateLikeUi(slug, state) {
-  if (!slug) {
+  if (!slug || !state) {
     return;
   }
 
-  const likes = Number.isFinite(state.likes) ? state.likes : 0;
-  const liked = Boolean(state.liked);
+  const likes = Number.isFinite(state.likes) ? Number(state.likes) : 0;
+  const hasLikedState = Object.prototype.hasOwnProperty.call(state, "liked");
 
   document
     .querySelectorAll(`[data-like-count-for="${CSS.escape(slug)}"]`)
@@ -1457,7 +1470,13 @@ function updateLikeUi(slug, state) {
   document
     .querySelectorAll(`form[data-like-form-for="${CSS.escape(slug)}"]`)
     .forEach((likeForm) => {
-      likeForm.dataset.userLiked = liked ? "true" : "false";
+      const liked = hasLikedState
+        ? Boolean(state.liked)
+        : likeForm.dataset.userLiked === "true";
+      if (hasLikedState) {
+        likeForm.dataset.userLiked = liked ? "true" : "false";
+      }
+
       const button = likeForm.querySelector('button[type="submit"]');
       if (!button) {
         return;
