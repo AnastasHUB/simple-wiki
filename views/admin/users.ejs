@@ -32,13 +32,14 @@
       <input type="password" name="password" placeholder="mot de passe" required />
     </label>
     <label class="stack-form">
-      <span class="text-sm text-muted">Rôle</span>
+      <span class="text-sm text-muted">Rôles</span>
       <% if (Array.isArray(roles) && roles.length) { %>
-        <select name="roleId">
+        <select name="roleIds" multiple size="<%= Math.min(roles.length, 5) %>">
           <% roles.forEach(role => { %>
             <option value="<%= role.id %>" <%= defaultRoleId && role.id === defaultRoleId ? 'selected' : '' %>><%= role.name %></option>
           <% }) %>
         </select>
+        <small class="text-xs text-muted">Maintenez Ctrl ou Cmd pour sélectionner plusieurs rôles.</small>
       <% } else { %>
         <span class="text-danger">Aucun rôle disponible</span>
       <% } %>
@@ -80,7 +81,17 @@
               <button class="btn secondary" data-icon="💾" type="submit">Enregistrer</button>
             </form>
           </td>
-          <td><%= u.role_label %></td>
+          <td>
+            <% if (Array.isArray(u.roles) && u.roles.length) { %>
+              <ul class="flex flex-wrap gap-xs list-unstyled">
+                <% u.roles.forEach(function(role) { %>
+                  <li><span class="badge"><%= role.name %></span></li>
+                <% }) %>
+              </ul>
+            <% } else { %>
+              <span><%= u.role_label %></span>
+            <% } %>
+          </td>
           <td>
             <% if (u.is_banned) { %>
               <span class="text-danger">Banni</span>
@@ -146,15 +157,17 @@
                 <%- include('../partials/csrf_field') %>
                 <label class="sr-only" for="role-<%= u.id %>">Rôle</label>
                 <% if (Array.isArray(roles) && roles.length) { %>
-                  <select id="role-<%= u.id %>" name="roleId">
+                  <select id="role-<%= u.id %>" name="roleIds" multiple size="<%= Math.min(roles.length, 5) %>">
                     <% roles.forEach(role => { %>
-                      <option value="<%= role.id %>" <%= Number(u.role_id) === role.numeric_id ? 'selected' : '' %>><%= role.name %></option>
+                      <% const hasRole = Array.isArray(u.roles) && u.roles.some((assigned) => assigned.id === role.id); %>
+                      <option value="<%= role.id %>" <%= hasRole ? 'selected' : '' %>><%= role.name %></option>
                     <% }) %>
                   </select>
+                  <small class="text-xs text-muted">Ctrl/Cmd + clic pour ajouter ou retirer des rôles.</small>
                 <% } else { %>
                   <span class="text-danger">Aucun rôle</span>
                 <% } %>
-                <button class="btn secondary" data-icon="⭐" type="submit">Choisir le rôle</button>
+                <button class="btn secondary" data-icon="⭐" type="submit">Mettre à jour les rôles</button>
               </form>
               <% if (permissions.can_suspend_users && u.is_banned) { %>
                 <form method="post" action="/admin/users/<%= u.id %>/unban" class="flex gap-sm items-center">

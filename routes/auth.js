@@ -15,7 +15,7 @@ import {
   getRoleFlagValues,
   needsRoleFlagSync,
 } from "../utils/roleFlags.js";
-import { getEveryoneRole } from "../utils/roleService.js";
+import { assignRoleToUser, getEveryoneRole, getRolesForUser } from "../utils/roleService.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import {
   createCaptchaChallenge,
@@ -143,7 +143,9 @@ r.post("/login", loginRateLimiter, async (req, res) => {
     );
   }
 
-  req.session.user = buildSessionUser(u, flags);
+  const assignedRoles = await getRolesForUser(u.id);
+
+  req.session.user = buildSessionUser({ ...u, roles: assignedRoles }, flags);
   await sendAdminEvent(
     "Connexion réussie",
     {
@@ -215,6 +217,8 @@ r.post("/register", registerRateLimiter, async (req, res, next) => {
       ],
     );
 
+    await assignRoleToUser(result.lastID, everyoneRole ? [everyoneRole] : []);
+
     createdUser = await get(
       `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
        FROM users u
@@ -234,8 +238,9 @@ r.post("/register", registerRateLimiter, async (req, res, next) => {
   }
 
   const flags = deriveRoleFlags(createdUser);
+  const assignedRoles = await getRolesForUser(createdUser.id);
   await evaluateUserAchievements(createdUser.id);
-  req.session.user = buildSessionUser(createdUser, flags);
+  req.session.user = buildSessionUser({ ...createdUser, roles: assignedRoles }, flags);
   const providerDescription = describeCaptcha();
   await sendAdminEvent(
     "Nouvelle inscription",

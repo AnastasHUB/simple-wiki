@@ -37,7 +37,7 @@ import {
   buildSessionUser,
   deriveRoleFlags,
 } from "../utils/roleFlags.js";
-import { getDefaultUserRole } from "../utils/roleService.js";
+import { assignRoleToUser, getDefaultUserRole, getRolesForUser } from "../utils/roleService.js";
 import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
 import {
   fetchPaginatedPages,
@@ -2752,6 +2752,8 @@ r.post(
       ],
     );
 
+    await assignRoleToUser(insertResult.lastID, userRole ? [userRole] : []);
+
     const createdUser = await get(
       `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
          FROM users u
@@ -2777,7 +2779,8 @@ r.post(
     }
 
     const flags = deriveRoleFlags(createdUser);
-    req.session.user = buildSessionUser(createdUser, flags);
+    const assignedRoles = await getRolesForUser(createdUser.id);
+    req.session.user = buildSessionUser({ ...createdUser, roles: assignedRoles }, flags);
 
     const providerDescription = describeCaptcha();
     await sendAdminEvent(

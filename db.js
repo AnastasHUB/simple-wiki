@@ -8,6 +8,7 @@ import {
   ROLE_FLAG_FIELDS,
   DEFAULT_ROLE_FLAGS,
   getRoleFlagValues,
+  mergeRoleFlags,
 } from "./utils/roleFlags.js";
 import {
   DEFAULT_ROLE_DEFINITIONS,
@@ -65,6 +66,14 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     role_id INTEGER REFERENCES roles(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS user_role_assignments(
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+    assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(user_id, role_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_roles_role ON user_role_assignments(role_id);
+  CREATE INDEX IF NOT EXISTS idx_user_roles_user ON user_role_assignments(user_id);
   CREATE TABLE IF NOT EXISTS settings(
     id INTEGER PRIMARY KEY CHECK (id=1),
     snowflake_id TEXT UNIQUE,
@@ -605,6 +614,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await db.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_ban_appeals_pending_ip ON ban_appeals(ip) WHERE ip IS NOT NULL AND status='pending'",
   );
+  await ensureUserRoleAssignmentsTable();
   await ensureDefaultRoles();
   await ensureReactionOptionsSeed();
   await synchronizeUserRoles();
@@ -638,6 +648,23 @@ async function ensureColumn(table, column, definition) {
   if (!info.find((c) => c.name === column)) {
     await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+}
+
+async function ensureUserRoleAssignmentsTable() {
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS user_role_assignments(
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,
+      assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY(user_id, role_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_roles_role ON user_role_assignments(role_id);
+    CREATE INDEX IF NOT EXISTS idx_user_roles_user ON user_role_assignments(user_id);
+  `);
+  await db.run(
+    `INSERT OR IGNORE INTO user_role_assignments(user_id, role_id)
+       SELECT id, role_id FROM users WHERE role_id IS NOT NULL`,
+  );
 }
 
 async function ensureSnowflake(table, column = "snowflake_id") {
@@ -791,52 +818,108 @@ async function ensureDefaultRoles() {
 }
 
 async function synchronizeUserRoles() {
+  await ensureUserRoleAssignmentsTable();
+  await ensureRolePositions();
   const roles = await db.all(
-    `SELECT id, name, snowflake_id, ${ROLE_FLAG_COLUMN_LIST} FROM roles`,
+    `SELECT id, name, snowflake_id, position, ${ROLE_FLAG_COLUMN_LIST} FROM roles`,
   );
   if (!roles.length) {
     return;
   }
 
-  const roleByName = new Map();
+  const roleInfoById = new Map();
   const roleBySnowflake = new Map();
+  const roleByName = new Map();
   for (const role of roles) {
-    if (role.name) {
-      roleByName.set(role.name, role);
+    const numericId = Number.parseInt(role.id, 10) || null;
+    const info = {
+      numeric_id: numericId,
+      snowflake_id: role.snowflake_id ? String(role.snowflake_id) : null,
+      position: Number.parseInt(role.position, 10) || 0,
+      name: role.name,
+    };
+    for (const field of ROLE_FLAG_FIELDS) {
+      info[field] = Boolean(role[field]);
     }
-    if (role.snowflake_id) {
-      roleBySnowflake.set(String(role.snowflake_id), role);
+    if (numericId !== null) {
+      roleInfoById.set(numericId, info);
+    }
+    if (info.snowflake_id) {
+      roleBySnowflake.set(info.snowflake_id, info);
+    }
+    if (info.name) {
+      roleByName.set(info.name, info);
     }
   }
 
-  const adminRoleId =
-    roleBySnowflake.get(ADMINISTRATOR_ROLE_SNOWFLAKE)?.id ??
-    roleByName.get("Administrateur")?.id ??
+  const adminRole =
+    roleBySnowflake.get(ADMINISTRATOR_ROLE_SNOWFLAKE) ??
+    roleByName.get("Administrateur") ??
     null;
-  const everyoneRoleId =
-    roleBySnowflake.get(EVERYONE_ROLE_SNOWFLAKE)?.id ??
-    roleByName.get("Everyone")?.id ??
+  const everyoneRole =
+    roleBySnowflake.get(EVERYONE_ROLE_SNOWFLAKE) ??
+    roleByName.get("Everyone") ??
     null;
 
-  if (adminRoleId) {
+  if (adminRole?.numeric_id) {
     await db.run(
-      "UPDATE users SET role_id=? WHERE role_id IS NULL AND is_admin=1",
-      [adminRoleId],
+      "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) SELECT id, ? FROM users WHERE is_admin=1",
+      [adminRole.numeric_id],
     );
   }
-  if (everyoneRoleId) {
-    await db.run("UPDATE users SET role_id=? WHERE role_id IS NULL", [
-      everyoneRoleId,
-    ]);
+  if (everyoneRole?.numeric_id) {
+    await db.run(
+      "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) SELECT id, ? FROM users",
+      [everyoneRole.numeric_id],
+    );
   }
 
-  for (const role of roles) {
-    const flagValues = ROLE_FLAG_FIELDS.map((field) =>
-      role[field] ? 1 : 0,
-    );
+  const assignments = await db.all(`
+    SELECT ura.user_id, ura.role_id
+      FROM user_role_assignments ura
+      JOIN roles r ON r.id = ura.role_id
+     ORDER BY ura.user_id ASC, r.position ASC, r.name COLLATE NOCASE
+  `);
+  const rolesByUser = new Map();
+  for (const assignment of assignments) {
+    const userId = Number.parseInt(assignment.user_id, 10);
+    const roleId = Number.parseInt(assignment.role_id, 10);
+    if (!Number.isInteger(userId) || !Number.isInteger(roleId)) {
+      continue;
+    }
+    const roleInfo = roleInfoById.get(roleId);
+    if (!roleInfo) {
+      continue;
+    }
+    if (!rolesByUser.has(userId)) {
+      rolesByUser.set(userId, []);
+    }
+    rolesByUser.get(userId).push(roleInfo);
+  }
+
+  const users = await db.all("SELECT id FROM users");
+  for (const user of users) {
+    const userId = Number.parseInt(user.id, 10);
+    if (!Number.isInteger(userId)) {
+      continue;
+    }
+    let assigned = rolesByUser.get(userId) || [];
+    if ((!assigned || assigned.length === 0) && everyoneRole?.numeric_id) {
+      await db.run(
+        "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) VALUES(?, ?)",
+        [userId, everyoneRole.numeric_id],
+      );
+      assigned = [everyoneRole];
+      rolesByUser.set(userId, assigned);
+    }
+    let mergedFlags = { ...DEFAULT_ROLE_FLAGS };
+    for (const roleInfo of assigned) {
+      mergedFlags = mergeRoleFlags(mergedFlags, roleInfo);
+    }
+    const primaryRoleId = assigned[0]?.numeric_id ?? null;
     await db.run(
-      `UPDATE users SET ${ROLE_FLAG_USER_ASSIGNMENTS} WHERE role_id=?`,
-      [...flagValues, role.id],
+      `UPDATE users SET role_id=?, ${ROLE_FLAG_USER_ASSIGNMENTS} WHERE id=?`,
+      [primaryRoleId, ...getRoleFlagValues(mergedFlags), userId],
     );
   }
 }
@@ -857,7 +940,7 @@ export async function ensureDefaultAdmin() {
         }, {})
       : buildRoleFlags(ALL_ROLE_FLAGS_TRUE);
     const adminRoleId = adminRoleRow?.id ?? null;
-    await db.run(
+    const result = await db.run(
       `INSERT INTO users(snowflake_id, username, password, role_id, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?,?,${ROLE_FLAG_PLACEHOLDERS})`,
       [
         generateSnowflake(),
@@ -867,6 +950,12 @@ export async function ensureDefaultAdmin() {
         ...getRoleFlagValues(adminRoleFlags),
       ],
     );
+    if (adminRoleId) {
+      await db.run(
+        "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) VALUES(?, ?)",
+        [result?.lastID || null, adminRoleId],
+      );
+    }
     console.log("Default admin created: admin / (mot de passe haché)");
   }
 }

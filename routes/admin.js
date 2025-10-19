@@ -109,12 +109,15 @@ import {
   reassignUsersToRole,
   getEveryoneRole,
   updateRoleOrdering,
+  listRolesForUsers,
 } from "../utils/roleService.js";
 import { ADMINISTRATOR_ROLE_SNOWFLAKE } from "../utils/defaultRoles.js";
 import {
   ADMIN_ACTION_FLAGS,
   buildSessionUser,
   ROLE_FLAG_FIELDS,
+  DEFAULT_ROLE_FLAGS,
+  mergeRoleFlags,
 } from "../utils/roleFlags.js";
 import { PERMISSION_CATEGORIES } from "../utils/permissionDefinitions.js";
 import {
@@ -162,6 +165,19 @@ const r = Router();
 
 const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
 const ROLE_FLAG_VALUE_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
+
+function sortRolesForAssignment(roles = []) {
+  return [...roles].sort((a, b) => {
+    const positionA = Number.isFinite(a?.position) ? a.position : 0;
+    const positionB = Number.isFinite(b?.position) ? b.position : 0;
+    if (positionA !== positionB) {
+      return positionA - positionB;
+    }
+    const nameA = a?.name || "";
+    const nameB = b?.name || "";
+    return nameA.localeCompare(nameB, "fr", { sensitivity: "base" });
+  });
+}
 
 r.use((req, res, next) => {
   const permissions = req.permissionFlags || {};
@@ -3347,6 +3363,7 @@ r.get(
   const userIds = users
     .map((user) => Number.parseInt(user.id, 10))
     .filter((id) => Number.isInteger(id));
+  const roleAssignments = await listRolesForUsers(userIds);
   let ipProfilesByUser = {};
   if (userIds.length) {
     const ipPlaceholders = userIds.map(() => "?").join(", ");
@@ -3377,12 +3394,15 @@ r.get(
     const isAdmin = Boolean(user.is_admin);
     const canComment = Boolean(user.can_comment);
     const canSubmit = Boolean(user.can_submit_pages);
-    const roleLabel =
-      user.role_name ||
-      (isAdmin ? fallbackAdministratorName : fallbackEveryoneName);
-    const colorScheme = parseStoredRoleColor(user.role_color);
-    const colorPresentation = buildRoleColorPresentation(colorScheme);
     const numericId = Number.parseInt(user.id, 10);
+    const assignedRoles =
+      (Number.isInteger(numericId) ? roleAssignments.get(numericId) : null) || [];
+    const primaryRole = assignedRoles[0] || null;
+    const roleLabel = assignedRoles.length
+      ? assignedRoles.map((role) => role.name).join(", ")
+      : user.role_name || (isAdmin ? fallbackAdministratorName : fallbackEveryoneName);
+    const colorScheme = primaryRole?.color || parseStoredRoleColor(user.role_color);
+    const colorPresentation = primaryRole?.colorPresentation || buildRoleColorPresentation(colorScheme);
     return {
       ...user,
       is_admin: isAdmin,
@@ -3392,8 +3412,14 @@ r.get(
       role_color: colorPresentation,
       role_color_scheme: colorScheme,
       role_color_serialized:
-        typeof user.role_color === "string" ? user.role_color : colorScheme ? JSON.stringify(colorScheme) : null,
-      role_snowflake_id: user.role_snowflake_id || null,
+        primaryRole?.colorSerialized ||
+        (typeof user.role_color === "string"
+          ? user.role_color
+          : colorScheme
+            ? JSON.stringify(colorScheme)
+            : null),
+      role_snowflake_id: primaryRole?.id || user.role_snowflake_id || null,
+      roles: assignedRoles,
       is_banned: Boolean(user.is_banned),
       ban_reason: user.ban_reason || null,
       banned_at: user.banned_at || null,
@@ -3415,7 +3441,14 @@ r.post(
   requirePermission(["can_manage_users", "can_invite_users"]),
   async (req, res) => {
   const { username, password } = req.body;
-  const selectedRoleId = (req.body.roleId || req.body.role || "").trim();
+  const rawRoleSelection =
+    req.body.roleIds ?? req.body.roleId ?? req.body.role ?? [];
+  const selectedRoleIds = (Array.isArray(rawRoleSelection)
+    ? rawRoleSelection
+    : [rawRoleSelection]
+  )
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => value);
   if (!username || !password) {
     pushNotification(req, {
       type: "error",
@@ -3424,48 +3457,60 @@ r.post(
     return res.redirect("/admin/users");
   }
   const sanitizedUsername = username.trim();
-  const role = await getRoleById(selectedRoleId);
-  if (!role) {
+  const fetchedRoles = await Promise.all(
+    selectedRoleIds.map((id) => getRoleById(id)),
+  );
+  const validRoles = fetchedRoles.filter(Boolean);
+  if (!validRoles.length) {
     pushNotification(req, {
       type: "error",
-      message: "Rôle invalide sélectionné.",
+      message: "Sélectionnez au moins un rôle valide.",
     });
     return res.redirect("/admin/users");
+  }
+  const sortedRoles = sortRolesForAssignment(validRoles);
+  let mergedFlags = { ...DEFAULT_ROLE_FLAGS };
+  for (const role of sortedRoles) {
+    mergedFlags = mergeRoleFlags(mergedFlags, role);
   }
   const hashed = await hashPassword(password);
   try {
     const roleFlagValues = ROLE_FLAG_FIELDS.map((field) =>
-      (role && role[field] ? 1 : 0),
+      mergedFlags[field] ? 1 : 0,
     );
+    const primaryRole = sortedRoles[0] || null;
     const result = await run(
       `INSERT INTO users(snowflake_id, username, password, role_id, ${ROLE_FLAG_COLUMN_LIST}) VALUES(?,?,?, ?, ${ROLE_FLAG_VALUE_PLACEHOLDERS})`,
       [
         generateSnowflake(),
         sanitizedUsername,
         hashed,
-        role.numeric_id,
+        primaryRole?.numeric_id ?? null,
         ...roleFlagValues,
       ],
     );
+    await assignRoleToUser(result.lastID, sortedRoles);
     const ip = getClientIp(req);
-      await sendAdminEvent(
-        "Utilisateur créé",
-        {
-          user: req.session.user?.username || null,
-          extra: {
-            ip,
-            newUser: sanitizedUsername,
-            userId: result?.lastID || null,
-            roleId: role.id,
-            roleName: role.name,
-            roleColor: role.colorPresentation?.label || null,
-          },
+    const roleSummary = sortedRoles.map((role) => role.name).join(", ");
+    const primaryColor = primaryRole?.colorPresentation?.label || null;
+    await sendAdminEvent(
+      "Utilisateur créé",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          newUser: sanitizedUsername,
+          userId: result?.lastID || null,
+          roleIds: sortedRoles.map((role) => role.id),
+          roleNames: sortedRoles.map((role) => role.name),
+          roleColor: primaryColor,
         },
-        { includeScreenshot: false },
-      );
+      },
+      { includeScreenshot: false },
+    );
     pushNotification(req, {
       type: "success",
-      message: `Utilisateur ${sanitizedUsername} créé (${role.name}).`,
+      message: `Utilisateur ${sanitizedUsername} créé (${roleSummary}).`,
     });
   } catch (error) {
     if (
@@ -3574,16 +3619,32 @@ r.post(
     return res.redirect("/admin/users");
   }
 
-  const requestedRoleId = (req.body?.roleId || req.body?.role || "").trim();
-  const role = await getRoleById(requestedRoleId);
+  const currentRoleMap = await listRolesForUsers([target.id]);
+  const currentRoles =
+    currentRoleMap.get(Number.parseInt(target.id, 10)) || [];
 
-  if (!role) {
+  const rawRoleSelection =
+    req.body?.roleIds ?? req.body?.roleId ?? req.body?.role ?? [];
+  const requestedRoleIds = (Array.isArray(rawRoleSelection)
+    ? rawRoleSelection
+    : [rawRoleSelection]
+  )
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter((value) => value);
+  const fetchedRoles = await Promise.all(
+    requestedRoleIds.map((id) => getRoleById(id)),
+  );
+  const validRoles = fetchedRoles.filter(Boolean);
+
+  if (!validRoles.length) {
     pushNotification(req, {
       type: "error",
-      message: "Rôle invalide sélectionné.",
+      message: "Sélectionnez au moins un rôle valide.",
     });
     return res.redirect("/admin/users");
   }
+
+  const sortedRoles = sortRolesForAssignment(validRoles);
 
   const [everyoneRole, administratorRole] = await Promise.all([
     getEveryoneRole(),
@@ -3591,14 +3652,31 @@ r.post(
   ]);
   const fallbackEveryoneName = everyoneRole?.name || "Everyone";
   const fallbackAdministratorName = administratorRole?.name || "Administrateur";
-  const previousRole =
-    target.role_name ||
-    (target.is_admin ? fallbackAdministratorName : fallbackEveryoneName);
-  const previousRoleColorPresentation = buildRoleColorPresentation(
-    parseStoredRoleColor(target.role_color),
-  );
+  const previousRoleNames = currentRoles.length
+    ? currentRoles.map((role) => role.name)
+    : [
+        target.role_name ||
+          (target.is_admin ? fallbackAdministratorName : fallbackEveryoneName),
+      ];
+  const previousRoleColorPresentation =
+    currentRoles[0]?.colorPresentation ||
+    buildRoleColorPresentation(parseStoredRoleColor(target.role_color));
 
-  if (target.role_id === role.numeric_id) {
+  const currentRoleIds = new Set(
+    currentRoles
+      .map((role) => role.numeric_id)
+      .filter((value) => Number.isInteger(value)),
+  );
+  const newRoleIds = new Set(
+    sortedRoles
+      .map((role) => role.numeric_id)
+      .filter((value) => Number.isInteger(value)),
+  );
+  const sameSelection =
+    currentRoleIds.size === newRoleIds.size &&
+    [...currentRoleIds].every((id) => newRoleIds.has(id));
+
+  if (sameSelection) {
     pushNotification(req, {
       type: "info",
       message: `Aucun changement pour ${target.username}.`,
@@ -3606,29 +3684,26 @@ r.post(
     return res.redirect("/admin/users");
   }
 
-  await assignRoleToUser(target.id, role);
+  const updatedRoles = await assignRoleToUser(target.id, sortedRoles);
+  const refreshedUser = await get(
+    `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color
+       FROM users u
+       LEFT JOIN roles r ON r.id = u.role_id
+      WHERE u.id=?`,
+    [target.id],
+  );
+  const finalRoles = updatedRoles && updatedRoles.length ? updatedRoles : sortedRoles;
 
   if (req.session.user?.id === target.id) {
-    const updatedSession = buildSessionUser(
-      {
-        ...req.session.user,
-        ...target,
-        role_id: role.id,
-        role_numeric_id: role.numeric_id,
-        role_snowflake_id: role.id,
-        role_name: role.name,
-        role_color_serialized: role.colorSerialized ?? null,
-        is_admin: role.is_admin,
-        is_moderator: role.is_moderator,
-        is_helper: role.is_helper,
-        is_contributor: role.is_contributor,
-        can_comment: role.can_comment,
-        can_submit_pages: role.can_submit_pages,
-      },
-      role,
-    );
+    const updatedSession = buildSessionUser({
+      ...refreshedUser,
+      roles: finalRoles,
+    });
     req.session.user = { ...req.session.user, ...updatedSession };
   }
+
+  const newRoleNames = finalRoles.map((role) => role.name);
+  const newRoleColor = finalRoles[0]?.colorPresentation?.label || null;
 
   const ip = getClientIp(req);
   await sendAdminEvent(
@@ -3639,11 +3714,11 @@ r.post(
         ip,
         targetId: target.id,
         targetUsername: target.username,
-        previousRole,
-        newRoleId: role.id,
-        newRoleName: role.name,
+        previousRoles: previousRoleNames,
+        newRoleIds: finalRoles.map((role) => role.id),
+        newRoleNames,
         previousRoleColor: previousRoleColorPresentation?.label || null,
-        newRoleColor: role.colorPresentation?.label || null,
+        newRoleColor,
       },
     },
     { includeScreenshot: false },
@@ -3651,7 +3726,7 @@ r.post(
 
   pushNotification(req, {
     type: "success",
-    message: `Rôle mis à jour pour ${target.username} (${role.name}).`,
+    message: `Rôles mis à jour pour ${target.username} (${newRoleNames.join(", ")}).`,
   });
 
   res.redirect("/admin/users");
