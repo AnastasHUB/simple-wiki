@@ -1,5 +1,13 @@
 <% title = 'Blocages IP'; %>
 <h1>Blocages IP</h1>
+<% const permissionFlags =
+  typeof permissions !== 'undefined' && permissions && typeof permissions === 'object'
+    ? permissions
+    : {}; %>
+<% const canManageUserBansLocal = typeof canManageUserBans === 'boolean'
+  ? canManageUserBans
+  : Boolean(permissionFlags.can_manage_users && permissionFlags.can_suspend_users);
+%>
 
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
@@ -9,7 +17,7 @@
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="ID, IP, motif…"
+        placeholder="ID, IP, nom, motif…"
         class="flex-basis-260"
       />
     </label>
@@ -17,12 +25,48 @@
     <input type="hidden" name="liftedPage" value="1" />
     <input type="hidden" name="activePerPage" value="<%= activePagination.perPage %>" />
     <input type="hidden" name="liftedPerPage" value="<%= liftedPagination.perPage %>" />
+    <input type="hidden" name="userPage" value="1" />
+    <input type="hidden" name="userPerPage" value="<%= bannedUsersPagination.perPage %>" />
     <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
     <% if (searchTerm) { %>
       <a class="btn secondary" href="/admin/ip-bans">Réinitialiser</a>
     <% } %>
   </div>
 </form>
+
+<section class="card mb-xl">
+  <h2>Bannir un utilisateur</h2>
+  <% if (canManageUserBansLocal) { %>
+    <form method="post" action="/admin/ip-bans/users" class="grid grid-auto">
+      <%- include('../partials/csrf_field') %>
+      <div>
+        <label for="user">Utilisateur</label>
+        <input
+          id="user"
+          type="text"
+          name="user"
+          placeholder="ID ou nom d'utilisateur"
+          required
+        >
+      </div>
+      <div class="grid-span-full">
+        <label for="user-reason">Motif</label>
+        <input
+          id="user-reason"
+          type="text"
+          name="reason"
+          placeholder="Optionnel"
+        >
+      </div>
+      <div class="grid-span-full">
+        <button class="btn danger" data-icon="🚫" type="submit">Bannir l'utilisateur</button>
+      </div>
+    </form>
+    <p class="help-text">Indiquez l'identifiant numérique ou le nom du compte à bannir. Le bannissement empêchera toute connexion au wiki.</p>
+  <% } else { %>
+    <p>Vous n'avez pas la permission de bannir des utilisateurs.</p>
+  <% } %>
+</section>
 
 <section class="card mb-xl">
   <h2>Ajouter un blocage</h2>
@@ -56,6 +100,54 @@
     </div>
   </form>
   <p class="help-text">Pour un blocage limité à une action, choisissez la portée correspondante (vues, commentaires, likes ou contributions). Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.</p>
+</section>
+
+<section class="card mb-xl">
+  <h2>Utilisateurs bannis (<%= bannedUsersPagination.totalItems %>)</h2>
+  <% if (!canManageUserBansLocal) { %>
+    <p>Vous n'avez pas la permission de consulter les bannissements utilisateurs.</p>
+  <% } else if (!bannedUsers.length) { %>
+    <p>Aucun utilisateur actuellement banni.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Nom</th>
+            <th>Pseudo</th>
+            <th>Motif</th>
+            <th>Banni le</th>
+            <th>Par</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% bannedUsers.forEach(user => { %>
+            <tr>
+              <td><%= user.id %></td>
+              <td><strong><%= user.username %></strong></td>
+              <td><%= user.display_name || '-' %></td>
+              <td><%= user.ban_reason || '-' %></td>
+              <td><%= user.banned_at ? new Date(user.banned_at).toLocaleString('fr-FR') : '-' %></td>
+              <td><%= user.banned_by || '-' %></td>
+              <td>
+                <form
+                  method="post"
+                  action="/admin/users/<%= user.id %>/unban"
+                  onsubmit="return confirm('Débannir <%= user.username %> ?');"
+                >
+                  <%- include('../partials/csrf_field') %>
+                  <button class="btn success" data-icon="🗝️" type="submit">Débannir</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('./paginationControls', { pagination: bannedUsersPagination }) %>
+  <% } %>
 </section>
 
 <section class="card">

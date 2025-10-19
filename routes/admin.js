@@ -753,6 +753,11 @@ r.get(
   async (req, res) => {
   const searchTerm = (req.query.search || "").trim();
   const like = searchTerm ? `%${searchTerm}%` : null;
+  const permissions = req.permissionFlags || {};
+  const canManageUserBans = Boolean(
+    permissions.is_admin ||
+      (permissions.can_manage_users && permissions.can_suspend_users),
+  );
 
   const buildFilters = (clause) => {
     const filters = [clause];
@@ -812,12 +817,66 @@ r.get(
     perPageParam: "liftedPerPage",
   });
 
+  let bannedUsers = [];
+  let bannedUsersPagination = decoratePagination(
+    req,
+    buildPagination(req, 0, {
+      pageParam: "userPage",
+      perPageParam: "userPerPage",
+    }),
+    {
+      pageParam: "userPage",
+      perPageParam: "userPerPage",
+    },
+  );
+
+  if (canManageUserBans) {
+    const userFilters = ["is_banned = 1"];
+    const userParams = [];
+    if (like) {
+      userFilters.push(
+        "(CAST(id AS TEXT) LIKE ? OR LOWER(username) LIKE LOWER(?) OR LOWER(COALESCE(display_name,'')) LIKE LOWER(?) OR COALESCE(ban_reason,'') LIKE ? OR COALESCE(banned_by,'') LIKE ?)",
+      );
+      userParams.push(like, like, like, like, like);
+    }
+
+    const bannedUsersCountRow = await get(
+      `SELECT COUNT(*) AS total FROM users WHERE ${userFilters.join(" AND ")}`,
+      userParams,
+    );
+
+    const userBase = buildPagination(req, Number(bannedUsersCountRow?.total ?? 0), {
+      pageParam: "userPage",
+      perPageParam: "userPerPage",
+    });
+    const userOffset = (userBase.page - 1) * userBase.perPage;
+    bannedUsers = await all(
+      `SELECT id, username, display_name, ban_reason, banned_at, banned_by
+         FROM users
+        WHERE ${userFilters.join(" AND ")}
+        ORDER BY banned_at DESC
+        LIMIT ? OFFSET ?`,
+      [...userParams, userBase.perPage, userOffset],
+    );
+    bannedUsersPagination = decoratePagination(
+      req,
+      userBase,
+      {
+        pageParam: "userPage",
+        perPageParam: "userPerPage",
+      },
+    );
+  }
+
   res.render("admin/ip_bans", {
     activeBans,
     liftedBans,
     activePagination,
     liftedPagination,
     searchTerm,
+    bannedUsers,
+    bannedUsersPagination,
+    canManageUserBans,
   });
 });
 
@@ -861,6 +920,96 @@ r.post(
     extra: { id: banId, ip, scope, value, reason: reason || null },
     user: req.session.user?.username || null,
   });
+  res.redirect("/admin/ip-bans");
+  },
+);
+
+r.post(
+  "/ip-bans/users",
+  requirePermission(["can_manage_users", "can_suspend_users"]),
+  async (req, res) => {
+  const rawIdentifier = typeof req.body.user === "string" ? req.body.user.trim() : "";
+  const reason = typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+
+  if (!rawIdentifier) {
+    pushNotification(req, {
+      type: "error",
+      message: "Merci d'indiquer l'utilisateur à bannir (ID ou nom).",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  let target = null;
+  if (/^\d+$/.test(rawIdentifier)) {
+    target = await get(
+      "SELECT id, username, is_banned FROM users WHERE id=?",
+      [rawIdentifier],
+    );
+  }
+
+  if (!target) {
+    target = await get(
+      "SELECT id, username, is_banned FROM users WHERE LOWER(username)=LOWER(?)",
+      [rawIdentifier],
+    );
+  }
+
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  if (target.is_banned) {
+    pushNotification(req, {
+      type: "info",
+      message: `${target.username} est déjà banni.`,
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  await run(
+    `UPDATE users
+        SET is_banned=1,
+            ban_reason=?,
+            banned_at=CURRENT_TIMESTAMP,
+            banned_by=?
+      WHERE id=?`,
+    [reason || null, req.session.user?.username || null, target.id],
+  );
+
+  if (req.session.user?.id === target.id) {
+    req.session.user = {
+      ...req.session.user,
+      is_banned: true,
+      ban_reason: reason || null,
+      banned_at: new Date().toISOString(),
+      banned_by: req.session.user?.username || null,
+    };
+  }
+
+  const ip = getClientIp(req);
+  await sendAdminEvent(
+    "Compte utilisateur banni",
+    {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        reason: reason || null,
+      },
+    },
+    { includeScreenshot: false },
+  );
+
+  pushNotification(req, {
+    type: "success",
+    message: `${target.username} a été banni.`,
+  });
+
   res.redirect("/admin/ip-bans");
   },
 );
