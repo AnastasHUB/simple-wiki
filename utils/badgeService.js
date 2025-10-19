@@ -47,6 +47,10 @@ function mapBadgeRow(row) {
     imageUrl: typeof row.image_url === "string" && row.image_url.trim()
       ? row.image_url.trim()
       : null,
+    automaticKey:
+      typeof row.automatic_key === "string" && row.automatic_key.trim()
+        ? row.automatic_key.trim()
+        : null,
     createdAt: row.created_at || null,
     updatedAt: row.updated_at || null,
   };
@@ -70,6 +74,7 @@ export async function listBadgesWithAssignments() {
            b.description,
            b.emoji,
            b.image_url,
+           b.automatic_key,
            b.created_at,
            b.updated_at,
            COUNT(ub.user_id) AS assignment_count
@@ -121,6 +126,8 @@ export async function listBadgesWithAssignments() {
       description: base.description,
       emoji: base.emoji,
       imageUrl: base.imageUrl,
+      automaticKey: base.automaticKey,
+      isAutomatic: Boolean(base.automaticKey),
       createdAt: base.createdAt,
       updatedAt: base.updatedAt,
       assignmentCount: Number.isFinite(Number(row.assignment_count))
@@ -136,7 +143,15 @@ export async function getBadgeBySnowflake(snowflakeId) {
     return null;
   }
   const row = await get(
-    `SELECT id, snowflake_id, name, description, emoji, image_url, created_at, updated_at
+    `SELECT id,
+            snowflake_id,
+            name,
+            description,
+            emoji,
+            image_url,
+            automatic_key,
+            created_at,
+            updated_at
        FROM badges
       WHERE snowflake_id = ?`,
     [snowflakeId.trim()],
@@ -153,6 +168,8 @@ export async function getBadgeBySnowflake(snowflakeId) {
     description: badge.description,
     emoji: badge.emoji,
     imageUrl: badge.imageUrl,
+    automaticKey: badge.automaticKey,
+    isAutomatic: Boolean(badge.automaticKey),
     createdAt: badge.createdAt,
     updatedAt: badge.updatedAt,
   };
@@ -193,6 +210,9 @@ export async function updateBadge(snowflakeId, input) {
   const existing = await getBadgeBySnowflake(snowflakeId);
   if (!existing) {
     throw new Error("Badge introuvable.");
+  }
+  if (existing.isAutomatic) {
+    throw new Error("Ce badge est géré automatiquement et ne peut pas être modifié.");
   }
 
   const hasName = Object.prototype.hasOwnProperty.call(input || {}, "name");
@@ -240,10 +260,15 @@ export async function deleteBadge(snowflakeId) {
   if (typeof snowflakeId !== "string" || !snowflakeId.trim()) {
     return false;
   }
-  const result = await run(
-    `DELETE FROM badges WHERE snowflake_id = ?`,
-    [snowflakeId.trim()],
-  );
+  const trimmed = snowflakeId.trim();
+  const badge = await getBadgeBySnowflake(trimmed);
+  if (!badge) {
+    return false;
+  }
+  if (badge.isAutomatic) {
+    throw new Error("Ce badge est géré automatiquement et ne peut pas être supprimé.");
+  }
+  const result = await run(`DELETE FROM badges WHERE snowflake_id = ?`, [trimmed]);
   return result.changes > 0;
 }
 
@@ -255,6 +280,11 @@ export async function assignBadgeToUser({
   const badge = await getBadgeBySnowflake(badgeSnowflakeId);
   if (!badge) {
     throw new Error("Badge introuvable.");
+  }
+  if (badge.isAutomatic) {
+    throw new Error(
+      "Ce badge est attribué automatiquement et ne peut pas être décerné manuellement.",
+    );
   }
   const normalizedUsername =
     typeof username === "string" ? username.trim().toLowerCase() : "";
@@ -299,6 +329,11 @@ export async function revokeBadgeFromUser({ badgeSnowflakeId, username }) {
   if (!badge) {
     throw new Error("Badge introuvable.");
   }
+  if (badge.isAutomatic) {
+    throw new Error(
+      "Ce badge est attribué automatiquement et ne peut pas être retiré manuellement.",
+    );
+  }
   const normalizedUsername =
     typeof username === "string" ? username.trim().toLowerCase() : "";
   if (!normalizedUsername) {
@@ -338,7 +373,8 @@ export async function listBadgesForUserIds(userIds = []) {
             b.name,
             b.description,
             b.emoji,
-            b.image_url
+            b.image_url,
+            b.automatic_key
        FROM user_badges ub
        JOIN badges b ON b.id = ub.badge_id
       WHERE ub.user_id IN (${placeholders})
@@ -363,6 +399,12 @@ export async function listBadgesForUserIds(userIds = []) {
           : null,
       assignmentId: row.assignment_snowflake_id || null,
       assignedAt: row.assigned_at || null,
+      automaticKey:
+        typeof row.automatic_key === "string" && row.automatic_key.trim()
+          ? row.automatic_key.trim()
+          : null,
+      isAutomatic:
+        typeof row.automatic_key === "string" && row.automatic_key.trim().length > 0,
     });
   }
   return mapping;

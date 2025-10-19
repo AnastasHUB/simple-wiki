@@ -55,13 +55,18 @@
             <% } else { %>
               <p class="badge-card__description text-muted">Aucune description fournie.</p>
             <% } %>
-            <span class="badge">
-              <%= badge.assignmentCount %> détenteur<%= badge.assignmentCount > 1 ? 's' : '' %>
-            </span>
+            <div class="badge-card__meta">
+              <span class="badge">
+                <%= badge.assignmentCount %> détenteur<%= badge.assignmentCount > 1 ? 's' : '' %>
+              </span>
+              <% if (badge.isAutomatic) { %>
+                <span class="badge badge-automatic" title="Attribué automatiquement">Automatique</span>
+              <% } %>
+            </div>
           </div>
         </header>
 
-        <% if (canEditBadges) { %>
+        <% if (canEditBadges && !badge.isAutomatic) { %>
           <section class="badge-card__section">
             <h3 class="badge-card__section-title">Modifier ce badge</h3>
             <form method="post" action="/admin/badges/<%= badge.snowflakeId %>/update" class="badge-card__form">
@@ -101,14 +106,16 @@
               </form>
             <% } %>
           </section>
-        <% } else if (canDeleteBadges) { %>
+        <% } else if (canDeleteBadges && !badge.isAutomatic) { %>
           <form method="post" action="/admin/badges/<%= badge.snowflakeId %>/delete" onsubmit="return confirm('Supprimer ce badge ?');" class="badge-card__section badge-card__form">
             <%- include('../partials/csrf_field') %>
             <button class="btn danger" data-icon="🗑️" type="submit">Supprimer ce badge</button>
           </form>
+        <% } else if (badge.isAutomatic) { %>
+          <p class="badge-card__section text-muted">Ce badge est géré automatiquement et ne peut pas être modifié.</p>
         <% } %>
 
-        <% if (canAssignBadges) { %>
+        <% if (canAssignBadges && !badge.isAutomatic) { %>
           <section class="badge-card__section">
             <h3 class="badge-card__section-title">Attribuer le badge</h3>
             <form method="post" action="/admin/badges/<%= badge.snowflakeId %>/assign" class="badge-card__form badge-card__assign">
@@ -137,7 +144,7 @@
                       <span class="text-muted">· <%= new Date(assignment.assignedAt).toLocaleDateString('fr-FR') %></span>
                     <% } %>
                   </div>
-                  <% if (canRevokeBadges) { %>
+                  <% if (canRevokeBadges && !badge.isAutomatic) { %>
                     <form method="post" action="/admin/badges/<%= badge.snowflakeId %>/revoke" class="badge-card__revoke" onsubmit="return confirm('Retirer ce badge ?');">
                       <%- include('../partials/csrf_field') %>
                       <input type="hidden" name="username" value="<%= assignment.username %>" />
@@ -149,6 +156,9 @@
             </ul>
           <% } else { %>
             <p class="text-muted">Aucun utilisateur ne possède encore ce badge.</p>
+          <% } %>
+          <% if (badge.isAutomatic) { %>
+            <p class="text-muted mt-xs">Les nouveaux détenteurs seront ajoutés automatiquement selon les critères du badge.</p>
           <% } %>
         </section>
       </article>

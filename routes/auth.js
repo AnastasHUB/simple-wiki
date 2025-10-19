@@ -23,6 +23,7 @@ import {
 } from "../utils/captcha.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
 import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
+import { evaluateUserAchievements } from "../utils/achievementService.js";
 
 const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
   (field) => `r.${field} AS role_${field}`,
@@ -134,6 +135,7 @@ r.post("/login", loginRateLimiter, async (req, res) => {
     await run("UPDATE users SET password=? WHERE id=?", [newHash, u.id]);
   }
   const flags = deriveRoleFlags(u);
+  await evaluateUserAchievements(u.id);
   if (needsRoleFlagSync(u)) {
     await run(
       `UPDATE users SET ${USER_FLAG_UPDATE_ASSIGNMENTS} WHERE id=?`,
@@ -232,6 +234,7 @@ r.post("/register", registerRateLimiter, async (req, res, next) => {
   }
 
   const flags = deriveRoleFlags(createdUser);
+  await evaluateUserAchievements(createdUser.id);
   req.session.user = buildSessionUser(createdUser, flags);
   const providerDescription = describeCaptcha();
   await sendAdminEvent(

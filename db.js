@@ -62,7 +62,8 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     password TEXT NOT NULL,
     display_name TEXT,
 ${ROLE_FLAG_COLUMN_DEFINITIONS},
-    role_id INTEGER REFERENCES roles(id)
+    role_id INTEGER REFERENCES roles(id),
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE TABLE IF NOT EXISTS settings(
     id INTEGER PRIMARY KEY CHECK (id=1),
@@ -192,6 +193,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     description TEXT,
     emoji TEXT,
     image_url TEXT,
+    automatic_key TEXT UNIQUE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -318,6 +320,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureColumn("deleted_pages", "publish_at", "DATETIME");
   await ensureColumn("page_submissions", "author_name", "TEXT");
+  await ensureColumn("badges", "automatic_key", "TEXT UNIQUE");
   await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
   await ensureColumn(
     "settings",
@@ -364,6 +367,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "profile_show_stats",
     "INTEGER NOT NULL DEFAULT 1",
   );
+  await ensureColumn("users", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
   await ensureColumn("users", "can_comment", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("users", "can_submit_pages", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn(
