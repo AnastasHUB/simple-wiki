@@ -9,7 +9,21 @@
       <% const pageAuthorClasses = ['user-handle', 'page-author']; %>
       <% const pageAuthorStyle = pageAuthorColor && pageAuthorColor.hasColor ? pageAuthorColor.style : ''; %>
       <% if (pageAuthorColor && pageAuthorColor.hasColor) { pageAuthorClasses.push('role-colored-text'); pageAuthorClasses.push(pageAuthorColor.className); } %>
-      <span>• Auteur : <strong class="<%= pageAuthorClasses.join(' ') %>" style="<%= pageAuthorStyle %>"><%= page.author || 'Anonyme' %></strong></span>
+      <% const pageAuthorBadges = Array.isArray(page?.authorRole?.badges) ? page.authorRole.badges : []; %>
+      <span>
+        • Auteur :
+        <span class="user-handle-decorated">
+          <strong class="<%= pageAuthorClasses.join(' ') %>" style="<%= pageAuthorStyle %>"><%= page.author || 'Anonyme' %></strong>
+          <%- include('partials/userBadges', {
+            badges: pageAuthorBadges,
+            listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+            itemClass: 'user-handle-badge-item',
+            iconClass: 'user-handle-badge-icon',
+            srOnlyClass: 'sr-only',
+            ariaLabel: "Badges de l'auteur",
+          }) %>
+        </span>
+      </span>
       <span>• Likes: <strong data-like-count-for="<%= page.slug_id %>"><%= page.likes %></strong></span>
       <span>• Commentaires: <strong><%= commentPagination.totalItems %></strong></span>
       <span>• Vues: <strong><%= page.views %></strong></span>
@@ -94,6 +108,7 @@
   <% const commentRoleClasses = ['user-handle']; %>
   <% const commentRoleStyle = commentRole && commentRole.hasColor ? commentRole.style : ''; %>
   <% if (commentRole && commentRole.hasColor) { commentRoleClasses.push('role-colored-text'); commentRoleClasses.push(commentRole.className); } %>
+  <% const commentUserBadges = Array.isArray(currentUserBadges) ? currentUserBadges : []; %>
 <section class="card comments" id="comments">
   <h2 class="mt-0">Commentaires</h2>
   <% if (Array.isArray(comments) && comments.length) { %>
@@ -168,7 +183,18 @@
     <% if (adminPreferredName) { %>
       <div class="field">
         <p class="text-muted">
-          Vous commentez en tant que <strong class="<%= commentRoleClasses.join(' ') %>" style="<%= commentRoleStyle %>"><%= commentAuthorValue %></strong>.
+          Vous commentez en tant que
+          <span class="user-handle-decorated">
+            <strong class="<%= commentRoleClasses.join(' ') %>" style="<%= commentRoleStyle %>"><%= commentAuthorValue %></strong>
+            <%- include('partials/userBadges', {
+              badges: commentUserBadges,
+              listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+              itemClass: 'user-handle-badge-item',
+              iconClass: 'user-handle-badge-icon',
+              srOnlyClass: 'sr-only',
+              ariaLabel: 'Vos badges',
+            }) %>
+          </span>.
         </p>
         <input type="hidden" name="author" value="<%= commentAuthorValue %>">
       </div>

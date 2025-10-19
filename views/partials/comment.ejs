@@ -43,28 +43,22 @@
       <span class="sr-only">Avatar de <%= authorName %></span>
     </div>
     <div class="comment-meta">
-      <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
-        <%= authorName %>
-        <% if (comment?.isAdminAuthor) { %>
-          <span class="comment-author-badge" title="Administrateur">⭐</span>
-        <% } %>
-      </strong>
-      <% if (Array.isArray(comment?.authorBadges) && comment.authorBadges.length) { %>
-        <ul class="comment-author-badges" aria-label="Badges de l'auteur">
-          <% comment.authorBadges.forEach((badge) => { %>
-            <li class="comment-author-badge-item">
-              <span class="comment-author-badge-icon" title="<%= badge.name %>">
-                <% if (badge.imageUrl) { %>
-                  <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
-                <% } else { %>
-                  <%= badge.emoji || '🏅' %>
-                <% } %>
-              </span>
-              <span class="sr-only"><%= badge.name %></span>
-            </li>
-          <% }); %>
-        </ul>
-      <% } %>
+      <span class="comment-author-header user-handle-decorated">
+        <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
+          <%= authorName %>
+          <% if (comment?.isAdminAuthor) { %>
+            <span class="comment-author-badge" title="Administrateur">⭐</span>
+          <% } %>
+        </strong>
+        <%- include('userBadges', {
+          badges: comment?.authorBadges,
+          listClass: ['comment-author-badges', 'user-handle-badges'],
+          itemClass: ['comment-author-badge-item', 'user-handle-badge-item'],
+          iconClass: ['comment-author-badge-icon', 'user-handle-badge-icon'],
+          srOnlyClass: 'sr-only',
+          ariaLabel: "Badges de l'auteur",
+        }) %>
+      </span>
       <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
       <% if (comment?.ipProfile) { %>
         <span>

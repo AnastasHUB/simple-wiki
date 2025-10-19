@@ -150,8 +150,24 @@
               <ul class="badge-card__assignees">
                 <% badge.assignees.forEach(function (assignment) { %>
                   <li class="badge-card__assignee">
+                    <% const assigneeRole = assignment.userRole || null; %>
+                    <% const assigneeColor = assigneeRole && assigneeRole.color ? assigneeRole.color : null; %>
+                    <% const assigneeClasses = ['user-handle']; %>
+                    <% const assigneeStyle = assigneeColor && assigneeColor.hasColor ? assigneeColor.style : ''; %>
+                    <% if (assigneeColor && assigneeColor.hasColor) { assigneeClasses.push('role-colored-text'); assigneeClasses.push(assigneeColor.className); } %>
+                    <% const assigneeBadges = Array.isArray(assigneeRole?.badges) ? assigneeRole.badges : []; %>
                     <div>
-                      <strong><%= assignment.username %></strong>
+                      <span class="user-handle-decorated">
+                        <strong class="<%= assigneeClasses.join(' ') %>" style="<%= assigneeStyle %>"><%= assignment.username %></strong>
+                        <%- include('../partials/userBadges', {
+                          badges: assigneeBadges,
+                          listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                          itemClass: 'user-handle-badge-item',
+                          iconClass: 'user-handle-badge-icon',
+                          srOnlyClass: 'sr-only',
+                          ariaLabel: "Badges de l'utilisateur",
+                        }) %>
+                      </span>
                       <% if (assignment.displayName && assignment.displayName.trim()) { %>
                         <span class="text-muted">(<%= assignment.displayName %>)</span>
                       <% } %>
@@ -303,9 +319,25 @@
           <% if (badge.assignees && badge.assignees.length) { %>
             <ul class="badge-card__assignees">
               <% badge.assignees.forEach(function (assignment) { %>
+                <% const assigneeRole = assignment.userRole || null; %>
+                <% const assigneeColor = assigneeRole && assigneeRole.color ? assigneeRole.color : null; %>
+                <% const assigneeClasses = ['user-handle']; %>
+                <% const assigneeStyle = assigneeColor && assigneeColor.hasColor ? assigneeColor.style : ''; %>
+                <% if (assigneeColor && assigneeColor.hasColor) { assigneeClasses.push('role-colored-text'); assigneeClasses.push(assigneeColor.className); } %>
+                <% const assigneeBadges = Array.isArray(assigneeRole?.badges) ? assigneeRole.badges : []; %>
                 <li class="badge-card__assignee">
                   <div>
-                    <strong><%= assignment.username %></strong>
+                    <span class="user-handle-decorated">
+                      <strong class="<%= assigneeClasses.join(' ') %>" style="<%= assigneeStyle %>"><%= assignment.username %></strong>
+                      <%- include('../partials/userBadges', {
+                        badges: assigneeBadges,
+                        listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                        itemClass: 'user-handle-badge-item',
+                        iconClass: 'user-handle-badge-icon',
+                        srOnlyClass: 'sr-only',
+                        ariaLabel: "Badges de l'utilisateur",
+                      }) %>
+                    </span>
                     <% if (assignment.displayName && assignment.displayName.trim()) { %>
                       <span class="text-muted">(<%= assignment.displayName %>)</span>
                     <% } %>

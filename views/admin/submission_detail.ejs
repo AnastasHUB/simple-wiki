@@ -20,15 +20,26 @@
       <strong>Auteur proposé</strong>
       <% const submissionAuthorHandle = submission.author_name || submission.submitted_by; %>
       <% const submissionAuthorRole = submission.author_name ? submission.authorNameRole : submission.submittedByRole; %>
+      <% const submissionAuthorBadges = Array.isArray(submissionAuthorRole?.badges) ? submissionAuthorRole.badges : []; %>
       <% if (submissionAuthorHandle) { %>
         <% const submissionAuthorColor = submissionAuthorRole && submissionAuthorRole.color ? submissionAuthorRole.color : null; %>
         <% const submissionAuthorClasses = ['user-handle', 'submission-author']; %>
         <% const submissionAuthorStyle = submissionAuthorColor && submissionAuthorColor.hasColor ? submissionAuthorColor.style : ''; %>
         <% if (submissionAuthorColor && submissionAuthorColor.hasColor) { submissionAuthorClasses.push('role-colored-text'); submissionAuthorClasses.push(submissionAuthorColor.className); } %>
         <p>
-          <strong class="<%= submissionAuthorClasses.join(' ') %>" style="<%= submissionAuthorStyle %>">
-            <%= submissionAuthorHandle %>
-          </strong>
+          <span class="user-handle-decorated">
+            <strong class="<%= submissionAuthorClasses.join(' ') %>" style="<%= submissionAuthorStyle %>">
+              <%= submissionAuthorHandle %>
+            </strong>
+            <%- include('../partials/userBadges', {
+              badges: submissionAuthorBadges,
+              listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+              itemClass: 'user-handle-badge-item',
+              iconClass: 'user-handle-badge-icon',
+              srOnlyClass: 'sr-only',
+              ariaLabel: "Badges de l'auteur",
+            }) %>
+          </span>
         </p>
       <% } else { %>
         <p>–</p>
@@ -56,11 +67,23 @@
         <p>
           <%= new Date(submission.reviewed_at).toLocaleString('fr-FR') %>
           <% if (submission.reviewer_username) { %>
-            <% const reviewerColor = submission.reviewerRole && submission.reviewerRole.color ? submission.reviewerRole.color : null; %>
-            <% const reviewerClasses = ['user-handle', 'submission-reviewer']; %>
-            <% const reviewerStyle = reviewerColor && reviewerColor.hasColor ? reviewerColor.style : ''; %>
-            <% if (reviewerColor && reviewerColor.hasColor) { reviewerClasses.push('role-colored-text'); reviewerClasses.push(reviewerColor.className); } %>
-            · par <strong class="<%= reviewerClasses.join(' ') %>" style="<%= reviewerStyle %>"><%= submission.reviewer_username %></strong>
+          <% const reviewerColor = submission.reviewerRole && submission.reviewerRole.color ? submission.reviewerRole.color : null; %>
+          <% const reviewerClasses = ['user-handle', 'submission-reviewer']; %>
+          <% const reviewerStyle = reviewerColor && reviewerColor.hasColor ? reviewerColor.style : ''; %>
+          <% if (reviewerColor && reviewerColor.hasColor) { reviewerClasses.push('role-colored-text'); reviewerClasses.push(reviewerColor.className); } %>
+          <% const reviewerBadges = Array.isArray(submission?.reviewerRole?.badges) ? submission.reviewerRole.badges : []; %>
+            · par
+            <span class="user-handle-decorated">
+              <strong class="<%= reviewerClasses.join(' ') %>" style="<%= reviewerStyle %>"><%= submission.reviewer_username %></strong>
+              <%- include('../partials/userBadges', {
+                badges: reviewerBadges,
+                listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                itemClass: 'user-handle-badge-item',
+                iconClass: 'user-handle-badge-icon',
+                srOnlyClass: 'sr-only',
+                ariaLabel: 'Badges du modérateur',
+              }) %>
+            </span>
           <% } %>
         </p>
       </div>

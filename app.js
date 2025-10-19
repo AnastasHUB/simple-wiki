@@ -34,6 +34,7 @@ import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFe
 import { cookieConsentMiddleware } from "./middleware/cookieConsent.js";
 import { listReactionEmoji } from "./utils/reactionOptions.js";
 import { ensureAchievementBadges } from "./utils/achievementService.js";
+import { listBadgesForUserId } from "./utils/badgeService.js";
 import { reconcileUserPremiumStatus } from "./utils/premiumService.js";
 import { loadSessionUserById } from "./utils/sessionUser.js";
 
@@ -170,6 +171,15 @@ app.use(async (req, res, next) => {
       repo: settings.githubRepo,
       mode: settings.changelogMode,
     };
+    let currentUserBadges = [];
+    if (normalizedUser?.id) {
+      try {
+        currentUserBadges = await listBadgesForUserId(normalizedUser.id);
+      } catch (badgeErr) {
+        console.error("Unable to load current user badges", badgeErr);
+      }
+    }
+    res.locals.currentUserBadges = currentUserBadges;
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
   res.locals.registrationEnabled = isCaptchaAvailable();

@@ -63,8 +63,19 @@
           <% const usernameClasses = ['user-handle']; %>
           <% const usernameStyle = usernameColor && usernameColor.hasColor ? usernameColor.style : ''; %>
           <% if (usernameColor && usernameColor.hasColor) { usernameClasses.push('role-colored-text'); usernameClasses.push(usernameColor.className); } %>
+          <% const usernameBadges = Array.isArray(u?.badges) ? u.badges : []; %>
           <td>
-            <strong class="<%= usernameClasses.join(' ') %>" style="<%= usernameStyle %>"><%= u.username %></strong>
+            <span class="user-handle-decorated">
+              <strong class="<%= usernameClasses.join(' ') %>" style="<%= usernameStyle %>"><%= u.username %></strong>
+              <%- include('../partials/userBadges', {
+                badges: usernameBadges,
+                listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                itemClass: 'user-handle-badge-item',
+                iconClass: 'user-handle-badge-icon',
+                srOnlyClass: 'sr-only',
+                ariaLabel: "Badges de l'utilisateur",
+              }) %>
+            </span>
           </td>
           <td>
             <form method="post" action="/admin/users/<%= u.id %>/display-name" class="flex gap-sm items-center">

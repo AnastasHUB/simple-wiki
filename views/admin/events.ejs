@@ -49,9 +49,20 @@
               <% const eventUserClasses = ['user-handle', 'event-user']; %>
               <% const eventUserStyle = eventUserColor && eventUserColor.hasColor ? eventUserColor.style : ''; %>
               <% if (eventUserColor && eventUserColor.hasColor) { eventUserClasses.push('role-colored-text'); eventUserClasses.push(eventUserColor.className); } %>
+              <% const eventUserBadges = Array.isArray(ev?.userRole?.badges) ? ev.userRole.badges : []; %>
               <td>
                 <% if (ev.username) { %>
-                  <strong class="<%= eventUserClasses.join(' ') %>" style="<%= eventUserStyle %>"><%= ev.username %></strong>
+                  <span class="user-handle-decorated">
+                    <strong class="<%= eventUserClasses.join(' ') %>" style="<%= eventUserStyle %>"><%= ev.username %></strong>
+                    <%- include('../partials/userBadges', {
+                      badges: eventUserBadges,
+                      listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                      itemClass: 'user-handle-badge-item',
+                      iconClass: 'user-handle-badge-icon',
+                      srOnlyClass: 'sr-only',
+                      ariaLabel: "Badges de l'utilisateur",
+                    }) %>
+                  </span>
                 <% } else { %>
                   -
                 <% } %>

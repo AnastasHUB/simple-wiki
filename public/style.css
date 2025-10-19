@@ -1461,10 +1461,18 @@ textarea {
   display: none;
 }
 
+.user-handle-decorated {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+}
+
 .comment-author-badge {
   margin-left: 0.35rem;
 }
 
+.user-handle-badges,
 .comment-author-badges {
   display: inline-flex;
   flex-wrap: wrap;
@@ -1474,10 +1482,16 @@ textarea {
   list-style: none;
 }
 
+.user-handle-badges--inline {
+  margin: 0;
+}
+
+.user-handle-badge-item,
 .comment-author-badge-item {
   display: inline-flex;
 }
 
+.user-handle-badge-icon,
 .comment-author-badge-icon {
   display: inline-flex;
   align-items: center;
@@ -1491,6 +1505,7 @@ textarea {
   overflow: hidden;
 }
 
+.user-handle-badge-icon img,
 .comment-author-badge-icon img {
   width: 100%;
   height: 100%;
