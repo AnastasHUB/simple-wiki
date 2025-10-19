@@ -33,10 +33,21 @@
           <tr>
             <td><%= rev.revision %></td>
             <td><%= rev.title %></td>
+            <% const revAuthorBadges = Array.isArray(rev?.authorRole?.badges) ? rev.authorRole.badges : []; %>
             <td>
-              <strong class="<%= revAuthorClasses.join(' ') %>" style="<%= revAuthorStyle %>">
-                <%= rev.author || 'Inconnu' %>
-              </strong>
+              <span class="user-handle-decorated">
+                <strong class="<%= revAuthorClasses.join(' ') %>" style="<%= revAuthorStyle %>">
+                  <%= rev.author || 'Inconnu' %>
+                </strong>
+                <%- include('partials/userBadges', {
+                  badges: revAuthorBadges,
+                  listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                  itemClass: 'user-handle-badge-item',
+                  iconClass: 'user-handle-badge-icon',
+                  srOnlyClass: 'sr-only',
+                  ariaLabel: "Badges de l'auteur",
+                }) %>
+              </span>
             </td>
             <td><%= rev.created_at %></td>
             <td>

@@ -124,9 +124,27 @@
         </thead>
         <tbody>
           <% bannedUsers.forEach(user => { %>
+            <% const bannedUserRole = user.userRole || null; %>
+            <% const bannedUserColor = bannedUserRole && bannedUserRole.color ? bannedUserRole.color : null; %>
+            <% const bannedUserClasses = ['user-handle']; %>
+            <% const bannedUserStyle = bannedUserColor && bannedUserColor.hasColor ? bannedUserColor.style : ''; %>
+            <% if (bannedUserColor && bannedUserColor.hasColor) { bannedUserClasses.push('role-colored-text'); bannedUserClasses.push(bannedUserColor.className); } %>
+            <% const bannedUserBadges = Array.isArray(bannedUserRole?.badges) ? bannedUserRole.badges : []; %>
             <tr>
               <td><%= user.id %></td>
-              <td><strong><%= user.username %></strong></td>
+              <td>
+                <span class="user-handle-decorated">
+                  <strong class="<%= bannedUserClasses.join(' ') %>" style="<%= bannedUserStyle %>"><%= user.username %></strong>
+                  <%- include('../partials/userBadges', {
+                    badges: bannedUserBadges,
+                    listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                    itemClass: 'user-handle-badge-item',
+                    iconClass: 'user-handle-badge-icon',
+                    srOnlyClass: 'sr-only',
+                    ariaLabel: "Badges de l'utilisateur",
+                  }) %>
+                </span>
+              </td>
               <td><%= user.display_name || '-' %></td>
               <td><%= user.ban_reason || '-' %></td>
               <td><%= user.banned_at ? new Date(user.banned_at).toLocaleString('fr-FR') : '-' %></td>

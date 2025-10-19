@@ -286,7 +286,21 @@
                 <% const eventUserClasses = ['user-handle', 'event-user']; %>
                 <% const eventUserStyle = eventUserColor && eventUserColor.hasColor ? eventUserColor.style : ''; %>
                 <% if (eventUserColor && eventUserColor.hasColor) { eventUserClasses.push('role-colored-text'); eventUserClasses.push(eventUserColor.className); } %>
-                · <span>par <strong class="<%= eventUserClasses.join(' ') %>" style="<%= eventUserStyle %>"><%= event.username %></strong></span>
+                <% const eventUserBadges = Array.isArray(event?.userRole?.badges) ? event.userRole.badges : []; %>
+                · <span>
+                  par
+                  <span class="user-handle-decorated">
+                    <strong class="<%= eventUserClasses.join(' ') %>" style="<%= eventUserStyle %>"><%= event.username %></strong>
+                    <%- include('../partials/userBadges', {
+                      badges: eventUserBadges,
+                      listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                      itemClass: 'user-handle-badge-item',
+                      iconClass: 'user-handle-badge-icon',
+                      srOnlyClass: 'sr-only',
+                      ariaLabel: "Badges de l'utilisateur",
+                    }) %>
+                  </span>
+                </span>
               <% } %>
             </div>
           </li>
@@ -344,10 +358,21 @@
               <% const commenterClasses = ['user-handle', 'commenter-name']; %>
               <% const commenterStyle = commenterColor && commenterColor.hasColor ? commenterColor.style : ''; %>
               <% if (commenterColor && commenterColor.hasColor) { commenterClasses.push('role-colored-text'); commenterClasses.push(commenterColor.className); } %>
+              <% const commenterBadges = Array.isArray(row?.authorRole?.badges) ? row.authorRole.badges : []; %>
               <tr>
                 <td>
                   <% if (row.author && row.author !== 'Anonyme') { %>
-                    <strong class="<%= commenterClasses.join(' ') %>" style="<%= commenterStyle %>"><%= row.author %></strong>
+                    <span class="user-handle-decorated">
+                      <strong class="<%= commenterClasses.join(' ') %>" style="<%= commenterStyle %>"><%= row.author %></strong>
+                      <%- include('../partials/userBadges', {
+                        badges: commenterBadges,
+                        listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+                        itemClass: 'user-handle-badge-item',
+                        iconClass: 'user-handle-badge-icon',
+                        srOnlyClass: 'sr-only',
+                        ariaLabel: "Badges de l'utilisateur",
+                      }) %>
+                    </span>
                   <% } else { %>
                     <%= row.author %>
                   <% } %>

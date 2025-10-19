@@ -130,9 +130,20 @@
         <% const headerClasses = ['user-handle']; %>
         <% const headerStyle = headerColor && headerColor.hasColor ? headerColor.style : ''; %>
         <% if (headerColor && headerColor.hasColor) { headerClasses.push('role-colored-text'); headerClasses.push(headerColor.className); } %>
+        <% const headerBadges = Array.isArray(currentUserBadges) ? currentUserBadges : []; %>
         <span class="user-chip">
           <span class="chip-label">Connecté·e</span>
-          <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong>
+          <span class="user-chip__identity user-handle-decorated">
+            <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong>
+            <%- include('partials/userBadges', {
+              badges: headerBadges,
+              listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+              itemClass: 'user-handle-badge-item',
+              iconClass: 'user-handle-badge-icon',
+              srOnlyClass: 'sr-only',
+              ariaLabel: 'Vos badges',
+            }) %>
+          </span>
         </span>
         <form action="/logout" method="post">
           <%- include('partials/csrf_field') %>

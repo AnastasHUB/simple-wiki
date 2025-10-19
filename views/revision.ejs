@@ -6,11 +6,22 @@
   <% const revisionAuthorClasses = ['user-handle', 'revision-author']; %>
   <% const revisionAuthorStyle = revisionAuthorColor && revisionAuthorColor.hasColor ? revisionAuthorColor.style : ''; %>
   <% if (revisionAuthorColor && revisionAuthorColor.hasColor) { revisionAuthorClasses.push('role-colored-text'); revisionAuthorClasses.push(revisionAuthorColor.className); } %>
+  <% const revisionAuthorBadges = Array.isArray(revision?.authorRole?.badges) ? revision.authorRole.badges : []; %>
   <p>
     <strong>Auteur :</strong>
-    <strong class="<%= revisionAuthorClasses.join(' ') %>" style="<%= revisionAuthorStyle %>">
-      <%= revision.author || 'Inconnu' %>
-    </strong>
+    <span class="user-handle-decorated">
+      <strong class="<%= revisionAuthorClasses.join(' ') %>" style="<%= revisionAuthorStyle %>">
+        <%= revision.author || 'Inconnu' %>
+      </strong>
+      <%- include('partials/userBadges', {
+        badges: revisionAuthorBadges,
+        listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+        itemClass: 'user-handle-badge-item',
+        iconClass: 'user-handle-badge-icon',
+        srOnlyClass: 'sr-only',
+        ariaLabel: "Badges de l'auteur",
+      }) %>
+    </span>
   </p>
   <p><strong>Horodatage :</strong> <%= revision.created_at %></p>
 </div>

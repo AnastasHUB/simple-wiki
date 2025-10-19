@@ -1,0 +1,88 @@
+<%
+  const rawBadges = Array.isArray(badges) ? badges : [];
+  const filteredBadges = rawBadges
+    .map((badge) => (badge && typeof badge === 'object' ? badge : null))
+    .filter(Boolean);
+  const hasBadges = filteredBadges.length > 0;
+  const listClasses = [];
+  const itemClasses = [];
+  const iconClasses = [];
+  const srClasses = [];
+  if (typeof listClass === 'string' && listClass.trim()) {
+    listClass
+      .trim()
+      .split(/\s+/)
+      .forEach((value) => listClasses.push(value));
+  } else if (Array.isArray(listClass)) {
+    listClass.forEach((value) => {
+      if (typeof value === 'string' && value.trim()) {
+        listClasses.push(value.trim());
+      }
+    });
+  }
+  if (!listClasses.length) {
+    listClasses.push('user-handle-badges');
+  }
+  if (typeof itemClass === 'string' && itemClass.trim()) {
+    itemClass
+      .trim()
+      .split(/\s+/)
+      .forEach((value) => itemClasses.push(value));
+  } else if (Array.isArray(itemClass)) {
+    itemClass.forEach((value) => {
+      if (typeof value === 'string' && value.trim()) {
+        itemClasses.push(value.trim());
+      }
+    });
+  }
+  if (!itemClasses.length) {
+    itemClasses.push('user-handle-badge-item');
+  }
+  if (typeof iconClass === 'string' && iconClass.trim()) {
+    iconClass
+      .trim()
+      .split(/\s+/)
+      .forEach((value) => iconClasses.push(value));
+  } else if (Array.isArray(iconClass)) {
+    iconClass.forEach((value) => {
+      if (typeof value === 'string' && value.trim()) {
+        iconClasses.push(value.trim());
+      }
+    });
+  }
+  if (!iconClasses.length) {
+    iconClasses.push('user-handle-badge-icon');
+  }
+  if (typeof srOnlyClass === 'string' && srOnlyClass.trim()) {
+    srOnlyClass
+      .trim()
+      .split(/\s+/)
+      .forEach((value) => srClasses.push(value));
+  } else if (Array.isArray(srOnlyClass)) {
+    srOnlyClass.forEach((value) => {
+      if (typeof value === 'string' && value.trim()) {
+        srClasses.push(value.trim());
+      }
+    });
+  }
+  if (!srClasses.length) {
+    srClasses.push('sr-only');
+  }
+  const label = typeof ariaLabel === 'string' && ariaLabel.trim() ? ariaLabel.trim() : null;
+%>
+<% if (hasBadges) { %>
+  <ul class="<%= listClasses.join(' ') %>"<% if (label) { %> aria-label="<%= label %>"<% } %>>
+    <% filteredBadges.forEach((badge) => { %>
+      <li class="<%= itemClasses.join(' ') %>">
+        <span class="<%= iconClasses.join(' ') %>" title="<%= badge.name %>">
+          <% if (badge.imageUrl) { %>
+            <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
+          <% } else { %>
+            <%= badge.emoji || '🏅' %>
+          <% } %>
+        </span>
+        <span class="<%= srClasses.join(' ') %>"><%= badge.name %></span>
+      </li>
+    <% }); %>
+  </ul>
+<% } %>

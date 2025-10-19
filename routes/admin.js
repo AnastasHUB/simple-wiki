@@ -960,6 +960,15 @@ r.get(
         LIMIT ? OFFSET ?`,
       [...userParams, userBase.perPage, userOffset],
     );
+    if (bannedUsers.length) {
+      const bannedHandleMap = await resolveHandleColors(
+        bannedUsers.map((user) => user.username),
+      );
+      bannedUsers = bannedUsers.map((user) => ({
+        ...user,
+        userRole: getHandleColor(user.username, bannedHandleMap),
+      }));
+    }
     bannedUsersPagination = decoratePagination(
       req,
       userBase,
@@ -3631,6 +3640,7 @@ r.get(
       return acc;
     }, {});
   }
+  const userHandleMap = await resolveHandleColors(users.map((user) => user.username));
   const normalizedUsers = users.map((user) => {
     const isAdmin = Boolean(user.is_admin);
     const canComment = Boolean(user.can_comment);
@@ -3642,8 +3652,11 @@ r.get(
     const roleLabel = assignedRoles.length
       ? assignedRoles.map((role) => role.name).join(", ")
       : user.role_name || (isAdmin ? fallbackAdministratorName : fallbackEveryoneName);
-    const colorScheme = primaryRole?.color || parseStoredRoleColor(user.role_color);
-    const colorPresentation = primaryRole?.colorPresentation || buildRoleColorPresentation(colorScheme);
+    const handleProfile = getHandleColor(user.username, userHandleMap);
+    const colorScheme =
+      handleProfile?.colorScheme || primaryRole?.color || parseStoredRoleColor(user.role_color);
+    const colorPresentation =
+      handleProfile?.color || primaryRole?.colorPresentation || buildRoleColorPresentation(colorScheme);
     return {
       ...user,
       is_admin: isAdmin,
@@ -3665,6 +3678,7 @@ r.get(
       ban_reason: user.ban_reason || null,
       banned_at: user.banned_at || null,
       ipProfiles: Number.isInteger(numericId) ? ipProfilesByUser[numericId] || [] : [],
+      badges: handleProfile?.badges || [],
     };
   });
   const pagination = decoratePagination(req, basePagination);
@@ -4209,6 +4223,30 @@ r.get(
   async (req, res, next) => {
     try {
       const badges = await listBadgesWithAssignments();
+      const assignmentHandles = [];
+      for (const badge of badges) {
+        if (!badge?.assignees) continue;
+        for (const assignment of badge.assignees) {
+          if (assignment?.username) {
+            assignmentHandles.push(assignment.username);
+          }
+          if (assignment?.displayName) {
+            assignmentHandles.push(assignment.displayName);
+          }
+        }
+      }
+      const handleMap = await resolveHandleColors(assignmentHandles);
+      const decorateBadgeAssignments = (badge) => ({
+        ...badge,
+        assignees: Array.isArray(badge.assignees)
+          ? badge.assignees.map((assignment) => ({
+              ...assignment,
+              userRole:
+                getHandleColor(assignment.username, handleMap) ||
+                getHandleColor(assignment.displayName, handleMap),
+            }))
+          : [],
+      });
       const achievementCriteria = getAchievementDefinitions();
       const criteriaByKey = new Map(
         achievementCriteria.map((criterion) => [criterion.key, criterion]),
@@ -4216,10 +4254,12 @@ r.get(
       const successBadges = badges
         .filter((badge) => badge.category === "success")
         .map((badge) => ({
-          ...badge,
+          ...decorateBadgeAssignments(badge),
           criterion: criteriaByKey.get(badge.automaticKey || "") || null,
         }));
-      const manualBadges = badges.filter((badge) => badge.category !== "success");
+      const manualBadges = badges
+        .filter((badge) => badge.category !== "success")
+        .map((badge) => decorateBadgeAssignments(badge));
       const assignedCriterionKeys = successBadges
         .map((badge) => badge.automaticKey)
         .filter((key) => typeof key === "string" && key.trim().length > 0);

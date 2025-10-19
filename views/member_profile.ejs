@@ -30,7 +30,23 @@
         <% const nameStyle = roleColor ? roleColor.style : ''; %>
         <% if (roleColor) { nameClasses.push('role-colored-text'); if (roleColor.className) { nameClasses.push(roleColor.className); } } %>
         <h1 class="profile-public__name <%= nameClasses.join(' ') %>" style="<%= nameStyle %>"><%= heroName %></h1>
-        <p class="profile-public__username">@<%= profile.username %></p>
+        <% const usernameClasses = ['user-handle']; %>
+        <% const usernameStyle = roleColor ? roleColor.style : ''; %>
+        <% if (roleColor) { usernameClasses.push('role-colored-text'); if (roleColor.className) { usernameClasses.push(roleColor.className); } } %>
+        <% const profileBadges = profile.showBadges && Array.isArray(profile.badges) ? profile.badges : []; %>
+        <p class="profile-public__username">
+          <span class="user-handle-decorated">
+            <span class="<%= usernameClasses.join(' ') %>" style="<%= usernameStyle %>">@<%= profile.username %></span>
+            <%- include('partials/userBadges', {
+              badges: profileBadges,
+              listClass: ['user-handle-badges', 'user-handle-badges--inline'],
+              itemClass: 'user-handle-badge-item',
+              iconClass: 'user-handle-badge-icon',
+              srOnlyClass: 'sr-only',
+              ariaLabel: 'Badges du profil',
+            }) %>
+          </span>
+        </p>
         <% if (profile.roleName) { %>
           <p class="profile-public__role">Rôle&nbsp;: <strong><%= profile.roleName %></strong></p>
         <% } %>
