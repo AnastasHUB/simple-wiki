@@ -830,16 +830,19 @@
 
     panels.forEach(initPermissionManager);
 
+    const applyHeaders = (headers = {}) =>
+      typeof applyCsrfHeader === 'function' ? applyCsrfHeader(headers) : headers;
+
     const createRoleButton = manager.querySelector('[data-action="create-role"]');
 
     const requestCreateRole = async ({ name, description, color }) => {
       const response = await fetch('/admin/roles', {
         method: 'POST',
-        headers: {
+        headers: applyHeaders({
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-        },
+        }),
         credentials: 'same-origin',
         body: JSON.stringify({ name, description, color }),
       });
@@ -957,11 +960,11 @@
       }
       fetch('/admin/roles/reorder', {
         method: 'POST',
-        headers: {
+        headers: applyHeaders({
           'Content-Type': 'application/json',
           Accept: 'application/json',
           'X-Requested-With': 'XMLHttpRequest',
-        },
+        }),
         credentials: 'same-origin',
         body: JSON.stringify({ order }),
       }).catch((error) => {
