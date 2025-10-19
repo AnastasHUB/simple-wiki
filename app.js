@@ -33,11 +33,13 @@ import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
 import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFeed.js";
 import { cookieConsentMiddleware } from "./middleware/cookieConsent.js";
 import { listReactionEmoji } from "./utils/reactionOptions.js";
+import { ensureAchievementBadges } from "./utils/achievementService.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 await initDb();
+await ensureAchievementBadges();
 
 const app = express();
 app.set("view engine", "ejs");

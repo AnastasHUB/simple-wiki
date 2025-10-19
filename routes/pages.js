@@ -19,6 +19,7 @@ import { generateSnowflake } from "../utils/snowflake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { pushNotification } from "../utils/notifications.js";
 import { upsertTags, recordRevision } from "../utils/pageEditing.js";
+import { evaluateUserAchievements } from "../utils/achievementService.js";
 import { createPageSubmission } from "../utils/pageSubmissionService.js";
 import { createRateLimiter } from "../middleware/rateLimit.js";
 import {
@@ -768,6 +769,9 @@ r.post(
         publish_at: publication.publishAt,
       },
     });
+    if (req.session.user?.id) {
+      await evaluateUserAchievements(req.session.user.id);
+    }
     if (publication.status === "published") {
       await sendFeedEvent(
         "Nouvel article",

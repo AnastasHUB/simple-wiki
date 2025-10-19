@@ -1546,6 +1546,18 @@ textarea {
   margin: 0.35rem 0 0.6rem;
 }
 
+.badge-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+}
+
+.badge-automatic {
+  background: rgba(76, 128, 255, 0.15);
+  color: #2b54b6;
+}
+
 .badge-card__section {
   border-top: 1px solid rgba(173, 209, 255, 0.2);
   padding-top: 1rem;
