@@ -156,25 +156,11 @@
                 <% } %>
                 <button class="btn secondary" data-icon="⭐" type="submit">Choisir le rôle</button>
               </form>
-              <% if (permissions.can_suspend_users) { %>
-                <% if (u.is_banned) { %>
-                  <form method="post" action="/admin/users/<%= u.id %>/unban" class="flex gap-sm items-center">
-                    <%- include('../partials/csrf_field') %>
-                    <button class="btn success" data-icon="✅" type="submit">Débannir</button>
-                  </form>
-                <% } else { %>
-                  <form method="post" action="/admin/users/<%= u.id %>/ban" class="flex flex-wrap gap-sm items-center">
-                    <%- include('../partials/csrf_field') %>
-                    <input
-                      type="text"
-                      name="reason"
-                      maxlength="200"
-                      placeholder="Motif (optionnel)"
-                      class="flex-basis-220"
-                    />
-                    <button class="btn danger" data-icon="⛔" type="submit">Bannir</button>
-                  </form>
-                <% } %>
+              <% if (permissions.can_suspend_users && u.is_banned) { %>
+                <form method="post" action="/admin/users/<%= u.id %>/unban" class="flex gap-sm items-center">
+                  <%- include('../partials/csrf_field') %>
+                  <button class="btn success" data-icon="✅" type="submit">Débannir</button>
+                </form>
               <% } %>
               <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
                 <%- include('../partials/csrf_field') %>
