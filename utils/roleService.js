@@ -14,6 +14,7 @@ import {
 import {
   EVERYONE_ROLE_SNOWFLAKE,
   USER_ROLE_SNOWFLAKE,
+  PREMIUM_ROLE_SNOWFLAKE,
   applyDefaultRoleMetadata,
 } from "./defaultRoles.js";
 
@@ -593,6 +594,15 @@ export async function getDefaultUserRole(options = {}) {
     cacheKey: "user",
     snowflake: USER_ROLE_SNOWFLAKE,
     fallbackName: "Utilisateurs",
+    forceRefresh: Boolean(options?.forceRefresh),
+  });
+}
+
+export async function getPremiumRole(options = {}) {
+  return getDefaultRole({
+    cacheKey: "premium",
+    snowflake: PREMIUM_ROLE_SNOWFLAKE,
+    fallbackName: "Premium",
     forceRefresh: Boolean(options?.forceRefresh),
   });
 }

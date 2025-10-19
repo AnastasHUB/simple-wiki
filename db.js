@@ -815,6 +815,33 @@ async function ensureDefaultRoles() {
       ],
     );
   }
+
+  const customRoles = await db.all(
+    `SELECT id, position
+       FROM roles
+      WHERE is_system=0
+      ORDER BY position ASC, name COLLATE NOCASE`,
+  );
+  if (customRoles.length) {
+    const defaultCount = DEFAULT_ROLE_DEFINITIONS.length;
+    let needsUpdate = false;
+    const desiredPositions = customRoles.map((role, index) => {
+      const desired = defaultCount + index + 1;
+      const current = Number.parseInt(role.position, 10) || 0;
+      if (current !== desired) {
+        needsUpdate = true;
+      }
+      return { id: role.id, position: desired, current };
+    });
+    if (needsUpdate) {
+      for (const role of desiredPositions) {
+        await db.run(
+          "UPDATE roles SET position=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+          [role.position, role.id],
+        );
+      }
+    }
+  }
 }
 
 async function synchronizeUserRoles() {
@@ -922,6 +949,10 @@ async function synchronizeUserRoles() {
       [primaryRoleId, ...getRoleFlagValues(mergedFlags), userId],
     );
   }
+}
+
+export async function reseedDefaultRoles() {
+  await ensureDefaultRoles();
 }
 
 export async function ensureDefaultAdmin() {
