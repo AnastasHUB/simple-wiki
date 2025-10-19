@@ -34,6 +34,8 @@ import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFe
 import { cookieConsentMiddleware } from "./middleware/cookieConsent.js";
 import { listReactionEmoji } from "./utils/reactionOptions.js";
 import { ensureAchievementBadges } from "./utils/achievementService.js";
+import { reconcileUserPremiumStatus } from "./utils/premiumService.js";
+import { loadSessionUserById } from "./utils/sessionUser.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,6 +93,33 @@ app.use((req, res, next) => {
     if (req.originalUrl !== "/login") {
       return res.redirect("/login");
     }
+  }
+  next();
+});
+
+app.use(async (req, res, next) => {
+  try {
+    const currentUser = req.session?.user;
+    if (currentUser?.id) {
+      const premiumStatus = await reconcileUserPremiumStatus(currentUser.id);
+      if (premiumStatus) {
+        if (premiumStatus.shouldRefreshSession) {
+          const refreshed = await loadSessionUserById(currentUser.id);
+          req.session.user = refreshed || null;
+        } else if (req.session.user) {
+          const expiresAtIso = premiumStatus.premiumExpiresAt instanceof Date
+            ? premiumStatus.premiumExpiresAt.toISOString()
+            : null;
+          req.session.user = {
+            ...req.session.user,
+            premium_expires_at: expiresAtIso,
+            premium_via_code: premiumStatus.premiumViaCode ? 1 : 0,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Unable to synchronize premium status", err);
   }
   next();
 });

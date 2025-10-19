@@ -1,0 +1,156 @@
+<% title = 'Codes premium'; %>
+<h1>Codes premium</h1>
+<p class="text-muted">
+  Générez des codes à usage unique pour attribuer temporairement le rôle premium à un utilisateur. Les codes expirent
+  automatiquement s'ils ne sont pas utilisés avant la date limite indiquée.
+</p>
+
+<form method="post" class="card mb-md">
+  <%- include('../partials/csrf_field') %>
+  <div class="form-grid">
+    <label class="stack-form">
+      <span class="text-sm text-muted">Code personnalisé</span>
+      <input
+        type="text"
+        name="code"
+        value="<%= formDefaults.code || '' %>"
+        maxlength="64"
+        placeholder="Laissez vide pour générer un code aléatoire"
+      />
+    </label>
+    <div class="field">
+      <span class="text-sm text-muted">Expiration du code</span>
+      <div class="flex gap-sm items-center">
+        <input
+          type="number"
+          step="0.01"
+          min="0"
+          name="expiresValue"
+          value="<%= formDefaults.expiresValue %>"
+          class="flex-basis-140"
+        />
+        <select name="expiresUnit">
+          <% durationUnits.forEach(function (unit) { %>
+            <option value="<%= unit.value %>" <%= formDefaults.expiresUnit === unit.value ? 'selected' : '' %>>
+              <%= unit.label %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <p class="field-hint">Laissez vide ou indiquez 0 pour créer un code sans date d'expiration.</p>
+    </div>
+    <div class="field">
+      <span class="text-sm text-muted">Durée du premium accordé</span>
+      <div class="flex gap-sm items-center">
+        <input
+          type="number"
+          step="0.01"
+          min="0.01"
+          name="durationValue"
+          value="<%= formDefaults.durationValue %>"
+          class="flex-basis-140"
+          required
+        />
+        <select name="durationUnit">
+          <% durationUnits.forEach(function (unit) { %>
+            <option value="<%= unit.value %>" <%= formDefaults.durationUnit === unit.value ? 'selected' : '' %>>
+              <%= unit.label %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+      <p class="field-hint">Durée d'accès premium accordée après utilisation du code.</p>
+    </div>
+  </div>
+  <div class="form-actions mt-md">
+    <button class="btn success" data-icon="✨" type="submit">Créer un code premium</button>
+  </div>
+</form>
+
+<% if (loadError) { %>
+  <div class="alert error"><%= loadError %></div>
+<% } %>
+
+<% if (!Array.isArray(codes) || !codes.length) { %>
+  <p class="card">Aucun code premium n'a encore été créé.</p>
+<% } else { %>
+  <div class="table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Durée premium</th>
+          <th>Expiration</th>
+          <th>Statut</th>
+          <th>Utilisé par</th>
+          <th>Créé par</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% codes.forEach(function (code) { %>
+          <tr>
+            <td><code><%= code.code %></code></td>
+            <td><%= code.premiumDurationLabel %></td>
+            <td>
+              <% if (code.expiresAtFormatted) { %>
+                <div><%= code.expiresAtFormatted %></div>
+                <% if (code.expiresAtRelative) { %>
+                  <div class="text-muted text-sm"><%= code.expiresAtRelative %></div>
+                <% } %>
+              <% } else { %>
+                <span class="text-muted">Aucune expiration</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (code.isRedeemed) { %>
+                <span class="badge success">Utilisé</span>
+                <% if (code.redeemedAtFormatted) { %>
+                  <div class="text-sm">le <%= code.redeemedAtFormatted %></div>
+                <% } %>
+                <% if (code.redeemedAtRelative) { %>
+                  <div class="text-muted text-sm"><%= code.redeemedAtRelative %></div>
+                <% } %>
+              <% } else if (code.isExpired) { %>
+                <span class="badge danger">Expiré</span>
+              <% } else { %>
+                <span class="badge info">Disponible</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (code.redeemerUsername) { %>
+                <strong><%= code.redeemerUsername %></strong>
+              <% } else { %>
+                <span class="text-muted">—</span>
+              <% } %>
+            </td>
+            <td>
+              <% if (code.creatorUsername) { %>
+                <strong><%= code.creatorUsername %></strong>
+              <% } else { %>
+                <span class="text-muted">Automatique</span>
+              <% } %>
+              <% if (code.createdAtFormatted) { %>
+                <div class="text-muted text-sm">le <%= code.createdAtFormatted %></div>
+              <% } %>
+            </td>
+            <td>
+              <% if (!code.isRedeemed) { %>
+                <form
+                  method="post"
+                  action="/admin/premium-codes/<%= code.id %>/delete"
+                  onsubmit="return confirm('Supprimer définitivement ce code premium&nbsp;?');"
+                >
+                  <%- include('../partials/csrf_field') %>
+                  <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                </form>
+              <% } else { %>
+                <span class="text-muted">—</span>
+              <% } %>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+<% } %>

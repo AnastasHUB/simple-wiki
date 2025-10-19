@@ -235,6 +235,44 @@
 </section>
 
 <section class="card mt-md">
+  <h2>Accès premium</h2>
+  <p class="text-muted">
+    Utilisez un code premium fourni par un administrateur pour activer ou prolonger vos avantages.
+  </p>
+  <% const hasPremiumInfo = premium && typeof premium === 'object'; %>
+  <% if (hasPremiumInfo && premium.expiresAt) { %>
+    <% const statusLabel = premium.isActive ? 'Actif' : 'Expiré'; %>
+    <% const statusClass = premium.isActive ? 'text-success' : 'text-danger'; %>
+    <p>
+      <strong class="<%= statusClass %>"><%= statusLabel %></strong>
+      <% if (premium.expiresAtFormatted) { %>
+        – <span>expiration le <%= premium.expiresAtFormatted %></span>
+      <% } %>
+      <% if (premium.expiresAtRelative) { %>
+        <span class="text-muted">(<%= premium.expiresAtRelative %>)</span>
+      <% } %>
+    </p>
+  <% } else { %>
+    <p>Vous n'avez pas encore d'accès premium actif.</p>
+  <% } %>
+  <form method="post" action="/account/premium/redeem" class="flex flex-wrap gap-sm items-end mt-md">
+    <%- include('../partials/csrf_field') %>
+    <label class="stack-form flex-basis-260">
+      <span class="text-sm text-muted">Code premium</span>
+      <input
+        type="text"
+        name="code"
+        minlength="4"
+        maxlength="64"
+        placeholder="Ex&nbsp;: ABCD1234"
+        required
+      />
+    </label>
+    <button class="btn success" data-icon="💎" type="submit">Activer le premium</button>
+  </form>
+</section>
+
+<section class="card mt-md">
   <h2>Profils IP associés</h2>
   <p class="text-muted">
     Les profils IP regroupent vos activités effectuées sans compte. Vous pouvez les dissocier ici.

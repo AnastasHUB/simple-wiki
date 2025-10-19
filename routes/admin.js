@@ -137,6 +137,12 @@ import {
   LIVE_VISITOR_PAGINATION_OPTIONS,
   getLiveVisitorsSnapshot,
 } from "../utils/liveStats.js";
+import {
+  listPremiumCodes,
+  createPremiumCode,
+  deletePremiumCode,
+  PremiumCodeError,
+} from "../utils/premiumService.js";
 
 await ensureUploadDir();
 
@@ -252,6 +258,80 @@ function buildPermissionSnapshot(role = {}) {
 function serializeLiveVisitors(now = Date.now()) {
   return getLiveVisitorsSnapshot(now).visitors;
 }
+
+const PREMIUM_DURATION_FORMATTER = new Intl.NumberFormat("fr-FR", {
+  maximumFractionDigits: 1,
+  minimumFractionDigits: 0,
+});
+
+function formatPremiumDurationLabel(seconds) {
+  const safeSeconds = Number.isFinite(seconds) ? Math.max(0, seconds) : 0;
+  if (safeSeconds <= 0) {
+    return "Instantané";
+  }
+  const units = [
+    { value: 86400, singular: "jour", plural: "jours" },
+    { value: 3600, singular: "heure", plural: "heures" },
+    { value: 60, singular: "minute", plural: "minutes" },
+  ];
+  for (const unit of units) {
+    if (safeSeconds >= unit.value) {
+      const amount = safeSeconds / unit.value;
+      const formattedAmount = PREMIUM_DURATION_FORMATTER.format(amount);
+      const label = amount > 1 ? unit.plural : unit.singular;
+      return `${formattedAmount} ${label}`;
+    }
+  }
+  const formattedSeconds = PREMIUM_DURATION_FORMATTER.format(safeSeconds);
+  return `${formattedSeconds} seconde${safeSeconds > 1 ? "s" : ""}`;
+}
+
+function parseAdminDurationInput(value, unit, { allowZero = false } = {}) {
+  if (value == null) {
+    return null;
+  }
+  const raw = typeof value === "string" ? value.replace(",", ".") : value;
+  const numeric = Number.parseFloat(raw);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  if (!allowZero && numeric <= 0) {
+    return null;
+  }
+  if (allowZero && numeric <= 0) {
+    return 0;
+  }
+  const normalizedUnit = typeof unit === "string" ? unit.trim().toLowerCase() : "";
+  const multipliers = {
+    minutes: 60 * 1000,
+    minute: 60 * 1000,
+    heures: 60 * 60 * 1000,
+    heure: 60 * 60 * 1000,
+    hours: 60 * 60 * 1000,
+    hour: 60 * 60 * 1000,
+    jours: 24 * 60 * 60 * 1000,
+    jour: 24 * 60 * 60 * 1000,
+    days: 24 * 60 * 60 * 1000,
+    day: 24 * 60 * 60 * 1000,
+    weeks: 7 * 24 * 60 * 60 * 1000,
+    week: 7 * 24 * 60 * 60 * 1000,
+    semaines: 7 * 24 * 60 * 60 * 1000,
+    semaine: 7 * 24 * 60 * 60 * 1000,
+  };
+  const multiplier = multipliers[normalizedUnit] || multipliers.days;
+  const milliseconds = Math.round(numeric * multiplier);
+  if (!allowZero && milliseconds <= 0) {
+    return null;
+  }
+  return milliseconds;
+}
+
+const PREMIUM_CODE_DURATION_UNITS = [
+  { value: "minutes", label: "Minutes" },
+  { value: "hours", label: "Heures" },
+  { value: "days", label: "Jours" },
+  { value: "weeks", label: "Semaines" },
+];
 
 function redirectToComments(req, res) {
   const fallback = "/admin/comments";
@@ -3318,6 +3398,167 @@ r.post(
     });
   }
   res.redirect("/admin/roles");
+  },
+);
+
+// premium codes
+r.get(
+  "/premium-codes",
+  requirePermission(["can_manage_roles", "can_assign_roles"]),
+  async (req, res) => {
+    let codes = [];
+    let loadError = null;
+    try {
+      const fetched = await listPremiumCodes();
+      codes = fetched.map((code) => {
+        const expiresAt = code.expiresAt instanceof Date ? code.expiresAt : null;
+        const redeemedAt = code.redeemedAt instanceof Date ? code.redeemedAt : null;
+        const createdAt = code.createdAt instanceof Date ? code.createdAt : null;
+        const now = Date.now();
+        const isRedeemed = Boolean(redeemedAt);
+        const isExpired = !isRedeemed && expiresAt ? expiresAt.getTime() <= now : false;
+        return {
+          ...code,
+          isRedeemed,
+          isExpired,
+          premiumDurationLabel: formatPremiumDurationLabel(code.premiumDurationSeconds),
+          expiresAtFormatted: expiresAt ? formatDateTimeLocalized(expiresAt) : null,
+          expiresAtRelative: expiresAt
+            ? formatRelativeDurationMs(Date.now() - expiresAt.getTime())
+            : null,
+          redeemedAtFormatted: redeemedAt ? formatDateTimeLocalized(redeemedAt) : null,
+          redeemedAtRelative: redeemedAt
+            ? formatRelativeDurationMs(Date.now() - redeemedAt.getTime())
+            : null,
+          createdAtFormatted: createdAt ? formatDateTimeLocalized(createdAt) : null,
+          createdAtRelative: createdAt
+            ? formatRelativeDurationMs(Date.now() - createdAt.getTime())
+            : null,
+        };
+      });
+    } catch (error) {
+      console.error("Unable to list premium codes", error);
+      loadError = "Impossible de charger la liste des codes premium.";
+    }
+    res.render("admin/premiumCodes", {
+      codes,
+      loadError,
+      durationUnits: PREMIUM_CODE_DURATION_UNITS,
+      formDefaults: {
+        code: "",
+        expiresValue: "7",
+        expiresUnit: "days",
+        durationValue: "30",
+        durationUnit: "days",
+      },
+    });
+  },
+);
+
+r.post(
+  "/premium-codes",
+  requirePermission(["can_manage_roles", "can_assign_roles"]),
+  async (req, res) => {
+    const rawCode = typeof req.body.code === "string" ? req.body.code.trim() : "";
+    const expiresValue = req.body.expiresValue;
+    const expiresUnit = req.body.expiresUnit;
+    const durationValue = req.body.durationValue;
+    const durationUnit = req.body.durationUnit;
+    const expiresMs = parseAdminDurationInput(expiresValue, expiresUnit, { allowZero: true });
+    const durationMs = parseAdminDurationInput(durationValue, durationUnit, { allowZero: false });
+    const expiresAt = expiresMs && expiresMs > 0 ? new Date(Date.now() + expiresMs) : null;
+    if (!durationMs || durationMs <= 0) {
+      pushNotification(req, {
+        type: "error",
+        message: "Veuillez indiquer une durée premium valide (supérieure à zéro).",
+      });
+      return res.redirect("/admin/premium-codes");
+    }
+    try {
+      const created = await createPremiumCode({
+        code: rawCode,
+        expiresAt,
+        premiumDurationMs: durationMs,
+        createdBy: req.session.user?.id || null,
+      });
+      pushNotification(req, {
+        type: "success",
+        message: `Le code premium ${created.code} a été généré avec succès.`,
+      });
+      await sendAdminEvent(
+        "Code premium créé",
+        {
+          user: req.session.user?.username || null,
+          extra: {
+            code: created.code,
+            expiresAt: created.expiresAt ? created.expiresAt.toISOString() : null,
+            premiumDurationSeconds: created.premiumDurationSeconds,
+          },
+        },
+        { includeScreenshot: false },
+      );
+    } catch (error) {
+      if (error instanceof PremiumCodeError) {
+        pushNotification(req, {
+          type: "error",
+          message: error.message,
+        });
+        return res.redirect("/admin/premium-codes");
+      }
+      console.error("Unable to create premium code", error);
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible de créer ce code premium.",
+      });
+    }
+    res.redirect("/admin/premium-codes");
+  },
+);
+
+r.post(
+  "/premium-codes/:id/delete",
+  requirePermission(["can_manage_roles", "can_assign_roles"]),
+  async (req, res) => {
+    const identifier = req.params.id;
+    try {
+      const deleted = await deletePremiumCode(identifier);
+      if (deleted) {
+        pushNotification(req, {
+          type: "success",
+          message: `Le code premium ${deleted.code} a été supprimé.`,
+        });
+        await sendAdminEvent(
+          "Code premium supprimé",
+          {
+            user: req.session.user?.username || null,
+            extra: {
+              code: deleted.code,
+              expiresAt: deleted.expiresAt ? deleted.expiresAt.toISOString() : null,
+            },
+          },
+          { includeScreenshot: false },
+        );
+      } else {
+        pushNotification(req, {
+          type: "error",
+          message: "Code introuvable ou déjà supprimé.",
+        });
+      }
+    } catch (error) {
+      if (error instanceof PremiumCodeError) {
+        pushNotification(req, {
+          type: "error",
+          message: error.message,
+        });
+      } else {
+        console.error("Unable to delete premium code", error);
+        pushNotification(req, {
+          type: "error",
+          message: "Impossible de supprimer ce code premium.",
+        });
+      }
+    }
+    res.redirect("/admin/premium-codes");
   },
 );
 
