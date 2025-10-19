@@ -93,22 +93,48 @@ export function deriveRoleFlags(rawUser = {}) {
   return applyRoleDerivations(mergeRoleFlags(baseFlags, roleOverrides));
 }
 
+function normalizeAssignedRoles(rawUser = {}) {
+  const roleList = Array.isArray(rawUser.roles)
+    ? rawUser.roles
+    : Array.isArray(rawUser.role_assignments)
+      ? rawUser.role_assignments
+      : [];
+  return roleList
+    .map((role) => (role && typeof role === "object" ? role : null))
+    .filter(Boolean)
+    .sort((a, b) => {
+      const posA = Number.isFinite(a?.position) ? a.position : 0;
+      const posB = Number.isFinite(b?.position) ? b.position : 0;
+      if (posA !== posB) {
+        return posA - posB;
+      }
+      const nameA = a?.name || "";
+      const nameB = b?.name || "";
+      return nameA.localeCompare(nameB, "fr", { sensitivity: "base" });
+    });
+}
+
 export function buildSessionUser(rawUser, overrides = null) {
+  const normalizedRoles = normalizeAssignedRoles(rawUser);
+  const primaryRole = normalizedRoles[0] || null;
   const baseFlags = deriveRoleFlags(rawUser);
   const mergedFlags = overrides
     ? mergeRoleFlags(baseFlags, overrides)
     : baseFlags;
   const numericRoleId =
-    typeof rawUser.role_numeric_id === "number"
+    primaryRole?.numeric_id ??
+    (typeof rawUser.role_numeric_id === "number"
       ? rawUser.role_numeric_id
       : typeof rawUser.role_id === "number"
         ? rawUser.role_id
-        : null;
+        : null);
   const snowflakeRoleId =
+    primaryRole?.id ||
     rawUser.role_snowflake_id ||
     (typeof rawUser.role_id === "string" ? rawUser.role_id : null) ||
     (numericRoleId !== null ? String(numericRoleId) : null);
   const rawColorValue =
+    primaryRole?.colorSerialized ||
     rawUser.role_color_serialized ||
     rawUser.colorSerialized ||
     rawUser.role_color ||
@@ -145,11 +171,12 @@ export function buildSessionUser(rawUser, overrides = null) {
     ban_reason: rawUser.ban_reason || null,
     role_id: snowflakeRoleId,
     role_numeric_id: numericRoleId,
-    role_name: rawUser.role_name || null,
+    role_name: primaryRole?.name || rawUser.role_name || null,
     role_color: colorPresentation,
     role_color_scheme: colorScheme,
     role_color_serialized:
       typeof rawColorValue === "string" ? rawColorValue : colorScheme ? JSON.stringify(colorScheme) : null,
+    roles: normalizedRoles,
     ...mergedFlags,
   };
 }

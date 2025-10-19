@@ -82,6 +82,84 @@ function mapRoleRow(row) {
   return applyDefaultRoleMetadata(role);
 }
 
+async function getUserRoleRows(userId) {
+  if (!userId) return [];
+  return all(
+    `SELECT ura.user_id, r.*
+       FROM user_role_assignments ura
+       JOIN roles r ON r.id = ura.role_id
+      WHERE ura.user_id=?
+      ORDER BY r.position ASC, r.name COLLATE NOCASE`,
+    [userId],
+  );
+}
+
+function sortRolesByPriority(roles = []) {
+  return [...roles].sort((a, b) => {
+    const posA = Number.isFinite(a?.position) ? a.position : 0;
+    const posB = Number.isFinite(b?.position) ? b.position : 0;
+    if (posA !== posB) {
+      return posA - posB;
+    }
+    const nameA = a?.name || "";
+    const nameB = b?.name || "";
+    return nameA.localeCompare(nameB, "fr", { sensitivity: "base" });
+  });
+}
+
+async function resolveRoleInputs(roleInput) {
+  const inputs = Array.isArray(roleInput) ? roleInput : [roleInput];
+  const seen = new Set();
+  const resolved = [];
+  for (const input of inputs) {
+    if (!input) continue;
+    let role = null;
+    if (typeof input === "object" && input !== null) {
+      role = input;
+    } else {
+      role = await getRoleById(input);
+    }
+    if (!role?.numeric_id || seen.has(role.numeric_id)) {
+      continue;
+    }
+    seen.add(role.numeric_id);
+    resolved.push(role);
+  }
+  return sortRolesByPriority(resolved);
+}
+
+async function refreshUserRoleState(userId, { ensureDefault = true } = {}) {
+  if (!userId) {
+    return [];
+  }
+  let roleRows = await getUserRoleRows(userId);
+  if ((!roleRows || roleRows.length === 0) && ensureDefault) {
+    const everyoneRole = await getEveryoneRole();
+    if (everyoneRole?.numeric_id) {
+      await run(
+        "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) VALUES(?, ?)",
+        [userId, everyoneRole.numeric_id],
+      );
+      roleRows = await getUserRoleRows(userId);
+    }
+  }
+  const mappedRoles = sortRolesByPriority(roleRows.map(mapRoleRow).filter(Boolean));
+  let mergedFlags = { ...DEFAULT_ROLE_FLAGS };
+  for (const role of mappedRoles) {
+    mergedFlags = mergeRoleFlags(mergedFlags, role);
+  }
+  const primaryRole = mappedRoles[0] || null;
+  await run(
+    `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE id=?`,
+    [
+      primaryRole?.numeric_id ?? null,
+      ...getRoleFlagValues(mergedFlags),
+      userId,
+    ],
+  );
+  return mappedRoles;
+}
+
 export async function listRoles() {
   const rows = await all(
     `SELECT ${ROLE_SELECT_FIELDS}
@@ -94,7 +172,7 @@ export async function listRoles() {
 export async function listRolesWithUsage() {
   const roles = await listRoles();
   const usage = await all(
-    "SELECT role_id, COUNT(*) AS total FROM users WHERE role_id IS NOT NULL GROUP BY role_id",
+    "SELECT role_id, COUNT(DISTINCT user_id) AS total FROM user_role_assignments GROUP BY role_id",
   );
   const usageMap = new Map(
     usage.map((row) => [Number.parseInt(row.role_id, 10) || null, Number(row.total) || 0]),
@@ -110,10 +188,54 @@ export async function countUsersWithRole(roleId) {
   if (!role?.numeric_id) {
     return 0;
   }
-  const row = await get("SELECT COUNT(*) AS total FROM users WHERE role_id=?", [
-    role.numeric_id,
-  ]);
+  const row = await get(
+    "SELECT COUNT(DISTINCT user_id) AS total FROM user_role_assignments WHERE role_id=?",
+    [role.numeric_id],
+  );
   return Number(row?.total ?? 0);
+}
+
+export async function listRolesForUsers(userIds = []) {
+  const ids = (Array.isArray(userIds) ? userIds : [userIds])
+    .map((value) => Number.parseInt(value, 10))
+    .filter((value) => Number.isInteger(value));
+  if (!ids.length) {
+    return new Map();
+  }
+  const placeholders = ids.map(() => "?").join(", ");
+  const rows = await all(
+    `SELECT ura.user_id, r.*
+       FROM user_role_assignments ura
+       JOIN roles r ON r.id = ura.role_id
+      WHERE ura.user_id IN (${placeholders})
+      ORDER BY ura.user_id ASC, r.position ASC, r.name COLLATE NOCASE`,
+    ids,
+  );
+  const result = new Map();
+  for (const row of rows) {
+    const userId = Number.parseInt(row.user_id, 10);
+    if (!Number.isInteger(userId)) {
+      continue;
+    }
+    const mapped = mapRoleRow(row);
+    if (!mapped) {
+      continue;
+    }
+    if (!result.has(userId)) {
+      result.set(userId, []);
+    }
+    result.get(userId).push(mapped);
+  }
+  return result;
+}
+
+export async function getRolesForUser(userId) {
+  const map = await listRolesForUsers([userId]);
+  const numericId = Number.parseInt(userId, 10);
+  if (Number.isInteger(numericId) && map.has(numericId)) {
+    return map.get(numericId);
+  }
+  return [];
 }
 
 export async function getRoleById(roleId) {
@@ -271,27 +393,74 @@ export async function updateRolePermissions(roleId, { permissions = {}, color })
     `UPDATE roles SET ${ROLE_UPDATE_ASSIGNMENTS}, color=?, updated_at=CURRENT_TIMESTAMP WHERE id=?`,
     [...flagValues, serializedColor, role.numeric_id],
   );
-  await run(
-    `UPDATE users SET ${ROLE_UPDATE_ASSIGNMENTS} WHERE role_id=?`,
-    [...flagValues, role.numeric_id],
+  const userRows = await all(
+    "SELECT DISTINCT user_id FROM user_role_assignments WHERE role_id=?",
+    [role.numeric_id],
   );
+  for (const row of userRows) {
+    const userId = Number.parseInt(row.user_id, 10);
+    if (Number.isInteger(userId)) {
+      await refreshUserRoleState(userId, { ensureDefault: true });
+    }
+  }
   invalidateRoleCache();
   return getRoleById(role.id || role.numeric_id);
 }
 
-export async function assignRoleToUser(userId, role) {
-  if (!userId) return null;
-  const targetRole =
-    typeof role === "object" && role !== null ? role : await getRoleById(role);
-  if (!targetRole) {
-    return null;
+export async function assignRoleToUser(userId, role, options = {}) {
+  if (!userId) return [];
+  const numericUserId = Number.parseInt(userId, 10);
+  if (!Number.isInteger(numericUserId)) {
+    return [];
   }
-  const mergedFlags = mergeRoleFlags(DEFAULT_ROLE_FLAGS, targetRole);
+  const resolvedRoles = await resolveRoleInputs(role);
+  const replace = options?.replace !== undefined ? Boolean(options.replace) : true;
+  if (replace) {
+    await run("DELETE FROM user_role_assignments WHERE user_id=?", [numericUserId]);
+  }
+  const existing = replace
+    ? new Set()
+    : new Set(
+        (
+          await all(
+            "SELECT role_id FROM user_role_assignments WHERE user_id=?",
+            [numericUserId],
+          )
+        )
+          .map((row) => Number.parseInt(row.role_id, 10))
+          .filter((value) => Number.isInteger(value)),
+      );
+  for (const roleEntry of resolvedRoles) {
+    if (!roleEntry?.numeric_id || existing.has(roleEntry.numeric_id)) {
+      continue;
+    }
+    await run(
+      "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) VALUES(?, ?)",
+      [numericUserId, roleEntry.numeric_id],
+    );
+    existing.add(roleEntry.numeric_id);
+  }
+  return refreshUserRoleState(numericUserId, { ensureDefault: true });
+}
+
+export async function addRoleToUser(userId, role) {
+  return assignRoleToUser(userId, role, { replace: false });
+}
+
+export async function removeRoleFromUser(userId, roleId) {
+  if (!userId || !roleId) {
+    return [];
+  }
+  const numericUserId = Number.parseInt(userId, 10);
+  const numericRoleId = Number.parseInt(roleId, 10);
+  if (!Number.isInteger(numericUserId) || !Number.isInteger(numericRoleId)) {
+    return [];
+  }
   await run(
-    `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE id=?`,
-    [targetRole.numeric_id, ...getRoleFlagValues(mergedFlags), userId],
+    "DELETE FROM user_role_assignments WHERE user_id=? AND role_id=?",
+    [numericUserId, numericRoleId],
   );
-  return targetRole;
+  return refreshUserRoleState(numericUserId, { ensureDefault: true });
 }
 
 export async function reassignUsersToRole(sourceRoleId, targetRole) {
@@ -309,20 +478,27 @@ export async function reassignUsersToRole(sourceRoleId, targetRole) {
   if (destination.numeric_id === sourceRole.numeric_id) {
     return { targetRole: destination, moved: 0 };
   }
-  const usersToMove = await countUsersWithRole(sourceRole.numeric_id);
-  if (usersToMove === 0) {
+  const userRows = await all(
+    "SELECT DISTINCT user_id FROM user_role_assignments WHERE role_id=?",
+    [sourceRole.numeric_id],
+  );
+  const userIds = userRows
+    .map((row) => Number.parseInt(row.user_id, 10))
+    .filter((value) => Number.isInteger(value));
+  if (!userIds.length) {
     return { targetRole: destination, moved: 0 };
   }
-  const mergedFlags = mergeRoleFlags(DEFAULT_ROLE_FLAGS, destination);
   await run(
-    `UPDATE users SET role_id=?, ${ROLE_UPDATE_ASSIGNMENTS} WHERE role_id=?`,
-    [
-      destination.numeric_id,
-      ...getRoleFlagValues(mergedFlags),
-      sourceRole.numeric_id,
-    ],
+    "INSERT OR IGNORE INTO user_role_assignments(user_id, role_id) SELECT user_id, ? FROM user_role_assignments WHERE role_id=?",
+    [destination.numeric_id, sourceRole.numeric_id],
   );
-  return { targetRole: destination, moved: usersToMove };
+  await run("DELETE FROM user_role_assignments WHERE role_id=?", [
+    sourceRole.numeric_id,
+  ]);
+  for (const userId of userIds) {
+    await refreshUserRoleState(userId, { ensureDefault: true });
+  }
+  return { targetRole: destination, moved: userIds.length };
 }
 
 export async function deleteRole(roleId) {
