@@ -82,6 +82,30 @@
             <input type="checkbox" name="actions" value="tag">
             <span>Accéder à un tag</span>
           </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="edit">
+            <span>Modifier des pages</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="delete">
+            <span>Supprimer des pages</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="manual_publish">
+            <span>Publier manuellement</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="cancel_schedule">
+            <span>Annuler les programmations</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="revert_revision">
+            <span>Restaurer des versions</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="permanent_delete">
+            <span>Supprimer définitivement</span>
+          </label>
         </div>
       </fieldset>
       <div>
@@ -134,6 +158,12 @@
         <option value="react">Réactions</option>
         <option value="contribute">Contributions</option>
         <option value="tag">Tag spécifique</option>
+        <option value="edit">Modifications</option>
+        <option value="delete">Suppressions</option>
+        <option value="manual_publish">Publications manuelles</option>
+        <option value="cancel_schedule">Annulation de programmation</option>
+        <option value="revert_revision">Restauration de version</option>
+        <option value="permanent_delete">Suppression définitive</option>
       </select>
     </div>
     <div>
@@ -149,8 +179,9 @@
     </div>
   </form>
   <p class="help-text">
-    Pour un blocage limité à une action, choisissez la portée correspondante (vues, commentaires, likes, réactions ou
-    contributions). Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.
+    Pour un blocage limité à une action, choisissez la portée correspondante (vues, commentaires, likes, réactions,
+    contributions, modifications, suppressions, publications manuelles, annulation de programmation, restauration de
+    version ou suppression définitive). Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.
   </p>
 </section>
 

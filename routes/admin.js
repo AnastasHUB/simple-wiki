@@ -176,13 +176,23 @@ const upload = multer({
 
 const r = Router();
 
+const USER_RESTRICTION_LABELS = new Map([
+  ["view", "consulter des pages"],
+  ["comment", "publier des commentaires"],
+  ["like", "ajouter aux favoris"],
+  ["react", "réagir aux contenus"],
+  ["contribute", "soumettre du contenu"],
+  ["edit", "modifier des pages"],
+  ["delete", "supprimer des pages"],
+  ["manual_publish", "publier manuellement des pages"],
+  ["cancel_schedule", "annuler des publications programmées"],
+  ["revert_revision", "restaurer des versions"],
+  ["permanent_delete", "supprimer définitivement du contenu"],
+]);
+
 const ALLOWED_USER_RESTRICTION_TYPES = new Set([
   "global",
-  "view",
-  "comment",
-  "like",
-  "react",
-  "contribute",
+  ...USER_RESTRICTION_LABELS.keys(),
   "tag",
 ]);
 
@@ -1333,7 +1343,8 @@ r.post(
         if (entry.scope === "tag") {
           return `accéder au tag « ${entry.value} »`;
         }
-        return `effectuer l'action « ${entry.value} »`;
+        const label = USER_RESTRICTION_LABELS.get(entry.value);
+        return label ? label : `effectuer l'action « ${entry.value} »`;
       })
       .join(", ");
     const baseMessage =
