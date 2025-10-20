@@ -3,7 +3,7 @@ import path from "path";
 import { randomBytes } from "crypto";
 import multer from "multer";
 import { Router } from "express";
-import { get, run, all } from "../db.js";
+import { get, run, all, rotateUserTotpSecret, rotateUserRecoveryCodes } from "../db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   countPageSubmissions,
@@ -32,6 +32,20 @@ import {
 } from "../utils/premiumService.js";
 import { loadSessionUserById } from "../utils/sessionUser.js";
 import { formatDateTimeLocalized, formatRelativeDurationMs } from "../utils/time.js";
+import { getSiteSettings } from "../utils/settingsService.js";
+import {
+  generateTwoFactorSecret,
+  buildTwoFactorProvisioningUri,
+  buildQrCodeDataUrl,
+  verifyTwoFactorToken,
+  generateRecoveryCodes,
+  createRecoveryCodeState,
+  serializeRecoveryCodeState,
+  parseRecoveryCodeState,
+  markRecoveryCodeUsed,
+  countAvailableRecoveryCodes,
+  formatRecoveryCodeForDisplay,
+} from "../utils/twoFactor.js";
 
 const PROFILE_UPLOAD_SUBDIR = "profiles";
 const PROFILE_UPLOAD_DIR = path.join(uploadDir, PROFILE_UPLOAD_SUBDIR);
@@ -246,6 +260,73 @@ function buildProfileLinks(origin, username, linkedIpProfiles, currentIpHash) {
   return { profilePublicUrl, linkedIpProfiles: decoratedProfiles, currentIpLink };
 }
 
+async function loadTwoFactorStatus(userId) {
+  if (!userId) {
+    return {
+      enabled: false,
+      secret: null,
+      recoveryState: [],
+    };
+  }
+  const row = await get(
+    "SELECT two_factor_enabled, totp_secret, recovery_codes FROM users WHERE id=?",
+    [userId],
+  );
+  const recoveryState = parseRecoveryCodeState(row?.recovery_codes || null);
+  return {
+    enabled: row?.two_factor_enabled === 1,
+    secret: row?.totp_secret || null,
+    recoveryState,
+  };
+}
+
+function setTwoFactorSetupSession(req, data) {
+  if (!req.session) {
+    return;
+  }
+  req.session.twoFactorSetup = data || null;
+}
+
+function getTwoFactorSetupSession(req) {
+  if (!req.session) {
+    return null;
+  }
+  const data = req.session.twoFactorSetup;
+  return data && typeof data === "object" ? data : null;
+}
+
+function clearTwoFactorSetupSession(req) {
+  if (req.session) {
+    delete req.session.twoFactorSetup;
+  }
+}
+
+function stashGeneratedRecoveryCodes(req, codes = []) {
+  if (!req.session) {
+    return;
+  }
+  req.session.generatedRecoveryCodes = Array.isArray(codes) ? [...codes] : [];
+}
+
+function getGeneratedRecoveryCodes(req) {
+  if (!req.session) {
+    return [];
+  }
+  return Array.isArray(req.session.generatedRecoveryCodes)
+    ? [...req.session.generatedRecoveryCodes]
+    : [];
+}
+
+function clearGeneratedRecoveryCodes(req) {
+  if (req.session) {
+    delete req.session.generatedRecoveryCodes;
+  }
+}
+
+function formatRecoveryCodesForDisplayList(codes = []) {
+  return codes.map((code) => formatRecoveryCodeForDisplay(code)).filter(Boolean);
+}
+
 const r = Router();
 
 function ensureAuthenticated(req, res, next) {
@@ -440,6 +521,335 @@ r.get(
         expiresAtRelative: premiumRelative,
       },
     });
+  }),
+);
+
+r.get(
+  "/security",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const [twoFactor, settings] = await Promise.all([
+      loadTwoFactorStatus(sessionUser.id),
+      getSiteSettings({ forceRefresh: false }),
+    ]);
+
+    const setup = getTwoFactorSetupSession(req);
+    const formattedSetupCodes = setup?.recoveryCodes
+      ? formatRecoveryCodesForDisplayList(setup.recoveryCodes)
+      : [];
+    const generatedCodes = getGeneratedRecoveryCodes(req);
+    const formattedGeneratedCodes = formatRecoveryCodesForDisplayList(generatedCodes);
+
+    const issuerName = settings?.wiki_name || "SimpleWiki";
+    const totalCodes = twoFactor.recoveryState.length;
+    const remainingCodes = countAvailableRecoveryCodes(twoFactor.recoveryState);
+    const usedCodes = Math.max(0, totalCodes - remainingCodes);
+
+    res.render("account/security", {
+      issuerName,
+      twoFactorEnabled: twoFactor.enabled,
+      recoveryCodesTotal: totalCodes,
+      recoveryCodesRemaining: remainingCodes,
+      recoveryCodesUsed: usedCodes,
+      setup: setup
+        ? {
+            secret: setup.secret,
+            qrDataUrl: setup.qrDataUrl,
+            otpauthUrl: setup.otpauthUrl,
+            recoveryCodes: formattedSetupCodes,
+          }
+        : null,
+      generatedRecoveryCodes: formattedGeneratedCodes,
+    });
+  }),
+);
+
+r.post(
+  "/security/setup",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const twoFactor = await loadTwoFactorStatus(sessionUser.id);
+    if (twoFactor.enabled) {
+      pushNotification(req, {
+        type: "error",
+        message: "La double authentification est déjà activée sur votre compte.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    clearGeneratedRecoveryCodes(req);
+
+    const settings = await getSiteSettings({ forceRefresh: false });
+    const issuerName = settings?.wiki_name || "SimpleWiki";
+    const secret = generateTwoFactorSecret();
+    const accountLabel = `${issuerName}:${sessionUser.username}`;
+    const otpauthUrl = buildTwoFactorProvisioningUri({
+      secret,
+      accountName: accountLabel,
+      issuer: issuerName,
+    });
+    const qrDataUrl = await buildQrCodeDataUrl(otpauthUrl);
+    const recoveryCodes = generateRecoveryCodes();
+
+    setTwoFactorSetupSession(req, {
+      secret,
+      otpauthUrl,
+      qrDataUrl,
+      issuer: issuerName,
+      recoveryCodes,
+      createdAt: new Date().toISOString(),
+    });
+
+    pushNotification(req, {
+      type: "info",
+      message:
+        "Scannez le QR code puis saisissez le code généré pour finaliser l'activation de la double authentification.",
+    });
+
+    return res.redirect("/account/security");
+  }),
+);
+
+r.post(
+  "/security/enable",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const setup = getTwoFactorSetupSession(req);
+    if (!setup || !setup.secret) {
+      pushNotification(req, {
+        type: "error",
+        message:
+          "Commencez par générer un secret avant de tenter d'activer la double authentification.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const token = typeof req.body.token === "string" ? req.body.token : "";
+    if (!verifyTwoFactorToken(setup.secret, token)) {
+      pushNotification(req, {
+        type: "error",
+        message: "Le code de vérification saisi est invalide. Réessayez.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const recoveryCodes = Array.isArray(setup.recoveryCodes) ? setup.recoveryCodes : [];
+    const recoveryState = createRecoveryCodeState(recoveryCodes);
+    const serializedRecoveryState =
+      serializeRecoveryCodeState(recoveryState) ?? JSON.stringify([]);
+
+    await rotateUserTotpSecret(sessionUser.id, setup.secret, { enable: true });
+    await rotateUserRecoveryCodes(sessionUser.id, serializedRecoveryState);
+
+    clearTwoFactorSetupSession(req);
+    clearGeneratedRecoveryCodes(req);
+    stashGeneratedRecoveryCodes(req, recoveryCodes);
+
+    await sendAdminEvent(
+      "Double authentification activée",
+      {
+        user: sessionUser.username,
+        extra: {
+          ip: getClientIp(req),
+          method: "totp",
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    const refreshedSessionUser = await loadSessionUserById(sessionUser.id);
+    if (refreshedSessionUser) {
+      req.session.user = refreshedSessionUser;
+    }
+
+    pushNotification(req, {
+      type: "success",
+      message: "La double authentification est maintenant activée.",
+    });
+
+    return res.redirect("/account/security");
+  }),
+);
+
+r.post(
+  "/security/cancel-setup",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    clearTwoFactorSetupSession(req);
+    clearGeneratedRecoveryCodes(req);
+    pushNotification(req, {
+      type: "info",
+      message: "La configuration en cours a été annulée.",
+    });
+    return res.redirect("/account/security");
+  }),
+);
+
+r.post(
+  "/security/disable",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const twoFactor = await loadTwoFactorStatus(sessionUser.id);
+    if (!twoFactor.enabled) {
+      pushNotification(req, {
+        type: "error",
+        message: "La double authentification est déjà désactivée.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const mode = typeof req.body.mode === "string" ? req.body.mode.toLowerCase() : "";
+    const token = typeof req.body.token === "string" ? req.body.token : "";
+    const recoveryCode =
+      typeof req.body.recoveryCode === "string" ? req.body.recoveryCode : "";
+    const useRecovery = mode === "recovery" || recoveryCode.trim().length > 0;
+
+    let method = "totp";
+
+    if (useRecovery) {
+      const { used } = markRecoveryCodeUsed(twoFactor.recoveryState, recoveryCode);
+      if (!used) {
+        pushNotification(req, {
+          type: "error",
+          message: "Ce code de récupération est invalide ou a déjà été utilisé.",
+        });
+        return res.redirect("/account/security");
+      }
+      method = "recovery-code";
+    } else {
+      if (!twoFactor.secret || !verifyTwoFactorToken(twoFactor.secret, token)) {
+        pushNotification(req, {
+          type: "error",
+          message: "Le code TOTP fourni est invalide.",
+        });
+        return res.redirect("/account/security");
+      }
+    }
+
+    await rotateUserTotpSecret(sessionUser.id, null, { enable: false });
+    await rotateUserRecoveryCodes(sessionUser.id, null);
+
+    clearTwoFactorSetupSession(req);
+    clearGeneratedRecoveryCodes(req);
+
+    await sendAdminEvent(
+      "Double authentification désactivée",
+      {
+        user: sessionUser.username,
+        extra: {
+          ip: getClientIp(req),
+          method,
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    const refreshedSessionUser = await loadSessionUserById(sessionUser.id);
+    if (refreshedSessionUser) {
+      req.session.user = refreshedSessionUser;
+    }
+
+    pushNotification(req, {
+      type: "success",
+      message: "La double authentification a été désactivée.",
+    });
+
+    return res.redirect("/account/security");
+  }),
+);
+
+r.post(
+  "/security/recovery-codes",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const twoFactor = await loadTwoFactorStatus(sessionUser.id);
+    if (!twoFactor.enabled || !twoFactor.secret) {
+      pushNotification(req, {
+        type: "error",
+        message:
+          "Activez d'abord la double authentification avant de régénérer des codes de récupération.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const token = typeof req.body.token === "string" ? req.body.token : "";
+    if (!verifyTwoFactorToken(twoFactor.secret, token)) {
+      pushNotification(req, {
+        type: "error",
+        message: "Le code TOTP fourni est invalide.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const newCodes = generateRecoveryCodes();
+    const newState = createRecoveryCodeState(newCodes);
+    const serializedState = serializeRecoveryCodeState(newState) ?? JSON.stringify([]);
+
+    await rotateUserRecoveryCodes(sessionUser.id, serializedState);
+
+    clearGeneratedRecoveryCodes(req);
+    stashGeneratedRecoveryCodes(req, newCodes);
+
+    await sendAdminEvent(
+      "Codes de récupération régénérés",
+      {
+        user: sessionUser.username,
+        extra: {
+          ip: getClientIp(req),
+          total: newCodes.length,
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    pushNotification(req, {
+      type: "success",
+      message: "Nouveaux codes de récupération générés.",
+    });
+
+    return res.redirect("/account/security");
+  }),
+);
+
+r.get(
+  "/security/recovery-codes/download",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const setup = getTwoFactorSetupSession(req);
+    const codesSource = setup?.recoveryCodes || getGeneratedRecoveryCodes(req);
+    if (!Array.isArray(codesSource) || codesSource.length === 0) {
+      pushNotification(req, {
+        type: "error",
+        message: "Aucun code de récupération n'est disponible pour le téléchargement.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const lines = formatRecoveryCodesForDisplayList(codesSource);
+    res.set("Content-Type", "text/plain; charset=utf-8");
+    res.set(
+      "Content-Disposition",
+      "attachment; filename=\"codes-recuperation.txt\"",
+    );
+    res.send(`${lines.join("\n")}\n`);
+  }),
+);
+
+r.post(
+  "/security/recovery-codes/acknowledge",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    clearGeneratedRecoveryCodes(req);
+    pushNotification(req, {
+      type: "success",
+      message: "Merci ! Pensez à conserver ces codes en lieu sûr.",
+    });
+    return res.redirect("/account/security");
   }),
 );
 

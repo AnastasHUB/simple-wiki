@@ -66,6 +66,9 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     username TEXT UNIQUE NOT NULL,
     password TEXT NOT NULL,
     display_name TEXT,
+    totp_secret TEXT,
+    two_factor_enabled INTEGER NOT NULL DEFAULT 0,
+    recovery_codes TEXT,
 ${ROLE_FLAG_COLUMN_DEFINITIONS},
     role_id INTEGER REFERENCES roles(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -421,6 +424,13 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "profile_show_recent_pages",
     "INTEGER NOT NULL DEFAULT 1",
   );
+  await ensureColumn("users", "totp_secret", "TEXT");
+  await ensureColumn(
+    "users",
+    "two_factor_enabled",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn("users", "recovery_codes", "TEXT");
   await ensureColumn(
     "users",
     "profile_show_ip_profiles",
@@ -693,6 +703,42 @@ export async function all(sql, params = []) {
 }
 export async function run(sql, params = []) {
   return db.run(sql, params);
+}
+
+export async function rotateUserTotpSecret(
+  userId,
+  secret,
+  { enable = true } = {},
+) {
+  if (!userId) {
+    return null;
+  }
+  const normalizedSecret = typeof secret === "string" && secret.trim().length
+    ? secret.trim()
+    : null;
+  const enabledValue = enable ? 1 : 0;
+  return run(
+    "UPDATE users SET totp_secret=?, two_factor_enabled=? WHERE id=?",
+    [normalizedSecret, enabledValue, userId],
+  );
+}
+
+export async function rotateUserRecoveryCodes(userId, recoveryCodes) {
+  if (!userId) {
+    return null;
+  }
+  let serialized = null;
+  if (Array.isArray(recoveryCodes) || typeof recoveryCodes === "object") {
+    try {
+      serialized = JSON.stringify(recoveryCodes);
+    } catch (err) {
+      console.warn("Unable to serialize recovery codes", err);
+      serialized = null;
+    }
+  } else if (typeof recoveryCodes === "string") {
+    serialized = recoveryCodes;
+  }
+  return run("UPDATE users SET recovery_codes=? WHERE id=?", [serialized, userId]);
 }
 
 async function ensureRoleFlagColumns(table) {
