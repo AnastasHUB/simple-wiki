@@ -884,6 +884,10 @@ r.post(
       permissions.is_admin || permissions.is_contributor,
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
+    const availableRoles = permissions.is_admin ? await listRoles() : [];
+    const selectedVisibilityRoles = permissions.is_admin
+      ? filterValidRoleSelection(req.body.visible_roles, availableRoles)
+      : [];
     if (!permissions.is_admin) {
       const ban = await resolveAccessBan({
         ip: req.clientIp,
