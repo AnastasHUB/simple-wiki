@@ -2,7 +2,12 @@ import { Router } from "express";
 import { all, get, isFtsAvailable } from "../db.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import { buildPaginationView } from "../utils/pagination.js";
-import { buildPublishedFilter } from "../utils/pageService.js";
+import {
+  buildPublishedFilter,
+  buildPageVisibilityClause,
+  buildTagVisibilityClause,
+} from "../utils/pageService.js";
+import { collectAccessibleRoleSnowflakes } from "../utils/roleVisibility.js";
 
 const r = Router();
 
@@ -59,15 +64,37 @@ r.get("/search", async (req, res) => {
   const q = String(req.query.q ?? "").trim();
   if (!q) return res.redirect("/");
 
+  const permissions = req.permissionFlags || {};
+  const allowedRoleSnowflakes = permissions.is_admin
+    ? null
+    : collectAccessibleRoleSnowflakes(req.session?.user || null);
   const filters = parseSearchFilters(req.query);
-  const filterSql = buildFilterSql(filters);
+  const filterSql = buildFilterSql(filters, { allowedRoleSnowflakes });
   const filterClause = filterSql.whereClauses.length
     ? ` AND ${filterSql.whereClauses.join(" AND ")}`
     : "";
   const filterParams = filterSql.params;
   const visibility = buildPublishedFilter({ alias: "p" });
-  const visibilityClause = visibility.clause ? ` AND ${visibility.clause}` : "";
-  const visibilityParams = visibility.params ?? [];
+  const visibilityClause =
+    visibility.clause && visibility.clause !== "1=1"
+      ? ` AND ${visibility.clause}`
+      : "";
+  const visibilityParams =
+    visibility.clause && visibility.clause !== "1=1"
+      ? visibility.params ?? []
+      : [];
+  const pageAccess = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const pageAccessClause =
+    pageAccess.clause && pageAccess.clause !== "1=1"
+      ? ` AND ${pageAccess.clause}`
+      : "";
+  const pageAccessParams =
+    pageAccess.clause && pageAccess.clause !== "1=1"
+      ? pageAccess.params ?? []
+      : [];
 
   const ftsPossible = isFtsAvailable();
   let mode = "fts";
@@ -92,9 +119,15 @@ r.get("/search", async (req, res) => {
           JOIN pages p ON p.id = pages_fts.rowid
          WHERE pages_fts MATCH ?
            ${visibilityClause}
+           ${pageAccessClause}
           ${filterClause}
         `,
-        [matchQuery, ...visibilityParams, ...filterParams],
+        [
+          matchQuery,
+          ...visibilityParams,
+          ...pageAccessParams,
+          ...filterParams,
+        ],
       );
       pagination = buildPaginationView(
         req,
@@ -122,17 +155,19 @@ r.get("/search", async (req, res) => {
         JOIN pages p ON p.id = pages_fts.rowid
         WHERE pages_fts MATCH ?
           ${visibilityClause}
+          ${pageAccessClause}
           ${filterClause}
         ORDER BY ${orderClause}
         LIMIT ? OFFSET ?
       `,
-        [
-          matchQuery,
-          ...visibilityParams,
-          ...filterParams,
-          pagination.perPage,
-          offset,
-        ],
+      [
+        matchQuery,
+        ...visibilityParams,
+        ...pageAccessParams,
+        ...filterParams,
+        pagination.perPage,
+        offset,
+      ],
       );
       rows = ftsRows.map((row) => {
         const numericScore = Number(row.score);
@@ -161,9 +196,10 @@ r.get("/search", async (req, res) => {
          OR p.content LIKE '%'||?||'%'
          OR t.name    LIKE '%'||?||'%')
         ${visibilityClause}
+        ${pageAccessClause}
         ${filterClause}
     `,
-      [q, q, q, ...visibilityParams, ...filterParams],
+      [q, q, q, ...visibilityParams, ...pageAccessParams, ...filterParams],
     );
     pagination = buildPaginationView(
       req,
@@ -191,19 +227,21 @@ r.get("/search", async (req, res) => {
          OR p.content LIKE '%'||?||'%'
          OR t.name    LIKE '%'||?||'%')
         ${visibilityClause}
+        ${pageAccessClause}
         ${filterClause}
       ORDER BY ${orderClause}
       LIMIT ? OFFSET ?
     `,
-      [
-        q,
-        q,
-        q,
-        ...visibilityParams,
-        ...filterParams,
-        pagination.perPage,
-        offset,
-      ],
+    [
+      q,
+      q,
+      q,
+      ...visibilityParams,
+      ...pageAccessParams,
+      ...filterParams,
+      pagination.perPage,
+      offset,
+    ],
     );
     rows = fallbackRows.map((row) => ({ ...row, snippet: null, score: null }));
   }
@@ -216,8 +254,21 @@ const decoratedRows = rows.map((row) => ({
 
   const total = pagination.totalItems;
 
+  const tagListAccess = buildTagVisibilityClause({
+    alias: "t",
+    allowedRoleSnowflakes,
+  });
+  const tagListClause =
+    tagListAccess.clause && tagListAccess.clause !== "1=1"
+      ? ` WHERE ${tagListAccess.clause}`
+      : "";
+  const tagListParams =
+    tagListAccess.clause && tagListAccess.clause !== "1=1"
+      ? tagListAccess.params ?? []
+      : [];
   const availableTagsRows = await all(
-    "SELECT name FROM tags ORDER BY name COLLATE NOCASE ASC",
+    `SELECT name FROM tags t${tagListClause} ORDER BY name COLLATE NOCASE ASC`,
+    tagListParams,
   );
   const availableTagNames = availableTagsRows.map((row) => row.name);
   const filtersForView = buildFiltersViewModel(filters, {
@@ -305,7 +356,7 @@ function parseDateParameter(raw) {
   return value;
 }
 
-function buildFilterSql(filters) {
+function buildFilterSql(filters, { allowedRoleSnowflakes } = {}) {
   const whereClauses = [];
   const params = [];
 
@@ -330,15 +381,27 @@ function buildFilterSql(filters) {
 
   if (filters.normalizedTags.length) {
     const placeholders = filters.normalizedTags.map(() => "?").join(", ");
+    const tagAccess = buildTagVisibilityClause({
+      alias: "t",
+      allowedRoleSnowflakes,
+    });
+    const tagAccessClause =
+      tagAccess.clause && tagAccess.clause !== "1=1"
+        ? ` AND ${tagAccess.clause}`
+        : "";
     whereClauses.push(`p.id IN (
       SELECT pt.page_id
       FROM page_tags pt
       JOIN tags t ON t.id = pt.tag_id
       WHERE LOWER(t.name) IN (${placeholders})
+        ${tagAccessClause}
       GROUP BY pt.page_id
       HAVING COUNT(DISTINCT t.id) = ${filters.normalizedTags.length}
     )`);
     params.push(...filters.normalizedTags);
+    if (tagAccessClause) {
+      params.push(...(tagAccess.params ?? []));
+    }
   }
 
   return { whereClauses, params };

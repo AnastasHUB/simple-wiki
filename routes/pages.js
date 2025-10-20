@@ -40,7 +40,12 @@ import {
   buildSessionUser,
   deriveRoleFlags,
 } from "../utils/roleFlags.js";
-import { assignRoleToUser, getDefaultUserRole, getRolesForUser } from "../utils/roleService.js";
+import {
+  assignRoleToUser,
+  getDefaultUserRole,
+  getRolesForUser,
+  listRoles,
+} from "../utils/roleService.js";
 import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
 import {
   fetchPaginatedPages,
@@ -51,7 +56,16 @@ import {
   countPages,
   countPagesByTag,
   buildPublishedFilter,
+  listPageVisibilityRoles,
+  setPageVisibilityRoles,
+  listTagVisibilityRoles,
+  setTagVisibilityRoles,
 } from "../utils/pageService.js";
+import {
+  collectAccessibleRoleSnowflakes,
+  normalizeRoleSelectionInput,
+  normalizeRoleSnowflake,
+} from "../utils/roleVisibility.js";
 import {
   validateCommentSubmission,
   validateCommentBody,
@@ -309,6 +323,51 @@ function buildStatusOptions(selectedStatus = "published", { canSchedule = false 
   }));
 }
 
+function buildRoleVisibilityOptions(availableRoles = [], selectedValues = []) {
+  const normalizedSelection = new Set(normalizeRoleSelectionInput(selectedValues));
+  return availableRoles
+    .map((role) => {
+      const snowflake = normalizeRoleSnowflake(role?.snowflake_id ?? role?.id ?? null);
+      if (!snowflake) {
+        return null;
+      }
+      const label = role?.name || snowflake;
+      return {
+        value: snowflake,
+        label,
+        selected: normalizedSelection.has(snowflake),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.label.localeCompare(b.label, "fr", { sensitivity: "base" }));
+}
+
+function collectRequestRoleSnowflakes(
+  req,
+  { bypassForAdmin = true } = {},
+) {
+  const isAdmin = Boolean(
+    req?.permissionFlags?.is_admin || req?.session?.user?.is_admin,
+  );
+  if (bypassForAdmin && isAdmin) {
+    return null;
+  }
+  return collectAccessibleRoleSnowflakes(req?.session?.user || null);
+}
+
+function filterValidRoleSelection(input, availableRoles = []) {
+  const normalized = normalizeRoleSelectionInput(input);
+  if (!normalized.length) {
+    return [];
+  }
+  const allowed = new Set(
+    availableRoles
+      .map((role) => normalizeRoleSnowflake(role?.snowflake_id ?? role?.id ?? null))
+      .filter(Boolean),
+  );
+  return normalized.filter((value) => allowed.has(value));
+}
+
 function buildEditorRenderContext(baseContext = {}) {
   const {
     page = null,
@@ -321,6 +380,8 @@ function buildEditorRenderContext(baseContext = {}) {
     canSchedule = false,
     formState = {},
     validationErrors = [],
+    availableVisibilityRoles = [],
+    selectedVisibilityRoles = [],
   } = baseContext;
 
   const fallbackStatus = page?.status || "published";
@@ -332,6 +393,17 @@ function buildEditorRenderContext(baseContext = {}) {
     typeof formState.publishAt === "string"
       ? formState.publishAt
       : formatPublishAtForInput(page?.publish_at || null);
+  const combinedVisibilitySelection = [
+    ...normalizeRoleSelectionInput(selectedVisibilityRoles),
+    ...normalizeRoleSelectionInput(formState.visibleRoles),
+  ];
+  const roleVisibilityOptions = buildRoleVisibilityOptions(
+    availableVisibilityRoles,
+    combinedVisibilitySelection,
+  );
+  const selectedRoleLabels = roleVisibilityOptions
+    .filter((option) => option.selected)
+    .map((option) => option.label);
 
   return {
     page,
@@ -346,6 +418,12 @@ function buildEditorRenderContext(baseContext = {}) {
     statusOptions: buildStatusOptions(selectedStatus, { canSchedule }),
     publishAtValue,
     validationErrors,
+    roleVisibility: {
+      enabled: roleVisibilityOptions.length > 0,
+      options: roleVisibilityOptions,
+      selectedLabels: selectedRoleLabels,
+      hasSelection: selectedRoleLabels.length > 0,
+    },
   };
 }
 
@@ -610,8 +688,9 @@ r.get(
   "/",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
+    const allowedRoleSnowflakes = collectRequestRoleSnowflakes(req);
 
-    const total = await countPages();
+    const total = await countPages({ allowedRoleSnowflakes });
     const paginationOptions = {
       pageParam: "page",
       perPageParam: "size",
@@ -630,6 +709,7 @@ r.get(
       ip,
       limit: pagination.perPage,
       offset,
+      allowedRoleSnowflakes,
     });
     const rows = rowsRaw.map(mapPreview);
 
@@ -751,6 +831,10 @@ r.get(
       permissions.is_admin || permissions.is_contributor,
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
+    const availableRoles = permissions.is_admin ? await listRoles() : [];
+    const selectedVisibilityRoles = permissions.is_admin
+      ? filterValidRoleSelection(req.body.visible_roles, availableRoles)
+      : [];
     if (!permissions.is_admin) {
       const ban = await resolveAccessBan({
         ip: req.clientIp,
@@ -774,6 +858,8 @@ r.get(
         authorName: defaultAuthor,
         canChooseStatus: canPublishDirectly,
         canSchedule: canPublishDirectly && canSchedulePages,
+        availableVisibilityRoles: availableRoles,
+        selectedVisibilityRoles: [],
       }),
     );
   }),
@@ -858,6 +944,7 @@ r.post(
         author: trimmedAuthorInput,
         status: req.body.status || "published",
         publishAt: publication.rawPublishAt,
+        visibleRoles: selectedVisibilityRoles,
       };
       return res.status(400).render(
         "edit",
@@ -872,6 +959,8 @@ r.post(
           canSchedule: canPublishDirectly && canSchedulePages,
           formState,
           validationErrors: publication.errors.map((error) => error.message),
+          availableVisibilityRoles: availableRoles,
+          selectedVisibilityRoles,
         }),
       );
     }
@@ -886,12 +975,15 @@ r.post(
         base,
         slug_id,
         title,
-        content,
-        authorToPersist,
-        publication.status,
-        publication.publishAt,
-      ],
-    );
+      content,
+      authorToPersist,
+      publication.status,
+      publication.publishAt,
+    ],
+  );
+    if (permissions.is_admin) {
+      await setPageVisibilityRoles(result.lastID, selectedVisibilityRoles);
+    }
     const tagNames = await upsertTags(result.lastID, tags);
     await recordRevision(
       result.lastID,
@@ -953,8 +1045,10 @@ r.get(
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
     const permissions = req.permissionFlags || {};
+    const allowedRoleSnowflakes = collectRequestRoleSnowflakes(req);
     const page = await fetchPageWithStats(req.params.slugid, ip, {
       includeUnpublished: Boolean(permissions.is_admin),
+      allowedRoleSnowflakes,
     });
     if (!page) return res.status(404).send("Page introuvable");
 
@@ -2180,6 +2274,10 @@ r.get(
       }
     }
     const uploads = permissions.is_admin ? await listUploads() : [];
+    const availableRoles = permissions.is_admin ? await listRoles() : [];
+    const selectedVisibilityRoles = permissions.is_admin
+      ? await listPageVisibilityRoles(page.id)
+      : [];
     const defaultAuthor =
       page.author || getUserDisplayName(req.session.user) || "";
     res.render(
@@ -2193,6 +2291,8 @@ r.get(
         authorName: defaultAuthor,
         canChooseStatus: canPublishDirectly,
         canSchedule: canPublishDirectly && canSchedulePages,
+        availableVisibilityRoles: availableRoles,
+        selectedVisibilityRoles,
       }),
     );
   }),
@@ -2217,6 +2317,10 @@ r.post(
       permissions.is_admin || permissions.is_contributor,
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
+    const availableRoles = permissions.is_admin ? await listRoles() : [];
+    const selectedVisibilityRoles = permissions.is_admin
+      ? filterValidRoleSelection(req.body.visible_roles, availableRoles)
+      : await listPageVisibilityRoles(page.id);
     if (!permissions.is_admin) {
       const tagNames = await fetchPageTags(page.id);
       const ban = await resolveAccessBan({
@@ -2291,6 +2395,7 @@ r.post(
         author: trimmedAuthorInput,
         status: req.body.status ?? page.status,
         publishAt: publication.rawPublishAt || formatPublishAtForInput(page.publish_at),
+        visibleRoles: selectedVisibilityRoles,
       };
       return res.status(400).render(
         "edit",
@@ -2305,6 +2410,8 @@ r.post(
           canSchedule: canPublishDirectly && canSchedulePages,
           formState,
           validationErrors: publication.errors.map((error) => error.message),
+          availableVisibilityRoles: availableRoles,
+          selectedVisibilityRoles,
         }),
       );
     }
@@ -2323,11 +2430,14 @@ r.post(
         content,
         base,
         authorToPersist,
-        publication.status,
-        publication.publishAt,
-        req.params.slugid,
-      ],
+      publication.status,
+      publication.publishAt,
+      req.params.slugid,
+    ],
     );
+    if (permissions.is_admin) {
+      await setPageVisibilityRoles(page.id, selectedVisibilityRoles);
+    }
     await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
     const tagNames = await upsertTags(page.id, tags);
     await recordRevision(page.id, title, content, req.session.user?.id || null);
@@ -2544,8 +2654,27 @@ r.get(
   "/tags/:name",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
+    const permissions = req.permissionFlags || {};
     const requestedTag = req.params.name;
     const tagName = requestedTag.toLowerCase();
+    const allowedRoleSnowflakes = collectRequestRoleSnowflakes(req);
+    const tagRow = await get(
+      "SELECT id, name FROM tags WHERE LOWER(name)=LOWER(?)",
+      [requestedTag],
+    );
+    const resolvedTagName = tagRow?.name || requestedTag;
+    const tagVisibilityRoles = tagRow
+      ? await listTagVisibilityRoles(tagRow.id)
+      : [];
+    const hasTagRestriction =
+      tagVisibilityRoles.length > 0 &&
+      allowedRoleSnowflakes !== null &&
+      tagVisibilityRoles.every((role) => !allowedRoleSnowflakes.includes(role));
+    if (tagRow && hasTagRestriction) {
+      return res.status(403).render("error", {
+        message: "Vous n'avez pas accès à ce tag.",
+      });
+    }
     const tagBan = await resolveAccessBan({
       ip,
       userId: getSessionUserId(req),
@@ -2555,7 +2684,9 @@ r.get(
     if (tagBan) {
       return res.status(403).render("banned", { ban: tagBan });
     }
-    const total = await countPagesByTag(requestedTag);
+    const total = await countPagesByTag(resolvedTagName, {
+      allowedRoleSnowflakes,
+    });
     const paginationOptions = {
       pageParam: "page",
       perPageParam: "size",
@@ -2564,20 +2695,81 @@ r.get(
     };
     const pagination = buildPaginationView(req, total, paginationOptions);
     const offset = (pagination.page - 1) * pagination.perPage;
+    const availableRoles = permissions.is_admin ? await listRoles() : [];
+    const tagVisibilityOptions = permissions.is_admin
+      ? buildRoleVisibilityOptions(availableRoles, tagVisibilityRoles)
+      : [];
+    const tagVisibilityContext = permissions.is_admin
+      ? {
+          enabled: true,
+          options: tagVisibilityOptions,
+          selectedLabels: tagVisibilityOptions
+            .filter((option) => option.selected)
+            .map((option) => option.label),
+          hasSelection: tagVisibilityOptions.some((option) => option.selected),
+        }
+      : {
+          enabled: false,
+          options: [],
+          selectedLabels: [],
+          hasSelection: false,
+        };
     const pagesRaw =
       total > 0
         ? await fetchPagesByTag({
-            tagName: requestedTag,
+            tagName: resolvedTagName,
             ip,
             limit: pagination.perPage,
             offset,
+            allowedRoleSnowflakes,
           })
         : [];
     const pages = pagesRaw.map((page) => ({
       ...page,
       excerpt: buildPreviewHtml(page.excerpt),
     }));
-    res.render("tags", { tag: requestedTag, pages, pagination, total });
+    res.render("tags", {
+      tag: resolvedTagName,
+      pages,
+      pagination,
+      total,
+      tagVisibility: tagVisibilityContext,
+      availableVisibilityRoles: permissions.is_admin ? availableRoles : [],
+      tagVisibilityRoles,
+    });
+  }),
+);
+
+r.post(
+  "/tags/:name/visibility",
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const requestedTag = req.params.name;
+    const tagRow = await get(
+      "SELECT id, name FROM tags WHERE LOWER(name)=LOWER(?)",
+      [requestedTag],
+    );
+    if (!tagRow) {
+      pushNotification(req, {
+        type: "error",
+        message: "Tag introuvable.",
+      });
+      return res.redirect(`/tags/${encodeURIComponent(requestedTag)}`);
+    }
+    const availableRoles = await listRoles();
+    const selectedVisibilityRoles = filterValidRoleSelection(
+      req.body.visible_roles,
+      availableRoles,
+    );
+    await setTagVisibilityRoles(tagRow.id, selectedVisibilityRoles);
+    const message = selectedVisibilityRoles.length
+      ? `Le tag « ${tagRow.name} » est désormais limité à ${selectedVisibilityRoles.length > 1 ? "ces rôles" : "ce rôle"}.`
+      : `Le tag « ${tagRow.name} » est désormais accessible à tous les rôles.`;
+    pushNotification(req, {
+      type: "success",
+      message,
+    });
+    return res.redirect(`/tags/${encodeURIComponent(tagRow.name)}`);
   }),
 );
 

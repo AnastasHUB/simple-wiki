@@ -1,6 +1,38 @@
 <% title = 'Tag · ' + tag; %>
 <h1>Tag: <%= tag %></h1>
 
+<% if (tagVisibility && tagVisibility.enabled) { %>
+  <form class="card mb-md" method="post" action="/tags/<%= encodeURIComponent(tag) %>/visibility">
+    <%- include('partials/csrf_field') %>
+    <header class="card-header">
+      <h2 class="card-title">Visibilité du tag</h2>
+    </header>
+    <div class="card-body">
+      <p class="mb-sm">
+        Sélectionnez les rôles autorisés à consulter ce tag. Laissez vide pour le rendre accessible à tout le monde.
+      </p>
+      <label class="mb-xs" for="tag-visible-roles">Rôles autorisés</label>
+      <select id="tag-visible-roles" name="visible_roles" multiple size="6">
+        <% (tagVisibility.options || []).forEach(function(option) { %>
+          <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
+            <%= option.label %>
+          </option>
+        <% }); %>
+      </select>
+      <% if (tagVisibility.hasSelection) { %>
+        <p class="editor-hint mt-xs">
+          Actuellement limité à&nbsp;: <strong><%= tagVisibility.selectedLabels.join(', ') %></strong>
+        </p>
+      <% } else { %>
+        <p class="editor-hint mt-xs">Accessible à tous les rôles.</p>
+      <% } %>
+    </div>
+    <footer class="card-footer">
+      <button class="btn primary" data-icon="💾" type="submit">Mettre à jour la visibilité</button>
+    </footer>
+  </form>
+<% } %>
+
 <div class="search-meta">
   <p><strong><%= total %></strong> article<%= total > 1 ? 's' : '' %> trouvé<%= total > 1 ? 's' : '' %> pour ce tag.</p>
   <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>

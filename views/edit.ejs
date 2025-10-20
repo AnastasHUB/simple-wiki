@@ -206,6 +206,21 @@
       <p class="form-error" data-schedule-error hidden></p>
     </div>
   <% } %>
+  <% if (roleVisibility && roleVisibility.enabled) { %>
+    <label for="page-visible-roles">Rôles autorisés à consulter l’article</label>
+    <select id="page-visible-roles" name="visible_roles" multiple size="6">
+      <% roleVisibility.options.forEach(function(option) { %>
+        <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
+          <%= option.label %>
+        </option>
+      <% }); %>
+    </select>
+    <% if (roleVisibility.hasSelection) { %>
+      <p class="editor-hint">Accessible uniquement par&nbsp;: <strong><%= roleVisibility.selectedLabels.join(', ') %></strong>.</p>
+    <% } else { %>
+      <p class="editor-hint">Laissez vide pour rendre l’article public pour tous les rôles.</p>
+    <% } %>
+  <% } %>
   <label>Tags (séparés par des virgules)</label>
   <input type="text" name="tags" value="<%= tagsFieldValue %>" />
   <div class="actions">

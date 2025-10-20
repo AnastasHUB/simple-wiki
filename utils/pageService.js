@@ -1,10 +1,76 @@
-import { all, get } from "../db.js";
+import { all, get, run } from "../db.js";
 import { formatIpProfileLabel, hashIp } from "./ipProfiles.js";
 import {
   resolveHandleColors,
   getHandleColor,
   getHandleProfile,
 } from "./userHandles.js";
+import { normalizeRoleSnowflake } from "./roleVisibility.js";
+
+function normalizeRoleSnowflakeList(values) {
+  if (values === null || values === undefined) {
+    return [];
+  }
+  const inputs =
+    values instanceof Set
+      ? Array.from(values)
+      : Array.isArray(values)
+        ? values
+        : [values];
+  const seen = new Set();
+  for (const value of inputs) {
+    const normalized = normalizeRoleSnowflake(value);
+    if (!normalized) {
+      continue;
+    }
+    seen.add(normalized);
+  }
+  return Array.from(seen);
+}
+
+function buildVisibilityClause({
+  joinTable,
+  entityColumn,
+  alias,
+  allowedRoleSnowflakes = null,
+}) {
+  const safeAlias = alias || "entity";
+  if (allowedRoleSnowflakes === null) {
+    return { clause: "1=1", params: [] };
+  }
+  const normalized = normalizeRoleSnowflakeList(allowedRoleSnowflakes);
+  const baseClause = `NOT EXISTS (SELECT 1 FROM ${joinTable} vis WHERE vis.${entityColumn} = ${safeAlias}.id)`;
+  if (normalized.length === 0) {
+    return { clause: baseClause, params: [] };
+  }
+  const placeholders = normalized.map(() => "?").join(", ");
+  const clause = `(${baseClause} OR EXISTS (SELECT 1 FROM ${joinTable} vis_allowed WHERE vis_allowed.${entityColumn} = ${safeAlias}.id AND vis_allowed.role_snowflake IN (${placeholders})))`;
+  return { clause, params: normalized };
+}
+
+export function buildPageVisibilityClause({
+  alias = "p",
+  allowedRoleSnowflakes = null,
+} = {}) {
+  return buildVisibilityClause({
+    joinTable: "page_role_visibility",
+    entityColumn: "page_id",
+    alias,
+    allowedRoleSnowflakes,
+  });
+}
+
+export function buildTagVisibilityClause({
+  alias = "t",
+  allowedRoleSnowflakes = null,
+} = {}) {
+  return buildVisibilityClause({
+    joinTable: "tag_role_visibility",
+    entityColumn: "tag_id",
+    alias,
+    allowedRoleSnowflakes,
+  });
+}
 
 const COMMENT_ATTACHMENT_IMAGE_PATTERN = /^image\/[^\s]+$/i;
 
@@ -37,13 +103,26 @@ export async function fetchRecentPages({
   limit = 3,
   excerptLength = 900,
   includeUnpublished = false,
+  allowedRoleSnowflakes = null,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
   const visibility = buildPublishedFilter({ includeUnpublished });
-  const params = [ip, since, limit];
-  if (visibility.params.length) {
-    params.push(...visibility.params);
+  const access = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const clauseParts = [];
+  const clauseParams = [];
+  if (visibility.clause && visibility.clause !== "1=1") {
+    clauseParts.push(visibility.clause);
+    clauseParams.push(...visibility.params);
   }
+  if (access.clause && access.clause !== "1=1") {
+    clauseParts.push(access.clause);
+    clauseParams.push(...access.params);
+  }
+  const accessClause = clauseParts.length ? ` AND ${clauseParts.join(" AND ")}` : "";
+  const params = [ip, since, ...clauseParams, limit];
   return all(
     `
     SELECT p.id,
@@ -64,8 +143,8 @@ export async function fetchRecentPages({
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE p.created_at >= ?
-       AND ${visibility.clause}
-     ORDER BY p.created_at DESC
+       ${accessClause}
+    ORDER BY p.created_at DESC
      LIMIT ?
   `,
     params,
@@ -78,13 +157,26 @@ export async function fetchPaginatedPages({
   offset,
   excerptLength = 1200,
   includeUnpublished = false,
+  allowedRoleSnowflakes = null,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
   const visibility = buildPublishedFilter({ includeUnpublished });
-  const params = [ip, limit, offset];
-  if (visibility.params.length) {
-    params.push(...visibility.params);
+  const access = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const clauseParts = [];
+  const clauseParams = [];
+  if (visibility.clause && visibility.clause !== "1=1") {
+    clauseParts.push(visibility.clause);
+    clauseParams.push(...visibility.params);
   }
+  if (access.clause && access.clause !== "1=1") {
+    clauseParts.push(access.clause);
+    clauseParams.push(...access.params);
+  }
+  const combinedClause = clauseParts.length ? clauseParts.join(" AND ") : "1=1";
+  const params = [ip, ...clauseParams, limit, offset];
   return all(
     `
     SELECT p.id,
@@ -104,7 +196,7 @@ export async function fetchPaginatedPages({
                        AND parent_snowflake_id IS NULL), 0) AS comment_count,
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
-     WHERE ${visibility.clause}
+     WHERE ${combinedClause}
      ORDER BY p.created_at DESC
      LIMIT ? OFFSET ?
   `,
@@ -112,12 +204,28 @@ export async function fetchPaginatedPages({
   );
 }
 
-export async function fetchPageWithStats(slugId, ip, { includeUnpublished = false } = {}) {
+export async function fetchPageWithStats(
+  slugId,
+  ip,
+  { includeUnpublished = false, allowedRoleSnowflakes = null } = {},
+) {
   const visibility = buildPublishedFilter({ includeUnpublished });
-  const params = [ip, slugId];
-  if (visibility.params.length) {
-    params.push(...visibility.params);
+  const access = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const clauseParts = [];
+  const clauseParams = [];
+  if (!includeUnpublished && visibility.clause && visibility.clause !== "1=1") {
+    clauseParts.push(visibility.clause);
+    clauseParams.push(...visibility.params);
   }
+  if (access.clause && access.clause !== "1=1") {
+    clauseParts.push(access.clause);
+    clauseParams.push(...access.params);
+  }
+  const clauseSql = clauseParts.length ? ` AND ${clauseParts.join(" AND ")}` : "";
+  const params = [ip, slugId, ...clauseParams];
   const page = await get(
     `
     SELECT p.*,
@@ -131,7 +239,7 @@ export async function fetchPageWithStats(slugId, ip, { includeUnpublished = fals
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE slug_id = ?
-       ${includeUnpublished ? "" : `AND ${visibility.clause}`}
+      ${clauseSql}
   `,
     params,
   );
@@ -421,8 +529,34 @@ export async function fetchPageComments(pageId, options = {}) {
   return roots;
 }
 
-export async function countPagesByTag(tagName, { includeUnpublished = false } = {}) {
+export async function countPagesByTag(
+  tagName,
+  { includeUnpublished = false, allowedRoleSnowflakes = null } = {},
+) {
   const visibility = buildPublishedFilter({ includeUnpublished });
+  const pageAccess = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const tagAccess = buildTagVisibilityClause({
+    alias: "t",
+    allowedRoleSnowflakes,
+  });
+  const clauseParts = [];
+  const clauseParams = [];
+  if (visibility.clause && visibility.clause !== "1=1") {
+    clauseParts.push(visibility.clause);
+    clauseParams.push(...visibility.params);
+  }
+  if (pageAccess.clause && pageAccess.clause !== "1=1") {
+    clauseParts.push(pageAccess.clause);
+    clauseParams.push(...pageAccess.params);
+  }
+  if (tagAccess.clause && tagAccess.clause !== "1=1") {
+    clauseParts.push(tagAccess.clause);
+    clauseParams.push(...tagAccess.params);
+  }
+  const clauseSql = clauseParts.length ? ` AND ${clauseParts.join(" AND ")}` : "";
   const row = await get(
     `
     SELECT COUNT(DISTINCT p.id) AS total
@@ -430,9 +564,9 @@ export async function countPagesByTag(tagName, { includeUnpublished = false } = 
       JOIN page_tags pt ON p.id = pt.page_id
       JOIN tags t ON t.id = pt.tag_id
      WHERE t.name = ?
-       AND ${visibility.clause}
+       ${clauseSql}
   `,
-    visibility.params.length ? [tagName, ...visibility.params] : [tagName],
+    [tagName, ...clauseParams],
   );
   return Number(row?.total ?? 0);
 }
@@ -444,9 +578,33 @@ export async function fetchPagesByTag({
   offset,
   excerptLength = 1200,
   includeUnpublished = false,
+  allowedRoleSnowflakes = null,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
   const visibility = buildPublishedFilter({ includeUnpublished });
+  const pageAccess = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const tagAccess = buildTagVisibilityClause({
+    alias: "t",
+    allowedRoleSnowflakes,
+  });
+  const clauseParts = [];
+  const clauseParams = [];
+  if (visibility.clause && visibility.clause !== "1=1") {
+    clauseParts.push(visibility.clause);
+    clauseParams.push(...visibility.params);
+  }
+  if (pageAccess.clause && pageAccess.clause !== "1=1") {
+    clauseParts.push(pageAccess.clause);
+    clauseParams.push(...pageAccess.params);
+  }
+  if (tagAccess.clause && tagAccess.clause !== "1=1") {
+    clauseParts.push(tagAccess.clause);
+    clauseParams.push(...tagAccess.params);
+  }
+  const clauseSql = clauseParts.length ? ` AND ${clauseParts.join(" AND ")}` : "";
   let query = `
     SELECT p.id,
            p.snowflake_id,
@@ -468,12 +626,9 @@ export async function fetchPagesByTag({
       JOIN page_tags pt ON p.id = pt.page_id
       JOIN tags t ON t.id = pt.tag_id
      WHERE t.name = ?
-       AND ${visibility.clause}
+       ${clauseSql}
      ORDER BY p.updated_at DESC`;
-  const params = [ip, tagName];
-  if (visibility.params.length) {
-    params.push(...visibility.params);
-  }
+  const params = [ip, tagName, ...clauseParams];
 
   const safeLimit = Number.isInteger(limit) && limit > 0 ? limit : null;
   const safeOffset = Number.isInteger(offset) && offset >= 0 ? offset : null;
@@ -493,12 +648,89 @@ export async function fetchPagesByTag({
   return all(query, params);
 }
 
-export async function countPages({ includeUnpublished = false } = {}) {
+export async function countPages({
+  includeUnpublished = false,
+  allowedRoleSnowflakes = null,
+} = {}) {
   const visibility = buildPublishedFilter({ includeUnpublished });
-  const params = visibility.params.length ? visibility.params : [];
+  const access = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes,
+  });
+  const clauseParts = [];
+  const clauseParams = [];
+  if (visibility.clause && visibility.clause !== "1=1") {
+    clauseParts.push(visibility.clause);
+    clauseParams.push(...visibility.params);
+  }
+  if (access.clause && access.clause !== "1=1") {
+    clauseParts.push(access.clause);
+    clauseParams.push(...access.params);
+  }
+  const combinedClause = clauseParts.length ? clauseParts.join(" AND ") : "1=1";
   const row = await get(
-    `SELECT COUNT(*) AS total FROM pages p WHERE ${visibility.clause}`,
-    params,
+    `SELECT COUNT(*) AS total FROM pages p WHERE ${combinedClause}`,
+    clauseParams,
   );
   return row?.total || 0;
+}
+
+export async function listPageVisibilityRoles(pageId) {
+  if (!pageId) {
+    return [];
+  }
+  const rows = await all(
+    "SELECT role_snowflake FROM page_role_visibility WHERE page_id=? ORDER BY role_snowflake ASC",
+    [pageId],
+  );
+  return rows
+    .map((row) => normalizeRoleSnowflake(row?.role_snowflake))
+    .filter(Boolean);
+}
+
+export async function setPageVisibilityRoles(pageId, roleSnowflakes = []) {
+  if (!pageId) {
+    return;
+  }
+  const normalized = normalizeRoleSnowflakeList(roleSnowflakes);
+  await run("DELETE FROM page_role_visibility WHERE page_id=?", [pageId]);
+  if (!normalized.length) {
+    return;
+  }
+  for (const snowflake of normalized) {
+    await run(
+      "INSERT OR IGNORE INTO page_role_visibility(page_id, role_snowflake) VALUES(?, ?)",
+      [pageId, snowflake],
+    );
+  }
+}
+
+export async function listTagVisibilityRoles(tagId) {
+  if (!tagId) {
+    return [];
+  }
+  const rows = await all(
+    "SELECT role_snowflake FROM tag_role_visibility WHERE tag_id=? ORDER BY role_snowflake ASC",
+    [tagId],
+  );
+  return rows
+    .map((row) => normalizeRoleSnowflake(row?.role_snowflake))
+    .filter(Boolean);
+}
+
+export async function setTagVisibilityRoles(tagId, roleSnowflakes = []) {
+  if (!tagId) {
+    return;
+  }
+  const normalized = normalizeRoleSnowflakeList(roleSnowflakes);
+  await run("DELETE FROM tag_role_visibility WHERE tag_id=?", [tagId]);
+  if (!normalized.length) {
+    return;
+  }
+  for (const snowflake of normalized) {
+    await run(
+      "INSERT OR IGNORE INTO tag_role_visibility(tag_id, role_snowflake) VALUES(?, ?)",
+      [tagId, snowflake],
+    );
+  }
 }
