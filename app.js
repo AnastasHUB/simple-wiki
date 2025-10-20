@@ -25,14 +25,12 @@ import {
 } from "./utils/roleFlags.js";
 import { getSiteSettings } from "./utils/settingsService.js";
 import { setupLiveStatsWebSocket } from "./utils/liveStatsWebsocket.js";
-import { setupReactionWebSocket } from "./utils/reactionWebsocket.js";
 import { isCaptchaAvailable } from "./utils/captcha.js";
 import { createRateLimiter } from "./middleware/rateLimit.js";
 import { csrfProtection } from "./middleware/csrf.js";
 import { startScheduledPublicationJob } from "./utils/pageScheduler.js";
 import { buildFeedExcerpt, buildFeedMarkdown, buildRssFeed } from "./utils/rssFeed.js";
 import { cookieConsentMiddleware } from "./middleware/cookieConsent.js";
-import { listReactionEmoji } from "./utils/reactionOptions.js";
 import { ensureAchievementBadges } from "./utils/achievementService.js";
 import { listBadgesForUserId } from "./utils/badgeService.js";
 import { reconcileUserPremiumStatus } from "./utils/premiumService.js";
@@ -185,13 +183,6 @@ app.use(async (req, res, next) => {
     res.locals.notifications = consumeNotifications(req);
     res.locals.canViewIpProfile = Boolean(getClientIp(req));
   res.locals.registrationEnabled = isCaptchaAvailable();
-    try {
-      const emoji = await listReactionEmoji();
-      res.locals.customReactionEmoji = emoji;
-    } catch (reactionErr) {
-      console.error("Unable to load reaction emoji", reactionErr);
-      res.locals.customReactionEmoji = [];
-    }
     const hasAdminActionPermission = currentUser
       ? ADMIN_ACTION_FLAGS.some((flag) => currentUser[flag])
       : false;
@@ -332,7 +323,6 @@ const server = app.listen(port, () =>
 );
 
 setupLiveStatsWebSocket(server, sessionMiddleware);
-setupReactionWebSocket(server, sessionMiddleware);
 
 const SOCKET_HANDLED_FLAG = Symbol.for("simpleWiki.websocketHandled");
 server.on("upgrade", (request, socket) => {

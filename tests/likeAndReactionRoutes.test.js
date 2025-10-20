@@ -146,7 +146,6 @@ function buildJsonRequest({
 }
 
 const likeHandler = findRouteHandler("/wiki/:slugid/like");
-const reactionHandler = findRouteHandler("/wiki/:slugid/reactions");
 
 test("la route des favoris ignore les erreurs de webhook", async (t) => {
   await initDb();
@@ -344,72 +343,4 @@ test("une restriction globale empêche un compte d'ajouter un favori", async (t)
   assert.equal(response.body.message, "Accès interdit : Sanction globale");
   assert.ok(Array.isArray(response.body.notifications));
   assert.ok(!response.body.redirect);
-});
-
-test("la route des réactions gère un échec de webhook", async (t) => {
-  await initDb();
-  setBotDetectionFetchImplementation(async () => ({
-    ok: true,
-    json: async () => ({ client: { type: "browser" } }),
-  }));
-  clearBotDetectionCache();
-
-  t.after(() => {
-    setBotDetectionFetchImplementation(null);
-    clearBotDetectionCache();
-  });
-
-  const slug = `reaction-${Date.now()}`;
-  const snowflake = generateSnowflake();
-  await run(
-    `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author)
-     VALUES(?,?,?,?,?,?)`,
-    [snowflake, slug, slug, `Titre ${slug}`, "Contenu", "Auteur"],
-  );
-  const page = await get("SELECT id, slug_id FROM pages WHERE slug_id=?", [slug]);
-
-  t.after(async () => {
-    await run("DELETE FROM page_reactions WHERE page_id=?", [page.id]);
-    await run("DELETE FROM pages WHERE id=?", [page.id]);
-  });
-
-  const errors = [];
-  const request = buildJsonRequest({
-    slug,
-    body: { reaction: "heart" },
-    appLocals: {
-      sendAdminEvent: async () => {
-        throw new Error("Webhook indisponible");
-      },
-      logger: {
-        error: (...args) => {
-          errors.push(args);
-        },
-      },
-    },
-  });
-
-  const response = await dispatch(reactionHandler, request);
-
-  assert.equal(response.statusCode, 200);
-  assert.equal(response.body.ok, true);
-  assert.equal(response.body.target, "page");
-  assert.equal(response.body.slug, slug);
-  assert.equal(response.body.reaction, "heart");
-  assert.equal(response.body.added, true);
-  assert.equal(errors.length, 1);
-  assert.match(String(errors[0][0]), /Failed to send admin event: Reaction added/);
-
-  const reactionSummary = response.body.reactions.find(
-    (entry) => entry.key === "heart",
-  );
-  assert.ok(reactionSummary, "La réaction heart doit être présente");
-  assert.equal(reactionSummary.count, 1);
-  assert.equal(reactionSummary.reacted, true);
-
-  const totals = await get(
-    "SELECT COUNT(*) AS totalReactions FROM page_reactions WHERE page_id=?",
-    [page.id],
-  );
-  assert.equal(totals.totalReactions, 1);
 });
