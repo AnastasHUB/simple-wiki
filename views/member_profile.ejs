@@ -47,7 +47,28 @@
             }) %>
           </span>
         </p>
-        <% if (profile.roleName) { %>
+        <% const hasRoles = Array.isArray(profile.roles) && profile.roles.length; %>
+        <% if (hasRoles) { %>
+          <div class="profile-public__roles" aria-label="Rôles">
+            <span class="profile-public__roles-label">
+              <%= profile.roles.length > 1 ? 'Rôles :' : 'Rôle :' %>
+            </span>
+            <ul class="profile-public__roles-list">
+              <% profile.roles.forEach(function (role) { %>
+                <% if (!role || !role.name) { return; } %>
+                <% const roleColor = role.color && role.color.hasColor ? role.color : null; %>
+                <% const textClasses = ['profile-public__role-chip-text']; %>
+                <% const textStyle = roleColor ? roleColor.style : ''; %>
+                <% if (roleColor) { textClasses.push('role-colored-text'); if (roleColor.className) { textClasses.push(roleColor.className); } } %>
+                <li class="profile-public__roles-item">
+                  <span class="profile-public__role-chip">
+                    <span class="<%= textClasses.join(' ') %>" style="<%= textStyle %>"><%= role.name %></span>
+                  </span>
+                </li>
+              <% }) %>
+            </ul>
+          </div>
+        <% } else if (profile.roleName) { %>
           <p class="profile-public__role">Rôle&nbsp;: <strong><%= profile.roleName %></strong></p>
         <% } %>
         <% if (profile.showBadges && Array.isArray(profile.badges) && profile.badges.length) { %>

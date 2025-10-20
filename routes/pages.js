@@ -1407,6 +1407,20 @@ r.get(
     const handleProfile =
       getHandleProfile(user.display_name, handleMap) ||
       getHandleProfile(user.username, handleMap);
+    const roleAssignments = await getRolesForUser(user.id);
+    const resolvedRoles = roleAssignments
+      .map((role) => {
+        if (!role?.name) {
+          return null;
+        }
+        return {
+          name: role.name,
+          color: role.colorPresentation || null,
+        };
+      })
+      .filter(Boolean);
+    const primaryRole = resolvedRoles[0] || null;
+    const heroRoleColor = handleProfile?.color || primaryRole?.color || null;
 
     const authorHandles = [user.username];
     const trimmedDisplayName =
@@ -1462,8 +1476,9 @@ r.get(
         avatarUrl: user.avatar_url || "",
         bannerUrl: user.banner_url || "",
         bio: user.bio || "",
-        roleName: user.role_name || null,
-        roleColor: handleProfile?.color || null,
+        roleName: primaryRole?.name || user.role_name || null,
+        roleColor: heroRoleColor,
+        roles: resolvedRoles,
         totalPages: showStats ? Number(totalPagesRow?.total || 0) : 0,
         recentPages,
         badges,

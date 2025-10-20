@@ -1323,6 +1323,48 @@ textarea {
   font-size: 0.95rem;
 }
 
+.profile-public__roles {
+  margin: 0.35rem 0 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.75rem;
+  align-items: center;
+  font-size: 0.95rem;
+}
+
+.profile-public__roles-label {
+  font-weight: 600;
+  color: var(--color-text-muted);
+}
+
+.profile-public__roles-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+}
+
+.profile-public__roles-item {
+  margin: 0;
+  padding: 0;
+}
+
+.profile-public__role-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(173, 209, 255, 0.35);
+  backdrop-filter: blur(6px);
+}
+
+.profile-public__role-chip-text {
+  font-weight: 600;
+}
+
 .profile-public__badges {
   margin: 0.6rem 0 0;
   padding: 0;
@@ -2577,6 +2619,31 @@ input[type="radio"] {
   font-size: 0.9rem;
 }
 
+
+.role-sidebar-footer {
+  margin-top: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.role-sidebar-status {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--color-text-muted);
+}
+
+.role-sidebar-status.is-pending {
+  color: var(--color-warning);
+}
+
+.role-sidebar-status.is-success {
+  color: var(--color-success);
+}
+
+.role-sidebar-status.is-error {
+  color: var(--color-danger);
+}
 
 .editor-status {
   margin: 0.25rem 0 0.5rem;
