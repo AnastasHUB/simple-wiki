@@ -2,6 +2,7 @@ import { Router } from "express";
 import { all, get, isFtsAvailable } from "../db.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import { buildPaginationView } from "../utils/pagination.js";
+import { buildPublishedFilter } from "../utils/pageService.js";
 
 const r = Router();
 
@@ -64,6 +65,9 @@ r.get("/search", async (req, res) => {
     ? ` AND ${filterSql.whereClauses.join(" AND ")}`
     : "";
   const filterParams = filterSql.params;
+  const visibility = buildPublishedFilter({ alias: "p" });
+  const visibilityClause = visibility.clause ? ` AND ${visibility.clause}` : "";
+  const visibilityParams = visibility.params ?? [];
 
   const ftsPossible = isFtsAvailable();
   let mode = "fts";
@@ -87,10 +91,10 @@ r.get("/search", async (req, res) => {
           FROM pages_fts
           JOIN pages p ON p.id = pages_fts.rowid
          WHERE pages_fts MATCH ?
-           AND p.status = 'published'
+           ${visibilityClause}
           ${filterClause}
         `,
-        [matchQuery, ...filterParams],
+        [matchQuery, ...visibilityParams, ...filterParams],
       );
       pagination = buildPaginationView(
         req,
@@ -117,12 +121,18 @@ r.get("/search", async (req, res) => {
         FROM pages_fts
         JOIN pages p ON p.id = pages_fts.rowid
         WHERE pages_fts MATCH ?
-          AND p.status = 'published'
+          ${visibilityClause}
           ${filterClause}
         ORDER BY ${orderClause}
         LIMIT ? OFFSET ?
       `,
-        [matchQuery, ...filterParams, pagination.perPage, offset],
+        [
+          matchQuery,
+          ...visibilityParams,
+          ...filterParams,
+          pagination.perPage,
+          offset,
+        ],
       );
       rows = ftsRows.map((row) => {
         const numericScore = Number(row.score);
@@ -150,10 +160,10 @@ r.get("/search", async (req, res) => {
       WHERE (p.title   LIKE '%'||?||'%'
          OR p.content LIKE '%'||?||'%'
          OR t.name    LIKE '%'||?||'%')
-        AND p.status = 'published'
+        ${visibilityClause}
         ${filterClause}
     `,
-      [q, q, q, ...filterParams],
+      [q, q, q, ...visibilityParams, ...filterParams],
     );
     pagination = buildPaginationView(
       req,
@@ -180,12 +190,20 @@ r.get("/search", async (req, res) => {
       WHERE (p.title   LIKE '%'||?||'%'
          OR p.content LIKE '%'||?||'%'
          OR t.name    LIKE '%'||?||'%')
-        AND p.status = 'published'
+        ${visibilityClause}
         ${filterClause}
       ORDER BY ${orderClause}
       LIMIT ? OFFSET ?
     `,
-      [q, q, q, ...filterParams, pagination.perPage, offset],
+      [
+        q,
+        q,
+        q,
+        ...visibilityParams,
+        ...filterParams,
+        pagination.perPage,
+        offset,
+      ],
     );
     rows = fallbackRows.map((row) => ({ ...row, snippet: null, score: null }));
   }

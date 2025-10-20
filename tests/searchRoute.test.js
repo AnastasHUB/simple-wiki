@@ -93,7 +93,15 @@ async function ensureTag(name) {
   return inserted.id;
 }
 
-async function createPageFixture({ slug, title, content, author, publishAt, tags }) {
+async function createPageFixture({
+  slug,
+  title,
+  content,
+  author,
+  publishAt,
+  tags,
+  status = "published",
+}) {
   await run(
     `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at, created_at, updated_at)
      VALUES(?,?,?,?,?,?,?,?,?,?)`,
@@ -104,7 +112,7 @@ async function createPageFixture({ slug, title, content, author, publishAt, tags
       title,
       content,
       author,
-      "published",
+      status,
       publishAt,
       publishAt,
       publishAt,
@@ -273,4 +281,39 @@ test("la recherche supporte filtrage et tri", async (t) => {
     assert.equal(res.data.filters.sortKey, "published_asc");
     assert.equal(res.data.pagination.totalItems, 3);
   });
+});
+
+test("les pages planifiées déjà éligibles sont visibles avant l'exécution du scheduler", async (t) => {
+  const suffix = `${Date.now().toString(36)}${Math.round(Math.random() * 1000).toString(36)}`;
+  const keyword = `schedule${suffix}`;
+  const slug = `scheduled-${suffix}`;
+  const publishAt = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const author = `Scheduler-${suffix}`;
+
+  const pageId = await createPageFixture({
+    slug,
+    title: `Planification ${keyword}`,
+    content: `Contenu ${keyword} déjà disponible`,
+    author,
+    publishAt,
+    tags: [],
+    status: "scheduled",
+  });
+
+  t.after(async () => {
+    await cleanupFixtures({ pageIds: [pageId], tagNames: [] });
+  });
+
+  const res = await dispatchSearchRoute(
+    buildReq({
+      q: keyword,
+    }),
+  );
+
+  assert.equal(res.view, "search");
+  const slugs = res.data.rows.map((row) => row.slug_id);
+  assert.ok(
+    slugs.includes(slug),
+    "La page planifiée dont la date est passée devrait apparaître dans les résultats",
+  );
 });
