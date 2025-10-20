@@ -230,20 +230,113 @@
   </div>
 </section>
 
-<section class="card stats-trend-card">
-  <h2>Vues quotidiennes récentes</h2>
-  <% if (!viewTrends.length) { %>
-    <p>Aucune donnée de vues quotidiennes n'est encore disponible.</p>
-  <% } else { %>
-    <ul class="stats-trend-list">
-      <% viewTrends.forEach((row) => { %>
-        <li>
-          <span><%= row.day %></span>
-          <strong><%= row.views %></strong>
-        </li>
-      <% }) %>
-    </ul>
-  <% } %>
+<%
+  const trendsRangeLabel =
+    viewTrendsRange?.from && viewTrendsRange?.to
+      ? `${new Date(viewTrendsRange.from).toLocaleDateString('fr-FR')} – ${new Date(viewTrendsRange.to).toLocaleDateString('fr-FR')}`
+      : "Période indisponible";
+  const trendsTotalLabel = typeof viewTrendsTotal === 'number'
+    ? viewTrendsTotal.toLocaleString('fr-FR')
+    : '0';
+  const trendsUpdatedLabel = viewTrendsGeneratedAt
+    ? new Date(viewTrendsGeneratedAt).toLocaleString('fr-FR')
+    : '—';
+%>
+<section
+  class="card stats-trends-card"
+  data-view-trends
+  data-endpoint="/admin/stats/trends.json"
+  data-initial-range="<%= viewTrendsRangeDays %>"
+>
+  <div class="stats-trends-header">
+    <div>
+      <h2 class="mt-0">Tendance des vues quotidiennes</h2>
+      <p class="text-muted text-sm">
+        Visualisez l'évolution des vues agrégées et comparez rapidement les périodes clés.
+      </p>
+    </div>
+    <div class="stats-trends-actions" role="group" aria-label="Changer la période analysée">
+      <button
+        type="button"
+        class="stats-trends-range-btn <%= viewTrendsRangeDays === 7 ? 'is-active' : '' %>"
+        data-trend-range="7"
+        aria-pressed="<%= viewTrendsRangeDays === 7 ? 'true' : 'false' %>"
+      >
+        7 jours
+      </button>
+      <button
+        type="button"
+        class="stats-trends-range-btn <%= viewTrendsRangeDays === 14 ? 'is-active' : '' %>"
+        data-trend-range="14"
+        aria-pressed="<%= viewTrendsRangeDays === 14 ? 'true' : 'false' %>"
+      >
+        14 jours
+      </button>
+      <button
+        type="button"
+        class="stats-trends-range-btn <%= viewTrendsRangeDays === 30 ? 'is-active' : '' %>"
+        data-trend-range="30"
+        aria-pressed="<%= viewTrendsRangeDays === 30 ? 'true' : 'false' %>"
+      >
+        30 jours
+      </button>
+    </div>
+  </div>
+  <div class="stats-trends-body">
+    <p class="stats-trends-status text-sm" data-chart-status aria-live="polite">
+      Chargement des tendances…
+    </p>
+    <div class="stats-trends-chart" data-chart-region aria-hidden="true"></div>
+    <div class="stats-trends-meta">
+      <dl>
+        <div>
+          <dt>Période affichée</dt>
+          <dd data-chart-range-label><%= trendsRangeLabel %></dd>
+        </div>
+        <div>
+          <dt>Total des vues</dt>
+          <dd data-chart-total><%= trendsTotalLabel %></dd>
+        </div>
+        <div>
+          <dt>Dernière mise à jour</dt>
+          <dd data-chart-generated-at><%= trendsUpdatedLabel %></dd>
+        </div>
+      </dl>
+    </div>
+    <div class="stats-trends-fallback" data-chart-fallback>
+      <% if (!viewTrends.length) { %>
+        <p>Aucune donnée de vues quotidiennes n'est encore disponible.</p>
+      <% } else { %>
+        <ul class="stats-trend-list">
+          <% viewTrends.forEach((row) => { %>
+            <li>
+              <span><%= row.date || row.day %></span>
+              <strong><%= row.views %></strong>
+            </li>
+          <% }) %>
+        </ul>
+      <% } %>
+    </div>
+    <table class="sr-only" data-chart-table>
+      <caption>Tendance des vues quotidiennes</caption>
+      <thead>
+        <tr>
+          <th scope="col">Jour</th>
+          <th scope="col">Nombre de vues</th>
+        </tr>
+      </thead>
+      <tbody data-chart-table-body>
+        <% if (viewTrends.length) { %>
+          <% viewTrends.forEach((row) => { %>
+            <tr>
+              <th scope="row"><%= row.date || row.day %></th>
+              <td><%= row.views %></td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
 </section>
 
 <section class="stats-activity-grid">
@@ -564,3 +657,5 @@
     <% } %>
   </section>
 <% }) %>
+
+<script defer src="/public/admin-stats.js"></script>
