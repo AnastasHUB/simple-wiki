@@ -8,6 +8,7 @@ import {
   setBotDetectionFetchImplementation,
   clearBotDetectionCache,
 } from "../utils/ip.js";
+import { banUserAction } from "../utils/userActionBans.js";
 
 function findRouteHandler(path, method = "post") {
   const layer = pagesRouter.stack.find((entry) => {
@@ -213,6 +214,136 @@ test("la route des favoris ignore les erreurs de webhook", async (t) => {
   assert.equal(total.totalLikes, 1);
   assert.equal(errors.length, 1);
   assert.match(String(errors[0][0]), /Failed to send admin event: Like added/);
+});
+
+test("une restriction utilisateur empêche d'ajouter un favori", async (t) => {
+  await initDb();
+  setBotDetectionFetchImplementation(async () => ({
+    ok: true,
+    json: async () => ({ client: { type: "browser" } }),
+  }));
+  clearBotDetectionCache();
+
+  t.after(() => {
+    setBotDetectionFetchImplementation(null);
+    clearBotDetectionCache();
+  });
+
+  const slug = `like-ban-${Date.now()}`;
+  const pageSnowflake = generateSnowflake();
+  await run(
+    `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author)
+     VALUES(?,?,?,?,?,?)`,
+    [pageSnowflake, slug, slug, `Titre ${slug}`, "Contenu", "Auteur"],
+  );
+  const page = await get("SELECT id FROM pages WHERE slug_id=?", [slug]);
+
+  const userSnowflake = generateSnowflake();
+  const username = `User${Date.now()}`;
+  await run(
+    `INSERT INTO users(snowflake_id, username, password)
+     VALUES(?,?,?)`,
+    [userSnowflake, username, "x"],
+  );
+  const user = await get("SELECT id FROM users WHERE username=?", [username]);
+
+  t.after(async () => {
+    await run("DELETE FROM user_action_bans WHERE user_id=?", [user.id]);
+    await run("DELETE FROM likes WHERE page_id=?", [page.id]);
+    await run("DELETE FROM pages WHERE id=?", [page.id]);
+    await run("DELETE FROM users WHERE id=?", [user.id]);
+  });
+
+  await banUserAction({
+    userId: user.id,
+    scope: "action",
+    value: "like",
+    reason: "Test",
+  });
+
+  const request = buildJsonRequest({
+    slug,
+    sessionUser: { id: user.id, username },
+    appLocals: {
+      sendAdminEvent: async () => {},
+    },
+  });
+
+  const response = await dispatch(likeHandler, request);
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.ok, false);
+  assert.ok(response.body.ban);
+  assert.equal(response.body.ban.subject, "user");
+  assert.equal(response.body.message, "Action interdite : Test");
+  assert.ok(Array.isArray(response.body.notifications));
+  const notificationMessage = response.body.notifications[0]?.message || "";
+  assert.ok(!notificationMessage.includes("demande de déban"));
+  assert.ok(!response.body.redirect);
+});
+
+test("une restriction globale empêche un compte d'ajouter un favori", async (t) => {
+  await initDb();
+  setBotDetectionFetchImplementation(async () => ({
+    ok: true,
+    json: async () => ({ client: { type: "browser" } }),
+  }));
+  clearBotDetectionCache();
+
+  t.after(() => {
+    setBotDetectionFetchImplementation(null);
+    clearBotDetectionCache();
+  });
+
+  const slug = `global-like-${Date.now()}`;
+  const pageSnowflake = generateSnowflake();
+  await run(
+    `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author)
+     VALUES(?,?,?,?,?,?)`,
+    [pageSnowflake, slug, slug, `Titre ${slug}`, "Contenu", "Auteur"],
+  );
+  const page = await get("SELECT id FROM pages WHERE slug_id=?", [slug]);
+
+  const userSnowflake = generateSnowflake();
+  const username = `User${Date.now()}-global`;
+  await run(
+    `INSERT INTO users(snowflake_id, username, password)
+     VALUES(?,?,?)`,
+    [userSnowflake, username, "x"],
+  );
+  const user = await get("SELECT id FROM users WHERE username=?", [username]);
+
+  t.after(async () => {
+    await run("DELETE FROM user_action_bans WHERE user_id=?", [user.id]);
+    await run("DELETE FROM likes WHERE page_id=?", [page.id]);
+    await run("DELETE FROM pages WHERE id=?", [page.id]);
+    await run("DELETE FROM users WHERE id=?", [user.id]);
+  });
+
+  await banUserAction({
+    userId: user.id,
+    scope: "global",
+    reason: "Sanction globale",
+  });
+
+  const request = buildJsonRequest({
+    slug,
+    sessionUser: { id: user.id, username },
+    appLocals: {
+      sendAdminEvent: async () => {},
+    },
+  });
+
+  const response = await dispatch(likeHandler, request);
+
+  assert.equal(response.statusCode, 403);
+  assert.equal(response.body.ok, false);
+  assert.ok(response.body.ban);
+  assert.equal(response.body.ban.subject, "user");
+  assert.equal(response.body.ban.scope, "global");
+  assert.equal(response.body.message, "Accès interdit : Sanction globale");
+  assert.ok(Array.isArray(response.body.notifications));
+  assert.ok(!response.body.redirect);
 });
 
 test("la route des réactions gère un échec de webhook", async (t) => {

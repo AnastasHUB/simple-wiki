@@ -26,6 +26,13 @@ import {
 } from "../utils/uploads.js";
 import { banIp, liftBan, getBan, deleteBan } from "../utils/ipBans.js";
 import {
+  banUserAction,
+  deleteUserActionBan,
+  getActiveUserActionBan,
+  getUserActionBanWithUser,
+  liftUserActionBan,
+} from "../utils/userActionBans.js";
+import {
   countIpProfiles,
   fetchIpProfiles,
   countIpProfilesForReview,
@@ -168,6 +175,16 @@ const upload = multer({
 });
 
 const r = Router();
+
+const ALLOWED_USER_RESTRICTION_TYPES = new Set([
+  "global",
+  "view",
+  "comment",
+  "like",
+  "react",
+  "contribute",
+  "tag",
+]);
 
 const ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
 const ROLE_FLAG_VALUE_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
@@ -979,6 +996,67 @@ r.get(
     );
   }
 
+  let userActionBans = [];
+  let userActionPagination = decoratePagination(
+    req,
+    buildPagination(req, 0, {
+      pageParam: "userActionPage",
+      perPageParam: "userActionPerPage",
+    }),
+    {
+      pageParam: "userActionPage",
+      perPageParam: "userActionPerPage",
+    },
+  );
+
+  if (canManageUserBans) {
+    const userBanFilters = ["uab.lifted_at IS NULL"];
+    const userBanParams = [];
+    if (like) {
+      userBanFilters.push(
+        "(uab.snowflake_id LIKE ? OR LOWER(COALESCE(u.username,'')) LIKE LOWER(?) OR uab.scope LIKE ? OR COALESCE(uab.value,'') LIKE ? OR COALESCE(uab.reason,'') LIKE ?)",
+      );
+      userBanParams.push(like, like, like, like, like);
+    }
+
+    const userBanCountRow = await get(
+      `SELECT COUNT(*) AS total
+         FROM user_action_bans uab
+         LEFT JOIN users u ON u.id = uab.user_id
+        WHERE ${userBanFilters.join(" AND ")}`,
+      userBanParams,
+    );
+
+    const userBanBase = buildPagination(
+      req,
+      Number(userBanCountRow?.total ?? 0),
+      {
+        pageParam: "userActionPage",
+        perPageParam: "userActionPerPage",
+      },
+    );
+    const userBanOffset = (userBanBase.page - 1) * userBanBase.perPage;
+    userActionBans = await all(
+      `SELECT uab.snowflake_id, uab.scope, uab.value, uab.reason, uab.created_at,
+              uab.lifted_at, u.username, u.display_name, u.id AS user_id
+         FROM user_action_bans uab
+         LEFT JOIN users u ON u.id = uab.user_id
+        WHERE ${userBanFilters.join(" AND ")}
+        ORDER BY uab.created_at DESC
+        LIMIT ? OFFSET ?`,
+      [...userBanParams, userBanBase.perPage, userBanOffset],
+    );
+
+    userActionPagination = decoratePagination(
+      req,
+      userBanBase,
+      {
+        pageParam: "userActionPage",
+        perPageParam: "userActionPerPage",
+      },
+    );
+  }
+
   res.render("admin/ip_bans", {
     activeBans,
     liftedBans,
@@ -987,6 +1065,8 @@ r.get(
     searchTerm,
     bannedUsers,
     bannedUsersPagination,
+    userActionBans,
+    userActionPagination,
     canManageUserBans,
   });
 });
@@ -1126,6 +1206,179 @@ r.post(
 );
 
 r.post(
+  "/ip-bans/users/actions",
+  requirePermission(["can_manage_users", "can_suspend_users"]),
+  async (req, res) => {
+  const rawIdentifier = typeof req.body.user === "string" ? req.body.user.trim() : "";
+  const reason = typeof req.body.reason === "string" ? req.body.reason.trim() : "";
+  const rawTagValue = typeof req.body.tag === "string" ? req.body.tag.trim().toLowerCase() : "";
+  const rawActions = req.body.actions;
+  const actionInputs = Array.isArray(rawActions)
+    ? rawActions
+    : typeof rawActions === "string"
+      ? [rawActions]
+      : [];
+  const normalizedActions = Array.from(
+    new Set(
+      actionInputs
+        .map((value) => (typeof value === "string" ? value.trim().toLowerCase() : ""))
+        .filter((value) => value && ALLOWED_USER_RESTRICTION_TYPES.has(value)),
+    ),
+  );
+
+  if (!rawIdentifier) {
+    pushNotification(req, {
+      type: "error",
+      message: "Merci d'indiquer l'utilisateur ciblé (ID ou nom).",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  if (!normalizedActions.length) {
+    pushNotification(req, {
+      type: "error",
+      message: "Veuillez sélectionner au moins une action à restreindre.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  let target = null;
+  if (/^\d+$/.test(rawIdentifier)) {
+    target = await get(
+      "SELECT id, username FROM users WHERE id=?",
+      [rawIdentifier],
+    );
+  }
+
+  if (!target) {
+    target = await get(
+      "SELECT id, username FROM users WHERE LOWER(username)=LOWER(?)",
+      [rawIdentifier],
+    );
+  }
+
+  if (!target) {
+    pushNotification(req, {
+      type: "error",
+      message: "Utilisateur introuvable.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  const actionsToCreate = [];
+  for (const actionName of normalizedActions) {
+    if (actionName === "tag") {
+      if (!rawTagValue) {
+        pushNotification(req, {
+          type: "error",
+          message: "Veuillez préciser le tag à restreindre.",
+        });
+        return res.redirect("/admin/ip-bans");
+      }
+      actionsToCreate.push({ scope: "tag", value: rawTagValue });
+    } else if (actionName === "global") {
+      actionsToCreate.push({ scope: "global", value: null });
+    } else {
+      actionsToCreate.push({ scope: "action", value: actionName });
+    }
+  }
+
+  if (!actionsToCreate.length) {
+    pushNotification(req, {
+      type: "error",
+      message: "Aucune restriction n'a pu être déterminée.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  const created = [];
+  const skipped = [];
+  for (const entry of actionsToCreate) {
+    try {
+      const existing = await getActiveUserActionBan({
+        userId: target.id,
+        scope: entry.scope,
+        value: entry.value,
+      });
+      if (existing) {
+        skipped.push(entry);
+        continue;
+      }
+      const banId = await banUserAction({
+        userId: target.id,
+        scope: entry.scope,
+        value: entry.value,
+        reason: reason || null,
+      });
+      created.push({ ...entry, id: banId });
+    } catch (err) {
+      console.error("Unable to create user action ban", err);
+      pushNotification(req, {
+        type: "error",
+        message: "Impossible d'enregistrer certaines restrictions.",
+      });
+    }
+  }
+
+  if (!created.length && !skipped.length) {
+    return res.redirect("/admin/ip-bans");
+  }
+
+  if (created.length) {
+    const actionList = created
+      .map((entry) => {
+        if (entry.scope === "global") {
+          return "accéder au wiki entier";
+        }
+        if (entry.scope === "tag") {
+          return `accéder au tag « ${entry.value} »`;
+        }
+        return `effectuer l'action « ${entry.value} »`;
+      })
+      .join(", ");
+    const baseMessage =
+      created.length === 1
+        ? `${target.username} ne peut plus ${actionList}.`
+        : `Les restrictions suivantes ont été appliquées à ${target.username} : ${actionList}.`;
+    pushNotification(req, {
+      type: "success",
+      message: baseMessage,
+    });
+
+    const ip = getClientIp(req);
+    await sendAdminEvent("Restriction d'action utilisateur", {
+      user: req.session.user?.username || null,
+      extra: {
+        ip,
+        targetId: target.id,
+        targetUsername: target.username,
+        reason: reason || null,
+        actions: created.map((entry) => ({
+          scope: entry.scope,
+          value: entry.value,
+          id: entry.id,
+        })),
+      },
+    });
+  } else {
+    pushNotification(req, {
+      type: "info",
+      message: "Aucune nouvelle restriction n'a été appliquée (elles existaient déjà).",
+    });
+  }
+
+  if (skipped.length) {
+    pushNotification(req, {
+      type: "info",
+      message: `${skipped.length} restriction(s) existante(s) ont été ignorées.`,
+    });
+  }
+
+  res.redirect("/admin/ip-bans");
+  },
+);
+
+r.post(
   "/ip-bans/:id/lift",
   requirePermission(["can_manage_ip_bans", "can_lift_ip_bans"]),
   async (req, res) => {
@@ -1182,6 +1435,104 @@ r.post(
     },
     user: req.session.user?.username || null,
   });
+  res.redirect("/admin/ip-bans");
+  },
+);
+
+r.post(
+  "/ip-bans/users/actions/:id/lift",
+  requirePermission(["can_manage_users", "can_suspend_users"]),
+  async (req, res) => {
+  const ban = await getUserActionBanWithUser(req.params.id);
+  if (!ban) {
+    pushNotification(req, {
+      type: "error",
+      message: "Restriction introuvable.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  if (ban.lifted_at) {
+    pushNotification(req, {
+      type: "info",
+      message: "Cette restriction a déjà été levée.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  await liftUserActionBan(ban.snowflake_id);
+
+  const targetLabel = ban.username || `Utilisateur #${ban.user_id ?? "?"}`;
+  const banLabel =
+    ban.scope === "tag"
+      ? `tag « ${ban.value} »`
+      : ban.value
+        ? `action « ${ban.value} »`
+        : "cette action";
+
+  pushNotification(req, {
+    type: "success",
+    message: `La restriction (${banLabel}) pour ${targetLabel} a été levée.`,
+  });
+
+  const ip = getClientIp(req);
+  await sendAdminEvent("Restriction d'action levée", {
+    user: req.session.user?.username || null,
+    extra: {
+      ip,
+      banId: ban.snowflake_id,
+      scope: ban.scope,
+      value: ban.value,
+      targetId: ban.user_id || null,
+      targetUsername: ban.username || null,
+    },
+  });
+
+  res.redirect("/admin/ip-bans");
+  },
+);
+
+r.post(
+  "/ip-bans/users/actions/:id/delete",
+  requirePermission(["can_manage_users", "can_suspend_users"]),
+  async (req, res) => {
+  const ban = await getUserActionBanWithUser(req.params.id);
+  if (!ban) {
+    pushNotification(req, {
+      type: "error",
+      message: "Restriction introuvable.",
+    });
+    return res.redirect("/admin/ip-bans");
+  }
+
+  await deleteUserActionBan(ban.snowflake_id);
+
+  const targetLabel = ban.username || `Utilisateur #${ban.user_id ?? "?"}`;
+  const banLabel =
+    ban.scope === "tag"
+      ? `tag « ${ban.value} »`
+      : ban.value
+        ? `action « ${ban.value} »`
+        : "cette action";
+
+  pushNotification(req, {
+    type: "success",
+    message: `La restriction (${banLabel}) pour ${targetLabel} a été supprimée.`,
+  });
+
+  const ip = getClientIp(req);
+  await sendAdminEvent("Restriction d'action supprimée", {
+    user: req.session.user?.username || null,
+    extra: {
+      ip,
+      banId: ban.snowflake_id,
+      scope: ban.scope,
+      value: ban.value,
+      targetId: ban.user_id || null,
+      targetUsername: ban.username || null,
+    },
+  });
+
   res.redirect("/admin/ip-bans");
   },
 );

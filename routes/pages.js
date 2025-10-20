@@ -14,7 +14,7 @@ import { renderMarkdown } from "../utils/markdownRenderer.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
 import { listUploads } from "../utils/uploads.js";
 import { getClientIp, getClientUserAgent } from "../utils/ip.js";
-import { getActiveBans, isIpBanned } from "../utils/ipBans.js";
+import { getActiveBans } from "../utils/ipBans.js";
 import { generateSnowflake } from "../utils/snowflake.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import { pushNotification } from "../utils/notifications.js";
@@ -78,6 +78,7 @@ import {
   hasRejectedBanAppeal,
 } from "../utils/banAppeals.js";
 import { buildPageMeta } from "../utils/meta.js";
+import { resolveAccessBan } from "../utils/accessBans.js";
 import {
   fetchGitHubChangelog,
   CHANGELOG_PAGE_SIZES,
@@ -280,10 +281,19 @@ r.use(
   asyncHandler(async (req, res, next) => {
     req.clientIp = getClientIp(req);
     req.clientUserAgent = getClientUserAgent(req);
-    if (req.clientIp) {
-      const ban = await isIpBanned(req.clientIp, { action: "view" });
-      const isAppealRoute = req.path === "/ban-appeal";
-      if (ban && ban.scope === "global" && !isAppealRoute) {
+    const sessionUserId = getSessionUserId(req);
+    const ban = await resolveAccessBan({
+      ip: req.clientIp,
+      userId: sessionUserId,
+      action: "view",
+    });
+    const isAppealRoute = req.path === "/ban-appeal";
+    if (ban && !isAppealRoute) {
+      const scope = ban.scope || "";
+      const value = ban.value || "";
+      const restrictsView =
+        scope === "global" || (scope === "action" && value === "view");
+      if (restrictsView) {
         return res.status(403).render("banned", { ban });
       }
     }
@@ -386,6 +396,25 @@ function buildAppealUrl({ scope, value } = {}) {
   }
   const qs = params.toString();
   return qs ? `/ban-appeal?${qs}` : "/ban-appeal";
+}
+
+function buildBanFeedback(ban) {
+  const scope = ban?.scope || "";
+  const baseText = scope === "global" ? "Accès interdit" : "Action interdite";
+  const reasonText = ban?.reason
+    ? `${baseText} : ${ban.reason}`
+    : `${baseText}.`;
+  const subject = ban?.subject || "ip";
+  const canAppeal = subject === "ip";
+  let appealMessage = null;
+  let appealUrl = null;
+  if (canAppeal) {
+    appealUrl = buildAppealUrl(ban);
+    appealMessage = reasonText.endsWith(".")
+      ? `${reasonText} Vous pouvez envoyer une demande de déban.`
+      : `${reasonText}. Vous pouvez envoyer une demande de déban.`;
+  }
+  return { reasonText, appealMessage, appealUrl, canAppeal };
 }
 
 const CHANGELOG_PAGE_PARAM = "page";
@@ -613,7 +642,11 @@ r.get(
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
-      const ban = await isIpBanned(req.clientIp, { action: "contribute" });
+      const ban = await resolveAccessBan({
+        ip: req.clientIp,
+        userId: getSessionUserId(req),
+        action: "contribute",
+      });
       if (ban) {
         return res.status(403).render("banned", { ban });
       }
@@ -656,7 +689,11 @@ r.post(
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
-      const ban = await isIpBanned(req.clientIp, { action: "contribute" });
+      const ban = await resolveAccessBan({
+        ip: req.clientIp,
+        userId: getSessionUserId(req),
+        action: "contribute",
+      });
       if (ban) {
         return res.status(403).render("banned", { ban });
       }
@@ -812,7 +849,12 @@ r.get(
     if (!page) return res.status(404).send("Page introuvable");
 
     const tagNames = await fetchPageTags(page.id);
-    const tagBan = await isIpBanned(ip, { action: "view", tags: tagNames });
+    const tagBan = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
+      action: "view",
+      tags: tagNames,
+    });
     if (tagBan) {
       return res.status(403).render("banned", { ban: tagBan });
     }
@@ -966,7 +1008,9 @@ r.post(
     const rawParentId =
       typeof req.body.parentId === "string" ? req.body.parentId.trim() : "";
     const tagNames = await fetchPageTags(page.id);
-    const ban = await isIpBanned(ip, {
+    const ban = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
       action: "comment",
       tags: tagNames,
     });
@@ -1460,36 +1504,36 @@ r.post(
     }
 
     const tagNames = await fetchPageTags(page.id);
-    const ban = await isIpBanned(ip, {
+    const ban = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
       action: "like",
       tags: tagNames,
     });
     if (ban) {
-      const reasonText = ban?.reason
-        ? `Action interdite : ${ban.reason}`
-        : "Action interdite.";
-      const appealMessage = reasonText.endsWith(".")
-        ? `${reasonText} Vous pouvez envoyer une demande de déban.`
-        : `${reasonText}. Vous pouvez envoyer une demande de déban.`;
-      const appealUrl = buildAppealUrl(ban);
+      const { reasonText, appealMessage, appealUrl } = buildBanFeedback(ban);
+      const notificationMessage = appealMessage || reasonText;
       if (wantsJson) {
-        return res.status(403).json({
+        const payload = {
           ok: false,
           message: reasonText,
           ban,
           notifications: [
             {
               type: "error",
-              message: appealMessage,
+              message: notificationMessage,
               timeout: 6000,
             },
           ],
-          redirect: appealUrl,
-        });
+        };
+        if (appealUrl) {
+          payload.redirect = appealUrl;
+        }
+        return res.status(403).json(payload);
       }
       appendNotification(res, {
         type: "error",
-        message: appealMessage,
+        message: notificationMessage,
         timeout: 6000,
       });
       return res.status(403).render("banned", { ban });
@@ -1612,29 +1656,32 @@ r.post(
     }
 
     const tagNames = await fetchPageTags(page.id);
-    const ban = await isIpBanned(ip, { action: "react", tags: tagNames });
+    const ban = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
+      action: "react",
+      tags: tagNames,
+    });
     if (ban) {
-      const reasonText = ban?.reason
-        ? `Action interdite : ${ban.reason}`
-        : "Action interdite.";
-      const appealMessage = reasonText.endsWith(".")
-        ? `${reasonText} Vous pouvez envoyer une demande de déban.`
-        : `${reasonText}. Vous pouvez envoyer une demande de déban.`;
-      const appealUrl = buildAppealUrl(ban);
+      const { reasonText, appealMessage, appealUrl } = buildBanFeedback(ban);
+      const notificationMessage = appealMessage || reasonText;
       if (wantsJson) {
-        return res.status(403).json({
+        const payload = {
           ok: false,
           message: reasonText,
           ban,
           notifications: [
-            { type: "error", message: appealMessage, timeout: 6000 },
+            { type: "error", message: notificationMessage, timeout: 6000 },
           ],
-          redirect: appealUrl,
-        });
+        };
+        if (appealUrl) {
+          payload.redirect = appealUrl;
+        }
+        return res.status(403).json(payload);
       }
       appendNotification(res, {
         type: "error",
-        message: appealMessage,
+        message: notificationMessage,
         timeout: 6000,
       });
       return res.status(403).render("banned", { ban });
@@ -1764,29 +1811,32 @@ r.post(
     }
 
     const tagNames = await fetchPageTags(comment.page_internal_id);
-    const ban = await isIpBanned(ip, { action: "react", tags: tagNames });
+    const ban = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
+      action: "react",
+      tags: tagNames,
+    });
     if (ban) {
-      const reasonText = ban?.reason
-        ? `Action interdite : ${ban.reason}`
-        : "Action interdite.";
-      const appealMessage = reasonText.endsWith(".")
-        ? `${reasonText} Vous pouvez envoyer une demande de déban.`
-        : `${reasonText}. Vous pouvez envoyer une demande de déban.`;
-      const appealUrl = buildAppealUrl(ban);
+      const { reasonText, appealMessage, appealUrl } = buildBanFeedback(ban);
+      const notificationMessage = appealMessage || reasonText;
       if (wantsJson) {
-        return res.status(403).json({
+        const payload = {
           ok: false,
           message: reasonText,
           ban,
           notifications: [
-            { type: "error", message: appealMessage, timeout: 6000 },
+            { type: "error", message: notificationMessage, timeout: 6000 },
           ],
-          redirect: appealUrl,
-        });
+        };
+        if (appealUrl) {
+          payload.redirect = appealUrl;
+        }
+        return res.status(403).json(payload);
       }
       appendNotification(res, {
         type: "error",
-        message: appealMessage,
+        message: notificationMessage,
         timeout: 6000,
       });
       return res.status(403).render("banned", { ban });
@@ -1879,7 +1929,9 @@ r.get(
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
-      const ban = await isIpBanned(req.clientIp, {
+      const ban = await resolveAccessBan({
+        ip: req.clientIp,
+        userId: getSessionUserId(req),
         action: "contribute",
         tags: tagNames,
       });
@@ -1927,7 +1979,9 @@ r.post(
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
     if (!permissions.is_admin) {
       const tagNames = await fetchPageTags(page.id);
-      const ban = await isIpBanned(req.clientIp, {
+      const ban = await resolveAccessBan({
+        ip: req.clientIp,
+        userId: getSessionUserId(req),
         action: "contribute",
         tags: tagNames,
       });
@@ -2252,7 +2306,9 @@ r.get(
     const ip = req.clientIp;
     const requestedTag = req.params.name;
     const tagName = requestedTag.toLowerCase();
-    const tagBan = await isIpBanned(ip, {
+    const tagBan = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
       action: "view",
       tags: [tagName],
     });

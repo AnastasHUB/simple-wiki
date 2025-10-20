@@ -2,10 +2,27 @@
 <% const showAppealSuccess = typeof appealSuccess !== "undefined" && appealSuccess; %>
 <% const appealMessageValue = typeof appealMessage !== "undefined" ? appealMessage : ""; %>
 <% const appealErrorMessage = typeof appealError !== "undefined" ? appealError : null; %>
+<% const banSubject = ban && ban.subject ? ban.subject : 'ip'; %>
+<% const isIpBan = banSubject === 'ip'; %>
+<% const isUserBan = banSubject === 'user'; %>
+<% const banScope = ban && ban.scope ? ban.scope : ''; %>
+<% const isGlobalBan = banScope === 'global'; %>
 <section class="card">
   <h1>Accès restreint</h1>
   <p>
-    Votre adresse IP semble avoir été bloquée pour cette action.
+    <% if (isUserBan) { %>
+      <% if (isGlobalBan) { %>
+        Votre compte est actuellement bloqué sur l'ensemble du wiki.
+      <% } else { %>
+        Votre compte est actuellement restreint pour cette action.
+      <% } %>
+    <% } else { %>
+      <% if (isGlobalBan) { %>
+        Votre adresse IP semble avoir été bloquée sur l'ensemble du wiki.
+      <% } else { %>
+        Votre adresse IP semble avoir été bloquée pour cette action.
+      <% } %>
+    <% } %>
   </p>
   <% if (ban && ban.reason) { %>
     <p><strong>Raison :</strong> <%= ban.reason %></p>
@@ -15,25 +32,29 @@
       Votre demande de débannissement a bien été envoyée. Un administrateur la traitera prochainement.
     </p>
   <% } else { %>
-    <p>Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur.</p>
-    <form method="post" action="/ban-appeal" class="form">
-      <%- include('partials/csrf_field') %>
-      <input type="hidden" name="scope" value="<%= ban?.scope || '' %>" />
-      <input type="hidden" name="value" value="<%= ban?.value || '' %>" />
-      <div class="form-group">
-        <label for="appeal-message">Expliquez votre situation :</label>
-        <textarea
-          id="appeal-message"
-          name="message"
-          rows="5"
-          maxlength="2000"
-          required
-        ><%= appealMessageValue %></textarea>
-      </div>
-      <% if (appealErrorMessage) { %>
-        <p class="form-error"><%= appealErrorMessage %></p>
-      <% } %>
-      <button type="submit" class="btn btn-primary">Envoyer une demande de déban</button>
-    </form>
+    <% if (isIpBan) { %>
+      <p>Si vous pensez qu'il s'agit d'une erreur, contactez un administrateur.</p>
+      <form method="post" action="/ban-appeal" class="form">
+        <%- include('partials/csrf_field') %>
+        <input type="hidden" name="scope" value="<%= ban?.scope || '' %>" />
+        <input type="hidden" name="value" value="<%= ban?.value || '' %>" />
+        <div class="form-group">
+          <label for="appeal-message">Expliquez votre situation :</label>
+          <textarea
+            id="appeal-message"
+            name="message"
+            rows="5"
+            maxlength="2000"
+            required
+          ><%= appealMessageValue %></textarea>
+        </div>
+        <% if (appealErrorMessage) { %>
+          <p class="form-error"><%= appealErrorMessage %></p>
+        <% } %>
+        <button type="submit" class="btn btn-primary">Envoyer une demande de déban</button>
+      </form>
+    <% } else { %>
+      <p>Veuillez contacter un administrateur si vous pensez qu'il s'agit d'une erreur.</p>
+    <% } %>
   <% } %>
 </section>
