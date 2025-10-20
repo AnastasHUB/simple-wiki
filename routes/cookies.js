@@ -20,10 +20,6 @@ router.post("/cookies/consent", (req, res) => {
       : consentRaw;
 
   setConsentCookie(res, consent, req);
-  if (consent === COOKIE_ACCEPTED_VALUE) {
-    res.locals.showCookieBanner = false;
-  }
-
   res.status(204).end();
 });
 
