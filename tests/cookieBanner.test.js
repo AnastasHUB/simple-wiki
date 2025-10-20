@@ -77,7 +77,7 @@ test("POST /cookies/consent enregistre le cookie de consentement", () => {
   assert.match(setCookieHeader, /Secure/);
 });
 
-test("Le middleware cookieConsentMiddleware active la bannière sans consentement", () => {
+test("Le middleware cookieConsentMiddleware ne définit pas de bannière sans consentement", () => {
   const req = { headers: {} };
   const res = { locals: {} };
   let nextCalled = false;
@@ -88,12 +88,12 @@ test("Le middleware cookieConsentMiddleware active la bannière sans consentemen
 
   assert.equal(nextCalled, true);
   assert.deepEqual(req.cookies, {});
-  assert.equal(res.locals.showCookieBanner, true);
+  assert.equal(Object.prototype.hasOwnProperty.call(res.locals, "showCookieBanner"), false);
   assert.equal(res.locals.cookieConsent, null);
   assert.equal(res.locals.cookiePolicyUrl, "/cookies/politique");
 });
 
-test("Le middleware cookieConsentMiddleware désactive la bannière après acceptation", () => {
+test("Le middleware cookieConsentMiddleware conserve le consentement après acceptation", () => {
   const req = {
     headers: {
       cookie: `cookie_consent=${COOKIE_ACCEPTED_VALUE}`,
@@ -103,6 +103,5 @@ test("Le middleware cookieConsentMiddleware désactive la bannière après accep
 
   cookieConsentMiddleware(req, res, () => {});
 
-  assert.equal(res.locals.showCookieBanner, false);
   assert.equal(res.locals.cookieConsent, COOKIE_ACCEPTED_VALUE);
 });

@@ -77,28 +77,6 @@
   <div class="blob blob-3"></div>
 </div>
 <div class="app-shell">
-  <% if (typeof showCookieBanner !== 'undefined' && showCookieBanner) { %>
-    <% const policyUrl = typeof cookiePolicyUrl !== 'undefined' ? cookiePolicyUrl : '/cookies/politique'; %>
-    <section
-      class="cookie-banner glass-panel"
-      data-cookie-banner
-      role="region"
-      aria-live="polite"
-      aria-label="Consentement aux cookies"
-    >
-      <div class="cookie-banner__content">
-        <h2>Gestion des cookies</h2>
-        <p>
-          Nous utilisons uniquement des cookies essentiels pour faire fonctionner ce wiki et sécuriser vos sessions.
-          Consultez la <a href="<%= policyUrl %>">politique de cookies</a> pour en savoir plus.
-        </p>
-      </div>
-      <div class="cookie-banner__actions">
-        <button class="btn primary" type="button" data-cookie-accept>Accepter</button>
-        <a class="btn secondary" href="<%= policyUrl %>" data-cookie-customize>Personnaliser</a>
-      </div>
-    </section>
-  <% } %>
   <header class="site-header glass-panel">
     <div class="header-start">
       <button
