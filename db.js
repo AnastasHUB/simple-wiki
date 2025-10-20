@@ -168,6 +168,20 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     snowflake_id TEXT UNIQUE,
     PRIMARY KEY(page_id, tag_id)
   );
+  CREATE TABLE IF NOT EXISTS page_role_visibility(
+    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    role_snowflake TEXT NOT NULL REFERENCES roles(snowflake_id) ON DELETE CASCADE,
+    PRIMARY KEY(page_id, role_snowflake)
+  );
+  CREATE INDEX IF NOT EXISTS idx_page_visibility_role
+    ON page_role_visibility(role_snowflake);
+  CREATE TABLE IF NOT EXISTS tag_role_visibility(
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    role_snowflake TEXT NOT NULL REFERENCES roles(snowflake_id) ON DELETE CASCADE,
+    PRIMARY KEY(tag_id, role_snowflake)
+  );
+  CREATE INDEX IF NOT EXISTS idx_tag_visibility_role
+    ON tag_role_visibility(role_snowflake);
   CREATE TABLE IF NOT EXISTS likes(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,

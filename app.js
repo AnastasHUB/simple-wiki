@@ -37,6 +37,8 @@ import { ensureAchievementBadges } from "./utils/achievementService.js";
 import { listBadgesForUserId } from "./utils/badgeService.js";
 import { reconcileUserPremiumStatus } from "./utils/premiumService.js";
 import { loadSessionUserById } from "./utils/sessionUser.js";
+import { buildPageVisibilityClause } from "./utils/pageService.js";
+import { EVERYONE_ROLE_SNOWFLAKE } from "./utils/defaultRoles.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -228,6 +230,18 @@ app.use(async (req, res, next) => {
 
 app.get("/rss.xml", async (req, res) => {
   const { all } = await import("./db.js");
+  const visibility = buildPageVisibilityClause({
+    alias: "p",
+    allowedRoleSnowflakes: [EVERYONE_ROLE_SNOWFLAKE],
+  });
+  const visibilityClause =
+    visibility.clause && visibility.clause !== "1=1"
+      ? ` AND ${visibility.clause}`
+      : "";
+  const visibilityParams =
+    visibility.clause && visibility.clause !== "1=1"
+      ? visibility.params ?? []
+      : [];
   const rows = await all(`
     SELECT
       p.id,
@@ -242,10 +256,11 @@ app.get("/rss.xml", async (req, res) => {
     LEFT JOIN page_tags pt ON pt.page_id = p.id
     LEFT JOIN tags t ON t.id = pt.tag_id
     WHERE p.status = 'published'
+      ${visibilityClause}
     GROUP BY p.id
     ORDER BY p.created_at DESC
     LIMIT 50
-  `);
+  `, visibilityParams);
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   const wikiName = res.locals.wikiName || "Wiki";
