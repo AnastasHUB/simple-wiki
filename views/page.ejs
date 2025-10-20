@@ -161,10 +161,15 @@
   <% } else { %>
   <% const initialParentId = commentFeedback && commentFeedback.values ? commentFeedback.values.parentId || '' : ''; %>
   <% const commentCaptchaConfig = typeof captchaConfig !== 'undefined' && captchaConfig ? captchaConfig : null; %>
+  <% const csrfQuerySuffix =
+    typeof csrfToken === 'string' && csrfToken.length
+      ? `?_csrf=${encodeURIComponent(csrfToken)}`
+      : '';
+  %>
   <form
     class="comment-form"
     method="post"
-    action="/wiki/<%= page.slug_id %>/comments"
+    action="/wiki/<%= page.slug_id %>/comments<%= csrfQuerySuffix %>"
     enctype="multipart/form-data"
     data-comment-preview-form
     data-preview-endpoint="/wiki/<%= page.slug_id %>/comments/preview"
