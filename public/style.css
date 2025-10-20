@@ -776,6 +776,224 @@ html.drawer-open .drawer-overlay {
   border: 0;
 }
 
+.stats-trends-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.stats-trends-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.stats-trends-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 999px;
+  background: rgba(92, 139, 255, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(138, 189, 255, 0.28);
+}
+
+.stats-trends-range-btn {
+  appearance: none;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-text-muted);
+  padding: 0.45rem 0.95rem;
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--transition-base), color var(--transition-base), box-shadow var(--transition-base);
+}
+
+.stats-trends-range-btn:hover,
+.stats-trends-range-btn:focus {
+  color: var(--color-text);
+  background: rgba(92, 139, 255, 0.28);
+}
+
+.stats-trends-range-btn:focus-visible {
+  outline: 2px solid var(--color-accent-strong);
+  outline-offset: 2px;
+}
+
+.stats-trends-range-btn.is-active {
+  background: linear-gradient(135deg, rgba(92, 139, 255, 0.95), rgba(47, 132, 255, 0.9));
+  color: #081428;
+  box-shadow: 0 14px 28px -20px rgba(92, 139, 255, 0.8);
+}
+
+.stats-trends-range-btn[disabled] {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.theme-liquid .stats-trends-range-btn.is-active {
+  color: #0c152d;
+}
+
+.stats-trends-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.stats-trends-status {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+}
+
+.stats-trends-status[data-status="error"] {
+  color: var(--color-danger);
+}
+
+.stats-trends-chart {
+  position: relative;
+  min-height: 260px;
+  border-radius: var(--radius-medium);
+  background: rgba(8, 19, 40, 0.35);
+  border: 1px solid rgba(126, 186, 255, 0.18);
+  padding: 0.75rem;
+}
+
+.stats-trends-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.stats-trends-axis-line {
+  stroke: rgba(134, 189, 255, 0.45);
+  stroke-width: 1;
+}
+
+.stats-trends-grid-line {
+  stroke: rgba(134, 189, 255, 0.15);
+  stroke-width: 1;
+}
+
+.stats-trends-axis-label {
+  fill: var(--color-text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-anchor: end;
+}
+
+.stats-trends-axis-label--x {
+  text-anchor: middle;
+}
+
+.stats-trends-line {
+  fill: none;
+  stroke: var(--color-accent-strong);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stats-trends-area {
+  fill: url(#admin-trends-gradient);
+}
+
+.stats-trends-dot {
+  fill: var(--color-accent-strong);
+  stroke: rgba(11, 24, 48, 0.85);
+  stroke-width: 2;
+}
+
+.stats-trends-meta dl {
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.75rem;
+}
+
+.stats-trends-meta dt {
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-text-muted);
+  margin: 0 0 0.25rem;
+}
+
+.stats-trends-meta dd {
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--color-text);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-trends-fallback {
+  border-radius: var(--radius-medium);
+  border: 1px dashed rgba(134, 189, 255, 0.25);
+  padding: 1rem;
+  background: rgba(8, 19, 40, 0.35);
+}
+
+.stats-trend-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.stats-trend-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-small);
+  background: rgba(11, 24, 48, 0.6);
+  border: 1px solid rgba(126, 186, 255, 0.22);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-trend-list span {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+.stats-trend-list strong {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.stats-trends-empty {
+  text-align: center;
+  color: var(--color-text-muted);
+  margin: 2rem 0;
+  font-size: 0.95rem;
+}
+
+@media (max-width: 720px) {
+  .stats-trends-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .stats-trends-actions {
+    align-self: flex-start;
+  }
+
+  .stats-trends-meta dl {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
+
 .card,
 .panel,
 .section-card {

@@ -286,6 +286,83 @@ function serializeLiveVisitors(now = Date.now()) {
   return getLiveVisitorsSnapshot(now).visitors;
 }
 
+const VIEW_TRENDS_ALLOWED_RANGES = new Set([7, 14, 30]);
+const VIEW_TRENDS_DEFAULT_RANGE = 14;
+
+function normalizeTrendRangeInput(value) {
+  const parsed = Number.parseInt(value, 10);
+  if (VIEW_TRENDS_ALLOWED_RANGES.has(parsed)) {
+    return parsed;
+  }
+  return VIEW_TRENDS_DEFAULT_RANGE;
+}
+
+function getTodayUtc() {
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
+function formatDateKey(date) {
+  return date.toISOString().slice(0, 10);
+}
+
+async function fetchViewTrendsSeries(rangeDays = VIEW_TRENDS_DEFAULT_RANGE) {
+  const safeRange = normalizeTrendRangeInput(rangeDays);
+  const offsetArg = safeRange > 1 ? `-${safeRange - 1} day` : "0 day";
+  const rows = await all(
+    `SELECT day, SUM(views) AS views
+       FROM (
+         SELECT day, SUM(views) AS views
+           FROM page_view_daily
+          WHERE day >= date('now', ?)
+          GROUP BY day
+         UNION ALL
+         SELECT substr(viewed_at, 1, 10) AS day, COUNT(*) AS views
+           FROM page_views
+          WHERE viewed_at >= datetime('now', ?)
+          GROUP BY substr(viewed_at, 1, 10)
+       )
+      GROUP BY day
+      ORDER BY day ASC`,
+    [offsetArg, offsetArg],
+  );
+
+  const endDate = getTodayUtc();
+  const startDate = new Date(endDate);
+  startDate.setUTCDate(startDate.getUTCDate() - (safeRange - 1));
+
+  const totalsByDay = new Map();
+  for (const row of rows) {
+    if (!row || !row.day) {
+      continue;
+    }
+    const value = Number(row.views) || 0;
+    totalsByDay.set(row.day, (totalsByDay.get(row.day) || 0) + value);
+  }
+
+  const points = [];
+  let totalViews = 0;
+  for (let index = 0; index < safeRange; index += 1) {
+    const current = new Date(startDate);
+    current.setUTCDate(startDate.getUTCDate() + index);
+    const key = formatDateKey(current);
+    const dayViews = totalsByDay.has(key)
+      ? Number(totalsByDay.get(key)) || 0
+      : 0;
+    points.push({ date: key, views: dayViews });
+    totalViews += dayViews;
+  }
+
+  return {
+    rangeDays: safeRange,
+    startDate: formatDateKey(startDate),
+    endDate: formatDateKey(endDate),
+    points,
+    totalViews,
+    generatedAt: new Date().toISOString(),
+  };
+}
+
 const PREMIUM_DURATION_FORMATTER = new Intl.NumberFormat("fr-FR", {
   maximumFractionDigits: 1,
   minimumFractionDigits: 0,
@@ -2879,7 +2956,7 @@ r.get(
     newViewsRow,
     recentPages,
     recentEvents,
-    viewTrends,
+    viewTrendsSeries,
   ] = await Promise.all([
     get("SELECT COUNT(*) AS total FROM pages"),
     get(
@@ -2914,14 +2991,7 @@ r.get(
         ORDER BY created_at DESC
         LIMIT 8`,
     ),
-    all(
-      `SELECT day, SUM(views) AS views
-         FROM page_view_daily
-        WHERE day >= date('now','-13 day')
-        GROUP BY day
-        ORDER BY day DESC
-        LIMIT 14`,
-    ),
+    fetchViewTrendsSeries(VIEW_TRENDS_DEFAULT_RANGE),
   ]);
 
   const totalPages = Number(totalPagesRow?.total || 0);
@@ -2949,6 +3019,17 @@ r.get(
     ...row,
     authorRole: getHandleColor(row.author, statsHandleMap),
   }));
+
+  const normalizedViewTrends = Array.isArray(viewTrendsSeries?.points)
+    ? viewTrendsSeries.points
+    : [];
+  const viewTrendsRange = {
+    from: viewTrendsSeries?.startDate || null,
+    to: viewTrendsSeries?.endDate || null,
+  };
+  const viewTrendsRangeDays = viewTrendsSeries?.rangeDays || VIEW_TRENDS_DEFAULT_RANGE;
+  const viewTrendsTotal = Number(viewTrendsSeries?.totalViews || 0);
+  const viewTrendsGeneratedAt = viewTrendsSeries?.generatedAt || new Date().toISOString();
 
   const engagementHighlights = [
     {
@@ -3037,12 +3118,36 @@ r.get(
     ipViewsPagination,
     recentPages,
     recentEvents: decoratedRecentEvents,
-    viewTrends,
+    viewTrends: normalizedViewTrends,
+    viewTrendsRange,
+    viewTrendsRangeDays,
+    viewTrendsTotal,
+    viewTrendsGeneratedAt,
     liveVisitors,
     liveVisitorsPagination,
     liveVisitorsWindowSeconds,
   });
 });
+
+r.get(
+  "/stats/trends.json",
+  requirePermission(["can_view_stats", "can_view_stats_basic"]),
+  async (req, res) => {
+    const requestedRange = normalizeTrendRangeInput(req.query?.range);
+    const series = await fetchViewTrendsSeries(requestedRange);
+    res.set("Cache-Control", "no-store");
+    return res.json({
+      range: {
+        days: series.rangeDays,
+        from: series.startDate,
+        to: series.endDate,
+      },
+      totals: { views: series.totalViews },
+      points: series.points,
+      generatedAt: series.generatedAt,
+    });
+  },
+);
 
 r.get(
   "/stats/live",
