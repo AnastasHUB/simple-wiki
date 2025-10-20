@@ -1,0 +1,373 @@
+<% title = 'Sécurité du compte'; %>
+<section class="card security">
+  <header class="security__header">
+    <h1 class="mt-0">Sécurité du compte</h1>
+    <p class="text-muted">
+      Activez l'authentification à deux facteurs pour protéger davantage votre compte.
+    </p>
+  </header>
+
+  <section class="security__status">
+    <h2>État de la double authentification</h2>
+    <% if (twoFactorEnabled) { %>
+      <p class="badge badge--success">Activée</p>
+    <% } else { %>
+      <p class="badge badge--warning">Désactivée</p>
+    <% } %>
+    <dl class="security__stats">
+      <div>
+        <dt>Codes de récupération restants</dt>
+        <dd><%= recoveryCodesRemaining %> / <%= recoveryCodesTotal %></dd>
+      </div>
+      <div>
+        <dt>Codes déjà utilisés</dt>
+        <dd><%= recoveryCodesUsed %></dd>
+      </div>
+    </dl>
+  </section>
+
+  <% if (!setup && !twoFactorEnabled) { %>
+    <section class="security__actions">
+      <h2>Activer la double authentification</h2>
+      <p>
+        Un secret TOTP et une liste de codes de récupération seront générés. Conservez-les dans un emplacement sûr.
+      </p>
+      <button
+        type="button"
+        class="btn success"
+        data-modal-open="modal-start-setup"
+        data-icon="🔐"
+      >
+        Activer la double authentification
+      </button>
+    </section>
+  <% } %>
+
+  <% if (setup) { %>
+    <section class="security__setup">
+      <h2>Configurer l'application d'authentification</h2>
+      <div class="security__setup-grid">
+        <div class="security__qr">
+          <% if (setup.qrDataUrl) { %>
+            <img
+              src="<%= setup.qrDataUrl %>"
+              alt="QR code pour configurer l'authentification"
+              loading="lazy"
+            />
+          <% } else if (setup.otpauthUrl) { %>
+            <p>
+              <strong>URL de provisioning :</strong>
+              <code class="security__code"><%= setup.otpauthUrl %></code>
+            </p>
+          <% } else { %>
+            <p class="text-muted">
+              Utilisez le secret ci-contre pour configurer votre application d'authentification.
+            </p>
+          <% } %>
+        </div>
+        <div class="security__instructions">
+          <ol>
+            <li>Scannez le QR code ou saisissez le secret ci-dessous dans votre application d'authentification.</li>
+            <li>Conservez précieusement vos codes de récupération.</li>
+            <li>Saisissez un code à usage unique pour finaliser l'activation.</li>
+          </ol>
+          <p>
+            <strong>Secret TOTP :</strong>
+            <code class="security__code"><%= setup.secret %></code>
+          </p>
+          <button
+            type="button"
+            class="btn secondary"
+            data-modal-open="modal-setup-recovery"
+          >
+            Voir les codes de récupération
+          </button>
+        </div>
+      </div>
+      <form class="security__form" method="post" action="/account/security/enable">
+        <%- include('../partials/csrf_field') %>
+        <div class="field">
+          <label for="totp-token">Code TOTP</label>
+          <input
+            id="totp-token"
+            name="token"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="\\d{6}"
+            required
+            placeholder="123456"
+          />
+        </div>
+        <div class="form-actions">
+          <button class="btn success" data-icon="✅">Activer</button>
+          <button
+            type="button"
+            class="btn link"
+            data-modal-open="modal-cancel-setup"
+          >
+            Annuler
+          </button>
+        </div>
+      </form>
+    </section>
+  <% } %>
+
+  <% if (twoFactorEnabled) { %>
+    <section class="security__management">
+      <h2>Gérer la double authentification</h2>
+      <div class="security__management-actions">
+        <button
+          type="button"
+          class="btn secondary"
+          data-modal-open="modal-view-recovery"
+        >
+          Afficher les codes de récupération
+        </button>
+        <button
+          type="button"
+          class="btn"
+          data-modal-open="modal-regenerate-codes"
+        >
+          Régénérer les codes
+        </button>
+        <button
+          type="button"
+          class="btn danger"
+          data-modal-open="modal-disable-twofactor"
+        >
+          Désactiver la double authentification
+        </button>
+      </div>
+    </section>
+  <% } %>
+
+  <% if (!twoFactorEnabled && !setup) { %>
+    <p class="text-muted">
+      La double authentification est actuellement désactivée. Nous vous recommandons de l'activer pour mieux sécuriser votre compte.
+    </p>
+  <% } %>
+
+  <% if (!setup && generatedRecoveryCodes && generatedRecoveryCodes.length) { %>
+    <section class="security__notice">
+      <h2>Vos nouveaux codes de récupération</h2>
+      <p>
+        Ces codes ont été générés récemment. Conservez-les dans un lieu sécurisé avant de valider.
+      </p>
+      <div class="security__notice-actions">
+        <button
+          type="button"
+          class="btn secondary"
+          data-modal-open="modal-view-recovery"
+        >
+          Voir les codes
+        </button>
+        <a class="btn" href="/account/security/recovery-codes/download" download>
+          Télécharger
+        </a>
+        <form
+          method="post"
+          action="/account/security/recovery-codes/acknowledge"
+          class="inline-form"
+        >
+          <%- include('../partials/csrf_field') %>
+          <button class="btn success" data-icon="✔️">
+            J'ai sauvegardé ces codes
+          </button>
+        </form>
+      </div>
+    </section>
+  <% } %>
+</section>
+
+<dialog id="modal-start-setup" class="modal">
+  <form method="post" action="/account/security/setup" class="modal__content">
+    <%- include('../partials/csrf_field') %>
+    <h2>Activer la double authentification</h2>
+    <p>
+      Un secret unique et des codes de récupération seront générés. Assurez-vous de pouvoir les conserver en lieu sûr avant de continuer.
+    </p>
+    <div class="modal__actions">
+      <button class="btn success" data-icon="🔐">Générer un secret</button>
+      <button type="button" class="btn link" data-modal-close>Annuler</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-cancel-setup" class="modal">
+  <form method="post" action="/account/security/cancel-setup" class="modal__content">
+    <%- include('../partials/csrf_field') %>
+    <h2>Annuler la configuration</h2>
+    <p>Le secret en cours de configuration sera supprimé.</p>
+    <div class="modal__actions">
+      <button class="btn danger" data-icon="✖">Annuler la configuration</button>
+      <button type="button" class="btn link" data-modal-close>Revenir</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-setup-recovery" class="modal">
+  <article class="modal__content">
+    <h2>Codes de récupération</h2>
+    <% if (setup && setup.recoveryCodes && setup.recoveryCodes.length) { %>
+      <p>Conservez chacun de ces codes en lieu sûr. Chaque code ne peut être utilisé qu'une seule fois.</p>
+      <ul class="security__recovery-list">
+        <% setup.recoveryCodes.forEach(function (code) { %>
+          <li><code class="security__code"><%= code %></code></li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucun code n'est disponible pour le moment.</p>
+    <% } %>
+    <footer class="modal__actions">
+      <a class="btn" href="/account/security/recovery-codes/download" download>
+        Télécharger
+      </a>
+      <button type="button" class="btn link" data-modal-close>Fermer</button>
+    </footer>
+  </article>
+</dialog>
+
+<dialog id="modal-view-recovery" class="modal">
+  <article class="modal__content">
+    <h2>Codes de récupération disponibles</h2>
+    <% if (generatedRecoveryCodes && generatedRecoveryCodes.length) { %>
+      <p>Voici vos codes de récupération les plus récents :</p>
+      <ul class="security__recovery-list">
+        <% generatedRecoveryCodes.forEach(function (code) { %>
+          <li><code class="security__code"><%= code %></code></li>
+        <% }) %>
+      </ul>
+    <% } else if (setup && setup.recoveryCodes && setup.recoveryCodes.length) { %>
+      <p>Voici les codes générés pour cette configuration :</p>
+      <ul class="security__recovery-list">
+        <% setup.recoveryCodes.forEach(function (code) { %>
+          <li><code class="security__code"><%= code %></code></li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucun code n'est disponible pour le moment.</p>
+    <% } %>
+    <footer class="modal__actions">
+      <a class="btn" href="/account/security/recovery-codes/download" download>
+        Télécharger
+      </a>
+      <button type="button" class="btn link" data-modal-close>Fermer</button>
+    </footer>
+  </article>
+</dialog>
+
+<dialog id="modal-regenerate-codes" class="modal">
+  <form method="post" action="/account/security/recovery-codes" class="modal__content">
+    <%- include('../partials/csrf_field') %>
+    <h2>Régénérer les codes</h2>
+    <p>Les codes existants seront invalidés et remplacés par de nouveaux.</p>
+    <div class="field">
+      <label for="regen-token">Code TOTP</label>
+      <input
+        id="regen-token"
+        name="token"
+        type="text"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        pattern="\\d{6}"
+        required
+        placeholder="123456"
+      />
+    </div>
+    <div class="modal__actions">
+      <button class="btn" data-icon="🔁">Régénérer</button>
+      <button type="button" class="btn link" data-modal-close>Annuler</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="modal-disable-twofactor" class="modal">
+  <article class="modal__content">
+    <h2>Désactiver la double authentification</h2>
+    <p>Choisissez une méthode pour confirmer votre identité.</p>
+    <div class="security__modal-grid">
+      <form method="post" action="/account/security/disable" class="security__form">
+        <%- include('../partials/csrf_field') %>
+        <input type="hidden" name="mode" value="totp" />
+        <h3>Avec un code TOTP</h3>
+        <div class="field">
+          <label for="disable-token">Code TOTP</label>
+          <input
+            id="disable-token"
+            name="token"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            pattern="\\d{6}"
+            required
+            placeholder="123456"
+          />
+        </div>
+        <div class="modal__actions">
+          <button class="btn danger" data-icon="🛑">Désactiver</button>
+        </div>
+      </form>
+      <form method="post" action="/account/security/disable" class="security__form">
+        <%- include('../partials/csrf_field') %>
+        <input type="hidden" name="mode" value="recovery" />
+        <h3>Avec un code de récupération</h3>
+        <div class="field">
+          <label for="disable-recovery">Code de récupération</label>
+          <input
+            id="disable-recovery"
+            name="recoveryCode"
+            type="text"
+            required
+            placeholder="EXEMPLE-12345"
+          />
+        </div>
+        <div class="modal__actions">
+          <button class="btn danger" data-icon="🛑">Désactiver</button>
+        </div>
+      </form>
+    </div>
+    <footer class="modal__actions">
+      <button type="button" class="btn link" data-modal-close>Annuler</button>
+    </footer>
+  </article>
+</dialog>
+
+<script>
+  (function () {
+    function openModal(id) {
+      if (!id) return;
+      const dialog = document.getElementById(id);
+      if (dialog && typeof dialog.showModal === 'function') {
+        dialog.showModal();
+      }
+    }
+
+    function closeModal(dialog) {
+      if (dialog && typeof dialog.close === 'function') {
+        dialog.close();
+      }
+    }
+
+    document.addEventListener('click', (event) => {
+      const openTrigger = event.target.closest('[data-modal-open]');
+      if (openTrigger) {
+        event.preventDefault();
+        openModal(openTrigger.getAttribute('data-modal-open'));
+        return;
+      }
+      const closeTrigger = event.target.closest('[data-modal-close]');
+      if (closeTrigger) {
+        event.preventDefault();
+        closeModal(closeTrigger.closest('dialog'));
+      }
+    });
+
+    document.addEventListener('cancel', (event) => {
+      if (event.target instanceof HTMLDialogElement) {
+        event.preventDefault();
+        event.target.close();
+      }
+    });
+  })();
+</script>

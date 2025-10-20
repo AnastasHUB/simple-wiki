@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { get, run } from "../db.js";
+import { get, run, rotateUserRecoveryCodes } from "../db.js";
 import {
   hashPassword,
   isBcryptHash,
@@ -24,6 +24,13 @@ import {
 import { createRateLimiter } from "../middleware/rateLimit.js";
 import { validateRegistrationSubmission } from "../utils/registrationValidation.js";
 import { evaluateUserAchievements } from "../utils/achievementService.js";
+import {
+  verifyTwoFactorToken,
+  parseRecoveryCodeState,
+  markRecoveryCodeUsed,
+  serializeRecoveryCodeState,
+  countAvailableRecoveryCodes,
+} from "../utils/twoFactor.js";
 
 const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
   (field) => `r.${field} AS role_${field}`,
@@ -50,6 +57,81 @@ const registerRateLimiter = createRateLimiter({
     "Trop de tentatives d'inscription successives ont été détectées. Réessayez plus tard.",
 });
 
+const twoFactorRateLimiter = createRateLimiter({
+  windowMs: 5 * 60 * 1000,
+  limit: 5,
+  message:
+    "Trop de codes invalides ont été saisis. Merci de patienter avant de réessayer.",
+});
+
+const AUTH_USER_SELECT = `
+  SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
+    FROM users u
+    LEFT JOIN roles r ON r.id = u.role_id
+`;
+
+async function fetchAuthUserByUsername(username) {
+  if (!username) {
+    return null;
+  }
+  return get(`${AUTH_USER_SELECT} WHERE u.username=?`, [username]);
+}
+
+async function fetchAuthUserById(id) {
+  if (!id) {
+    return null;
+  }
+  return get(`${AUTH_USER_SELECT} WHERE u.id=?`, [id]);
+}
+
+function ensurePendingTwoFactor(req, res, next) {
+  if (req?.session?.pendingTwoFactor?.userId) {
+    return next();
+  }
+  return res.redirect("/login");
+}
+
+async function finalizeLogin(req, res, user, { ip = null, twoFactorMethod = null } = {}) {
+  if (!user) {
+    return res.redirect("/login");
+  }
+
+  const flags = deriveRoleFlags(user);
+  await evaluateUserAchievements(user.id);
+  if (needsRoleFlagSync(user)) {
+    await run(
+      `UPDATE users SET ${USER_FLAG_UPDATE_ASSIGNMENTS} WHERE id=?`,
+      [...getRoleFlagValues(flags), user.id],
+    );
+  }
+
+  const assignedRoles = await getRolesForUser(user.id);
+
+  req.session.user = buildSessionUser({ ...user, roles: assignedRoles }, flags);
+
+  const detectedIp = ip || getClientIp(req);
+  const extra = detectedIp ? { ip: detectedIp } : {};
+  if (twoFactorMethod) {
+    extra.twoFactor = twoFactorMethod;
+  }
+
+  await sendAdminEvent(
+    "Connexion réussie",
+    {
+      user: user.username,
+      extra,
+    },
+    { includeScreenshot: false },
+  );
+
+  pushNotification(req, {
+    type: "success",
+    message: `Bon retour parmi nous, ${user.username} !`,
+  });
+
+  res.redirect("/");
+}
+
 r.get("/login", (req, res) => res.render("login"));
 r.get("/register", (req, res) => {
   const captcha = createCaptchaChallenge(req);
@@ -63,13 +145,7 @@ r.get("/register", (req, res) => {
 r.post("/login", loginRateLimiter, async (req, res) => {
   const { username, password } = req.body;
   const ip = getClientIp(req);
-  const u = await get(
-    `SELECT u.*, r.name AS role_name, r.snowflake_id AS role_snowflake_id, r.color AS role_color, ${ROLE_FIELD_SELECT}
-     FROM users u
-     LEFT JOIN roles r ON r.id = u.role_id
-     WHERE u.username=?`,
-    [username],
-  );
+  const u = await fetchAuthUserByUsername(username);
   if (!u) {
     await sendAdminEvent(
       "Connexion échouée",
@@ -134,34 +210,116 @@ r.post("/login", loginRateLimiter, async (req, res) => {
     const newHash = await hashPassword(password);
     await run("UPDATE users SET password=? WHERE id=?", [newHash, u.id]);
   }
-  const flags = deriveRoleFlags(u);
-  await evaluateUserAchievements(u.id);
-  if (needsRoleFlagSync(u)) {
-    await run(
-      `UPDATE users SET ${USER_FLAG_UPDATE_ASSIGNMENTS} WHERE id=?`,
-      [...getRoleFlagValues(flags), u.id],
-    );
+  if (u.two_factor_enabled) {
+    req.session.pendingTwoFactor = {
+      userId: u.id,
+      username: u.username,
+      ip,
+    };
+    req.session.twoFactorState = null;
+    return res.redirect("/login/two-factor");
   }
 
-  const assignedRoles = await getRolesForUser(u.id);
-
-  req.session.user = buildSessionUser({ ...u, roles: assignedRoles }, flags);
-  await sendAdminEvent(
-    "Connexion réussie",
-    {
-      user: u.username,
-      extra: {
-        ip,
-      },
-    },
-    { includeScreenshot: false },
-  );
-  pushNotification(req, {
-    type: "success",
-    message: `Bon retour parmi nous, ${u.username} !`,
-  });
-  res.redirect("/");
+  return finalizeLogin(req, res, u, { ip });
 });
+
+r.get("/login/two-factor", ensurePendingTwoFactor, async (req, res) => {
+  const pending = req.session.pendingTwoFactor;
+  if (!pending) {
+    return res.redirect("/login");
+  }
+
+  const user = await fetchAuthUserById(pending.userId);
+  if (!user) {
+    req.session.pendingTwoFactor = null;
+    return res.redirect("/login");
+  }
+
+  const recoveryState = parseRecoveryCodeState(user.recovery_codes);
+  const remainingRecoveryCodes = countAvailableRecoveryCodes(recoveryState);
+
+  const sessionState = req.session.twoFactorState || {};
+  const forcedRecoveryMode =
+    typeof req.query.mode === "string" && req.query.mode.toLowerCase() === "recovery";
+
+  const recoveryMode = forcedRecoveryMode || sessionState.recoveryMode === true;
+  const error = sessionState.error || null;
+
+  req.session.twoFactorState = null;
+
+  return res.render("login-twofactor", {
+    username: pending.username,
+    error,
+    recoveryMode,
+    remainingRecoveryCodes,
+  });
+});
+
+r.post(
+  "/login/two-factor",
+  twoFactorRateLimiter,
+  ensurePendingTwoFactor,
+  async (req, res) => {
+    const pending = req.session.pendingTwoFactor;
+    if (!pending) {
+      return res.redirect("/login");
+    }
+
+    const user = await fetchAuthUserById(pending.userId);
+    if (!user) {
+      req.session.pendingTwoFactor = null;
+      return res.redirect("/login");
+    }
+
+    if (!user.two_factor_enabled || !user.totp_secret) {
+      req.session.pendingTwoFactor = null;
+      req.session.twoFactorState = null;
+      return finalizeLogin(req, res, user, { ip: pending.ip });
+    }
+
+    const mode = typeof req.body.mode === "string" ? req.body.mode.toLowerCase() : "";
+    const token = typeof req.body.token === "string" ? req.body.token : "";
+    const recoveryCode =
+      typeof req.body.recoveryCode === "string" ? req.body.recoveryCode : "";
+    const useRecovery = mode === "recovery" || recoveryCode.trim().length > 0;
+
+    if (useRecovery) {
+      const recoveryState = parseRecoveryCodeState(user.recovery_codes);
+      const { updated, used } = markRecoveryCodeUsed(recoveryState, recoveryCode);
+      if (!used) {
+        req.session.twoFactorState = {
+          error: "Code de récupération invalide ou déjà utilisé.",
+          recoveryMode: true,
+        };
+        return res.redirect("/login/two-factor");
+      }
+
+      await rotateUserRecoveryCodes(user.id, serializeRecoveryCodeState(updated));
+      req.session.pendingTwoFactor = null;
+      req.session.twoFactorState = null;
+      return finalizeLogin(req, res, user, {
+        ip: pending.ip,
+        twoFactorMethod: "recovery-code",
+      });
+    }
+
+    const valid = verifyTwoFactorToken(user.totp_secret, token);
+    if (!valid) {
+      req.session.twoFactorState = {
+        error: "Code de vérification invalide.",
+        recoveryMode: false,
+      };
+      return res.redirect("/login/two-factor");
+    }
+
+    req.session.pendingTwoFactor = null;
+    req.session.twoFactorState = null;
+    return finalizeLogin(req, res, user, {
+      ip: pending.ip,
+      twoFactorMethod: "totp",
+    });
+  },
+);
 r.post("/register", registerRateLimiter, async (req, res, next) => {
   const { username, password } = req.body;
   const captchaToken =
