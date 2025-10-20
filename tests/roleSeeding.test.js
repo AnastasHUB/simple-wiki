@@ -57,10 +57,10 @@ test("le rôle Premium est semé et positionné avant les rôles personnalisés"
     assert.ok(premium, "Le rôle Premium doit être présent après réensemencement");
     assert.ok(admin, "Le rôle Administrateur doit être présent");
 
-    assert.equal(everyone.position, 1);
-    assert.equal(users.position, 2);
-    assert.equal(premium.position, 3);
-    assert.equal(admin.position, 4);
+    assert.equal(admin.position, 1);
+    assert.equal(premium.position, 2);
+    assert.equal(users.position, 3);
+    assert.equal(everyone.position, 4);
 
     const defaultCount = DEFAULT_ROLE_DEFINITIONS.length;
     for (const role of roles) {

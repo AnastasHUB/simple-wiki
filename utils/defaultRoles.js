@@ -7,16 +7,27 @@ export const DEFAULT_ROLE_KEYS = Object.freeze({
 
 const baseDefinitions = [
   {
-    key: DEFAULT_ROLE_KEYS.EVERYONE,
-    snowflake: "231903782071590912",
-    name: "Everyone",
-    description: "Permissions de base accordées à tous les visiteurs.",
-    color: null,
+    key: DEFAULT_ROLE_KEYS.ADMINISTRATOR,
+    snowflake: "231903829383921664",
+    name: "Administrateur",
+    description: "Accès complet à toutes les fonctionnalités.",
+    color: "#DC2626",
+    isSystem: true,
+    grantAllPermissions: true,
+    permissionOverrides: {},
+  },
+  {
+    key: DEFAULT_ROLE_KEYS.PREMIUM,
+    snowflake: "231903782071590914",
+    name: "Premium",
+    description: "Accès aux avantages réservés aux abonnés premium.",
+    color: "#F59E0B",
     isSystem: true,
     grantAllPermissions: false,
     permissionOverrides: {
       can_comment: true,
       can_submit_pages: true,
+      can_view_stats_basic: true,
     },
   },
   {
@@ -34,28 +45,17 @@ const baseDefinitions = [
     },
   },
   {
-    key: DEFAULT_ROLE_KEYS.PREMIUM,
-    snowflake: "231903782071590914",
-    name: "Premium",
-    description: "Accès aux avantages réservés aux abonnés premium.",
-    color: "#F59E0B",
+    key: DEFAULT_ROLE_KEYS.EVERYONE,
+    snowflake: "231903782071590912",
+    name: "Everyone",
+    description: "Permissions de base accordées à tous les visiteurs.",
+    color: null,
     isSystem: true,
     grantAllPermissions: false,
     permissionOverrides: {
       can_comment: true,
       can_submit_pages: true,
-      can_view_stats_basic: true,
     },
-  },
-  {
-    key: DEFAULT_ROLE_KEYS.ADMINISTRATOR,
-    snowflake: "231903829383921664",
-    name: "Administrateur",
-    description: "Accès complet à toutes les fonctionnalités.",
-    color: "#DC2626",
-    isSystem: true,
-    grantAllPermissions: true,
-    permissionOverrides: {},
   },
 ];
 
