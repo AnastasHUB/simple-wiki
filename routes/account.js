@@ -13,6 +13,7 @@ import {
 import { buildPaginationView } from "../utils/pagination.js";
 import { getClientIp } from "../utils/ip.js";
 import { pushNotification } from "../utils/notifications.js";
+import { hashPassword, verifyPassword } from "../utils/passwords.js";
 import { usernamePattern } from "../utils/registrationValidation.js";
 import {
   uploadDir,
@@ -562,6 +563,94 @@ r.get(
         : null,
       generatedRecoveryCodes: formattedGeneratedCodes,
     });
+  }),
+);
+
+r.post(
+  "/security/password",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const currentPassword =
+      typeof req.body.currentPassword === "string" ? req.body.currentPassword : "";
+    const newPassword =
+      typeof req.body.newPassword === "string" ? req.body.newPassword : "";
+    const confirmPassword =
+      typeof req.body.confirmPassword === "string" ? req.body.confirmPassword : "";
+
+    const errors = [];
+    if (!currentPassword) {
+      errors.push("Veuillez saisir votre mot de passe actuel.");
+    }
+    if (!newPassword) {
+      errors.push("Veuillez saisir un nouveau mot de passe.");
+    } else if (newPassword.length < 8) {
+      errors.push("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+    }
+    if (!confirmPassword) {
+      errors.push("Veuillez confirmer votre nouveau mot de passe.");
+    } else if (newPassword && confirmPassword !== newPassword) {
+      errors.push("La confirmation ne correspond pas au nouveau mot de passe.");
+    }
+
+    if (errors.length) {
+      errors.forEach((message) =>
+        pushNotification(req, {
+          type: "error",
+          message,
+          timeout: 6000,
+        }),
+      );
+      return res.redirect("/account/security");
+    }
+
+    const account = await get("SELECT id, password FROM users WHERE id=?", [sessionUser.id]);
+    if (!account) {
+      pushNotification(req, {
+        type: "error",
+        message: "Utilisateur introuvable. Merci de vous reconnecter.",
+      });
+      req.session.user = null;
+      return res.redirect("/login");
+    }
+
+    const passwordMatches = await verifyPassword(currentPassword, account.password);
+    if (!passwordMatches) {
+      pushNotification(req, {
+        type: "error",
+        message: "Le mot de passe actuel est incorrect.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    if (currentPassword === newPassword) {
+      pushNotification(req, {
+        type: "error",
+        message: "Le nouveau mot de passe doit être différent de l'actuel.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const hashedPassword = await hashPassword(newPassword);
+    await run("UPDATE users SET password=? WHERE id=?", [hashedPassword, sessionUser.id]);
+
+    await sendAdminEvent(
+      "Mot de passe modifié",
+      {
+        user: sessionUser.username,
+        extra: {
+          ip: getClientIp(req),
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    pushNotification(req, {
+      type: "success",
+      message: "Votre mot de passe a été mis à jour.",
+    });
+
+    return res.redirect("/account/security");
   }),
 );
 
