@@ -129,9 +129,20 @@
         <% const headerColor = currentUser.role_color || null; %>
         <% const headerClasses = ['user-handle']; %>
         <% const headerStyle = headerColor && headerColor.hasColor ? headerColor.style : ''; %>
-        <% if (headerColor && headerColor.hasColor) { headerClasses.push('role-colored-text'); headerClasses.push(headerColor.className); } %>
+        <% const headerChipClasses = ['user-chip']; %>
+        <% const headerChipStyleParts = []; %>
+        <% if (headerColor && headerColor.hasColor) { %>
+          <% headerClasses.push('role-colored-text'); %>
+          <% headerClasses.push(headerColor.className); %>
+          <% headerChipClasses.push('user-chip--colored'); %>
+          <% headerChipStyleParts.push(headerColor.style); %>
+          <% if (headerColor.fallbackColor) { %>
+            <% headerChipStyleParts.push(`--user-chip-accent: ${headerColor.fallbackColor}`); %>
+          <% } %>
+        <% } %>
+        <% const headerChipStyle = headerChipStyleParts.join('; '); %>
         <% const headerBadges = Array.isArray(currentUserBadges) ? currentUserBadges : []; %>
-        <span class="user-chip">
+        <span class="<%= headerChipClasses.join(' ') %>" style="<%= headerChipStyle %>">
           <span class="chip-label">Connecté·e</span>
           <span class="user-chip__identity user-handle-decorated">
             <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong>
