@@ -16,7 +16,6 @@ import {
   ADMINISTRATOR_ROLE_SNOWFLAKE,
   EVERYONE_ROLE_SNOWFLAKE,
 } from "./utils/defaultRoles.js";
-import { DEFAULT_REACTIONS } from "./utils/reactionHelpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -193,18 +192,6 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(page_id, ip)
   );
-  CREATE TABLE IF NOT EXISTS page_reactions(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    snowflake_id TEXT UNIQUE,
-    page_id INTEGER NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
-    reaction_key TEXT NOT NULL,
-    ip TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(page_id, reaction_key, ip)
-  );
-  CREATE INDEX IF NOT EXISTS idx_page_reactions_page ON page_reactions(page_id);
-  CREATE INDEX IF NOT EXISTS idx_page_reactions_lookup
-    ON page_reactions(page_id, reaction_key);
   CREATE TABLE IF NOT EXISTS premium_codes(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -215,17 +202,6 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     redeemed_by INTEGER REFERENCES users(id),
     redeemed_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  );
-  CREATE TABLE IF NOT EXISTS reaction_options(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    snowflake_id TEXT UNIQUE,
-    reaction_key TEXT UNIQUE NOT NULL,
-    label TEXT NOT NULL,
-    emoji TEXT,
-    image_url TEXT,
-    display_order INTEGER NOT NULL DEFAULT 0,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME
   );
   CREATE TABLE IF NOT EXISTS badges(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -264,17 +240,6 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   CREATE INDEX IF NOT EXISTS idx_comments_page_status
     ON comments(page_id, status);
-  CREATE TABLE IF NOT EXISTS comment_reactions(
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    snowflake_id TEXT UNIQUE,
-    comment_snowflake_id TEXT NOT NULL REFERENCES comments(snowflake_id) ON DELETE CASCADE,
-    reaction_key TEXT NOT NULL,
-    ip TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(comment_snowflake_id, reaction_key, ip)
-  );
-  CREATE INDEX IF NOT EXISTS idx_comment_reactions_lookup
-    ON comment_reactions(comment_snowflake_id, reaction_key);
   CREATE TABLE IF NOT EXISTS comment_attachments(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -673,11 +638,8 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureSnowflake("tags");
   await ensureSnowflake("page_tags");
   await ensureSnowflake("likes");
-  await ensureSnowflake("page_reactions");
-  await ensureSnowflake("reaction_options");
   await ensureSnowflake("premium_codes");
   await ensureSnowflake("comments");
-  await ensureSnowflake("comment_reactions");
   await ensureSnowflake("comment_attachments");
   await ensureSnowflake("page_submissions");
   await ensureSnowflake("ip_bans");
@@ -690,7 +652,6 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureUserRoleAssignmentsTable();
   await ensureDefaultRoles();
-  await ensureReactionOptionsSeed();
   await synchronizeUserRoles();
   return db;
 }
@@ -850,39 +811,6 @@ async function ensureSnowflake(table, column = "snowflake_id") {
   await db.exec(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_${column} ON ${table}(${column})`,
   );
-}
-
-async function ensureReactionOptionsSeed() {
-  const row = await db.get(
-    `SELECT COUNT(*) AS total FROM reaction_options`,
-  );
-  const total = Number(row?.total ?? 0);
-  if (total > 0) {
-    return;
-  }
-  let order = 1;
-  for (const reaction of DEFAULT_REACTIONS) {
-    const emojiValue =
-      typeof reaction.emoji === "string" && reaction.emoji.trim()
-        ? reaction.emoji.trim()
-        : null;
-    const imageValue =
-      typeof reaction.imageUrl === "string" && reaction.imageUrl.trim()
-        ? reaction.imageUrl.trim()
-        : null;
-    await db.run(
-      `INSERT INTO reaction_options(snowflake_id, reaction_key, label, emoji, image_url, display_order)
-       VALUES(?,?,?,?,?,?)`,
-      [
-        generateSnowflake(),
-        reaction.id,
-        reaction.label,
-        emojiValue,
-        imageValue,
-        order++,
-      ],
-    );
-  }
 }
 
 async function ensureRolePositions() {
