@@ -20,15 +20,29 @@ const VIEW_COUNT_SELECT = `
   COALESCE((SELECT COUNT(*) FROM page_views WHERE page_id = p.id), 0)
 `;
 
-export function buildPublishedFilter({ includeUnpublished = false, alias = "p" } = {}) {
-  if (includeUnpublished) {
+export function buildPublishedFilter({
+  includeUnpublished = false,
+  allowPremium = false,
+  alias = "p",
+} = {}) {
+  const safeAlias = alias || "p";
+  const conditions = [];
+
+  if (!includeUnpublished) {
+    conditions.push(
+      `(${safeAlias}.status = 'published' OR (${safeAlias}.status = 'scheduled' AND ${safeAlias}.publish_at IS NOT NULL AND datetime(${safeAlias}.publish_at) <= datetime('now')))`,
+    );
+  }
+
+  if (!allowPremium) {
+    conditions.push(`${safeAlias}.premium_only = 0`);
+  }
+
+  if (!conditions.length) {
     return { clause: "1=1", params: [] };
   }
-  const safeAlias = alias || "p";
-  return {
-    clause: `(${safeAlias}.status = 'published' OR (${safeAlias}.status = 'scheduled' AND ${safeAlias}.publish_at IS NOT NULL AND datetime(${safeAlias}.publish_at) <= datetime('now')))`,
-    params: [],
-  };
+
+  return { clause: conditions.join(" AND "), params: [] };
 }
 
 export async function fetchRecentPages({
@@ -37,9 +51,10 @@ export async function fetchRecentPages({
   limit = 3,
   excerptLength = 900,
   includeUnpublished = false,
+  allowPremium = false,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
-  const visibility = buildPublishedFilter({ includeUnpublished });
+  const visibility = buildPublishedFilter({ includeUnpublished, allowPremium });
   const params = [ip, since, limit];
   if (visibility.params.length) {
     params.push(...visibility.params);
@@ -51,6 +66,7 @@ export async function fetchRecentPages({
            p.title,
            p.slug_id,
            p.author,
+           p.premium_only,
            substr(p.content, 1, ${excerpt}) AS excerpt,
            p.created_at,
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
@@ -78,9 +94,10 @@ export async function fetchPaginatedPages({
   offset,
   excerptLength = 1200,
   includeUnpublished = false,
+  allowPremium = false,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
-  const visibility = buildPublishedFilter({ includeUnpublished });
+  const visibility = buildPublishedFilter({ includeUnpublished, allowPremium });
   const params = [ip, limit, offset];
   if (visibility.params.length) {
     params.push(...visibility.params);
@@ -92,6 +109,7 @@ export async function fetchPaginatedPages({
            p.title,
            p.slug_id,
            p.author,
+           p.premium_only,
            substr(p.content, 1, ${excerpt}) AS excerpt,
            p.created_at,
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
@@ -112,12 +130,17 @@ export async function fetchPaginatedPages({
   );
 }
 
-export async function fetchPageWithStats(slugId, ip, { includeUnpublished = false } = {}) {
-  const visibility = buildPublishedFilter({ includeUnpublished });
+export async function fetchPageWithStats(
+  slugId,
+  ip,
+  { includeUnpublished = false, allowPremium = false } = {},
+) {
+  const visibility = buildPublishedFilter({ includeUnpublished, allowPremium });
   const params = [ip, slugId];
   if (visibility.params.length) {
     params.push(...visibility.params);
   }
+  const visibilityClause = visibility.clause ? `AND ${visibility.clause}` : "";
   const page = await get(
     `
     SELECT p.*,
@@ -131,7 +154,7 @@ export async function fetchPageWithStats(slugId, ip, { includeUnpublished = fals
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE slug_id = ?
-       ${includeUnpublished ? "" : `AND ${visibility.clause}`}
+       ${visibilityClause}
   `,
     params,
   );
@@ -421,8 +444,11 @@ export async function fetchPageComments(pageId, options = {}) {
   return roots;
 }
 
-export async function countPagesByTag(tagName, { includeUnpublished = false } = {}) {
-  const visibility = buildPublishedFilter({ includeUnpublished });
+export async function countPagesByTag(
+  tagName,
+  { includeUnpublished = false, allowPremium = false } = {},
+) {
+  const visibility = buildPublishedFilter({ includeUnpublished, allowPremium });
   const row = await get(
     `
     SELECT COUNT(DISTINCT p.id) AS total
@@ -444,15 +470,17 @@ export async function fetchPagesByTag({
   offset,
   excerptLength = 1200,
   includeUnpublished = false,
+  allowPremium = false,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
-  const visibility = buildPublishedFilter({ includeUnpublished });
+  const visibility = buildPublishedFilter({ includeUnpublished, allowPremium });
   let query = `
     SELECT p.id,
            p.snowflake_id,
            p.title,
            p.slug_id,
            p.author,
+           p.premium_only,
            substr(p.content, 1, ${excerpt}) AS excerpt,
            p.created_at,
            ${TAGS_CSV_SUBQUERY} AS tagsCsv,
@@ -493,8 +521,8 @@ export async function fetchPagesByTag({
   return all(query, params);
 }
 
-export async function countPages({ includeUnpublished = false } = {}) {
-  const visibility = buildPublishedFilter({ includeUnpublished });
+export async function countPages({ includeUnpublished = false, allowPremium = false } = {}) {
+  const visibility = buildPublishedFilter({ includeUnpublished, allowPremium });
   const params = visibility.params.length ? visibility.params : [];
   const row = await get(
     `SELECT COUNT(*) AS total FROM pages p WHERE ${visibility.clause}`,

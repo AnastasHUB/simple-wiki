@@ -57,6 +57,9 @@
     %>
       <article class="card article-card">
         <header class="card-header">
+          <% if (p.premium_only) { %>
+            <span class="badge badge-premium" title="Article réservé aux membres premium">💎 Premium</span>
+          <% } %>
           <h3 class="card-title"><strong><%= p.title %></strong></h3>
           <time class="card-meta" <%= createdIso ? `datetime="${createdIso}"` : '' %>>Publié : <%= p.created_at %></time>
         </header>

@@ -76,6 +76,10 @@ import {
   PAGE_STATUS_VALUES,
 } from "../utils/publicationState.js";
 import {
+  canViewPremiumContent,
+  normalizePremiumFlagInput,
+} from "../utils/premiumAccess.js";
+import {
   createBanAppeal,
   hasPendingBanAppeal,
   hasRejectedBanAppeal,
@@ -309,6 +313,22 @@ function buildStatusOptions(selectedStatus = "published", { canSchedule = false 
   }));
 }
 
+function isPagePubliclyVisible(page) {
+  if (!page) {
+    return false;
+  }
+  if (page.status === "published") {
+    return true;
+  }
+  if (page.status === "scheduled" && page.publish_at) {
+    const publishDate = new Date(page.publish_at);
+    if (!Number.isNaN(publishDate.getTime())) {
+      return publishDate.getTime() <= Date.now();
+    }
+  }
+  return false;
+}
+
 function buildEditorRenderContext(baseContext = {}) {
   const {
     page = null,
@@ -319,6 +339,8 @@ function buildEditorRenderContext(baseContext = {}) {
     authorName = "",
     canChooseStatus = false,
     canSchedule = false,
+    showPremiumToggle = false,
+    premiumOnly = false,
     formState = {},
     validationErrors = [],
   } = baseContext;
@@ -332,6 +354,15 @@ function buildEditorRenderContext(baseContext = {}) {
     typeof formState.publishAt === "string"
       ? formState.publishAt
       : formatPublishAtForInput(page?.publish_at || null);
+  const fallbackPremiumOnly =
+    typeof premiumOnly === "boolean"
+      ? premiumOnly
+      : Boolean(page?.premium_only);
+  const premiumFlagInput = formState.premium_only;
+  const premiumSelected =
+    premiumFlagInput !== undefined && premiumFlagInput !== null
+      ? normalizePremiumFlagInput(premiumFlagInput)
+      : fallbackPremiumOnly;
 
   return {
     page,
@@ -342,6 +373,8 @@ function buildEditorRenderContext(baseContext = {}) {
     authorName,
     canChooseStatus,
     canSchedule,
+    showPremiumToggle,
+    premiumSelected,
     formState,
     statusOptions: buildStatusOptions(selectedStatus, { canSchedule }),
     publishAtValue,
@@ -437,7 +470,10 @@ r.get(
     const sanitized = searchTerm.replace(/[%_]/g, "\\$&");
     const likeTerm = `%${sanitized}%`;
 
-    const visibility = buildPublishedFilter({ alias: "p" });
+    const visibility = buildPublishedFilter({
+      alias: "p",
+      allowPremium: canViewPremiumContent(req),
+    });
     const params = [likeTerm];
     if (visibility.params.length) {
       params.push(...visibility.params);
@@ -610,8 +646,9 @@ r.get(
   "/",
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
+    const canViewPremium = canViewPremiumContent(req);
 
-    const total = await countPages();
+    const total = await countPages({ allowPremium: canViewPremium });
     const paginationOptions = {
       pageParam: "page",
       perPageParam: "size",
@@ -624,12 +661,14 @@ r.get(
     const mapPreview = (row) => ({
       ...row,
       excerpt: buildPreviewHtml(row.excerpt),
+      premium_only: Boolean(row.premium_only),
     });
 
     const rowsRaw = await fetchPaginatedPages({
       ip,
       limit: pagination.perPage,
       offset,
+      allowPremium: canViewPremium,
     });
     const rows = rowsRaw.map(mapPreview);
 
@@ -763,6 +802,7 @@ r.get(
     }
     const uploads = permissions.is_admin ? await listUploads() : [];
     const defaultAuthor = getUserDisplayName(req.session.user) || "";
+    const canSetPremium = Boolean(permissions.is_admin);
     res.render(
       "edit",
       buildEditorRenderContext({
@@ -774,6 +814,8 @@ r.get(
         authorName: defaultAuthor,
         canChooseStatus: canPublishDirectly,
         canSchedule: canPublishDirectly && canSchedulePages,
+        showPremiumToggle: canSetPremium,
+        premiumOnly: false,
       }),
     );
   }),
@@ -839,6 +881,7 @@ r.post(
           submission: submissionId,
           status: "pending",
           author: authorToPersist,
+          premium_only: premiumOnlySelected,
         },
       });
       return res.redirect("/");
@@ -858,6 +901,7 @@ r.post(
         author: trimmedAuthorInput,
         status: req.body.status || "published",
         publishAt: publication.rawPublishAt,
+        premium_only: premiumOnlySelected ? "1" : "0",
       };
       return res.status(400).render(
         "edit",
@@ -870,6 +914,8 @@ r.post(
           authorName: authorToPersist || "",
           canChooseStatus: true,
           canSchedule: canPublishDirectly && canSchedulePages,
+          showPremiumToggle: canSetPremium,
+          premiumOnly: premiumOnlySelected,
           formState,
           validationErrors: publication.errors.map((error) => error.message),
         }),
@@ -880,7 +926,7 @@ r.post(
     const slug_id = randId();
     const pageSnowflake = generateSnowflake();
     const result = await run(
-      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at) VALUES(?,?,?,?,?,?,?,?)",
+      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, premium_only, status, publish_at) VALUES(?,?,?,?,?,?,?,?,?)",
       [
         pageSnowflake,
         base,
@@ -888,6 +934,7 @@ r.post(
         title,
         content,
         authorToPersist,
+        premiumOnlySelected ? 1 : 0,
         publication.status,
         publication.publishAt,
       ],
@@ -914,6 +961,7 @@ r.post(
         author: authorToPersist,
         status: publication.status,
         publish_at: publication.publishAt,
+        premium_only: premiumOnlySelected,
       },
     });
     if (req.session.user?.id) {
@@ -953,12 +1001,28 @@ r.get(
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
     const permissions = req.permissionFlags || {};
+    const canViewPremium = canViewPremiumContent(req);
     const page = await fetchPageWithStats(req.params.slugid, ip, {
       includeUnpublished: Boolean(permissions.is_admin),
+      allowPremium: canViewPremium,
     });
-    if (!page) return res.status(404).send("Page introuvable");
+    if (!page) {
+      if (!permissions.is_admin) {
+        const premiumGate = await get(
+          `SELECT premium_only, status, publish_at FROM pages WHERE slug_id=?`,
+          [req.params.slugid],
+        );
+        if (premiumGate?.premium_only && isPagePubliclyVisible(premiumGate)) {
+          return res.status(402).render("premium-required", {
+            slug: req.params.slugid,
+          });
+        }
+      }
+      return res.status(404).send("Page introuvable");
+    }
 
     const tagNames = await fetchPageTags(page.id);
+    page.premium_only = Boolean(page.premium_only);
     const tagBan = await resolveAccessBan({
       ip,
       userId: getSessionUserId(req),
@@ -1059,11 +1123,23 @@ r.post(
   commentRateLimiter,
   asyncHandler(async (req, res) => {
     const page = await get(
-      "SELECT id FROM pages WHERE slug_id=?",
+      "SELECT id, premium_only, status, publish_at FROM pages WHERE slug_id=?",
       [req.params.slugid],
     );
     if (!page) {
       return res.status(404).json({ ok: false, error: "Page introuvable." });
+    }
+
+    if (page.premium_only) {
+      const canViewPremium = canViewPremiumContent(req);
+      if (!canViewPremium && isPagePubliclyVisible(page)) {
+        return res
+          .status(403)
+          .json({
+            ok: false,
+            error: "Cet article est réservé aux membres premium.",
+          });
+      }
     }
 
     const permissions = req.permissionFlags || {};
@@ -1091,10 +1167,22 @@ r.post(
   commentUploadMiddleware,
   asyncHandler(async (req, res) => {
     const page = await get(
-      "SELECT id, snowflake_id, title, slug_id FROM pages WHERE slug_id=?",
+      "SELECT id, snowflake_id, title, slug_id, premium_only, status, publish_at FROM pages WHERE slug_id=?",
       [req.params.slugid],
     );
     if (!page) return res.status(404).send("Page introuvable");
+
+    if (page.premium_only) {
+      const canViewPremium = canViewPremiumContent(req);
+      if (!canViewPremium && isPagePubliclyVisible(page)) {
+        pushNotification(req, {
+          type: "error",
+          message: "Cet article est réservé aux membres premium.",
+          timeout: 6000,
+        });
+        return res.redirect(`/wiki/${req.params.slugid}#comments`);
+      }
+    }
 
     const permissions = req.permissionFlags || {};
     if (!permissions.can_comment) {
@@ -1617,8 +1705,8 @@ r.get(
               r.name AS role_name,
               r.color AS role_color
          FROM users u
-         LEFT JOIN roles r ON r.id = u.role_id
-        WHERE LOWER(u.username) = LOWER(?)`,
+        LEFT JOIN roles r ON r.id = u.role_id
+       WHERE LOWER(u.username) = LOWER(?)`,
       [rawUsername],
     );
 
@@ -1659,13 +1747,15 @@ r.get(
     const showIpProfiles = user.profile_show_ip_profiles !== 0;
     const showBio = user.profile_show_bio !== 0;
     const showStats = user.profile_show_stats !== 0;
+    const canViewPremium = canViewPremiumContent(req);
 
     const placeholders = authorHandles.map(() => "?").join(", ");
+    const premiumConstraint = canViewPremium ? "" : " AND premium_only = 0";
     const recentPages = showRecentPages
       ? await all(
-          `SELECT title, slug_id, created_at
+          `SELECT title, slug_id, created_at, premium_only
              FROM pages
-            WHERE author IN (${placeholders})
+            WHERE author IN (${placeholders})${premiumConstraint}
             ORDER BY created_at DESC
             LIMIT 5`,
           authorHandles,
@@ -1674,7 +1764,7 @@ r.get(
 
     const totalPagesRow = showStats
       ? await get(
-          `SELECT COUNT(*) AS total FROM pages WHERE author IN (${placeholders})`,
+          `SELECT COUNT(*) AS total FROM pages WHERE author IN (${placeholders})${premiumConstraint}`,
           authorHandles,
         )
       : null;
@@ -1705,7 +1795,10 @@ r.get(
         roleColor: heroRoleColor,
         roles: resolvedRoles,
         totalPages: showStats ? Number(totalPagesRow?.total || 0) : 0,
-        recentPages,
+        recentPages: recentPages.map((page) => ({
+          ...page,
+          premium_only: Boolean(page.premium_only),
+        })),
         badges,
         showBadges,
         showRecentPages,
@@ -1730,7 +1823,7 @@ r.post(
       (req.headers.accept || "").includes("application/json");
 
     const page = await get(
-      "SELECT id, snowflake_id, slug_id, title, slug_base FROM pages WHERE slug_id=?",
+      "SELECT id, snowflake_id, slug_id, title, slug_base, premium_only, status, publish_at FROM pages WHERE slug_id=?",
       [req.params.slugid],
     );
     if (!page) {
@@ -1741,6 +1834,22 @@ r.post(
         });
       }
       return res.status(404).send("Page introuvable");
+    }
+
+    if (page.premium_only) {
+      const canViewPremium = canViewPremiumContent(req);
+      if (!canViewPremium && isPagePubliclyVisible(page)) {
+        const message = "Cet article est réservé aux membres premium.";
+        if (wantsJson) {
+          return res.status(403).json({ ok: false, message });
+        }
+        pushNotification(req, {
+          type: "error",
+          message,
+          timeout: 5000,
+        });
+        return res.redirect(`/wiki/${page.slug_id}`);
+      }
     }
 
     const tagNames = await fetchPageTags(page.id);
@@ -2193,6 +2302,8 @@ r.get(
         authorName: defaultAuthor,
         canChooseStatus: canPublishDirectly,
         canSchedule: canPublishDirectly && canSchedulePages,
+        showPremiumToggle: Boolean(permissions.is_admin),
+        premiumOnly: Boolean(page.premium_only),
       }),
     );
   }),
@@ -2217,6 +2328,10 @@ r.post(
       permissions.is_admin || permissions.is_contributor,
     );
     const canSchedulePages = Boolean(permissions.can_schedule_pages);
+    const canSetPremium = Boolean(permissions.is_admin);
+    const premiumOnlySelected = canSetPremium
+      ? normalizePremiumFlagInput(req.body.premium_only)
+      : Boolean(page.premium_only);
     if (!permissions.is_admin) {
       const tagNames = await fetchPageTags(page.id);
       const ban = await resolveAccessBan({
@@ -2272,6 +2387,7 @@ r.post(
           submission: submissionId,
           status: "pending",
           author: authorToPersist,
+          premium_only: premiumOnlySelected,
         },
       });
       return res.redirect("/wiki/" + page.slug_id);
@@ -2291,6 +2407,7 @@ r.post(
         author: trimmedAuthorInput,
         status: req.body.status ?? page.status,
         publishAt: publication.rawPublishAt || formatPublishAtForInput(page.publish_at),
+        premium_only: premiumOnlySelected ? "1" : "0",
       };
       return res.status(400).render(
         "edit",
@@ -2303,6 +2420,8 @@ r.post(
           authorName: authorToPersist || "",
           canChooseStatus: true,
           canSchedule: canPublishDirectly && canSchedulePages,
+          showPremiumToggle: canSetPremium,
+          premiumOnly: premiumOnlySelected,
           formState,
           validationErrors: publication.errors.map((error) => error.message),
         }),
@@ -2317,12 +2436,13 @@ r.post(
     );
     const base = slugify(title);
     await run(
-      "UPDATE pages SET title=?, content=?, slug_base=?, author=?, status=?, publish_at=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
+      "UPDATE pages SET title=?, content=?, slug_base=?, author=?, premium_only=?, status=?, publish_at=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
       [
         title,
         content,
         base,
         authorToPersist,
+        premiumOnlySelected ? 1 : 0,
         publication.status,
         publication.publishAt,
         req.params.slugid,
@@ -2351,6 +2471,7 @@ r.post(
         author: authorToPersist,
         status: publication.status,
         publish_at: publication.publishAt,
+        premium_only: premiumOnlySelected,
       },
     });
     const scheduledLabel = publication.publishAt
@@ -2371,7 +2492,7 @@ r.post(
 
 async function handlePageDeletion(req, res) {
   const page = await get(
-    `SELECT id, snowflake_id, title, content, author, slug_id, slug_base, created_at, updated_at
+    `SELECT id, snowflake_id, title, content, author, premium_only, slug_id, slug_base, created_at, updated_at
        FROM pages
       WHERE slug_id=?`,
     [req.params.slugid],
@@ -2472,6 +2593,7 @@ async function handlePageDeletion(req, res) {
          title,
          content,
          author,
+         premium_only,
          status,
          publish_at,
          tags_json,
@@ -2480,7 +2602,7 @@ async function handlePageDeletion(req, res) {
          deleted_by,
          comments_json,
          stats_json
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         trashSnowflake,
         page.id,
@@ -2490,6 +2612,7 @@ async function handlePageDeletion(req, res) {
         page.title,
         page.content,
         page.author || null,
+        page.premium_only ? 1 : 0,
         page.status || "published",
         page.publish_at || null,
         tagsJson,
@@ -2546,6 +2669,7 @@ r.get(
     const ip = req.clientIp;
     const requestedTag = req.params.name;
     const tagName = requestedTag.toLowerCase();
+    const canViewPremium = canViewPremiumContent(req);
     const tagBan = await resolveAccessBan({
       ip,
       userId: getSessionUserId(req),
@@ -2555,7 +2679,9 @@ r.get(
     if (tagBan) {
       return res.status(403).render("banned", { ban: tagBan });
     }
-    const total = await countPagesByTag(requestedTag);
+    const total = await countPagesByTag(requestedTag, {
+      allowPremium: canViewPremium,
+    });
     const paginationOptions = {
       pageParam: "page",
       perPageParam: "size",
@@ -2571,11 +2697,13 @@ r.get(
             ip,
             limit: pagination.perPage,
             offset,
+            allowPremium: canViewPremium,
           })
         : [];
     const pages = pagesRaw.map((page) => ({
       ...page,
       excerpt: buildPreviewHtml(page.excerpt),
+      premium_only: Boolean(page.premium_only),
     }));
     res.render("tags", { tag: requestedTag, pages, pagination, total });
   }),

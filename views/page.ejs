@@ -2,6 +2,13 @@
 <div class="page-header card">
   <div class="heading">
     <h1 class="page-title"><%= page.title %></h1>
+    <% if (page.premium_only) { %>
+      <span
+        class="badge badge-premium"
+        title="Contenu réservé aux membres premium"
+        aria-label="Article premium"
+      >💎 Premium</span>
+    <% } %>
     <div class="meta">
       <span>Créé: <%= page.created_at %></span>
       <% if (page.updated_at) { %><span>• Modifié: <%= page.updated_at %></span><% } %>

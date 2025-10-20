@@ -133,6 +133,9 @@
             <% profile.recentPages.forEach(function(page) { %>
               <li>
                 <a href="/wiki/<%= page.slug_id %>"><%= page.title %></a>
+                <% if (page.premium_only) { %>
+                  <span class="badge badge-premium" title="Article réservé aux membres premium">💎 Premium</span>
+                <% } %>
                 <span class="profile-public__recent-date">
                   <%= page.created_at ? new Date(page.created_at).toLocaleDateString('fr-FR') : '' %>
                 </span>

@@ -24,6 +24,9 @@
   <% if (!pages.length) { %><div class="card">Aucun article.</div><% } %>
   <% pages.forEach(p => { const tags = (p.tagsCsv||'').split(',').filter(Boolean); %>
     <div class="card">
+      <% if (p.premium_only) { %>
+        <span class="badge badge-premium" title="Article réservé aux membres premium">💎 Premium</span>
+      <% } %>
       <h3><strong><%= p.title %></strong></h3>
       <% if (p.excerpt) { %>
         <div class="excerpt">

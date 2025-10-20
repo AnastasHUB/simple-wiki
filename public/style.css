@@ -1987,6 +1987,31 @@ small,
   color: rgba(214, 231, 255, 0.85);
 }
 
+.badge-premium {
+  background: rgba(255, 215, 0, 0.2);
+  border-color: rgba(255, 215, 0, 0.45);
+  color: #ffe58f;
+  font-weight: 600;
+  gap: 0.35rem;
+}
+
+.page-header .badge-premium,
+.article-grid .badge-premium,
+.profile-public__recent .badge-premium,
+.premium-gate .badge-premium {
+  margin-right: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.premium-gate {
+  display: grid;
+  gap: 1rem;
+}
+
+.premium-gate .btn + .btn {
+  margin-left: 0.5rem;
+}
+
 form {
   display: grid;
   gap: 1rem;

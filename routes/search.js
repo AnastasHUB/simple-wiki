@@ -3,6 +3,7 @@ import { all, get, isFtsAvailable } from "../db.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import { buildPaginationView } from "../utils/pagination.js";
 import { buildPublishedFilter } from "../utils/pageService.js";
+import { canViewPremiumContent } from "../utils/premiumAccess.js";
 
 const r = Router();
 
@@ -109,6 +110,7 @@ r.get("/search", async (req, res) => {
           p.slug_id,
           p.title,
           substr(p.content, 1, 400) AS excerpt,
+          p.premium_only,
           bm25(pages_fts) AS score,
           snippet(pages_fts, 'content', '<mark>', '</mark>', '…', 20) AS contentSnippet,
           snippet(pages_fts, 'tags', '<mark>', '</mark>', '…', 10) AS tagsSnippet,
@@ -140,6 +142,7 @@ r.get("/search", async (req, res) => {
           ...row,
           snippet: chooseSnippet(row),
           score: Number.isFinite(numericScore) ? numericScore : null,
+          premium_only: Boolean(row.premium_only),
         };
       });
     } catch (err) {
@@ -178,6 +181,7 @@ r.get("/search", async (req, res) => {
         p.title,
         p.slug_id,
         substr(p.content, 1, 400) AS excerpt,
+        p.premium_only,
         (
           SELECT GROUP_CONCAT(t2.name, ',')
           FROM tags t2
@@ -205,7 +209,12 @@ r.get("/search", async (req, res) => {
         offset,
       ],
     );
-    rows = fallbackRows.map((row) => ({ ...row, snippet: null, score: null }));
+    rows = fallbackRows.map((row) => ({
+      ...row,
+      snippet: null,
+      score: null,
+      premium_only: Boolean(row.premium_only),
+    }));
   }
 
 const decoratedRows = rows.map((row) => ({

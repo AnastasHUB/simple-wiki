@@ -96,6 +96,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     author TEXT,
+    premium_only INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'published'
       CHECK(status IN ('draft','published','scheduled')),
     publish_at DATETIME,
@@ -112,6 +113,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     author TEXT,
+    premium_only INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'published',
     publish_at DATETIME,
     tags_json TEXT,
@@ -361,6 +363,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published','scheduled'))",
   );
   await ensureColumn("pages", "publish_at", "DATETIME");
+  await ensureColumn("pages", "premium_only", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("deleted_pages", "comments_json", "TEXT");
   await ensureColumn("deleted_pages", "stats_json", "TEXT");
   await ensureColumn("deleted_pages", "author", "TEXT");
@@ -370,6 +373,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published','scheduled'))",
   );
   await ensureColumn("deleted_pages", "publish_at", "DATETIME");
+  await ensureColumn("deleted_pages", "premium_only", "INTEGER NOT NULL DEFAULT 0");
   await ensureColumn("page_submissions", "author_name", "TEXT");
   await ensureColumn("badges", "automatic_key", "TEXT");
   await db.exec(

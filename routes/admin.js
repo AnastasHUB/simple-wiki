@@ -2003,7 +2003,7 @@ r.post(
       const slugId = randId();
       const pageSnowflake = generateSnowflake();
       const insertResult = await run(
-        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at) VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, premium_only, status, publish_at) VALUES(?,?,?,?,?,?,?,?,?)",
         [
           pageSnowflake,
           base,
@@ -2011,6 +2011,7 @@ r.post(
           submission.title,
           submission.content,
           submission.author_name || submission.submitted_by || null,
+          0,
           "published",
           null,
         ],
@@ -5182,8 +5183,8 @@ r.post(
   await run("BEGIN");
   try {
     const insert = await run(
-      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at, created_at, updated_at)
-       VALUES(?,?,?,?,?,?,?,?,?,?)`,
+      `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, premium_only, status, publish_at, created_at, updated_at)
+       VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
       [
         snowflake,
         trashed.slug_base,
@@ -5191,6 +5192,7 @@ r.post(
         restoredTitle,
         trashed.content || "",
         trashed.author || null,
+        trashed.premium_only ? 1 : 0,
         trashed.status || "published",
         trashed.publish_at || null,
         trashed.created_at || null,

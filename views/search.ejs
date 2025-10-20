@@ -97,6 +97,9 @@
        const showScore = mode === 'fts' && Number.isFinite(p.score);
   %>
     <div class="card">
+      <% if (p.premium_only) { %>
+        <span class="badge badge-premium" title="Article réservé aux membres premium">💎 Premium</span>
+      <% } %>
       <h3><strong><%= p.title %></strong></h3>
       <% if (p.snippet) { %>
         <div class="excerpt">
