@@ -51,6 +51,20 @@
           </li>
         <% }) %>
       </ul>
+      <div class="role-sidebar-footer">
+        <button
+          type="button"
+          class="btn primary"
+          data-icon="💾"
+          data-action="save-role-order"
+          disabled
+        >
+          Enregistrer l'ordre
+        </button>
+        <p class="role-sidebar-status" data-role-order-status hidden>
+          Ordre modifié. Enregistrez pour appliquer.
+        </p>
+      </div>
     </aside>
     <div class="role-detail">
       <% roles.forEach((role, index) => { %>
@@ -929,13 +943,80 @@
       }
     }
 
+    const saveOrderButton = manager.querySelector('[data-action="save-role-order"]');
+    const orderStatus = manager.querySelector('[data-role-order-status]');
+    const defaultOrderStatusMessage = orderStatus
+      ? orderStatus.textContent.trim() || "Ordre modifié. Enregistrez pour appliquer."
+      : "Ordre modifié. Enregistrez pour appliquer.";
+
+    if (orderStatus) {
+      orderStatus.textContent = defaultOrderStatusMessage;
+      orderStatus.hidden = true;
+    }
+
     const getOrder = () =>
       Array.from(list.querySelectorAll('.role-selector-item'))
         .map((item) => item.dataset.roleId)
         .filter(Boolean);
 
     let lastOrder = getOrder().join(',');
+    let pendingOrder = null;
     let draggedItem = null;
+    let isSavingOrder = false;
+    let statusTimeoutId = null;
+
+    const clearStatus = () => {
+      if (!orderStatus) {
+        return;
+      }
+      if (statusTimeoutId) {
+        window.clearTimeout(statusTimeoutId);
+        statusTimeoutId = null;
+      }
+      orderStatus.hidden = true;
+      orderStatus.classList.remove('is-pending', 'is-success', 'is-error');
+      orderStatus.textContent = defaultOrderStatusMessage;
+    };
+
+    const setStatus = (message, state) => {
+      if (!orderStatus) {
+        return;
+      }
+      if (statusTimeoutId) {
+        window.clearTimeout(statusTimeoutId);
+        statusTimeoutId = null;
+      }
+      orderStatus.textContent = message;
+      orderStatus.hidden = false;
+      orderStatus.classList.remove('is-pending', 'is-success', 'is-error');
+      if (state) {
+        orderStatus.classList.add(state);
+      }
+      if (state === 'is-success') {
+        statusTimeoutId = window.setTimeout(() => {
+          orderStatus.hidden = true;
+          orderStatus.classList.remove('is-success');
+          orderStatus.textContent = defaultOrderStatusMessage;
+          statusTimeoutId = null;
+        }, 4000);
+      }
+    };
+
+    const markDirty = (order) => {
+      pendingOrder = order.slice();
+      if (saveOrderButton) {
+        saveOrderButton.disabled = false;
+      }
+      setStatus(defaultOrderStatusMessage, 'is-pending');
+    };
+
+    const markPristine = () => {
+      pendingOrder = null;
+      if (saveOrderButton) {
+        saveOrderButton.disabled = true;
+      }
+      clearStatus();
+    };
 
     const getDragAfterElement = (container, y) => {
       const items = Array.from(
@@ -954,11 +1035,11 @@
       ).element;
     };
 
-    const persistOrder = (order) => {
+    const persistOrder = async (order) => {
       if (!order.length) {
-        return;
+        throw new Error("Aucun ordre de rôles à sauvegarder.");
       }
-      fetch('/admin/roles/reorder', {
+      const response = await fetch('/admin/roles/reorder', {
         method: 'POST',
         headers: applyHeaders({
           'Content-Type': 'application/json',
@@ -967,9 +1048,22 @@
         }),
         credentials: 'same-origin',
         body: JSON.stringify({ order }),
-      }).catch((error) => {
-        console.error("Impossible de sauvegarder l'ordre des rôles", error);
       });
+
+      let payload = null;
+      try {
+        payload = await response.json();
+      } catch (_err) {
+        payload = null;
+      }
+
+      if (!response.ok || !payload?.success) {
+        const message =
+          payload?.message || "Impossible de sauvegarder le nouvel ordre des rôles.";
+        throw new Error(message);
+      }
+
+      return payload;
     };
 
     const finishDrag = () => {
@@ -980,11 +1074,56 @@
       const order = getOrder();
       const serialized = order.join(',');
       if (serialized !== lastOrder) {
-        lastOrder = serialized;
-        persistOrder(order);
+        markDirty(order);
+      } else {
+        markPristine();
       }
       draggedItem = null;
     };
+
+    if (saveOrderButton) {
+      saveOrderButton.addEventListener('click', async () => {
+        if (isSavingOrder) {
+          return;
+        }
+
+        const pending = Array.isArray(pendingOrder) ? pendingOrder : getOrder();
+        if (!pending || !pending.length || pending.join(',') === lastOrder) {
+          markPristine();
+          return;
+        }
+
+        const originalIcon = saveOrderButton.dataset.icon;
+        saveOrderButton.disabled = true;
+        saveOrderButton.dataset.icon = '…';
+        isSavingOrder = true;
+        setStatus('Enregistrement en cours…', 'is-pending');
+
+        try {
+          const result = await persistOrder(pending);
+          const resultingOrder = Array.isArray(result?.order) && result.order.length
+            ? result.order.map((value) => String(value))
+            : pending;
+          lastOrder = resultingOrder.join(',');
+          pendingOrder = null;
+          saveOrderButton.disabled = true;
+          setStatus('Ordre enregistré.', 'is-success');
+        } catch (error) {
+          console.error("Impossible de sauvegarder l'ordre des rôles", error);
+          const message =
+            error?.message || "Impossible d'enregistrer l'ordre. Merci de réessayer.";
+          setStatus(message, 'is-error');
+          saveOrderButton.disabled = false;
+        } finally {
+          if (originalIcon !== undefined) {
+            saveOrderButton.dataset.icon = originalIcon;
+          } else {
+            delete saveOrderButton.dataset.icon;
+          }
+          isSavingOrder = false;
+        }
+      });
+    }
 
     list.addEventListener('dragstart', (event) => {
       const item = event.target.closest('.role-selector-item');
