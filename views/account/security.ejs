@@ -26,6 +26,48 @@
     </dl>
   </section>
 
+  <section class="security__password">
+    <h2>Modifier le mot de passe</h2>
+    <form method="post" action="/account/security/password" class="security__form">
+      <%- include('../partials/csrf_field') %>
+      <div class="field">
+        <label for="current-password">Mot de passe actuel</label>
+        <input
+          id="current-password"
+          name="currentPassword"
+          type="password"
+          autocomplete="current-password"
+          required
+        />
+      </div>
+      <div class="field">
+        <label for="new-password">Nouveau mot de passe</label>
+        <input
+          id="new-password"
+          name="newPassword"
+          type="password"
+          autocomplete="new-password"
+          minlength="8"
+          required
+        />
+        <p class="field__hint">Le nouveau mot de passe doit contenir au moins 8 caractères.</p>
+      </div>
+      <div class="field">
+        <label for="confirm-password">Confirmer le nouveau mot de passe</label>
+        <input
+          id="confirm-password"
+          name="confirmPassword"
+          type="password"
+          autocomplete="new-password"
+          required
+        />
+      </div>
+      <div class="form-actions">
+        <button class="btn" data-icon="🔑">Mettre à jour le mot de passe</button>
+      </div>
+    </form>
+  </section>
+
   <% if (!setup && !twoFactorEnabled) { %>
     <section class="security__actions">
       <h2>Activer la double authentification</h2>
