@@ -286,6 +286,21 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   CREATE INDEX IF NOT EXISTS idx_ip_bans_active
     ON ip_bans(ip, scope, value, lifted_at);
+  CREATE TABLE IF NOT EXISTS user_action_bans(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    scope TEXT NOT NULL CHECK(scope IN ('global','action','tag')),
+    value TEXT,
+    reason TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    lifted_at DATETIME
+  );
+  CREATE INDEX IF NOT EXISTS idx_user_action_bans_user
+    ON user_action_bans(user_id, scope, value, lifted_at);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_user_action_bans_active
+    ON user_action_bans(user_id, scope, value)
+    WHERE lifted_at IS NULL;
   CREATE TABLE IF NOT EXISTS ban_appeals(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -582,6 +597,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureColumn("ip_profiles", "reputation_override", "TEXT");
   await ensureColumn("ip_profiles", "reputation_summary", "TEXT");
+  await ensureUserActionBanScope();
   await ensureColumn("ip_profiles", "reputation_details", "TEXT");
   await ensureColumn("ip_profiles", "reputation_checked_at", "DATETIME");
   await ensureColumn("ip_profiles", "is_vpn", "INTEGER NOT NULL DEFAULT 0");
@@ -662,6 +678,62 @@ async function ensureColumn(table, column, definition) {
   if (!info.find((c) => c.name === column)) {
     await db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
   }
+}
+
+async function ensureUserActionBanScope() {
+  const row = await db.get(
+    "SELECT sql FROM sqlite_master WHERE type='table' AND name='user_action_bans'",
+  );
+  if (!row?.sql) {
+    return;
+  }
+  if (row.sql.includes("'global'")) {
+    return;
+  }
+  await db.exec("DROP INDEX IF EXISTS idx_user_action_bans_user;");
+  await db.exec("DROP INDEX IF EXISTS idx_user_action_bans_active;");
+  await db.exec("ALTER TABLE user_action_bans RENAME TO user_action_bans_old;");
+  await db.exec(`
+    CREATE TABLE user_action_bans(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      snowflake_id TEXT UNIQUE,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      scope TEXT NOT NULL CHECK(scope IN ('global','action','tag')),
+      value TEXT,
+      reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      lifted_at DATETIME
+    );
+  `);
+  await db.exec(`
+    INSERT INTO user_action_bans(
+      id,
+      snowflake_id,
+      user_id,
+      scope,
+      value,
+      reason,
+      created_at,
+      lifted_at
+    )
+    SELECT
+      id,
+      snowflake_id,
+      user_id,
+      CASE WHEN scope IN ('global','action','tag') THEN scope ELSE 'action' END,
+      value,
+      reason,
+      created_at,
+      lifted_at
+    FROM user_action_bans_old;
+  `);
+  await db.exec("DROP TABLE user_action_bans_old;");
+  await db.exec(
+    "CREATE INDEX IF NOT EXISTS idx_user_action_bans_user ON user_action_bans(user_id, scope, value, lifted_at);",
+  );
+  await db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_user_action_bans_active ON user_action_bans(user_id, scope, value) WHERE lifted_at IS NULL;",
+  );
 }
 
 async function ensureUserRoleAssignmentsTable() {

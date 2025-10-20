@@ -27,6 +27,8 @@
     <input type="hidden" name="liftedPerPage" value="<%= liftedPagination.perPage %>" />
     <input type="hidden" name="userPage" value="1" />
     <input type="hidden" name="userPerPage" value="<%= bannedUsersPagination.perPage %>" />
+    <input type="hidden" name="userActionPage" value="1" />
+    <input type="hidden" name="userActionPerPage" value="<%= userActionPagination.perPage %>" />
     <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
     <% if (searchTerm) { %>
       <a class="btn secondary" href="/admin/ip-bans">Réinitialiser</a>
@@ -69,6 +71,86 @@
 </section>
 
 <section class="card mb-xl">
+  <h2>Restreindre des actions utilisateur</h2>
+  <% if (canManageUserBansLocal) { %>
+    <form method="post" action="/admin/ip-bans/users/actions" class="grid grid-auto">
+      <%- include('../partials/csrf_field') %>
+      <div>
+        <label for="user-action-target">Utilisateur</label>
+        <input
+          id="user-action-target"
+          type="text"
+          name="user"
+          placeholder="ID ou nom d'utilisateur"
+          required
+        >
+      </div>
+      <fieldset class="grid-span-full stack-form">
+        <legend>Actions à restreindre</legend>
+        <div class="flex flex-wrap gap-sm">
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="global">
+            <span>Wiki entier</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="view">
+            <span>Consulter les pages</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="comment">
+            <span>Publier des commentaires</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="like">
+            <span>Ajouter aux favoris</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="react">
+            <span>Réagir aux contenus</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="contribute">
+            <span>Soumettre du contenu</span>
+          </label>
+          <label class="checkbox">
+            <input type="checkbox" name="actions" value="tag">
+            <span>Accéder à un tag</span>
+          </label>
+        </div>
+      </fieldset>
+      <div>
+        <label for="user-action-tag">Tag (si applicable)</label>
+        <input
+          id="user-action-tag"
+          type="text"
+          name="tag"
+          placeholder="ex&nbsp;: spoiler"
+        >
+        <p class="help-text">Indiquez un tag uniquement si l'option correspondante est cochée.</p>
+      </div>
+      <div class="grid-span-full">
+        <label for="user-action-reason">Motif</label>
+        <input
+          id="user-action-reason"
+          type="text"
+          name="reason"
+          placeholder="Optionnel"
+        >
+      </div>
+      <div class="grid-span-full">
+        <button class="btn warning" data-icon="🛑" type="submit">Appliquer les restrictions</button>
+      </div>
+    </form>
+    <p class="help-text">
+      Les restrictions ciblées permettent d'empêcher un compte d'effectuer certaines actions ou d'accéder au wiki en
+      entier.
+    </p>
+  <% } else { %>
+    <p>Vous n'avez pas la permission de restreindre des actions utilisateur.</p>
+  <% } %>
+</section>
+
+<section class="card mb-xl">
   <h2>Ajouter un blocage</h2>
   <form method="post" action="/admin/ip-bans" class="grid grid-auto">
     <%- include('../partials/csrf_field') %>
@@ -83,6 +165,7 @@
         <option value="view">Blocage des vues</option>
         <option value="comment">Commentaires</option>
         <option value="like">Likes</option>
+        <option value="react">Réactions</option>
         <option value="contribute">Contributions</option>
         <option value="tag">Tag spécifique</option>
       </select>
@@ -99,7 +182,10 @@
       <button class="btn success" data-icon="🛡️" type="submit">Enregistrer</button>
     </div>
   </form>
-  <p class="help-text">Pour un blocage limité à une action, choisissez la portée correspondante (vues, commentaires, likes ou contributions). Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.</p>
+  <p class="help-text">
+    Pour un blocage limité à une action, choisissez la portée correspondante (vues, commentaires, likes, réactions ou
+    contributions). Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.
+  </p>
 </section>
 
 <section class="card mb-xl">
@@ -165,6 +251,69 @@
       </table>
     </div>
     <%- include('./paginationControls', { pagination: bannedUsersPagination }) %>
+  <% } %>
+</section>
+
+<section class="card mb-xl">
+  <h2>Restrictions ciblées (<%= userActionPagination.totalItems %>)</h2>
+  <% if (!canManageUserBansLocal) { %>
+    <p>Vous n'avez pas la permission de consulter ces restrictions.</p>
+  <% } else if (!userActionBans.length) { %>
+    <p>Aucune restriction utilisateur active.</p>
+  <% } else { %>
+    <div class="table-wrap">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Utilisateur</th>
+            <th>Type</th>
+            <th>Valeur</th>
+            <th>Motif</th>
+            <th>Créée</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% userActionBans.forEach(ban => { %>
+            <% const userLabel = ban.username ? ban.username : (ban.user_id ? `Utilisateur #${ban.user_id}` : 'Compte supprimé'); %>
+            <% const typeLabel = ban.scope === 'global' ? 'Wiki entier' : (ban.scope === 'tag' ? 'Tag' : 'Action'); %>
+            <% const valueLabel = ban.scope === 'global' ? '—' : (ban.value || (ban.scope === 'tag' ? '-' : '—')); %>
+            <tr>
+              <td><%= ban.snowflake_id %></td>
+              <td><%= userLabel %></td>
+              <td><%= typeLabel %></td>
+              <td><%= valueLabel %></td>
+              <td><%= ban.reason || '-' %></td>
+              <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
+              <td>
+                <div class="flex flex-col gap-xs">
+                  <% if (!ban.lifted_at) { %>
+                    <form
+                      method="post"
+                      action="/admin/ip-bans/users/actions/<%= ban.snowflake_id %>/lift"
+                      onsubmit="return confirm('Lever cette restriction ?');"
+                    >
+                      <%- include('../partials/csrf_field') %>
+                      <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
+                    </form>
+                  <% } %>
+                  <form
+                    method="post"
+                    action="/admin/ip-bans/users/actions/<%= ban.snowflake_id %>/delete"
+                    onsubmit="return confirm('Supprimer définitivement cette restriction ?');"
+                  >
+                    <%- include('../partials/csrf_field') %>
+                    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <%- include('./paginationControls', { pagination: userActionPagination }) %>
   <% } %>
 </section>
 
