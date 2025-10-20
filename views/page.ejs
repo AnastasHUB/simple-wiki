@@ -165,6 +165,7 @@
     class="comment-form"
     method="post"
     action="/wiki/<%= page.slug_id %>/comments"
+    enctype="multipart/form-data"
     data-comment-preview-form
     data-preview-endpoint="/wiki/<%= page.slug_id %>/comments/preview"
     data-initial-parent="<%= initialParentId %>"
@@ -233,6 +234,26 @@
         id="<%= commentPreviewId %>"
         data-preview-body
       ></div>
+    </div>
+    <div class="field">
+      <label for="comment-attachments">Pièces jointes (facultatif)</label>
+      <input
+        id="comment-attachments"
+        type="file"
+        name="attachments"
+        accept="image/*,application/pdf,text/plain"
+        multiple
+        data-comment-attachment-input
+      />
+      <p class="field-hint">
+        Formats acceptés : images, PDF ou texte. Taille maximale : 5&nbsp;Mo par fichier (5 fichiers au total).
+      </p>
+      <ul
+        class="attachment-preview-list"
+        data-comment-attachment-preview
+        hidden
+        aria-hidden="true"
+      ></ul>
     </div>
     <% if (commentCaptchaConfig) { %>
       <div class="field">

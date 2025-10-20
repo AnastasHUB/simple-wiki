@@ -1,4 +1,7 @@
 import { Router } from "express";
+import path from "path";
+import { promises as fs } from "fs";
+import multer from "multer";
 import {
   get,
   run,
@@ -114,6 +117,113 @@ const commentRateLimiter = createRateLimiter({
   message:
     "Trop de commentaires ont été envoyés en peu de temps depuis votre adresse IP. Veuillez patienter avant de réessayer.",
 });
+
+export const COMMENT_ATTACHMENT_ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+  "application/pdf",
+  "text/plain",
+];
+const COMMENT_ATTACHMENT_ALLOWED_MIME_SET = new Set(
+  COMMENT_ATTACHMENT_ALLOWED_MIME_TYPES,
+);
+export const COMMENT_ATTACHMENT_MAX_SIZE = 5 * 1024 * 1024;
+export const COMMENT_ATTACHMENT_MAX_FILES = 5;
+const COMMENT_ATTACHMENT_MAX_SIZE_MB = Math.round(
+  COMMENT_ATTACHMENT_MAX_SIZE / (1024 * 1024),
+);
+const COMMENT_ATTACHMENT_UPLOAD_DIR = path.join(
+  process.cwd(),
+  "public",
+  "uploads",
+  "comments",
+);
+
+function sanitizeOriginalName(name) {
+  if (typeof name !== "string") {
+    return "Pièce jointe";
+  }
+  return name.replace(/\0/g, "").slice(0, 255) || "Pièce jointe";
+}
+
+function buildStoredFilename(originalName = "") {
+  const ext = path.extname(originalName).toLowerCase();
+  const safeExt = /^[.a-z0-9_-]{0,16}$/i.test(ext) ? ext : "";
+  return `${Date.now()}-${generateSnowflake()}${safeExt}`;
+}
+
+async function removeUploadedFiles(files) {
+  if (!Array.isArray(files) || !files.length) {
+    return;
+  }
+  await Promise.all(
+    files.map(async (file) => {
+      const filePath = file?.path;
+      if (!filePath) {
+        return;
+      }
+      try {
+        await fs.unlink(filePath);
+      } catch (error) {
+        if (error?.code !== "ENOENT") {
+          console.warn("Impossible de supprimer un fichier de commentaire", {
+            filePath,
+            error,
+          });
+        }
+      }
+    }),
+  );
+}
+
+const commentAttachmentStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, COMMENT_ATTACHMENT_UPLOAD_DIR);
+  },
+  filename: (req, file, cb) => {
+    const storedName = buildStoredFilename(file?.originalname || "");
+    cb(null, storedName);
+  },
+});
+
+const commentAttachmentUpload = multer({
+  storage: commentAttachmentStorage,
+  limits: {
+    fileSize: COMMENT_ATTACHMENT_MAX_SIZE,
+  },
+  fileFilter: (req, file, cb) => {
+    const mime = typeof file?.mimetype === "string" ? file.mimetype : "";
+    if (COMMENT_ATTACHMENT_ALLOWED_MIME_SET.has(mime)) {
+      cb(null, true);
+      return;
+    }
+    const error = new Error("UNSUPPORTED_COMMENT_ATTACHMENT_TYPE");
+    error.code = "UNSUPPORTED_COMMENT_ATTACHMENT_TYPE";
+    cb(error);
+  },
+});
+
+const handleCommentAttachmentUpload = commentAttachmentUpload.array(
+  "attachments",
+  COMMENT_ATTACHMENT_MAX_FILES,
+);
+
+function commentUploadMiddleware(req, res, next) {
+  handleCommentAttachmentUpload(req, res, (err) => {
+    if (err) {
+      req.commentUploadError = err;
+      const files = Array.isArray(req.files) ? req.files : [];
+      removeUploadedFiles(files).finally(() => {
+        req.files = [];
+        next();
+      });
+      return;
+    }
+    next();
+  });
+}
 
 const USER_ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
 const USER_ROLE_FLAG_PLACEHOLDERS = ROLE_FLAG_FIELDS.map(() => "?").join(", ");
@@ -978,6 +1088,7 @@ r.post(
 r.post(
   "/wiki/:slugid/comments",
   commentRateLimiter,
+  commentUploadMiddleware,
   asyncHandler(async (req, res) => {
     const page = await get(
       "SELECT id, snowflake_id, title, slug_id FROM pages WHERE slug_id=?",
@@ -1078,6 +1189,97 @@ r.post(
       }
     }
 
+    const uploadedFiles = Array.isArray(req.files) ? req.files : [];
+    const attachmentErrors = [];
+    const attachmentsToPersist = [];
+    if (req.commentUploadError) {
+      const uploadErrorCode = req.commentUploadError.code;
+      switch (uploadErrorCode) {
+        case "LIMIT_FILE_SIZE":
+          attachmentErrors.push(
+            `Chaque fichier doit faire moins de ${COMMENT_ATTACHMENT_MAX_SIZE_MB} Mo.`,
+          );
+          break;
+        case "UNSUPPORTED_COMMENT_ATTACHMENT_TYPE":
+          attachmentErrors.push(
+            "Ce type de fichier n'est pas autorisé pour les commentaires.",
+          );
+          break;
+        case "LIMIT_UNEXPECTED_FILE":
+          attachmentErrors.push(
+            `Vous ne pouvez joindre que ${COMMENT_ATTACHMENT_MAX_FILES} fichiers par commentaire.`,
+          );
+          break;
+        default:
+          attachmentErrors.push(
+            "Une erreur est survenue lors du téléversement de vos fichiers.",
+          );
+          break;
+      }
+    }
+
+    if (uploadedFiles.length > COMMENT_ATTACHMENT_MAX_FILES) {
+      attachmentErrors.push(
+        `Vous ne pouvez joindre que ${COMMENT_ATTACHMENT_MAX_FILES} fichiers par commentaire.`,
+      );
+    }
+
+    for (const file of uploadedFiles) {
+      if (!file) {
+        continue;
+      }
+      const mimeType = typeof file.mimetype === "string" ? file.mimetype : "";
+      const size = Number.isFinite(file.size) ? Number(file.size) : 0;
+      const storedName =
+        typeof file.filename === "string" && file.filename
+          ? file.filename
+          : file.path
+          ? path.basename(file.path)
+          : null;
+      const fileErrors = [];
+
+      if (!storedName) {
+        fileErrors.push(
+          "Impossible d'enregistrer cette pièce jointe. Merci de réessayer.",
+        );
+      }
+
+      if (!COMMENT_ATTACHMENT_ALLOWED_MIME_SET.has(mimeType)) {
+        fileErrors.push(
+          "Ce type de fichier n'est pas autorisé pour les commentaires.",
+        );
+      }
+
+      if (size > COMMENT_ATTACHMENT_MAX_SIZE) {
+        fileErrors.push(
+          `Chaque fichier doit faire moins de ${COMMENT_ATTACHMENT_MAX_SIZE_MB} Mo.`,
+        );
+      } else if (size < 0) {
+        fileErrors.push(
+          "La taille du fichier est invalide. Merci de réessayer.",
+        );
+      }
+
+      if (fileErrors.length) {
+        attachmentErrors.push(...fileErrors);
+        continue;
+      }
+
+      const relativePath = `uploads/comments/${storedName.replace(/\\/g, "/")}`;
+      const safeRelativePath = relativePath.replace(/^[\\/]+/, "");
+      attachmentsToPersist.push({
+        relativePath: safeRelativePath,
+        mimeType,
+        size,
+        originalName: sanitizeOriginalName(file.originalname),
+      });
+    }
+
+    if (attachmentErrors.length) {
+      validation.errors.push(...attachmentErrors);
+      await removeUploadedFiles(uploadedFiles);
+    }
+
     if (validation.errors.length) {
       req.session.commentFeedback = {
         slug: page.slug_id,
@@ -1127,6 +1329,29 @@ r.post(
         commentStatus,
       ],
     );
+
+    if (attachmentsToPersist.length) {
+      for (const attachment of attachmentsToPersist) {
+        await run(
+          `INSERT INTO comment_attachments(
+             snowflake_id,
+             comment_snowflake_id,
+             file_path,
+             mime_type,
+             file_size,
+             original_name
+           ) VALUES(?,?,?,?,?,?)`,
+          [
+            generateSnowflake(),
+            commentSnowflake,
+            attachment.relativePath,
+            attachment.mimeType,
+            attachment.size,
+            attachment.originalName,
+          ],
+        );
+      }
+    }
 
     await touchIpProfile(ip, { userAgent: req.clientUserAgent });
 

@@ -6,6 +6,8 @@ import {
   getHandleProfile,
 } from "./userHandles.js";
 
+const COMMENT_ATTACHMENT_IMAGE_PATTERN = /^image\/[^\s]+$/i;
+
 const TAGS_CSV_SUBQUERY = `(
   SELECT GROUP_CONCAT(t.name, ',')
   FROM tags t
@@ -327,13 +329,65 @@ export async function fetchPageComments(pageId, options = {}) {
     collectSubtree(rootId);
   }
 
+  let attachmentsByComment = new Map();
+  if (allowedIds.size) {
+    const attachmentPlaceholders = Array.from(allowedIds)
+      .map(() => "?")
+      .join(", ");
+    if (attachmentPlaceholders.length) {
+      const attachmentRows = await all(
+        `SELECT snowflake_id,
+                comment_snowflake_id,
+                file_path,
+                mime_type,
+                file_size,
+                original_name
+           FROM comment_attachments
+          WHERE comment_snowflake_id IN (${attachmentPlaceholders})
+          ORDER BY id ASC`,
+        [...allowedIds],
+      );
+      attachmentsByComment = new Map();
+      for (const row of attachmentRows) {
+        const commentId = row.comment_snowflake_id;
+        const normalizedPath =
+          typeof row.file_path === "string"
+            ? row.file_path.replace(/\\/g, "/")
+            : "";
+        const safePath = normalizedPath.replace(/^[\\/]+/, "");
+        const downloadUrl = safePath ? `/public/${safePath}` : null;
+        const size = Number.parseInt(row.file_size, 10);
+        const attachment = {
+          id: row.snowflake_id,
+          commentId,
+          path: safePath,
+          url: downloadUrl,
+          mimeType: row.mime_type,
+          size: Number.isNaN(size) ? 0 : size,
+          originalName:
+            typeof row.original_name === "string" && row.original_name
+              ? row.original_name
+              : "Pièce jointe",
+          isImage: COMMENT_ATTACHMENT_IMAGE_PATTERN.test(row.mime_type || ""),
+        };
+        if (!attachmentsByComment.has(commentId)) {
+          attachmentsByComment.set(commentId, []);
+        }
+        attachmentsByComment.get(commentId).push(attachment);
+      }
+    }
+  }
+
   const nodeClones = new Map();
   for (const node of baseNodes) {
     if (!allowedIds.has(node.snowflake_id)) continue;
     const { rawParentId: _discardedRawParent, ...rest } = node;
+    const attachments = attachmentsByComment.get(node.snowflake_id) || [];
     nodeClones.set(node.snowflake_id, {
       ...rest,
       children: [],
+      attachments,
+      hasAttachments: attachments.length > 0,
     });
   }
 

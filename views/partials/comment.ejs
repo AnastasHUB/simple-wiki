@@ -23,6 +23,8 @@
     authorClasses.push(commentAuthorColor.className);
   }
   const canEditOwn = ownCommentTokens && commentId && ownCommentTokens[commentId];
+  const attachments = Array.isArray(comment?.attachments) ? comment.attachments : [];
+  const hasAttachments = attachments.length > 0;
 %>
 <li
   id="comment-<%= commentId %>"
@@ -58,6 +60,11 @@
           srOnlyClass: 'sr-only',
           ariaLabel: "Badges de l'auteur",
         }) %>
+        <% if (hasAttachments) { %>
+          <span class="comment-attachment-flag" title="Ce commentaire contient des pièces jointes">
+            📎<span class="sr-only">Pièces jointes disponibles</span>
+          </span>
+        <% } %>
       </span>
       <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
       <% if (comment?.ipProfile) { %>
@@ -71,6 +78,56 @@
     </div>
   </div>
   <div class="comment-body"><%= comment.body %></div>
+  <% if (hasAttachments) { %>
+    <div class="comment-attachments" data-comment-attachments>
+      <ul class="comment-attachment-list">
+        <% attachments.forEach((attachment) => { %>
+          <% const attachmentLabel =
+            typeof attachment?.originalName === 'string' && attachment.originalName
+              ? attachment.originalName
+              : 'Pièce jointe'; %>
+          <% const attachmentUrl = typeof attachment?.url === 'string' ? attachment.url : ''; %>
+          <% const rawSize = Number.isFinite(attachment?.size)
+            ? Number(attachment.size)
+            : Number.parseInt(attachment?.size, 10); %>
+          <% const formattedSize = !Number.isNaN(rawSize) && rawSize > 0
+            ? Math.max(1, Math.round(rawSize / 1024))
+            : null; %>
+          <li class="comment-attachment-item">
+            <% if (attachment.isImage && attachmentUrl) { %>
+              <a
+                class="comment-attachment-link comment-attachment-link--image"
+                href="<%= attachmentUrl %>"
+                download="<%= attachmentLabel %>"
+              >
+                <img
+                  class="comment-attachment-thumb"
+                  src="<%= attachmentUrl %>"
+                  alt="Aperçu de <%= attachmentLabel %>"
+                  loading="lazy"
+                />
+                <span class="comment-attachment-label"><%= attachmentLabel %></span>
+              </a>
+            <% } else if (attachmentUrl) { %>
+              <a
+                class="comment-attachment-link"
+                href="<%= attachmentUrl %>"
+                download="<%= attachmentLabel %>"
+              >
+                <span class="comment-attachment-icon" aria-hidden="true">📄</span>
+                <span class="comment-attachment-label"><%= attachmentLabel %></span>
+              </a>
+            <% } else { %>
+              <span class="comment-attachment-label"><%= attachmentLabel %></span>
+            <% } %>
+            <% if (formattedSize) { %>
+              <span class="comment-attachment-size"><%= formattedSize %>&nbsp;Ko</span>
+            <% } %>
+          </li>
+        <% }); %>
+      </ul>
+    </div>
+  <% } %>
   <% if (Array.isArray(comment.reactions) && comment.reactions.length) { %>
     <div class="comment-reactions" data-comment-reactions>
       <%- include('reactionBar', {
