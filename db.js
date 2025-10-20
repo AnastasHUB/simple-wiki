@@ -1,4 +1,5 @@
 import path from "path";
+import { promises as fs } from "fs";
 import { fileURLToPath } from "url";
 import sqlite3 from "sqlite3";
 import { open } from "sqlite";
@@ -41,6 +42,9 @@ export async function initDb() {
     return db;
   }
   db = await open({ filename: "./data.sqlite", driver: sqlite3.Database });
+  await fs.mkdir(path.join(__dirname, "public", "uploads", "comments"), {
+    recursive: true,
+  });
   await db.exec(`
   PRAGMA foreign_keys=ON;
   PRAGMA busy_timeout=5000;
@@ -254,6 +258,18 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   CREATE INDEX IF NOT EXISTS idx_comment_reactions_lookup
     ON comment_reactions(comment_snowflake_id, reaction_key);
+  CREATE TABLE IF NOT EXISTS comment_attachments(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    snowflake_id TEXT UNIQUE,
+    comment_snowflake_id TEXT NOT NULL REFERENCES comments(snowflake_id) ON DELETE CASCADE,
+    file_path TEXT NOT NULL,
+    mime_type TEXT NOT NULL,
+    file_size INTEGER NOT NULL,
+    original_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_comment_attachments_comment
+    ON comment_attachments(comment_snowflake_id);
   CREATE TABLE IF NOT EXISTS page_submissions(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -638,6 +654,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureSnowflake("premium_codes");
   await ensureSnowflake("comments");
   await ensureSnowflake("comment_reactions");
+  await ensureSnowflake("comment_attachments");
   await ensureSnowflake("page_submissions");
   await ensureSnowflake("ip_bans");
   await ensureSnowflake("ban_appeals");

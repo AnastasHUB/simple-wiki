@@ -969,6 +969,126 @@ textarea {
   margin-left: calc(3rem + 0.75rem);
 }
 
+.comment-attachment-flag {
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.comment-attachments {
+  margin: 0.35rem 0 0.1rem;
+  margin-left: calc(3rem + 0.75rem);
+}
+
+.comment-attachment-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem;
+}
+
+.comment-attachment-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 12rem;
+}
+
+.comment-attachment-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: 0.6rem;
+  background: rgba(9, 26, 58, 0.65);
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 6px 14px rgba(8, 16, 38, 0.45);
+  transition: transform 0.2s ease, box-shadow 0.2s ease,
+    background-color 0.2s ease;
+}
+
+.comment-attachment-link:hover,
+.comment-attachment-link:focus {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(8, 16, 38, 0.5);
+  background: rgba(25, 46, 92, 0.75);
+}
+
+.comment-attachment-link--image {
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 0.5rem;
+  min-width: 9rem;
+}
+
+.comment-attachment-thumb {
+  width: 8rem;
+  height: 6rem;
+  object-fit: cover;
+  border-radius: 0.6rem;
+  background: rgba(20, 38, 78, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(142, 188, 255, 0.15);
+}
+
+.comment-attachment-icon {
+  font-size: 1.25rem;
+}
+
+.comment-attachment-label {
+  font-weight: 500;
+  word-break: break-word;
+}
+
+.comment-attachment-size {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
+.attachment-preview-list {
+  list-style: none;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.attachment-preview-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(9, 26, 58, 0.5);
+  border-radius: 0.6rem;
+  padding: 0.5rem 0.75rem;
+  box-shadow: inset 0 0 0 1px rgba(126, 186, 255, 0.2);
+}
+
+.attachment-preview-thumb {
+  width: 3.5rem;
+  height: 3.5rem;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  background: rgba(20, 38, 78, 0.6);
+  flex-shrink: 0;
+}
+
+.attachment-preview-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.attachment-preview-size {
+  font-size: 0.8rem;
+  color: var(--color-text-muted);
+}
+
 .page-reactions {
   margin-top: 1rem;
 }
