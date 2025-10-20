@@ -390,6 +390,7 @@ pre code {
   display: contents;
 }
 
+
 .user-chip {
   display: inline-flex;
   align-items: center;
@@ -402,11 +403,21 @@ pre code {
   font-size: 0.95rem;
 }
 
+.user-chip--colored {
+  --user-chip-accent: var(--user-chip-accent, var(--color-accent));
+  background: color-mix(in srgb, var(--user-chip-accent) 16%, transparent);
+  border-color: color-mix(in srgb, var(--user-chip-accent) 28%, transparent);
+}
+
 .user-chip .chip-label {
   text-transform: uppercase;
   letter-spacing: 0.08em;
   font-size: 0.7rem;
   color: var(--color-text-muted);
+}
+
+.user-chip--colored .chip-label {
+  color: color-mix(in srgb, var(--user-chip-accent) 75%, var(--color-text-muted));
 }
 
 .user-handle {
