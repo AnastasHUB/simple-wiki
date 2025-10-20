@@ -37,40 +37,6 @@
 </form>
 
 <section class="card mb-xl">
-  <h2>Bannir un utilisateur</h2>
-  <% if (canManageUserBansLocal) { %>
-    <form method="post" action="/admin/ip-bans/users" class="grid grid-auto">
-      <%- include('../partials/csrf_field') %>
-      <div>
-        <label for="user">Utilisateur</label>
-        <input
-          id="user"
-          type="text"
-          name="user"
-          placeholder="ID ou nom d'utilisateur"
-          required
-        >
-      </div>
-      <div class="grid-span-full">
-        <label for="user-reason">Motif</label>
-        <input
-          id="user-reason"
-          type="text"
-          name="reason"
-          placeholder="Optionnel"
-        >
-      </div>
-      <div class="grid-span-full">
-        <button class="btn danger" data-icon="🚫" type="submit">Bannir l'utilisateur</button>
-      </div>
-    </form>
-    <p class="help-text">Indiquez l'identifiant numérique ou le nom du compte à bannir. Le bannissement empêchera toute connexion au wiki.</p>
-  <% } else { %>
-    <p>Vous n'avez pas la permission de bannir des utilisateurs.</p>
-  <% } %>
-</section>
-
-<section class="card mb-xl">
   <h2>Restreindre des actions utilisateur</h2>
   <% if (canManageUserBansLocal) { %>
     <form method="post" action="/admin/ip-bans/users/actions" class="grid grid-auto">
