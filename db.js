@@ -213,7 +213,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     description TEXT,
     emoji TEXT,
     image_url TEXT,
-    automatic_key TEXT UNIQUE,
+    automatic_key TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME
   );
@@ -355,7 +355,10 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureColumn("deleted_pages", "publish_at", "DATETIME");
   await ensureColumn("page_submissions", "author_name", "TEXT");
-  await ensureColumn("badges", "automatic_key", "TEXT UNIQUE");
+  await ensureColumn("badges", "automatic_key", "TEXT");
+  await db.exec(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_badges_automatic_key ON badges(automatic_key);",
+  );
   await ensureColumn("badges", "category", "TEXT NOT NULL DEFAULT 'custom'");
   await ensureColumn("settings", "github_repo", "TEXT DEFAULT ''");
   await ensureColumn(
