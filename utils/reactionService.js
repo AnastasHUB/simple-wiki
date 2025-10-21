@@ -147,12 +147,23 @@ export async function togglePageReaction({ pageId, reactionKey, ip }) {
     await run("DELETE FROM page_reactions WHERE id = ?", [existing.id]);
     return { added: false, key: option.id };
   }
-  await run(
-    `INSERT INTO page_reactions(snowflake_id, page_id, reaction_key, ip)
+  const insertion = await run(
+    `INSERT OR IGNORE INTO page_reactions(snowflake_id, page_id, reaction_key, ip)
      VALUES(?,?,?,?)`,
     [generateSnowflake(), safePageId, option.id, ip],
   );
-  return { added: true, key: option.id };
+  if (insertion?.changes > 0) {
+    return { added: true, key: option.id };
+  }
+  const created = await get(
+    `SELECT id
+       FROM page_reactions
+      WHERE page_id = ?
+        AND reaction_key = ?
+        AND ip = ?`,
+    [safePageId, option.id, ip],
+  );
+  return { added: Boolean(created), key: option.id };
 }
 
 export async function getCommentReactionState(commentSnowflakeId, ip = null) {
@@ -283,10 +294,21 @@ export async function toggleCommentReaction({ commentSnowflakeId, reactionKey, i
     await run("DELETE FROM comment_reactions WHERE id = ?", [existing.id]);
     return { added: false, key: option.id };
   }
-  await run(
-    `INSERT INTO comment_reactions(snowflake_id, comment_snowflake_id, reaction_key, ip)
+  const insertion = await run(
+    `INSERT OR IGNORE INTO comment_reactions(snowflake_id, comment_snowflake_id, reaction_key, ip)
      VALUES(?,?,?,?)`,
     [generateSnowflake(), normalized, option.id, ip],
   );
-  return { added: true, key: option.id };
+  if (insertion?.changes > 0) {
+    return { added: true, key: option.id };
+  }
+  const created = await get(
+    `SELECT id
+       FROM comment_reactions
+      WHERE comment_snowflake_id = ?
+        AND reaction_key = ?
+        AND ip = ?`,
+    [normalized, option.id, ip],
+  );
+  return { added: Boolean(created), key: option.id };
 }

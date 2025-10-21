@@ -73,6 +73,39 @@ test("page reactions toggle per IP", async (t) => {
   assert.equal(heartAfter.reacted, false);
 });
 
+test("page reaction toggles resolve uniqueness conflicts gracefully", async (t) => {
+  await initDb();
+  const slug = `page-reaction-conflict-${Date.now()}`;
+  const page = await createPage(slug);
+
+  t.after(async () => {
+    await cleanupPage(slug);
+  });
+
+  const ip = "198.51.100.25";
+  const first = await togglePageReaction({
+    pageId: page.id,
+    reactionKey: "heart",
+    ip,
+  });
+  assert.deepEqual(first, { added: true, key: "heart" });
+
+  const second = await togglePageReaction({
+    pageId: page.id,
+    reactionKey: "heart",
+    ip,
+  });
+  assert.deepEqual(second, { added: false, key: "heart" });
+
+  const options = await listAvailableReactions();
+  const state = await getPageReactionState(page.id, ip);
+  const display = combineReactionState(options, state);
+  const heart = display.find((reaction) => reaction.id === "heart");
+  assert.ok(heart);
+  assert.equal(heart.count, 0);
+  assert.equal(heart.reacted, false);
+});
+
 test("comment reactions aggregate counts across multiple IPs", async (t) => {
   await initDb();
   const slug = `comment-reaction-${Date.now()}`;
@@ -118,6 +151,41 @@ test("comment reactions aggregate counts across multiple IPs", async (t) => {
   assert.ok(ideaAfter);
   assert.equal(ideaAfter.count, 1);
   assert.equal(ideaAfter.reacted, false);
+});
+
+test("comment reaction toggles resolve uniqueness conflicts gracefully", async (t) => {
+  await initDb();
+  const slug = `comment-reaction-conflict-${Date.now()}`;
+  const page = await createPage(slug);
+  const commentSnowflake = await insertComment(page.id);
+
+  t.after(async () => {
+    await cleanupComment(commentSnowflake);
+    await cleanupPage(slug);
+  });
+
+  const ip = "203.0.113.77";
+  const first = await toggleCommentReaction({
+    commentSnowflakeId: commentSnowflake,
+    reactionKey: "idea",
+    ip,
+  });
+  assert.deepEqual(first, { added: true, key: "idea" });
+
+  const second = await toggleCommentReaction({
+    commentSnowflakeId: commentSnowflake,
+    reactionKey: "idea",
+    ip,
+  });
+  assert.deepEqual(second, { added: false, key: "idea" });
+
+  const options = await listAvailableReactions();
+  const state = await getCommentReactionState(commentSnowflake, ip);
+  const display = combineReactionState(options, state);
+  const idea = display.find((reaction) => reaction.id === "idea");
+  assert.ok(idea);
+  assert.equal(idea.count, 0);
+  assert.equal(idea.reacted, false);
 });
 
 test("custom reactions can be created, updated, and removed", async (t) => {
