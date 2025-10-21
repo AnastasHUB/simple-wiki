@@ -3383,7 +3383,7 @@ r.get(
   "/reactions",
   requirePermission(["can_manage_settings", "can_manage_features"]),
   async (_req, res) => {
-    const reactions = await listReactionOptions();
+    const reactions = await listReactionOptions({ fallbackToDefaults: false });
     res.render("admin/reactions", { reactions });
   },
 );
