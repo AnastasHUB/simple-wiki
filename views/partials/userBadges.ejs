@@ -77,8 +77,8 @@
         <span class="<%= iconClasses.join(' ') %>" title="<%= badge.name %>">
           <% if (badge.imageUrl) { %>
             <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
-          <% } else { %>
-            <%= badge.emoji || '🏅' %>
+          <% } else if (badge.emoji) { %>
+            <%= badge.emoji %>
           <% } %>
         </span>
         <span class="<%= srClasses.join(' ') %>"><%= badge.name %></span>

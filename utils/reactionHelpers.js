@@ -1,11 +1,3 @@
-export const DEFAULT_REACTIONS = [
-  { id: "heart", label: "J'adore", emoji: "❤️", imageUrl: null },
-  { id: "bravo", label: "Bravo", emoji: "👏", imageUrl: null },
-  { id: "celebration", label: "À fêter", emoji: "🎉", imageUrl: null },
-  { id: "idea", label: "Malin", emoji: "💡", imageUrl: null },
-  { id: "curious", label: "Intrigué", emoji: "🤔", imageUrl: null },
-];
-
 export function sanitizeReactionKey(rawKey) {
   if (typeof rawKey !== "string" || !rawKey.trim()) {
     return null;

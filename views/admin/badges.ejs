@@ -66,8 +66,8 @@
             <div class="badge-card__icon" aria-hidden="true">
               <% if (badge.imageUrl) { %>
                 <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
-              <% } else { %>
-                <%= badge.emoji || '🏆' %>
+              <% } else if (badge.emoji) { %>
+                <%= badge.emoji %>
               <% } %>
             </div>
             <div class="badge-card__summary">
@@ -229,8 +229,8 @@
           <div class="badge-card__icon" aria-hidden="true">
             <% if (badge.imageUrl) { %>
               <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
-            <% } else { %>
-              <%= badge.emoji || '🏅' %>
+            <% } else if (badge.emoji) { %>
+              <%= badge.emoji %>
             <% } %>
           </div>
           <div class="badge-card__summary">

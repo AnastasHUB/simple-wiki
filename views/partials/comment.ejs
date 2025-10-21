@@ -48,9 +48,6 @@
       <span class="comment-author-header user-handle-decorated">
         <strong class="<%= authorClasses.join(' ') %>" style="<%= commentAuthorStyle %>">
           <%= authorName %>
-          <% if (comment?.isAdminAuthor) { %>
-            <span class="comment-author-badge" title="Administrateur">⭐</span>
-          <% } %>
         </strong>
         <%- include('userBadges', {
           badges: comment?.authorBadges,

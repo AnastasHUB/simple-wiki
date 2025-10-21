@@ -371,7 +371,22 @@ test("la route des réactions gère un échec de webhook", async (t) => {
   t.after(async () => {
     await run("DELETE FROM page_reactions WHERE page_id=?", [page.id]);
     await run("DELETE FROM pages WHERE id=?", [page.id]);
+    await run("DELETE FROM reaction_options WHERE reaction_key=?", ["heart"]);
   });
+
+  const reactionSnowflake = generateSnowflake();
+  await run(
+    `INSERT INTO reaction_options(
+        snowflake_id,
+        reaction_key,
+        label,
+        emoji,
+        image_url,
+        display_order
+      )
+      VALUES(?,?,?,?,?,?)`,
+    [reactionSnowflake, "heart", "Réaction cœur", "❤️", null, 1],
+  );
 
   const errors = [];
   const request = buildJsonRequest({
