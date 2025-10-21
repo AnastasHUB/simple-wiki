@@ -65,6 +65,17 @@
       <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Suggérer une modification</a>
     <% } %>
   </div>
+  <% if (Array.isArray(pageReactions) && pageReactions.length) { %>
+    <div class="page-reactions" data-page-reactions>
+      <%- include('partials/reactionBar', {
+        target: 'page',
+        slug: page.slug_id,
+        reactions: pageReactions,
+        formAction: `/wiki/${page.slug_id}/reactions`,
+        condensed: false
+      }) %>
+    </div>
+  <% } %>
 </div>
 
 <div class="card prose">

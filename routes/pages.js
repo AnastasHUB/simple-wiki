@@ -112,6 +112,17 @@ import {
   renderMarkdownDiff,
   hasMeaningfulDiff,
 } from "../utils/diffRenderer.js";
+import {
+  listAvailableReactions,
+  combineReactionState,
+  getPageReactionState,
+  getCommentReactionStates,
+  getCommentReactionState,
+  resolveReactionOption,
+  togglePageReaction,
+  toggleCommentReaction,
+} from "../utils/reactionService.js";
+import { broadcastLikeUpdate, broadcastReactionUpdate } from "../utils/reactionWebsocket.js";
 
 const r = Router();
 const commentRateLimiter = createRateLimiter({
@@ -421,6 +432,37 @@ function requestWantsJson(req) {
     req.get("X-Requested-With") === "XMLHttpRequest" ||
     (req.headers.accept || "").includes("application/json")
   );
+}
+
+function collectCommentIds(comments = [], output = []) {
+  if (!Array.isArray(comments) || !comments.length) {
+    return output;
+  }
+  for (const comment of comments) {
+    if (comment && typeof comment.snowflake_id === "string") {
+      output.push(comment.snowflake_id);
+    }
+    if (comment?.children && comment.children.length) {
+      collectCommentIds(comment.children, output);
+    }
+  }
+  return output;
+}
+
+function decorateCommentsWithReactions(comments, reactionOptions, reactionStates) {
+  if (!Array.isArray(comments) || !comments.length) {
+    return;
+  }
+  for (const comment of comments) {
+    const state = reactionStates.get(comment.snowflake_id) || {
+      totals: new Map(),
+      userSelections: new Set(),
+    };
+    comment.reactions = combineReactionState(reactionOptions, state);
+    if (Array.isArray(comment.children) && comment.children.length) {
+      decorateCommentsWithReactions(comment.children, reactionOptions, reactionStates);
+    }
+  }
 }
 
 r.use(
@@ -1062,6 +1104,14 @@ r.get(
       limit: commentPagination.perPage,
       offset: commentOffset,
     });
+    const reactionOptions = await listAvailableReactions();
+    const pageReactionState = await getPageReactionState(page.id, ip);
+    const pageReactions = combineReactionState(reactionOptions, pageReactionState);
+    const commentIds = collectCommentIds(comments, []);
+    const commentReactionStates = commentIds.length
+      ? await getCommentReactionStates(commentIds, ip)
+      : new Map();
+    decorateCommentsWithReactions(comments, reactionOptions, commentReactionStates);
     commentPagination = decoratePagination(
       req,
       commentPagination,
@@ -1091,6 +1141,7 @@ r.get(
       html,
       tags: tagNames,
       comments,
+      pageReactions,
       commentPagination,
       commentFeedback,
       ownCommentTokens,
@@ -1877,6 +1928,11 @@ r.post(
     );
     const likeCount = total?.totalLikes || 0;
 
+    broadcastLikeUpdate({
+      slug: page.slug_id,
+      likes: likeCount,
+    });
+
     if (wantsJson) {
       return res.json({
         ok: true,
@@ -1892,7 +1948,305 @@ r.post(
   }),
 );
 
+r.post(
+  "/wiki/:slugid/reactions",
+  asyncHandler(async (req, res) => {
+    const ip = req.clientIp;
+    const wantsJson = requestWantsJson(req);
+    const rawReaction = typeof req.body?.reaction === "string" ? req.body.reaction : "";
 
+    const page = await get(
+      "SELECT id, snowflake_id, slug_id, title FROM pages WHERE slug_id=?",
+      [req.params.slugid],
+    );
+    if (!page) {
+      if (wantsJson) {
+        return res.status(404).json({ ok: false, message: "Page introuvable" });
+      }
+      return res.status(404).send("Page introuvable");
+    }
+
+    const option = await resolveReactionOption(rawReaction);
+    if (!option) {
+      const message = "Réaction introuvable.";
+      if (wantsJson) {
+        return res.status(400).json({ ok: false, message });
+      }
+      pushNotification(req, {
+        type: "error",
+        message,
+        timeout: 4000,
+      });
+      return res.redirect(`/wiki/${page.slug_id}`);
+    }
+
+    if (!ip) {
+      const message = "Impossible d'enregistrer votre réaction pour le moment.";
+      if (wantsJson) {
+        return res.status(400).json({ ok: false, message });
+      }
+      pushNotification(req, {
+        type: "error",
+        message,
+        timeout: 4000,
+      });
+      return res.redirect(`/wiki/${page.slug_id}`);
+    }
+
+    const tagNames = await fetchPageTags(page.id);
+    const ban = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
+      action: "react",
+      tags: tagNames,
+    });
+    if (ban) {
+      const { reasonText, appealMessage, appealUrl } = buildBanFeedback(ban);
+      const notificationMessage = appealMessage || reasonText;
+      if (wantsJson) {
+        const payload = {
+          ok: false,
+          message: reasonText,
+          ban,
+          notifications: [
+            { type: "error", message: notificationMessage, timeout: 6000 },
+          ],
+        };
+        if (appealUrl) {
+          payload.redirect = appealUrl;
+        }
+        return res.status(403).json(payload);
+      }
+      appendNotification(res, {
+        type: "error",
+        message: notificationMessage,
+        timeout: 6000,
+      });
+      return res.status(403).render("banned", { ban });
+    }
+
+    const result = await togglePageReaction({
+      pageId: page.id,
+      reactionKey: option.id,
+      ip,
+    });
+
+    await touchIpProfile(ip, { userAgent: req.clientUserAgent });
+
+    const reactions = combineReactionState(
+      await listAvailableReactions(),
+      await getPageReactionState(page.id, ip),
+    );
+
+    const payload = {
+      ok: true,
+      target: "page",
+      slug: page.slug_id,
+      reaction: option.id,
+      added: Boolean(result?.added),
+      reactions,
+      notifications: [],
+    };
+
+    const notification = {
+      type: result?.added ? "success" : "info",
+      message: result?.added
+        ? `Réaction “${option.label}” ajoutée.`
+        : `Réaction “${option.label}” retirée.`,
+      timeout: 3000,
+    };
+
+    payload.notifications = [notification];
+
+    broadcastReactionUpdate({
+      target: "page",
+      slug: page.slug_id,
+      reactions,
+    });
+
+    await safeSendAdminEvent(
+      req,
+      result?.added ? "Reaction added" : "Reaction removed",
+      {
+        user: req.session.user?.username || null,
+        page,
+        extra: {
+          ip,
+          reaction: option.id,
+          target: "page",
+        },
+      },
+    );
+
+    if (wantsJson) {
+      return res.json(payload);
+    }
+
+    pushNotification(req, notification);
+    return res.redirect(`/wiki/${page.slug_id}`);
+  }),
+);
+
+r.post(
+  "/wiki/:slugid/comments/:commentId/reactions",
+  asyncHandler(async (req, res) => {
+    const ip = req.clientIp;
+    const wantsJson = requestWantsJson(req);
+    const rawReaction = typeof req.body?.reaction === "string" ? req.body.reaction : "";
+
+    const comment = await get(
+      `SELECT c.snowflake_id,
+              c.status,
+              c.page_id,
+              p.slug_id,
+              p.title,
+              p.id AS page_internal_id
+         FROM comments c
+         JOIN pages p ON p.id = c.page_id
+        WHERE p.slug_id = ?
+          AND c.snowflake_id = ?
+          AND c.status = 'approved'`,
+      [req.params.slugid, req.params.commentId],
+    );
+
+    if (!comment) {
+      if (wantsJson) {
+        return res.status(404).json({ ok: false, message: "Commentaire introuvable" });
+      }
+      pushNotification(req, {
+        type: "error",
+        message: "Commentaire introuvable ou indisponible.",
+        timeout: 4000,
+      });
+      return res.redirect(`/wiki/${req.params.slugid}#comments`);
+    }
+
+    const option = await resolveReactionOption(rawReaction);
+    if (!option) {
+      const message = "Réaction introuvable.";
+      if (wantsJson) {
+        return res.status(400).json({ ok: false, message });
+      }
+      pushNotification(req, {
+        type: "error",
+        message,
+        timeout: 4000,
+      });
+      return res.redirect(`/wiki/${comment.slug_id}#comment-${comment.snowflake_id}`);
+    }
+
+    if (!ip) {
+      const message = "Impossible d'enregistrer votre réaction pour le moment.";
+      if (wantsJson) {
+        return res.status(400).json({ ok: false, message });
+      }
+      pushNotification(req, {
+        type: "error",
+        message,
+        timeout: 4000,
+      });
+      return res.redirect(`/wiki/${comment.slug_id}#comment-${comment.snowflake_id}`);
+    }
+
+    const tagNames = await fetchPageTags(comment.page_internal_id);
+    const ban = await resolveAccessBan({
+      ip,
+      userId: getSessionUserId(req),
+      action: "react",
+      tags: tagNames,
+    });
+    if (ban) {
+      const { reasonText, appealMessage, appealUrl } = buildBanFeedback(ban);
+      const notificationMessage = appealMessage || reasonText;
+      if (wantsJson) {
+        const payload = {
+          ok: false,
+          message: reasonText,
+          ban,
+          notifications: [
+            { type: "error", message: notificationMessage, timeout: 6000 },
+          ],
+        };
+        if (appealUrl) {
+          payload.redirect = appealUrl;
+        }
+        return res.status(403).json(payload);
+      }
+      appendNotification(res, {
+        type: "error",
+        message: notificationMessage,
+        timeout: 6000,
+      });
+      return res.status(403).render("banned", { ban });
+    }
+
+    const result = await toggleCommentReaction({
+      commentSnowflakeId: comment.snowflake_id,
+      reactionKey: option.id,
+      ip,
+    });
+
+    await touchIpProfile(ip, { userAgent: req.clientUserAgent });
+
+    const reactions = combineReactionState(
+      await listAvailableReactions(),
+      await getCommentReactionState(comment.snowflake_id, ip),
+    );
+
+    const payload = {
+      ok: true,
+      target: "comment",
+      slug: comment.slug_id,
+      commentId: comment.snowflake_id,
+      reaction: option.id,
+      added: Boolean(result?.added),
+      reactions,
+      notifications: [],
+    };
+
+    const notification = {
+      type: result?.added ? "success" : "info",
+      message: result?.added
+        ? `Réaction “${option.label}” ajoutée sur le commentaire.`
+        : `Réaction “${option.label}” retirée du commentaire.`,
+      timeout: 3000,
+    };
+
+    payload.notifications = [notification];
+
+    broadcastReactionUpdate({
+      target: "comment",
+      slug: comment.slug_id,
+      commentId: comment.snowflake_id,
+      reactions,
+    });
+
+    await sendAdminEvent(
+      result?.added ? "Comment reaction added" : "Comment reaction removed",
+      {
+        user: req.session.user?.username || null,
+        page: {
+          id: comment.page_internal_id,
+          slug_id: comment.slug_id,
+          title: comment.title,
+        },
+        extra: {
+          ip,
+          reaction: option.id,
+          target: "comment",
+          comment: comment.snowflake_id,
+        },
+      },
+    );
+
+    if (wantsJson) {
+      return res.json(payload);
+    }
+
+    pushNotification(req, notification);
+    return res.redirect(`/wiki/${comment.slug_id}#comment-${comment.snowflake_id}`);
+  }),
+);
 
 r.get(
   "/edit/:slugid",

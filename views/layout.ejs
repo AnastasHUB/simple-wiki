@@ -558,6 +558,14 @@
               <% } %>
               <% if (canManageSettings) { %>
                 <li>
+                  <a href="/admin/reactions">
+                    <span class="nav-item-icon" aria-hidden="true">😀</span>
+                    <span class="nav-item-label">Réactions</span>
+                  </a>
+                </li>
+              <% } %>
+              <% if (canManageSettings) { %>
+                <li>
                   <a href="/admin/settings">
                     <span class="nav-item-icon" aria-hidden="true">⚙️</span>
                     <span class="nav-item-label">Paramètres</span>
@@ -586,6 +594,12 @@
 <div id="overlayHit" class="drawer-overlay" aria-hidden="true"></div>
 <% const initialNotifications = typeof notifications !== 'undefined' ? notifications : []; %>
 <script type="application/json" id="initial-notifications"><%- JSON.stringify(initialNotifications).replace(/</g, '\\u003c') %></script>
+<% const reactionEmoji =
+  typeof customReactionEmoji !== "undefined" && Array.isArray(customReactionEmoji)
+    ? customReactionEmoji
+    : [];
+%>
+<script type="application/json" id="custom-reaction-emoji"><%- JSON.stringify(reactionEmoji).replace(/</g, '\\u003c') %></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/markdown-it@13.0.2/dist/markdown-it.min.js"></script>
