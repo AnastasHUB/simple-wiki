@@ -48,8 +48,19 @@ export async function resolveReactionOption(rawKey) {
       };
     }
   }
-  const fallback = DEFAULT_REACTIONS.find((reaction) => reaction.id === normalized);
-  return fallback ? { ...fallback } : null;
+  const row = await get(
+    `SELECT COUNT(*) AS totalOptions FROM reaction_options`,
+  );
+  const totalOptions = Number(row?.totalOptions ?? row?.total ?? 0);
+  if (!Number.isFinite(totalOptions) || totalOptions <= 0) {
+    for (const key of attempts) {
+      const fallback = DEFAULT_REACTIONS.find((reaction) => reaction.id === key);
+      if (fallback) {
+        return { ...fallback };
+      }
+    }
+  }
+  return null;
 }
 
 export function combineReactionState(reactions, state) {

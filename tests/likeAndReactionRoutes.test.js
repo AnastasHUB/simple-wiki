@@ -413,3 +413,87 @@ test("la route des réactions gère un échec de webhook", async (t) => {
   );
   assert.equal(totals.totalReactions, 1);
 });
+
+test("la route des réactions refuse une option supprimée", async (t) => {
+  await initDb();
+  setBotDetectionFetchImplementation(async () => ({
+    ok: true,
+    json: async () => ({ client: { type: "browser" } }),
+  }));
+  clearBotDetectionCache();
+
+  t.after(() => {
+    setBotDetectionFetchImplementation(null);
+    clearBotDetectionCache();
+  });
+
+  const slug = `reaction-deleted-${Date.now()}`;
+  const snowflake = generateSnowflake();
+  await run(
+    `INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author)
+     VALUES(?,?,?,?,?,?)`,
+    [snowflake, slug, slug, `Titre ${slug}`, "Contenu", "Auteur"],
+  );
+  const page = await get("SELECT id, slug_id FROM pages WHERE slug_id=?", [slug]);
+
+  await run("DELETE FROM reaction_options");
+  const heartSnowflake = generateSnowflake();
+  const starSnowflake = generateSnowflake();
+  await run(
+    `INSERT INTO reaction_options(
+        snowflake_id,
+        reaction_key,
+        label,
+        emoji,
+        image_url,
+        display_order
+      )
+      VALUES(?,?,?,?,?,?)`,
+    [heartSnowflake, "heart", "Réaction cœur", "❤️", null, 1],
+  );
+  await run(
+    `INSERT INTO reaction_options(
+        snowflake_id,
+        reaction_key,
+        label,
+        emoji,
+        image_url,
+        display_order
+      )
+      VALUES(?,?,?,?,?,?)`,
+    [starSnowflake, "star", "Réaction étoile", "⭐", null, 2],
+  );
+
+  t.after(async () => {
+    await run("DELETE FROM page_reactions WHERE page_id=?", [page.id]);
+    await run("DELETE FROM pages WHERE id=?", [page.id]);
+    await run("DELETE FROM reaction_options WHERE reaction_key IN (?, ?)", [
+      "heart",
+      "star",
+    ]);
+  });
+
+  await run("DELETE FROM reaction_options WHERE reaction_key=?", ["heart"]);
+
+  const request = buildJsonRequest({
+    slug,
+    body: { reaction: "heart" },
+    appLocals: {
+      sendAdminEvent: async () => {},
+    },
+  });
+
+  const response = await dispatch(reactionHandler, request);
+
+  assert.equal(response.statusCode, 400);
+  assert.deepEqual(response.body, {
+    ok: false,
+    message: "Réaction introuvable.",
+  });
+
+  const totals = await get(
+    "SELECT COUNT(*) AS totalReactions FROM page_reactions WHERE page_id=?",
+    [page.id],
+  );
+  assert.equal(totals.totalReactions, 0);
+});

@@ -83,6 +83,8 @@ Refer to [`utils/config.js`](./utils/config.js), [`utils/sessionSecrets.js`](./u
 
 Administrators can manage the reaction palette for articles and comments from the **Réactions** tab of the admin panel (`/admin/reactions`). Each reaction must have a unique identifier plus either an emoji or a custom image URL, and the list can be reordered, edited, or trimmed in real time. 【F:views/admin/reactions.ejs†L1-L164】【F:routes/admin.js†L2583-L2754】
 
+When no custom options exist the application exposes a built-in fallback set (👍, ❤️, etc.). As soon as at least one entry is defined in the `reaction_options` table, only those records are accepted; submitting a reaction whose key has been removed now returns a `400 Réaction introuvable.` response instead of silently reviving the default palette. 【F:utils/reactionService.js†L33-L75】【F:tests/likeAndReactionRoutes.test.js†L401-L461】
+
 ## NPM Scripts
 
 | Command | Description |
