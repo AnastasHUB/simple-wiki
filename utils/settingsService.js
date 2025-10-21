@@ -18,6 +18,7 @@ const DEFAULT_SETTINGS = {
   adsensePublisherId: "",
   adsenseTopBannerSlot: "",
   adsenseIncontentSlot: "",
+  adsenseVerificationCode: "",
 };
 
 function sanitizeAdsenseValue(value, { fieldLabel = "La valeur" } = {}) {
@@ -53,6 +54,13 @@ function readSanitizedAdsenseValue(...values) {
     }
   }
   return "";
+}
+
+function normalizeAdsenseVerificationCode(value) {
+  if (typeof value !== "string") {
+    return "";
+  }
+  return value.replace(/\r\n/g, "\n").trim();
 }
 
 const CACHE_STATE = {
@@ -97,6 +105,11 @@ function normalizeSettings(row = {}) {
       row.adsenseIncontentSlot,
       DEFAULT_SETTINGS.adsenseIncontentSlot,
     ),
+    adsenseVerificationCode: normalizeAdsenseVerificationCode(
+      row.adsense_verification_code ??
+        row.adsenseVerificationCode ??
+        DEFAULT_SETTINGS.adsenseVerificationCode,
+    ),
   };
 }
 
@@ -113,6 +126,7 @@ function denormalizeSettings(settings) {
     adsense_publisher_id: normalized.adsensePublisherId,
     adsense_top_banner_slot: normalized.adsenseTopBannerSlot,
     adsense_incontent_slot: normalized.adsenseIncontentSlot,
+    adsense_verification_code: normalized.adsenseVerificationCode,
   };
 }
 
@@ -129,7 +143,7 @@ export async function getSiteSettings({ forceRefresh = false } = {}) {
 
   const row = await get(
     `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text, github_repo, github_changelog_mode,
-            adsense_publisher_id, adsense_top_banner_slot, adsense_incontent_slot
+            adsense_publisher_id, adsense_top_banner_slot, adsense_incontent_slot, adsense_verification_code
        FROM settings
       WHERE id=1`,
   );
@@ -240,6 +254,16 @@ export async function updateSiteSettingsFromForm(input = {}) {
     );
   }
 
+  const verificationCodeInput =
+    typeof input.adsense_verification_code === "string"
+      ? input.adsense_verification_code
+      : typeof input.adsenseVerificationCode === "string"
+      ? input.adsenseVerificationCode
+      : "";
+  const adsenseVerificationCode = normalizeAdsenseVerificationCode(
+    verificationCodeInput,
+  );
+
   const normalized = normalizeSettings({
     wiki_name:
       typeof input.wiki_name === "string" ? input.wiki_name.trim() : null,
@@ -259,12 +283,13 @@ export async function updateSiteSettingsFromForm(input = {}) {
     adsense_publisher_id: adsensePublisherId,
     adsense_top_banner_slot: adsenseTopBannerSlot,
     adsense_incontent_slot: adsenseIncontentSlot,
+    adsense_verification_code: adsenseVerificationCode,
   });
 
   await run(
     `UPDATE settings
         SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?,
-            adsense_publisher_id=?, adsense_top_banner_slot=?, adsense_incontent_slot=?
+            adsense_publisher_id=?, adsense_top_banner_slot=?, adsense_incontent_slot=?, adsense_verification_code=?
       WHERE id=1`,
     [
       normalized.wikiName,
@@ -277,6 +302,7 @@ export async function updateSiteSettingsFromForm(input = {}) {
       normalized.adsensePublisherId,
       normalized.adsenseTopBannerSlot,
       normalized.adsenseIncontentSlot,
+      normalized.adsenseVerificationCode,
     ],
   );
 

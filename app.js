@@ -179,6 +179,7 @@ app.use(async (req, res, next) => {
         }
       : null;
     res.locals.googleAdsense = googleAdsense;
+    res.locals.adsenseVerificationCode = settings.adsenseVerificationCode;
     req.changelogSettings = {
       repo: settings.githubRepo,
       mode: settings.changelogMode,

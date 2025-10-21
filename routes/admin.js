@@ -3586,6 +3586,7 @@ r.post(
           adsensePublisherConfigured: !!updated.adsensePublisherId,
           adsenseTopBannerConfigured: !!updated.adsenseTopBannerSlot,
           adsenseIncontentConfigured: !!updated.adsenseIncontentSlot,
+          adsenseVerificationSnippetConfigured: !!updated.adsenseVerificationCode,
         },
       },
       { includeScreenshot: false },

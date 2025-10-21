@@ -70,6 +70,9 @@
     window.__ADSENSE_CONFIG__ = <%- JSON.stringify(googleAdsense || null).replace(/</g, '\\u003c') %>;
     window.__COOKIE_CONSENT__ = "<%= typeof cookieConsent === 'string' ? cookieConsent : '' %>";
   </script>
+  <% if (typeof adsenseVerificationCode !== 'undefined' && adsenseVerificationCode) { %>
+    <%- adsenseVerificationCode %>
+  <% } %>
 </head>
 <body class="theme-liquid">
 <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>

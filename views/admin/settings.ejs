@@ -41,6 +41,17 @@
       value="<%= s.adsense_incontent_slot %>"
       autocomplete="off"
     />
+    <label>Extrait de validation AdSense</label>
+    <textarea
+      name="adsense_verification_code"
+      rows="4"
+      placeholder="&lt;script async src=...&gt;&lt;/script&gt;"
+      autocomplete="off"
+    ><%= s.adsense_verification_code %></textarea>
+    <small class="field-hint"
+      >Collez l'extrait de code de validation fourni par Google pour prouver la propriété du
+      domaine. Il sera injecté dans l'en-tête &lt;head&gt; de toutes les pages.</small
+    >
   </fieldset>
   <label>Dépôt GitHub pour le changelog</label>
   <input

@@ -90,7 +90,8 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     footer_text TEXT DEFAULT '',
     adsense_publisher_id TEXT DEFAULT '',
     adsense_top_banner_slot TEXT DEFAULT '',
-    adsense_incontent_slot TEXT DEFAULT ''
+    adsense_incontent_slot TEXT DEFAULT '',
+    adsense_verification_code TEXT DEFAULT ''
   );
   INSERT OR IGNORE INTO settings(id) VALUES(1);
   CREATE TABLE IF NOT EXISTS pages(
@@ -392,6 +393,10 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   await ensureSettingsColumn(
     "adsense_incontent_slot",
     "adsense_incontent_slot TEXT DEFAULT ''",
+  );
+  await ensureSettingsColumn(
+    "adsense_verification_code",
+    "adsense_verification_code TEXT DEFAULT ''",
   );
   await ensureRoleFlagColumns("roles");
   await ensureRoleFlagColumns("users");
