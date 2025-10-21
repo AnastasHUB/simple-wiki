@@ -150,6 +150,61 @@ function applyCsrfHeader(headers = {}) {
   return headers;
 }
 
+function initCookieBanner() {
+  const banner = document.querySelector("[data-cookie-banner]");
+  if (!banner) {
+    return;
+  }
+
+  const acceptButton = banner.querySelector("[data-cookie-accept]");
+  if (!acceptButton) {
+    return;
+  }
+
+  let isSubmitting = false;
+
+  const hideBanner = () => {
+    banner.classList.add("cookie-banner--hidden");
+    window.setTimeout(() => {
+      if (banner.parentNode) {
+        banner.parentNode.removeChild(banner);
+      }
+    }, 240);
+  };
+
+  acceptButton.addEventListener("click", async (event) => {
+    event.preventDefault();
+    if (isSubmitting) {
+      return;
+    }
+    isSubmitting = true;
+    acceptButton.disabled = true;
+    banner.classList.add("cookie-banner--loading");
+
+    try {
+      const response = await fetch("/cookies/consent", {
+        method: "POST",
+        headers: applyCsrfHeader({
+          "Content-Type": "application/json",
+          Accept: "application/json",
+        }),
+        body: JSON.stringify({ consent: "accepted" }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Réponse ${response.status}`);
+      }
+
+      hideBanner();
+    } catch (err) {
+      console.error("Enregistrement du consentement aux cookies impossible", err);
+      acceptButton.disabled = false;
+      banner.classList.remove("cookie-banner--loading");
+      isSubmitting = false;
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initCsrfProtection();
   initAmbientBackdrop();
@@ -162,6 +217,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initLiveStatsCard();
   initIpLinkForm();
   initIpClaimForm();
+  initCookieBanner();
 });
 
 function enhanceIconButtons() {
