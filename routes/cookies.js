@@ -33,7 +33,7 @@ router.get("/cookies/politique", (req, res) => {
     meta: {
       title: "Politique de cookies",
       description:
-        "Découvrez comment nous utilisons les cookies essentiels et comment gérer vos préférences sur la plateforme.",
+        "Découvrez comment nous utilisons les cookies essentiels et publicitaires (Google AdSense) et comment gérer vos préférences sur la plateforme.",
     },
   });
 });

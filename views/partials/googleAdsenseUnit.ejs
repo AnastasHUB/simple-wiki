@@ -1,0 +1,35 @@
+<%
+  const effectivePublisherId = typeof publisherId === 'string' ? publisherId : '';
+  const effectiveSlotId = typeof slotId === 'string' ? slotId : '';
+  const responsive = typeof responsive !== 'undefined' ? Boolean(responsive) : true;
+  const format = typeof format === 'string' && format.trim() ? format.trim() : 'auto';
+  const baseClassList = ['ad-container'];
+  if (Array.isArray(containerClass)) {
+    containerClass.forEach((item) => {
+      if (typeof item === 'string' && item.trim()) {
+        baseClassList.push(item.trim());
+      }
+    });
+  } else if (typeof containerClass === 'string' && containerClass.trim()) {
+    baseClassList.push(containerClass.trim());
+  }
+  const ariaLabel =
+    typeof adLabel === 'string' && adLabel.trim() ? adLabel.trim() : 'Espace publicitaire';
+%>
+<% if (effectivePublisherId && effectiveSlotId) { %>
+  <section class="<%= baseClassList.join(' ') %>" role="complementary" aria-label="<%= ariaLabel %>">
+    <div class="ad-container__inner" data-google-ads-slot="<%= effectiveSlotId %>">
+      <ins
+        class="adsbygoogle"
+        style="display:block"
+        data-ad-client="<%= effectivePublisherId %>"
+        data-ad-slot="<%= effectiveSlotId %>"
+        data-ad-format="<%= format %>"
+        data-full-width-responsive="<%= responsive ? 'true' : 'false' %>"
+      ></ins>
+      <noscript>
+        <p class="ad-container__fallback">La publicité nécessite JavaScript.</p>
+      </noscript>
+    </div>
+  </section>
+<% } %>

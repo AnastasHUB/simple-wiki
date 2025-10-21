@@ -97,6 +97,9 @@
   }
 })();
 
+const COOKIE_ACCEPTED_VALUE = "accepted";
+const COOKIE_CONSENT_EVENT = "cookie-consent-accepted";
+
 let cachedCsrfToken = null;
 
 function getCsrfToken() {
@@ -150,6 +153,130 @@ function applyCsrfHeader(headers = {}) {
   return headers;
 }
 
+let adsenseScriptPromise = null;
+
+function getAdsenseConfig() {
+  const config = window.__ADSENSE_CONFIG__;
+  if (!config || typeof config !== "object") {
+    return null;
+  }
+  if (!config.publisherId) {
+    return null;
+  }
+  return {
+    publisherId: String(config.publisherId),
+    slots: config.slots || {},
+  };
+}
+
+function loadGoogleAdsenseScript(publisherId) {
+  if (adsenseScriptPromise) {
+    return adsenseScriptPromise;
+  }
+  if (!publisherId) {
+    return Promise.reject(new Error("Aucun identifiant AdSense fourni"));
+  }
+  const scriptId = "google-adsense-sdk";
+  const existing = document.getElementById(scriptId);
+  if (existing) {
+    adsenseScriptPromise = Promise.resolve();
+    return adsenseScriptPromise;
+  }
+  const script = document.createElement("script");
+  script.id = scriptId;
+  script.async = true;
+  script.crossOrigin = "anonymous";
+  script.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(
+    publisherId,
+  )}`;
+  adsenseScriptPromise = new Promise((resolve, reject) => {
+    script.addEventListener("load", () => resolve(), { once: true });
+    script.addEventListener(
+      "error",
+      () => reject(new Error("Impossible de charger le script Google AdSense")),
+      { once: true },
+    );
+  });
+  adsenseScriptPromise.catch(() => {
+    adsenseScriptPromise = null;
+  });
+  document.head.appendChild(script);
+  return adsenseScriptPromise;
+}
+
+function initGoogleAdsenseSlots(root = document) {
+  if (!root) {
+    return;
+  }
+  const config = getAdsenseConfig();
+  if (!config) {
+    return;
+  }
+  const slots = root.querySelectorAll(".adsbygoogle");
+  if (!slots.length) {
+    return;
+  }
+  window.adsbygoogle = window.adsbygoogle || [];
+  slots.forEach((slot) => {
+    if (slot.dataset.adsbygoogleInitialized === "true") {
+      return;
+    }
+    try {
+      window.adsbygoogle.push({});
+      slot.dataset.adsbygoogleInitialized = "true";
+      const wrapper = slot.closest(".ad-container");
+      if (wrapper) {
+        wrapper.classList.add("ad-container--loading");
+        window.setTimeout(() => {
+          wrapper.classList.remove("ad-container--loading");
+          wrapper.classList.add("ad-container--ready");
+        }, 100);
+      }
+    } catch (err) {
+      console.warn("Impossible d'initialiser un emplacement publicitaire", err);
+    }
+  });
+}
+
+function enableGoogleAdsense() {
+  const config = getAdsenseConfig();
+  if (!config) {
+    return;
+  }
+  if (adsenseScriptPromise) {
+    adsenseScriptPromise
+      .then(() => initGoogleAdsenseSlots())
+      .catch((err) => {
+        console.warn("Le script Google AdSense n'a pas pu être chargé", err);
+      });
+    return;
+  }
+  loadGoogleAdsenseScript(config.publisherId)
+    .then(() => {
+      initGoogleAdsenseSlots();
+    })
+    .catch((err) => {
+      console.warn("Le script Google AdSense n'a pas pu être chargé", err);
+    });
+}
+
+function initGoogleAdsense() {
+  const config = getAdsenseConfig();
+  if (!config) {
+    return;
+  }
+  if (window.__COOKIE_CONSENT__ === COOKIE_ACCEPTED_VALUE) {
+    enableGoogleAdsense();
+    return;
+  }
+  const consentListener = () => {
+    enableGoogleAdsense();
+  };
+  window.addEventListener(COOKIE_CONSENT_EVENT, consentListener, {
+    once: true,
+  });
+}
+
 function initCookieBanner() {
   const banner = document.querySelector("[data-cookie-banner]");
   if (!banner) {
@@ -188,7 +315,7 @@ function initCookieBanner() {
           "Content-Type": "application/json",
           Accept: "application/json",
         }),
-        body: JSON.stringify({ consent: "accepted" }),
+        body: JSON.stringify({ consent: COOKIE_ACCEPTED_VALUE }),
       });
 
       if (!response.ok) {
@@ -196,6 +323,9 @@ function initCookieBanner() {
       }
 
       hideBanner();
+      window.__COOKIE_CONSENT__ = COOKIE_ACCEPTED_VALUE;
+      window.dispatchEvent(new CustomEvent(COOKIE_CONSENT_EVENT));
+      enableGoogleAdsense();
     } catch (err) {
       console.error("Enregistrement du consentement aux cookies impossible", err);
       acceptButton.disabled = false;
@@ -220,6 +350,7 @@ document.addEventListener("DOMContentLoaded", () => {
   initIpLinkForm();
   initIpClaimForm();
   initCookieBanner();
+  initGoogleAdsense();
 });
 
 function enhanceIconButtons() {

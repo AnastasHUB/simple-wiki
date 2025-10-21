@@ -66,6 +66,10 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
   />
+  <script>
+    window.__ADSENSE_CONFIG__ = <%- JSON.stringify(googleAdsense || null).replace(/</g, '\\u003c') %>;
+    window.__COOKIE_CONSENT__ = "<%= typeof cookieConsent === 'string' ? cookieConsent : '' %>";
+  </script>
 </head>
 <body class="theme-liquid">
 <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
@@ -89,8 +93,9 @@
       <div class="cookie-banner__content">
         <h2>Gestion des cookies</h2>
         <p>
-          Nous utilisons uniquement des cookies essentiels pour faire fonctionner ce wiki et sécuriser vos sessions.
-          Consultez la <a href="<%= policyUrl %>">politique de cookies</a> pour en savoir plus.
+          Nous utilisons des cookies essentiels pour faire fonctionner ce wiki et sécuriser vos sessions. Avec votre accord,
+          des cookies publicitaires peuvent être déposés pour afficher des annonces Google. Consultez la
+          <a href="<%= policyUrl %>">politique de cookies</a> pour en savoir plus.
         </p>
       </div>
       <div class="cookie-banner__actions">
@@ -577,7 +582,24 @@
         <% } %>
       </div>
     </nav>
-    <main class="page-content glass-surface"><%- body %></main>
+    <% const hasAdsense =
+      typeof googleAdsense !== 'undefined' &&
+      googleAdsense &&
+      googleAdsense.publisherId &&
+      googleAdsense.slots; %>
+    <main class="page-content glass-surface">
+      <% if (hasAdsense && googleAdsense.slots.topBanner) { %>
+        <%- include('partials/googleAdsenseUnit', {
+          slotId: googleAdsense.slots.topBanner,
+          publisherId: googleAdsense.publisherId,
+          containerClass: ['ad-container--banner'],
+          adLabel: 'Publicité principale',
+          format: 'auto',
+          responsive: true,
+        }) %>
+      <% } %>
+      <%- body %>
+    </main>
   </div>
   <footer class="site-footer glass-panel">
     <% const footerHasText = typeof footerText !== 'undefined' && footerText; %>

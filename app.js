@@ -169,6 +169,16 @@ app.use(async (req, res, next) => {
     res.locals.changelogRepo = settings.githubRepo;
     res.locals.changelogMode = settings.changelogMode;
     res.locals.hasChangelog = Boolean(settings.githubRepo);
+    const googleAdsense = settings.adsensePublisherId
+      ? {
+          publisherId: settings.adsensePublisherId,
+          slots: {
+            topBanner: settings.adsenseTopBannerSlot || "",
+            incontent: settings.adsenseIncontentSlot || "",
+          },
+        }
+      : null;
+    res.locals.googleAdsense = googleAdsense;
     req.changelogSettings = {
       repo: settings.githubRepo,
       mode: settings.changelogMode,
