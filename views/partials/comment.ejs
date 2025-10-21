@@ -128,6 +128,18 @@
       </ul>
     </div>
   <% } %>
+  <% if (Array.isArray(comment.reactions) && comment.reactions.length) { %>
+    <div class="comment-reactions" data-comment-reactions>
+      <%- include('reactionBar', {
+        target: 'comment',
+        slug: page.slug_id,
+        commentId: comment.snowflake_id,
+        reactions: comment.reactions,
+        formAction: `/wiki/${page.slug_id}/comments/${comment.snowflake_id}/reactions`,
+        condensed: true
+      }) %>
+    </div>
+  <% } %>
   <% if (canReply || canEditOwn) { %>
     <div class="comment-actions">
       <% if (canReply) { %>

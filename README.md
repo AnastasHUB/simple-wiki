@@ -6,7 +6,7 @@ SimpleWiki is a self-hosted wiki and knowledge base built with Node.js, Express,
 
 - **Editorial workflow** – Create, edit, and publish pages with support for drafts, scheduled publications, revision history, and diff rendering to highlight changes before publishing. Administrator tooling ensures the default `admin` account is created with full permissions on first run. 【F:app.js†L92-L154】【F:db.js†L714-L741】
 - **Taggable content library** – Organize pages with tags, full-text search (FTS5) indexing, and RSS feeds for the latest publications. Scheduled jobs aggregate historical page views into daily summaries for analytics. 【F:db.js†L764-L814】【F:scripts/aggregateViews.js†L1-L66】
-- **Community features** – Nested comment threads with preview and validation plus rate limiting. A captcha mathématique dynamique protège les formulaires de commentaire et d'inscription. 【F:routes/pages.js†L1-L120】【F:routes/pages.js†L136-L204】
+- **Community features** – Nested comment threads with preview and validation, reactions, and rate limiting. A captcha mathématique dynamique protège les formulaires de commentaire et d'inscription. 【F:routes/pages.js†L1-L120】【F:routes/pages.js†L136-L204】
 - **Account & role management** – Session-backed authentication, configurable role flags, IP profile claims, and granular admin permissions configurable through default roles. Session secrets can be sourced from environment variables or a watched file. 【F:utils/config.js†L1-L45】【F:utils/sessionSecrets.js†L1-L83】【F:routes/pages.js†L17-L68】
 - **Operational visibility** – Live visitor tracking with WebSocket updates, bot detection hooks, cookie consent middleware, and integration points for Discord/webhook notifications. 【F:utils/liveStats.js†L1-L83】【F:utils/liveStatsWebsocket.js†L1-L119】【F:app.js†L38-L88】
 
@@ -79,6 +79,9 @@ Environment variables customize behavior. Only `SESSION_SECRET` is strongly reco
 
 Refer to [`utils/config.js`](./utils/config.js), [`utils/sessionSecrets.js`](./utils/sessionSecrets.js), and [`utils/ipProfiles.js`](./utils/ipProfiles.js) for full details. 【F:utils/config.js†L1-L45】【F:utils/sessionSecrets.js†L1-L120】【F:utils/ipProfiles.js†L1-L37】
 
+### Custom reactions
+
+Administrators can manage the reaction palette for articles and comments from the **Réactions** tab of the admin panel (`/admin/reactions`). Each reaction must have a unique identifier plus either an emoji or a custom image URL, and the list can be reordered, edited, or trimmed in real time. 【F:views/admin/reactions.ejs†L1-L164】【F:routes/admin.js†L2583-L2754】
 
 ## NPM Scripts
 
