@@ -64,13 +64,16 @@ async function getCurrentMaxOrder() {
   return Number.isFinite(maxOrder) ? maxOrder : 0;
 }
 
-export async function listReactionOptions() {
+export async function listReactionOptions({ fallbackToDefaults = true } = {}) {
   const rows = await all(
     `SELECT reaction_key, label, emoji, image_url, display_order, snowflake_id
        FROM reaction_options
       ORDER BY display_order ASC, reaction_key ASC`,
   );
   if (!rows.length) {
+    if (!fallbackToDefaults) {
+      return [];
+    }
     return DEFAULT_REACTIONS.map((reaction, index) => ({
       id: reaction.id,
       label: reaction.label,

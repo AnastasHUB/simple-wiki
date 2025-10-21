@@ -15,9 +15,9 @@ function ensureIntegerId(value, name) {
 }
 
 export async function listAvailableReactions() {
-  const reactions = await listReactionOptions();
+  const reactions = await listReactionOptions({ fallbackToDefaults: false });
   if (!reactions.length) {
-    return DEFAULT_REACTIONS.map((reaction) => ({ ...reaction }));
+    return [];
   }
   return reactions.map((reaction) => ({
     id: reaction.id,
