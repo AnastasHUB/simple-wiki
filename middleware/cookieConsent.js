@@ -88,6 +88,8 @@ export function cookieConsentMiddleware(req, res, next) {
   req.cookies = { ...(req.cookies || {}), ...parsedCookies };
 
   const consentValue = parsedCookies[COOKIE_CONSENT_NAME];
+  const hasAccepted = consentValue === COOKIE_ACCEPTED_VALUE;
+  res.locals.showCookieBanner = !hasAccepted;
   res.locals.cookieConsent = consentValue || null;
   if (typeof res.locals.cookiePolicyUrl === "undefined") {
     res.locals.cookiePolicyUrl = "/cookies/politique";
