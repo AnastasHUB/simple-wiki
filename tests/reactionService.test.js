@@ -17,6 +17,21 @@ import {
   deleteReactionOption,
 } from "../utils/reactionOptions.js";
 
+async function ensureReactionOption(key, { label, emoji, imageUrl = null }, t) {
+  const existing = await get(
+    `SELECT reaction_key FROM reaction_options WHERE reaction_key = ?`,
+    [key],
+  );
+  if (!existing) {
+    await createReactionOption({ id: key, label, emoji, imageUrl });
+  }
+  if (t && typeof t.after === "function") {
+    t.after(async () => {
+      await run("DELETE FROM reaction_options WHERE reaction_key=?", [key]);
+    });
+  }
+}
+
 async function createPage(slug) {
   const snowflake = generateSnowflake();
   await run(
@@ -46,6 +61,11 @@ async function cleanupComment(snowflake) {
 
 test("page reactions toggle per IP", async (t) => {
   await initDb();
+  await ensureReactionOption(
+    "heart",
+    { label: "Réaction cœur", emoji: "❤️" },
+    t,
+  );
   const slug = `page-reaction-${Date.now()}`;
   const page = await createPage(slug);
 
@@ -75,6 +95,11 @@ test("page reactions toggle per IP", async (t) => {
 
 test("page reaction toggles resolve uniqueness conflicts gracefully", async (t) => {
   await initDb();
+  await ensureReactionOption(
+    "heart",
+    { label: "Réaction cœur", emoji: "❤️" },
+    t,
+  );
   const slug = `page-reaction-conflict-${Date.now()}`;
   const page = await createPage(slug);
 
@@ -108,6 +133,11 @@ test("page reaction toggles resolve uniqueness conflicts gracefully", async (t) 
 
 test("comment reactions aggregate counts across multiple IPs", async (t) => {
   await initDb();
+  await ensureReactionOption(
+    "idea",
+    { label: "Réaction lumineuse", emoji: "💡" },
+    t,
+  );
   const slug = `comment-reaction-${Date.now()}`;
   const page = await createPage(slug);
   const commentSnowflake = await insertComment(page.id);
@@ -155,6 +185,11 @@ test("comment reactions aggregate counts across multiple IPs", async (t) => {
 
 test("comment reaction toggles resolve uniqueness conflicts gracefully", async (t) => {
   await initDb();
+  await ensureReactionOption(
+    "idea",
+    { label: "Réaction lumineuse", emoji: "💡" },
+    t,
+  );
   const slug = `comment-reaction-conflict-${Date.now()}`;
   const page = await createPage(slug);
   const commentSnowflake = await insertComment(page.id);

@@ -4,7 +4,7 @@ import {
   listReactionOptions,
   getReactionOptionByKey,
 } from "./reactionOptions.js";
-import { DEFAULT_REACTIONS, sanitizeReactionKey } from "./reactionHelpers.js";
+import { sanitizeReactionKey } from "./reactionHelpers.js";
 
 function ensureIntegerId(value, name) {
   const parsed = Number.parseInt(value, 10);
@@ -15,7 +15,7 @@ function ensureIntegerId(value, name) {
 }
 
 export async function listAvailableReactions() {
-  const reactions = await listReactionOptions({ fallbackToDefaults: false });
+  const reactions = await listReactionOptions();
   if (!reactions.length) {
     return [];
   }
@@ -46,18 +46,6 @@ export async function resolveReactionOption(rawKey) {
         emoji: option.emoji || "",
         imageUrl: option.imageUrl || null,
       };
-    }
-  }
-  const row = await get(
-    `SELECT COUNT(*) AS totalOptions FROM reaction_options`,
-  );
-  const totalOptions = Number(row?.totalOptions ?? row?.total ?? 0);
-  if (!Number.isFinite(totalOptions) || totalOptions <= 0) {
-    for (const key of attempts) {
-      const fallback = DEFAULT_REACTIONS.find((reaction) => reaction.id === key);
-      if (fallback) {
-        return { ...fallback };
-      }
     }
   }
   return null;

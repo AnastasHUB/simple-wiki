@@ -78,8 +78,8 @@
                 <span class="profile-public__badge-icon">
                   <% if (badge.imageUrl) { %>
                     <img src="<%= badge.imageUrl %>" alt="" loading="lazy" />
-                  <% } else { %>
-                    <%= badge.emoji || '🏅' %>
+                  <% } else if (badge.emoji) { %>
+                    <%= badge.emoji %>
                   <% } %>
                 </span>
                 <span class="profile-public__badge-label"><%= badge.name %></span>

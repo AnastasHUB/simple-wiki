@@ -16,7 +16,6 @@ import {
   ADMINISTRATOR_ROLE_SNOWFLAKE,
   EVERYONE_ROLE_SNOWFLAKE,
 } from "./utils/defaultRoles.js";
-import { DEFAULT_REACTIONS } from "./utils/reactionHelpers.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -690,7 +689,6 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
   );
   await ensureUserRoleAssignmentsTable();
   await ensureDefaultRoles();
-  await ensureReactionOptionsSeed();
   await synchronizeUserRoles();
   return db;
 }
@@ -850,39 +848,6 @@ async function ensureSnowflake(table, column = "snowflake_id") {
   await db.exec(
     `CREATE UNIQUE INDEX IF NOT EXISTS idx_${table}_${column} ON ${table}(${column})`,
   );
-}
-
-async function ensureReactionOptionsSeed() {
-  const row = await db.get(
-    `SELECT COUNT(*) AS total FROM reaction_options`,
-  );
-  const total = Number(row?.total ?? 0);
-  if (total > 0) {
-    return;
-  }
-  let order = 1;
-  for (const reaction of DEFAULT_REACTIONS) {
-    const emojiValue =
-      typeof reaction.emoji === "string" && reaction.emoji.trim()
-        ? reaction.emoji.trim()
-        : null;
-    const imageValue =
-      typeof reaction.imageUrl === "string" && reaction.imageUrl.trim()
-        ? reaction.imageUrl.trim()
-        : null;
-    await db.run(
-      `INSERT INTO reaction_options(snowflake_id, reaction_key, label, emoji, image_url, display_order)
-       VALUES(?,?,?,?,?,?)`,
-      [
-        generateSnowflake(),
-        reaction.id,
-        reaction.label,
-        emojiValue,
-        imageValue,
-        order++,
-      ],
-    );
-  }
 }
 
 async function ensureRolePositions() {
