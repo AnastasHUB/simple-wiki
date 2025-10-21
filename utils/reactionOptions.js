@@ -1,9 +1,6 @@
 import { all, get, run } from "../db.js";
 import { generateSnowflake } from "./snowflake.js";
-import {
-  sanitizeReactionKey,
-  DEFAULT_REACTIONS,
-} from "./reactionHelpers.js";
+import { sanitizeReactionKey } from "./reactionHelpers.js";
 import { normalizeHttpUrl } from "./urlValidation.js";
 
 const REACTION_EMOJI_CACHE_TTL_MS = 60 * 1000;
@@ -70,16 +67,6 @@ export async function listReactionOptions() {
        FROM reaction_options
       ORDER BY display_order ASC, reaction_key ASC`,
   );
-  if (!rows.length) {
-    return DEFAULT_REACTIONS.map((reaction, index) => ({
-      id: reaction.id,
-      label: reaction.label,
-      emoji: reaction.emoji,
-      imageUrl: reaction.imageUrl,
-      displayOrder: index + 1,
-      snowflakeId: null,
-    }));
-  }
   return rows.map((row) => mapRow(row));
 }
 
