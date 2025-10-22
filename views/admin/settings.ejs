@@ -31,41 +31,5 @@
       Pull requests
     </option>
   </select>
-  <fieldset class="mt-md">
-    <legend>Vente de codes premium</legend>
-    <p class="text-muted">
-      Configurez ici l'achat automatique de codes premium via Stripe.
-    </p>
-    <label>Clé publique Stripe</label>
-    <input
-      type="text"
-      name="stripe_publishable_key"
-      value="<%= s.stripe_publishable_key || '' %>"
-    />
-    <label>Identifiant de prix Stripe</label>
-    <input
-      type="text"
-      name="premium_checkout_price_id"
-      value="<%= s.premium_checkout_price_id || '' %>"
-      placeholder="price_..."
-    />
-    <label>Durée du code premium (en jours)</label>
-    <input
-      type="number"
-      min="0"
-      step="1"
-      name="premium_checkout_duration_days"
-      value="<%= s.premium_checkout_duration_days || '' %>"
-    />
-    <p class="field-hint">
-      Laissez l'identifiant de prix vide pour désactiver l'achat. Si un prix est
-      défini, la durée doit être un entier strictement positif (par défaut&nbsp;:
-      30 jours).
-    </p>
-    <p class="field-hint">
-      La clé secrète Stripe doit être fournie via la variable d'environnement
-      <code>STRIPE_SECRET_KEY</code> sur le serveur.
-    </p>
-  </fieldset>
   <div class="actions"><button class="btn success" data-icon="💾">Enregistrer</button></div>
 </form>

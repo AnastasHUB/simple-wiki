@@ -35,12 +35,6 @@ import { loadSessionUserById } from "../utils/sessionUser.js";
 import { formatDateTimeLocalized, formatRelativeDurationMs } from "../utils/time.js";
 import { getSiteSettings } from "../utils/settingsService.js";
 import {
-  PremiumCheckoutError,
-  buildPremiumCheckoutConfig,
-  createPremiumCheckoutSession,
-  finalizePremiumCheckoutSession,
-} from "../utils/premiumCheckoutService.js";
-import {
   generateTwoFactorSecret,
   buildTwoFactorProvisioningUri,
   buildQrCodeDataUrl,
@@ -492,7 +486,6 @@ r.get(
       return res.redirect("/login");
     }
     const linkedIpProfiles = await fetchLinkedIpProfilesForUser(profile.id);
-    const siteSettings = await getSiteSettings({ forceRefresh: false });
     const currentIp = getClientIp(req);
     const currentIpHash = hashIp(currentIp);
     const origin = getRequestOrigin(req);
@@ -505,20 +498,6 @@ r.get(
     const premiumRelative = premiumStatus.expiresAt
       ? formatRelativeDurationMs(Date.now() - premiumStatus.expiresAt.getTime())
       : null;
-    const premiumCheckoutConfig = buildPremiumCheckoutConfig(siteSettings);
-    let premiumCheckoutUnavailableReason = null;
-    if (!premiumCheckoutConfig.enabled) {
-      if (!premiumCheckoutConfig.stripeConfigured) {
-        premiumCheckoutUnavailableReason =
-          "Le paiement premium est temporairement indisponible.";
-      } else if (!premiumCheckoutConfig.priceId) {
-        premiumCheckoutUnavailableReason =
-          "Les achats premium ne sont pas encore configurés.";
-      } else if (!premiumCheckoutConfig.durationDays) {
-        premiumCheckoutUnavailableReason =
-          "La durée des codes premium n'est pas configurée.";
-      }
-    }
     res.render("account/profile", {
       errors: [],
       profile: {
@@ -541,12 +520,6 @@ r.get(
         ...premiumStatus,
         expiresAtFormatted: premiumExpiresAtFormatted,
         expiresAtRelative: premiumRelative,
-      },
-      premiumCheckout: {
-        enabled: premiumCheckoutConfig.enabled,
-        durationDays: premiumCheckoutConfig.durationDays,
-        durationLabel: premiumCheckoutConfig.durationLabel,
-        unavailableReason: premiumCheckoutUnavailableReason,
       },
     });
   }),
@@ -1195,123 +1168,6 @@ r.post(
     });
 
     res.redirect("/account/profile");
-  }),
-);
-
-r.post(
-  "/premium/checkout",
-  ensureAuthenticated,
-  asyncHandler(async (req, res) => {
-    const sessionUser = req.session.user;
-    try {
-      const origin = getRequestOrigin(req);
-      const { session } = await createPremiumCheckoutSession({
-        userId: sessionUser.id,
-        origin,
-      });
-      if (session?.url) {
-        return res.redirect(303, session.url);
-      }
-      throw new PremiumCheckoutError(
-        "stripe_error",
-        "Impossible de rediriger vers la page de paiement Stripe.",
-      );
-    } catch (err) {
-      if (err instanceof PremiumCheckoutError) {
-        pushNotification(req, {
-          type: "error",
-          message: err.message,
-        });
-        return res.redirect("/account/profile");
-      }
-      console.error("Unable to create premium checkout session", err);
-      pushNotification(req, {
-        type: "error",
-        message: "Impossible de démarrer le paiement premium pour le moment.",
-      });
-      return res.redirect("/account/profile");
-    }
-  }),
-);
-
-r.get(
-  "/premium/checkout/success",
-  ensureAuthenticated,
-  asyncHandler(async (req, res) => {
-    const sessionUser = req.session.user;
-    const sessionId =
-      typeof req.query.session_id === "string" ? req.query.session_id : "";
-    if (!sessionId) {
-      pushNotification(req, {
-        type: "error",
-        message: "Session de paiement introuvable.",
-      });
-      return res.redirect("/account/profile");
-    }
-    let result;
-    try {
-      result = await finalizePremiumCheckoutSession({
-        userId: sessionUser.id,
-        sessionId,
-      });
-    } catch (err) {
-      if (err instanceof PremiumCheckoutError) {
-        pushNotification(req, {
-          type: "error",
-          message: err.message,
-        });
-        return res.redirect("/account/profile");
-      }
-      console.error("Unable to finalize premium checkout", err);
-      pushNotification(req, {
-        type: "error",
-        message: "Impossible de valider le paiement premium pour le moment.",
-      });
-      return res.redirect("/account/profile");
-    }
-
-    const amountTotal =
-      typeof result.session?.amount_total === "number"
-        ? result.session.amount_total
-        : null;
-    const currency = typeof result.session?.currency === "string"
-      ? result.session.currency.toUpperCase()
-      : null;
-
-    if (result.createdNow && result.code?.code) {
-      try {
-        const ip = getClientIp(req);
-        await sendAdminEvent(
-          "Achat premium confirmé",
-          {
-            user: sessionUser.username,
-            extra: {
-              ip,
-              stripeSessionId: sessionId,
-              premiumCode: result.code.code,
-              durationDays: result.config?.durationDays ?? null,
-              amountTotal,
-              currency,
-            },
-          },
-          { includeScreenshot: false },
-        );
-      } catch (err) {
-        console.error("Unable to send premium checkout event", err);
-      }
-    }
-
-    return res.render("account/premiumCheckoutSuccess", {
-      status: result.status,
-      premiumCode: result.code ?? null,
-      createdNow: Boolean(result.createdNow),
-      durationLabel: result.config?.durationLabel || "",
-      durationDays: result.config?.durationDays || 0,
-      payment: {
-        amount: amountTotal,
-        currency,
-      },
-    });
   }),
 );
 

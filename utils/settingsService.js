@@ -15,9 +15,6 @@ const DEFAULT_SETTINGS = {
   footerText: "",
   githubRepo: "",
   changelogMode: "commits",
-  stripePublishableKey: "",
-  premiumCheckoutPriceId: "",
-  premiumCheckoutDurationDays: 30,
 };
 
 const CACHE_STATE = {
@@ -47,25 +44,6 @@ function normalizeSettings(row = {}) {
         row.githubChangelogMode ??
         DEFAULT_SETTINGS.changelogMode,
     ),
-    stripePublishableKey:
-      row.stripe_publishable_key ??
-      row.stripePublishableKey ??
-      DEFAULT_SETTINGS.stripePublishableKey,
-    premiumCheckoutPriceId:
-      row.premium_checkout_price_id ??
-      row.premiumCheckoutPriceId ??
-      DEFAULT_SETTINGS.premiumCheckoutPriceId,
-    premiumCheckoutDurationDays: (() => {
-      const rawDuration =
-        row.premium_checkout_duration_days ??
-        row.premiumCheckoutDurationDays ??
-        DEFAULT_SETTINGS.premiumCheckoutDurationDays;
-      const parsed = Number.parseInt(rawDuration, 10);
-      if (!Number.isFinite(parsed) || parsed <= 0) {
-        return 0;
-      }
-      return parsed;
-    })(),
   };
 }
 
@@ -79,9 +57,6 @@ function denormalizeSettings(settings) {
     footer_text: normalized.footerText,
     github_repo: normalized.githubRepo,
     github_changelog_mode: normalized.changelogMode,
-    stripe_publishable_key: normalized.stripePublishableKey,
-    premium_checkout_price_id: normalized.premiumCheckoutPriceId,
-    premium_checkout_duration_days: normalized.premiumCheckoutDurationDays,
   };
 }
 
@@ -97,16 +72,7 @@ export async function getSiteSettings({ forceRefresh = false } = {}) {
   }
 
   const row = await get(
-    `SELECT wiki_name,
-            logo_url,
-            admin_webhook_url,
-            feed_webhook_url,
-            footer_text,
-            github_repo,
-            github_changelog_mode,
-            stripe_publishable_key,
-            premium_checkout_price_id,
-            premium_checkout_duration_days
+    `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text, github_repo, github_changelog_mode
        FROM settings
       WHERE id=1`,
   );
@@ -164,45 +130,6 @@ export async function updateSiteSettingsFromForm(input = {}) {
     }
   }
 
-  const stripePublishableKey = (() => {
-    if (typeof input.stripe_publishable_key === "string") {
-      return input.stripe_publishable_key.trim();
-    }
-    if (typeof input.stripePublishableKey === "string") {
-      return input.stripePublishableKey.trim();
-    }
-    return "";
-  })();
-
-  const premiumCheckoutPriceId = (() => {
-    if (typeof input.premium_checkout_price_id === "string") {
-      return input.premium_checkout_price_id.trim();
-    }
-    if (typeof input.premiumCheckoutPriceId === "string") {
-      return input.premiumCheckoutPriceId.trim();
-    }
-    return "";
-  })();
-
-  const rawPremiumDuration =
-    input.premium_checkout_duration_days ?? input.premiumCheckoutDurationDays ?? "";
-  const normalizedPremiumDuration =
-    typeof rawPremiumDuration === "string"
-      ? rawPremiumDuration.trim()
-      : rawPremiumDuration;
-  let premiumCheckoutDurationDays = 0;
-  if (normalizedPremiumDuration !== "" && normalizedPremiumDuration != null) {
-    const parsedDuration = Number.parseInt(normalizedPremiumDuration, 10);
-    if (!Number.isFinite(parsedDuration) || parsedDuration <= 0) {
-      throw new Error(
-        "La durée premium doit être un entier positif (en jours).",
-      );
-    }
-    premiumCheckoutDurationDays = parsedDuration;
-  } else if (premiumCheckoutPriceId) {
-    premiumCheckoutDurationDays = DEFAULT_SETTINGS.premiumCheckoutDurationDays;
-  }
-
   const normalized = normalizeSettings({
     wiki_name:
       typeof input.wiki_name === "string" ? input.wiki_name.trim() : null,
@@ -219,14 +146,11 @@ export async function updateSiteSettingsFromForm(input = {}) {
       typeof input.footer_text === "string" ? input.footer_text.trim() : null,
     github_repo: githubRepo,
     github_changelog_mode: changelogMode,
-    stripe_publishable_key: stripePublishableKey,
-    premium_checkout_price_id: premiumCheckoutPriceId,
-    premium_checkout_duration_days: premiumCheckoutDurationDays,
   });
 
   await run(
     `UPDATE settings
-        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?, stripe_publishable_key=?, premium_checkout_price_id=?, premium_checkout_duration_days=?
+        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?
       WHERE id=1`,
     [
       normalized.wikiName,
@@ -236,9 +160,6 @@ export async function updateSiteSettingsFromForm(input = {}) {
       normalized.footerText,
       normalized.githubRepo,
       normalized.changelogMode,
-      normalized.stripePublishableKey,
-      normalized.premiumCheckoutPriceId,
-      normalized.premiumCheckoutDurationDays,
     ],
   );
 
