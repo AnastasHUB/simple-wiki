@@ -15,53 +15,7 @@ const DEFAULT_SETTINGS = {
   footerText: "",
   githubRepo: "",
   changelogMode: "commits",
-  adsensePublisherId: "",
-  adsenseTopBannerSlot: "",
-  adsenseIncontentSlot: "",
-  adsenseVerificationCode: "",
 };
-
-function sanitizeAdsenseValue(value, { fieldLabel = "La valeur" } = {}) {
-  if (typeof value !== "string") {
-    return "";
-  }
-  const trimmed = value.trim();
-  if (!trimmed) {
-    return "";
-  }
-  if (!/^[a-zA-Z0-9-]+$/.test(trimmed)) {
-    throw new Error(
-      `${fieldLabel} contient des caractères invalides. Utilisez uniquement des lettres, des chiffres et des tirets (-).`,
-    );
-  }
-  return trimmed;
-}
-
-function readSanitizedAdsenseValue(...values) {
-  for (const value of values) {
-    if (typeof value !== "string") {
-      continue;
-    }
-    const trimmed = value.trim();
-    if (!trimmed) {
-      continue;
-    }
-    try {
-      return sanitizeAdsenseValue(trimmed);
-    } catch (err) {
-      console.warn("Ignoring invalid AdSense identifier", err?.message || err);
-      return "";
-    }
-  }
-  return "";
-}
-
-function normalizeAdsenseVerificationCode(value) {
-  if (typeof value !== "string") {
-    return "";
-  }
-  return value.replace(/\r\n/g, "\n").trim();
-}
 
 const CACHE_STATE = {
   value: null,
@@ -90,26 +44,6 @@ function normalizeSettings(row = {}) {
         row.githubChangelogMode ??
         DEFAULT_SETTINGS.changelogMode,
     ),
-    adsensePublisherId: readSanitizedAdsenseValue(
-      row.adsense_publisher_id,
-      row.adsensePublisherId,
-      DEFAULT_SETTINGS.adsensePublisherId,
-    ),
-    adsenseTopBannerSlot: readSanitizedAdsenseValue(
-      row.adsense_top_banner_slot,
-      row.adsenseTopBannerSlot,
-      DEFAULT_SETTINGS.adsenseTopBannerSlot,
-    ),
-    adsenseIncontentSlot: readSanitizedAdsenseValue(
-      row.adsense_incontent_slot,
-      row.adsenseIncontentSlot,
-      DEFAULT_SETTINGS.adsenseIncontentSlot,
-    ),
-    adsenseVerificationCode: normalizeAdsenseVerificationCode(
-      row.adsense_verification_code ??
-        row.adsenseVerificationCode ??
-        DEFAULT_SETTINGS.adsenseVerificationCode,
-    ),
   };
 }
 
@@ -123,10 +57,6 @@ function denormalizeSettings(settings) {
     footer_text: normalized.footerText,
     github_repo: normalized.githubRepo,
     github_changelog_mode: normalized.changelogMode,
-    adsense_publisher_id: normalized.adsensePublisherId,
-    adsense_top_banner_slot: normalized.adsenseTopBannerSlot,
-    adsense_incontent_slot: normalized.adsenseIncontentSlot,
-    adsense_verification_code: normalized.adsenseVerificationCode,
   };
 }
 
@@ -142,8 +72,7 @@ export async function getSiteSettings({ forceRefresh = false } = {}) {
   }
 
   const row = await get(
-    `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text, github_repo, github_changelog_mode,
-            adsense_publisher_id, adsense_top_banner_slot, adsense_incontent_slot, adsense_verification_code
+    `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text, github_repo, github_changelog_mode
        FROM settings
       WHERE id=1`,
   );
@@ -201,69 +130,6 @@ export async function updateSiteSettingsFromForm(input = {}) {
     }
   }
 
-  const adsensePublisherInput =
-    typeof input.adsense_publisher_id === "string"
-      ? input.adsense_publisher_id
-      : typeof input.adsensePublisherId === "string"
-      ? input.adsensePublisherId
-      : "";
-  let adsensePublisherId = "";
-  try {
-    adsensePublisherId = sanitizeAdsenseValue(adsensePublisherInput, {
-      fieldLabel: "L'identifiant éditeur AdSense",
-    });
-  } catch (err) {
-    throw new Error(
-      err?.message || "L'identifiant éditeur AdSense fourni est invalide.",
-    );
-  }
-
-  const topBannerSlotInput =
-    typeof input.adsense_top_banner_slot === "string"
-      ? input.adsense_top_banner_slot
-      : typeof input.adsenseTopBannerSlot === "string"
-      ? input.adsenseTopBannerSlot
-      : "";
-  let adsenseTopBannerSlot = "";
-  try {
-    adsenseTopBannerSlot = sanitizeAdsenseValue(topBannerSlotInput, {
-      fieldLabel: "L'emplacement publicitaire d'en-tête",
-    });
-  } catch (err) {
-    throw new Error(
-      err?.message ||
-        "L'identifiant d'emplacement publicitaire (bannière) est invalide.",
-    );
-  }
-
-  const incontentSlotInput =
-    typeof input.adsense_incontent_slot === "string"
-      ? input.adsense_incontent_slot
-      : typeof input.adsenseIncontentSlot === "string"
-      ? input.adsenseIncontentSlot
-      : "";
-  let adsenseIncontentSlot = "";
-  try {
-    adsenseIncontentSlot = sanitizeAdsenseValue(incontentSlotInput, {
-      fieldLabel: "L'emplacement publicitaire intégré",
-    });
-  } catch (err) {
-    throw new Error(
-      err?.message ||
-        "L'identifiant d'emplacement publicitaire (contenu) est invalide.",
-    );
-  }
-
-  const verificationCodeInput =
-    typeof input.adsense_verification_code === "string"
-      ? input.adsense_verification_code
-      : typeof input.adsenseVerificationCode === "string"
-      ? input.adsenseVerificationCode
-      : "";
-  const adsenseVerificationCode = normalizeAdsenseVerificationCode(
-    verificationCodeInput,
-  );
-
   const normalized = normalizeSettings({
     wiki_name:
       typeof input.wiki_name === "string" ? input.wiki_name.trim() : null,
@@ -280,16 +146,11 @@ export async function updateSiteSettingsFromForm(input = {}) {
       typeof input.footer_text === "string" ? input.footer_text.trim() : null,
     github_repo: githubRepo,
     github_changelog_mode: changelogMode,
-    adsense_publisher_id: adsensePublisherId,
-    adsense_top_banner_slot: adsenseTopBannerSlot,
-    adsense_incontent_slot: adsenseIncontentSlot,
-    adsense_verification_code: adsenseVerificationCode,
   });
 
   await run(
     `UPDATE settings
-        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?,
-            adsense_publisher_id=?, adsense_top_banner_slot=?, adsense_incontent_slot=?, adsense_verification_code=?
+        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?
       WHERE id=1`,
     [
       normalized.wikiName,
@@ -299,10 +160,6 @@ export async function updateSiteSettingsFromForm(input = {}) {
       normalized.footerText,
       normalized.githubRepo,
       normalized.changelogMode,
-      normalized.adsensePublisherId,
-      normalized.adsenseTopBannerSlot,
-      normalized.adsenseIncontentSlot,
-      normalized.adsenseVerificationCode,
     ],
   );
 

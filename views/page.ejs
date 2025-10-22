@@ -82,23 +82,6 @@
   <div><%- html %></div>
 </div>
 
-<% if (
-  typeof googleAdsense !== 'undefined' &&
-  googleAdsense &&
-  googleAdsense.publisherId &&
-  googleAdsense.slots &&
-  googleAdsense.slots.incontent
-) { %>
-  <%- include('partials/googleAdsenseUnit', {
-    slotId: googleAdsense.slots.incontent,
-    publisherId: googleAdsense.publisherId,
-    containerClass: ['ad-container--incontent'],
-    adLabel: 'Publicité dans le contenu',
-    format: 'auto',
-    responsive: true,
-  }) %>
-<% } %>
-
 <% if (tags && tags.length) { %>
   <div class="card">
     <strong>Tags</strong>

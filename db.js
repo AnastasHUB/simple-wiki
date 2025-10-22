@@ -87,11 +87,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     logo_url TEXT DEFAULT '',
     admin_webhook_url TEXT DEFAULT '',
     feed_webhook_url TEXT DEFAULT '',
-    footer_text TEXT DEFAULT '',
-    adsense_publisher_id TEXT DEFAULT '',
-    adsense_top_banner_slot TEXT DEFAULT '',
-    adsense_incontent_slot TEXT DEFAULT '',
-    adsense_verification_code TEXT DEFAULT ''
+    footer_text TEXT DEFAULT ''
   );
   INSERT OR IGNORE INTO settings(id) VALUES(1);
   CREATE TABLE IF NOT EXISTS pages(
@@ -371,33 +367,6 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   `);
-  const settingsColumns = await db.all("PRAGMA table_info(settings)");
-  const settingsColumnNames = new Set(settingsColumns.map((column) => column.name));
-
-  const ensureSettingsColumn = async (name, definition) => {
-    if (settingsColumnNames.has(name)) {
-      return;
-    }
-    await db.exec(`ALTER TABLE settings ADD COLUMN ${definition}`);
-    settingsColumnNames.add(name);
-  };
-
-  await ensureSettingsColumn(
-    "adsense_publisher_id",
-    "adsense_publisher_id TEXT DEFAULT ''",
-  );
-  await ensureSettingsColumn(
-    "adsense_top_banner_slot",
-    "adsense_top_banner_slot TEXT DEFAULT ''",
-  );
-  await ensureSettingsColumn(
-    "adsense_incontent_slot",
-    "adsense_incontent_slot TEXT DEFAULT ''",
-  );
-  await ensureSettingsColumn(
-    "adsense_verification_code",
-    "adsense_verification_code TEXT DEFAULT ''",
-  );
   await ensureRoleFlagColumns("roles");
   await ensureRoleFlagColumns("users");
   await ensureFts();

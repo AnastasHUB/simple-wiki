@@ -12,47 +12,6 @@
   <input type="url" name="feed_webhook_url" value="<%= s.feed_webhook_url %>" />
   <label>Pied de page</label>
   <input type="text" name="footer_text" value="<%= s.footer_text %>" />
-  <fieldset class="form-section">
-    <legend>Monétisation</legend>
-    <p class="field-hint">
-      Configurez Google AdSense pour afficher des publicités. Laissez les champs vides pour désactiver les annonces.
-    </p>
-    <label>Identifiant éditeur Google AdSense</label>
-    <input
-      type="text"
-      name="adsense_publisher_id"
-      placeholder="ca-pub-XXXXXXXXXXXXXX"
-      value="<%= s.adsense_publisher_id %>"
-      autocomplete="off"
-    />
-    <label>Emplacement bannière (ex.&nbsp;: haut de page)</label>
-    <input
-      type="text"
-      name="adsense_top_banner_slot"
-      placeholder="1234567890"
-      value="<%= s.adsense_top_banner_slot %>"
-      autocomplete="off"
-    />
-    <label>Emplacement intégré au contenu</label>
-    <input
-      type="text"
-      name="adsense_incontent_slot"
-      placeholder="1234567890"
-      value="<%= s.adsense_incontent_slot %>"
-      autocomplete="off"
-    />
-    <label>Extrait de validation AdSense</label>
-    <textarea
-      name="adsense_verification_code"
-      rows="4"
-      placeholder="&lt;script async src=...&gt;&lt;/script&gt;"
-      autocomplete="off"
-    ><%= s.adsense_verification_code %></textarea>
-    <small class="field-hint"
-      >Collez l'extrait de code de validation fourni par Google pour prouver la propriété du
-      domaine. Il sera injecté dans l'en-tête &lt;head&gt; de toutes les pages.</small
-    >
-  </fieldset>
   <label>Dépôt GitHub pour le changelog</label>
   <input
     type="text"
