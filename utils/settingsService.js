@@ -15,6 +15,9 @@ const DEFAULT_SETTINGS = {
   footerText: "",
   githubRepo: "",
   changelogMode: "commits",
+  propellerAdsEnabled: false,
+  propellerAdsTag: "",
+  propellerVerificationFilename: "",
 };
 
 const CACHE_STATE = {
@@ -23,6 +26,22 @@ const CACHE_STATE = {
 };
 
 function normalizeSettings(row = {}) {
+  const rawPropellerEnabled =
+    row.propeller_ads_enabled ??
+    row.propellerAdsEnabled ??
+    DEFAULT_SETTINGS.propellerAdsEnabled;
+  const normalizedPropellerEnabled =
+    typeof rawPropellerEnabled === "string"
+      ? ["1", "true", "on"].includes(rawPropellerEnabled.trim().toLowerCase())
+      : Boolean(rawPropellerEnabled);
+  const rawPropellerTag =
+    row.propeller_ads_tag ??
+    row.propellerAdsTag ??
+    DEFAULT_SETTINGS.propellerAdsTag;
+  const rawVerificationFilename =
+    row.propeller_verification_filename ??
+    row.propellerVerificationFilename ??
+    DEFAULT_SETTINGS.propellerVerificationFilename;
   return {
     wikiName: row.wiki_name ?? row.wikiName ?? DEFAULT_SETTINGS.wikiName,
     logoUrl: normalizeStoredHttpUrl(
@@ -44,6 +63,15 @@ function normalizeSettings(row = {}) {
         row.githubChangelogMode ??
         DEFAULT_SETTINGS.changelogMode,
     ),
+    propellerAdsEnabled: normalizedPropellerEnabled,
+    propellerAdsTag:
+      typeof rawPropellerTag === "string"
+        ? rawPropellerTag.trim()
+        : DEFAULT_SETTINGS.propellerAdsTag,
+    propellerVerificationFilename:
+      typeof rawVerificationFilename === "string"
+        ? rawVerificationFilename.trim()
+        : DEFAULT_SETTINGS.propellerVerificationFilename,
   };
 }
 
@@ -57,6 +85,9 @@ function denormalizeSettings(settings) {
     footer_text: normalized.footerText,
     github_repo: normalized.githubRepo,
     github_changelog_mode: normalized.changelogMode,
+    propeller_ads_enabled: normalized.propellerAdsEnabled ? 1 : 0,
+    propeller_ads_tag: normalized.propellerAdsTag,
+    propeller_verification_filename: normalized.propellerVerificationFilename,
   };
 }
 
@@ -72,7 +103,7 @@ export async function getSiteSettings({ forceRefresh = false } = {}) {
   }
 
   const row = await get(
-    `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text, github_repo, github_changelog_mode
+    `SELECT wiki_name, logo_url, admin_webhook_url, feed_webhook_url, footer_text, github_repo, github_changelog_mode, propeller_ads_enabled, propeller_ads_tag, propeller_verification_filename
        FROM settings
       WHERE id=1`,
   );
@@ -102,6 +133,19 @@ export async function updateSiteSettingsFromForm(input = {}) {
       input.changelogMode ??
       input.githubChangelogMode,
   );
+
+  const propellerAdsEnabled =
+    typeof input.propeller_ads_enabled === "string"
+      ? ["1", "true", "on"].includes(input.propeller_ads_enabled.trim().toLowerCase())
+      : Boolean(input.propeller_ads_enabled);
+  const propellerAdsTag =
+    typeof input.propeller_ads_tag === "string"
+      ? input.propeller_ads_tag.trim()
+      : "";
+  const propellerVerificationFilename =
+    typeof input.propeller_verification_filename === "string"
+      ? input.propeller_verification_filename.trim()
+      : "";
 
   const rawLogoInput =
     typeof input.logo_url === "string"
@@ -146,11 +190,14 @@ export async function updateSiteSettingsFromForm(input = {}) {
       typeof input.footer_text === "string" ? input.footer_text.trim() : null,
     github_repo: githubRepo,
     github_changelog_mode: changelogMode,
+    propeller_ads_enabled: propellerAdsEnabled ? 1 : 0,
+    propeller_ads_tag: propellerAdsTag,
+    propeller_verification_filename: propellerVerificationFilename,
   });
 
   await run(
     `UPDATE settings
-        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?
+        SET wiki_name=?, logo_url=?, admin_webhook_url=?, feed_webhook_url=?, footer_text=?, github_repo=?, github_changelog_mode=?, propeller_ads_enabled=?, propeller_ads_tag=?, propeller_verification_filename=?
       WHERE id=1`,
     [
       normalized.wikiName,
@@ -160,6 +207,9 @@ export async function updateSiteSettingsFromForm(input = {}) {
       normalized.footerText,
       normalized.githubRepo,
       normalized.changelogMode,
+      normalized.propellerAdsEnabled ? 1 : 0,
+      normalized.propellerAdsTag,
+      normalized.propellerVerificationFilename,
     ],
   );
 

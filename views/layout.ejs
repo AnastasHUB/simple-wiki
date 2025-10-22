@@ -66,6 +66,14 @@
     rel="stylesheet"
     href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"
   />
+  <% if (
+    typeof propellerAdsEnabled !== 'undefined' &&
+    propellerAdsEnabled &&
+    typeof propellerAdsTag === 'string' &&
+    propellerAdsTag.trim().length
+  ) { %>
+    <%- propellerAdsTag %>
+  <% } %>
 </head>
 <body class="theme-liquid">
 <% const currentUser = typeof user !== 'undefined' && user ? user : null; %>
