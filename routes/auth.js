@@ -31,6 +31,17 @@ import {
   serializeRecoveryCodeState,
   countAvailableRecoveryCodes,
 } from "../utils/twoFactor.js";
+import { getSiteSettings } from "../utils/settingsService.js";
+import {
+  listUserWebAuthnCredentials,
+  findWebAuthnCredential,
+  createAuthenticationOptions,
+  verifyAuthentication,
+  setAuthenticationChallenge,
+  getAuthenticationChallenge,
+  clearAuthenticationChallenge,
+  touchWebAuthnCredential,
+} from "../utils/webauthn.js";
 
 const ROLE_FIELD_SELECT = ROLE_FLAG_FIELDS.map(
   (field) => `r.${field} AS role_${field}`,
@@ -91,7 +102,12 @@ function ensurePendingTwoFactor(req, res, next) {
   return res.redirect("/login");
 }
 
-async function finalizeLogin(req, res, user, { ip = null, twoFactorMethod = null } = {}) {
+async function finalizeLogin(
+  req,
+  res,
+  user,
+  { ip = null, twoFactorMethod = null, responseType = "redirect" } = {},
+) {
   if (!user) {
     return res.redirect("/login");
   }
@@ -129,7 +145,15 @@ async function finalizeLogin(req, res, user, { ip = null, twoFactorMethod = null
     message: `Bon retour parmi nous, ${user.username} !`,
   });
 
-  res.redirect("/");
+  if (responseType === "json") {
+    return res.json({
+      ok: true,
+      redirect: "/",
+      twoFactorMethod: twoFactorMethod || null,
+    });
+  }
+
+  return res.redirect("/");
 }
 
 r.get("/login", (req, res) => res.render("login"));
@@ -221,6 +245,166 @@ r.post("/login", loginRateLimiter, async (req, res) => {
   }
 
   return finalizeLogin(req, res, u, { ip });
+});
+
+r.post("/login/passkey/options", loginRateLimiter, async (req, res) => {
+  const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
+  if (!username) {
+    return res.status(400).json({
+      ok: false,
+      error: "Veuillez saisir votre nom d'utilisateur.",
+    });
+  }
+
+  const user = await fetchAuthUserByUsername(username);
+  if (!user) {
+    return res.status(404).json({
+      ok: false,
+      error: "Utilisateur introuvable.",
+    });
+  }
+
+  const credentials = await listUserWebAuthnCredentials(user.id);
+  if (credentials.length === 0) {
+    return res.status(404).json({
+      ok: false,
+      error: "Aucune passkey n'est associée à ce compte.",
+    });
+  }
+
+  const settings = await getSiteSettings({ forceRefresh: false });
+
+  try {
+    const { options, challenge, config } = await createAuthenticationOptions({
+      req,
+      allowCredentials: credentials,
+      rpName: settings?.wiki_name || "SimpleWiki",
+    });
+    setAuthenticationChallenge(req.session, {
+      challenge,
+      userId: user.id,
+      username: user.username,
+      rpID: config.rpID,
+      origin: config.origin,
+    });
+    return res.json({
+      ok: true,
+      options,
+      user: { username: user.username },
+      rp: { id: config.rpID, name: config.rpName },
+    });
+  } catch (error) {
+    console.error("Unable to prepare WebAuthn authentication", error);
+    clearAuthenticationChallenge(req.session);
+    return res.status(500).json({
+      ok: false,
+      error: "Impossible de générer un défi WebAuthn pour le moment.",
+    });
+  }
+});
+
+r.post("/login/passkey/verify", loginRateLimiter, async (req, res) => {
+  const pending = getAuthenticationChallenge(req.session);
+  if (!pending || !pending.challenge) {
+    return res.status(400).json({
+      ok: false,
+      error: "Le défi WebAuthn a expiré. Veuillez recommencer.",
+    });
+  }
+
+  const credential = req.body?.credential;
+  if (!credential || typeof credential !== "object") {
+    return res.status(400).json({
+      ok: false,
+      error: "Réponse WebAuthn invalide.",
+    });
+  }
+
+  const credentialId = typeof credential.id === "string" ? credential.id : null;
+  if (!credentialId) {
+    return res.status(400).json({
+      ok: false,
+      error: "Identifiant de credential manquant.",
+    });
+  }
+
+  try {
+    const dbCredential = await findWebAuthnCredential(credentialId);
+    if (!dbCredential) {
+      clearAuthenticationChallenge(req.session);
+      return res.status(404).json({
+        ok: false,
+        error: "Cette passkey n'est pas reconnue.",
+      });
+    }
+
+    if (pending.userId && pending.userId !== dbCredential.userId) {
+      clearAuthenticationChallenge(req.session);
+      return res.status(400).json({
+        ok: false,
+        error: "La passkey ne correspond pas à ce compte.",
+      });
+    }
+
+    const verification = await verifyAuthentication({
+      response: credential,
+      authenticator: dbCredential,
+      expectedChallenge: pending.challenge,
+      expectedOrigin: pending.origin,
+      expectedRPID: pending.rpID,
+    });
+
+    if (!verification?.verified || !verification.authenticationInfo) {
+      clearAuthenticationChallenge(req.session);
+      return res.status(400).json({
+        ok: false,
+        error: "La vérification de la passkey a échoué.",
+      });
+    }
+
+    const { authenticationInfo } = verification;
+    await touchWebAuthnCredential(dbCredential.credentialId, {
+      counter: authenticationInfo.newCounter ?? dbCredential.counter,
+      deviceType: authenticationInfo.credentialDeviceType || dbCredential.deviceType || null,
+      backedUp:
+        typeof authenticationInfo.credentialBackedUp === "boolean"
+          ? authenticationInfo.credentialBackedUp
+          : dbCredential.backedUp,
+    });
+
+    const user = await fetchAuthUserById(dbCredential.userId);
+    if (!user) {
+      clearAuthenticationChallenge(req.session);
+      return res.status(404).json({
+        ok: false,
+        error: "Utilisateur introuvable.",
+      });
+    }
+    if (user.is_banned) {
+      clearAuthenticationChallenge(req.session);
+      return res.status(403).json({
+        ok: false,
+        error: "Ce compte est actuellement suspendu.",
+      });
+    }
+
+    clearAuthenticationChallenge(req.session);
+    req.session.pendingTwoFactor = null;
+    req.session.twoFactorState = null;
+
+    return finalizeLogin(req, res, user, {
+      ip: getClientIp(req),
+      twoFactorMethod: "passkey",
+      responseType: "json",
+    });
+  } catch (error) {
+    console.error("Unable to verify WebAuthn authentication", error);
+    clearAuthenticationChallenge(req.session);
+    return res.status(500).json({
+      ok: false,
+      error: "Une erreur est survenue lors de la vérification de la passkey.",
+    });
+  }
 });
 
 r.get("/login/two-factor", ensurePendingTwoFactor, async (req, res) => {

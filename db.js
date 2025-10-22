@@ -72,6 +72,21 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     role_id INTEGER REFERENCES roles(id),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS user_webauthn_credentials(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    credential_id TEXT NOT NULL UNIQUE,
+    credential_public_key BLOB NOT NULL,
+    counter INTEGER NOT NULL DEFAULT 0,
+    device_type TEXT,
+    backed_up INTEGER NOT NULL DEFAULT 0,
+    transports TEXT,
+    friendly_name TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_used_at DATETIME
+  );
+  CREATE INDEX IF NOT EXISTS idx_webauthn_credentials_user
+    ON user_webauthn_credentials(user_id);
   CREATE TABLE IF NOT EXISTS user_role_assignments(
     user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role_id INTEGER NOT NULL REFERENCES roles(id) ON DELETE CASCADE,

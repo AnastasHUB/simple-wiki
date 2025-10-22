@@ -3,7 +3,13 @@ import path from "path";
 import { randomBytes } from "crypto";
 import multer from "multer";
 import { Router } from "express";
-import { get, run, all, rotateUserTotpSecret, rotateUserRecoveryCodes } from "../db.js";
+import {
+  get,
+  run,
+  all,
+  rotateUserTotpSecret,
+  rotateUserRecoveryCodes,
+} from "../db.js";
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {
   countPageSubmissions,
@@ -47,6 +53,17 @@ import {
   countAvailableRecoveryCodes,
   formatRecoveryCodeForDisplay,
 } from "../utils/twoFactor.js";
+import {
+  createRegistrationOptions,
+  verifyRegistration,
+  setRegistrationChallenge,
+  getRegistrationChallenge,
+  clearRegistrationChallenge,
+  listUserWebAuthnCredentials,
+  saveWebAuthnCredential,
+  deleteUserWebAuthnCredential,
+  toBase64Url,
+} from "../utils/webauthn.js";
 
 const PROFILE_UPLOAD_SUBDIR = "profiles";
 const PROFILE_UPLOAD_DIR = path.join(uploadDir, PROFILE_UPLOAD_SUBDIR);
@@ -530,9 +547,10 @@ r.get(
   ensureAuthenticated,
   asyncHandler(async (req, res) => {
     const sessionUser = req.session.user;
-    const [twoFactor, settings] = await Promise.all([
+    const [twoFactor, settings, passkeyRecords] = await Promise.all([
       loadTwoFactorStatus(sessionUser.id),
       getSiteSettings({ forceRefresh: false }),
+      listUserWebAuthnCredentials(sessionUser.id),
     ]);
 
     const setup = getTwoFactorSetupSession(req);
@@ -546,6 +564,29 @@ r.get(
     const totalCodes = twoFactor.recoveryState.length;
     const remainingCodes = countAvailableRecoveryCodes(twoFactor.recoveryState);
     const usedCodes = Math.max(0, totalCodes - remainingCodes);
+
+    const passkeys = passkeyRecords.map((record) => {
+      const createdAtDate = record.createdAt ? new Date(record.createdAt) : null;
+      const lastUsedDate = record.lastUsedAt ? new Date(record.lastUsedAt) : null;
+      const fallbackName = record.credentialId
+        ? `Clé ${record.credentialId.slice(0, 8)}…`
+        : "Passkey";
+      return {
+        id: record.credentialId,
+        friendlyName: record.friendlyName || fallbackName,
+        createdAtFormatted: createdAtDate
+          ? formatDateTimeLocalized(createdAtDate)
+          : null,
+        lastUsedFormatted: lastUsedDate
+          ? formatDateTimeLocalized(lastUsedDate)
+          : null,
+        lastUsedRelative: lastUsedDate
+          ? formatRelativeDurationMs(Date.now() - lastUsedDate.getTime())
+          : null,
+        deviceType: record.deviceType || null,
+        backedUp: record.backedUp,
+      };
+    });
 
     res.render("account/security", {
       issuerName,
@@ -562,6 +603,7 @@ r.get(
           }
         : null,
       generatedRecoveryCodes: formattedGeneratedCodes,
+      passkeys,
     });
   }),
 );
@@ -899,6 +941,184 @@ r.post(
     pushNotification(req, {
       type: "success",
       message: "Nouveaux codes de récupération générés.",
+    });
+
+    return res.redirect("/account/security");
+  }),
+);
+
+r.post(
+  "/security/passkeys/options",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const settings = await getSiteSettings({ forceRefresh: false });
+    const existingCredentials = await listUserWebAuthnCredentials(sessionUser.id);
+
+    try {
+      const { options, challenge, config } = await createRegistrationOptions({
+        req,
+        user: sessionUser,
+        existingCredentials,
+        rpName: settings?.wiki_name || "SimpleWiki",
+      });
+      setRegistrationChallenge(req.session, {
+        challenge,
+        userId: sessionUser.id,
+        rpID: config.rpID,
+        origin: config.origin,
+      });
+      return res.json({
+        ok: true,
+        options,
+        rp: { id: config.rpID, name: config.rpName },
+      });
+    } catch (error) {
+      console.error("Unable to prepare WebAuthn registration", error);
+      clearRegistrationChallenge(req.session);
+      return res.status(500).json({
+        ok: false,
+        error: "Impossible de générer un défi WebAuthn pour le moment.",
+      });
+    }
+  }),
+);
+
+r.post(
+  "/security/passkeys/register",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const pending = getRegistrationChallenge(req.session);
+    if (!pending || pending.userId !== sessionUser.id) {
+      return res.status(400).json({
+        ok: false,
+        error: "Le défi d'enregistrement a expiré. Veuillez recommencer.",
+      });
+    }
+
+    const credential = req.body?.credential;
+    if (!credential || typeof credential !== "object") {
+      return res.status(400).json({
+        ok: false,
+        error: "Réponse WebAuthn invalide.",
+      });
+    }
+
+    const rawLabel = typeof req.body?.label === "string" ? req.body.label.trim() : "";
+    const friendlyName = rawLabel ? rawLabel.slice(0, 120) : null;
+
+    try {
+      const verification = await verifyRegistration({
+        response: credential,
+        expectedChallenge: pending.challenge,
+        expectedOrigin: pending.origin,
+        expectedRPID: pending.rpID,
+      });
+
+      if (!verification?.verified || !verification.registrationInfo) {
+        clearRegistrationChallenge(req.session);
+        return res.status(400).json({
+          ok: false,
+          error: "La vérification de la passkey a échoué.",
+        });
+      }
+
+      const { registrationInfo } = verification;
+      const credentialId = toBase64Url(registrationInfo.credentialID);
+      const transports = Array.isArray(credential?.response?.transports)
+        ? credential.response.transports
+        : [];
+
+      await saveWebAuthnCredential({
+        userId: sessionUser.id,
+        credentialId,
+        publicKey: registrationInfo.credentialPublicKey,
+        counter: registrationInfo.counter || 0,
+        deviceType: registrationInfo.credentialDeviceType || null,
+        backedUp: registrationInfo.credentialBackedUp || false,
+        transports,
+        friendlyName,
+      });
+
+      clearRegistrationChallenge(req.session);
+
+      await sendAdminEvent(
+        "Passkey enregistrée",
+        {
+          user: sessionUser.username,
+          extra: {
+            ip: getClientIp(req),
+            credential: credentialId,
+            label: friendlyName || undefined,
+          },
+        },
+        { includeScreenshot: false },
+      );
+
+      return res.json({
+        ok: true,
+        credential: {
+          id: credentialId,
+          friendlyName: friendlyName || null,
+        },
+        notifications: [
+          {
+            type: "success",
+            message: "Votre passkey a été enregistrée.",
+          },
+        ],
+      });
+    } catch (error) {
+      console.error("Unable to verify WebAuthn registration", error);
+      clearRegistrationChallenge(req.session);
+      return res.status(500).json({
+        ok: false,
+        error: "Une erreur est survenue lors de la vérification de la passkey.",
+      });
+    }
+  }),
+);
+
+r.post(
+  "/security/passkeys/:credentialId/delete",
+  ensureAuthenticated,
+  asyncHandler(async (req, res) => {
+    const sessionUser = req.session.user;
+    const credentialId = typeof req.params.credentialId === "string" ? req.params.credentialId : "";
+
+    if (!credentialId) {
+      pushNotification(req, {
+        type: "error",
+        message: "Identifiant de passkey invalide.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    const deleted = await deleteUserWebAuthnCredential(sessionUser.id, credentialId);
+    if (!deleted) {
+      pushNotification(req, {
+        type: "error",
+        message: "Aucune passkey correspondante n'a été trouvée.",
+      });
+      return res.redirect("/account/security");
+    }
+
+    await sendAdminEvent(
+      "Passkey supprimée",
+      {
+        user: sessionUser.username,
+        extra: {
+          ip: getClientIp(req),
+          credential: credentialId,
+        },
+      },
+      { includeScreenshot: false },
+    );
+
+    pushNotification(req, {
+      type: "success",
+      message: "La passkey a été supprimée.",
     });
 
     return res.redirect("/account/security");
