@@ -80,10 +80,6 @@ import {
 } from "../utils/settingsService.js";
 import { pushNotification } from "../utils/notifications.js";
 import {
-  removePropellerVerificationFile,
-  savePropellerVerificationFile,
-} from "../utils/propellerAds.js";
-import {
   resolveHandleColors,
   getHandleColor,
 } from "../utils/userHandles.js";
@@ -174,25 +170,6 @@ const upload = multer({
       cb(null, true);
     } else {
       cb(new Error("Type de fichier non supporté"));
-    }
-  },
-});
-
-const propellerVerificationUpload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 256 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    if (
-      /^text\/(plain|html)$/i.test(file.mimetype) ||
-      file.mimetype === "application/octet-stream"
-    ) {
-      cb(null, true);
-    } else {
-      cb(
-        new Error(
-          "Le fichier de vérification doit être un fichier texte ou HTML.",
-        ),
-      );
     }
   },
 });
@@ -3589,115 +3566,41 @@ r.get(
 r.post(
   "/settings",
   requirePermission(["can_manage_settings", "can_update_general_settings"]),
-  (req, res, next) => {
-    propellerVerificationUpload.single("propeller_verification_file")(
-      req,
-      res,
-      (err) => {
-        if (err) {
-          let message =
-            "Impossible de téléverser le fichier de vérification PropellerAds.";
-          if (err instanceof multer.MulterError) {
-            if (err.code === "LIMIT_FILE_SIZE") {
-              message =
-                "Fichier de vérification trop volumineux (maximum 256 Ko).";
-            } else if (err.message) {
-              message = err.message;
-            }
-          } else if (err?.message) {
-            message = err.message;
-          }
-          pushNotification(req, { type: "error", message });
-          return res.redirect("/admin/settings");
-        }
-        next();
-      },
-    );
-  },
   async (req, res) => {
-    const previousVerificationFilename =
-      typeof req.body.propeller_verification_filename === "string"
-        ? req.body.propeller_verification_filename.trim()
-        : "";
-    let newVerificationFilename = null;
-    try {
-      if (req.file) {
-        const originalName = path.basename(req.file.originalname || "").trim();
-        if (!originalName) {
-          throw new Error("Le fichier de vérification fourni est invalide.");
-        }
-        await savePropellerVerificationFile(originalName, req.file.buffer);
-        newVerificationFilename = originalName;
-        req.body.propeller_verification_filename = originalName;
-      } else if (typeof req.body.propeller_verification_filename === "string") {
-        req.body.propeller_verification_filename =
-          req.body.propeller_verification_filename.trim();
-      }
-
-      const updated = await updateSiteSettingsFromForm(req.body);
-      const ip = getClientIp(req);
-      await sendAdminEvent(
-        "Paramètres mis à jour",
-        {
-          user: req.session.user?.username || null,
-          extra: {
-            ip,
-            wikiName: updated.wikiName,
-            logoUrl: updated.logoUrl,
-            footerText: updated.footerText,
-            adminWebhookConfigured: !!updated.adminWebhook,
-            feedWebhookConfigured: !!updated.feedWebhook,
-            githubRepo: updated.githubRepo || null,
-            changelogMode: updated.changelogMode,
-            propellerAdsEnabled: !!updated.propellerAdsEnabled,
-            propellerAdsTagPresent: !!updated.propellerAdsTag,
-            propellerVerificationFilename:
-              updated.propellerVerificationFilename || null,
-          },
+  try {
+    const updated = await updateSiteSettingsFromForm(req.body);
+    const ip = getClientIp(req);
+    await sendAdminEvent(
+      "Paramètres mis à jour",
+      {
+        user: req.session.user?.username || null,
+        extra: {
+          ip,
+          wikiName: updated.wikiName,
+          logoUrl: updated.logoUrl,
+          footerText: updated.footerText,
+          adminWebhookConfigured: !!updated.adminWebhook,
+          feedWebhookConfigured: !!updated.feedWebhook,
+          githubRepo: updated.githubRepo || null,
+          changelogMode: updated.changelogMode,
         },
-        { includeScreenshot: false },
-      );
-      if (
-        newVerificationFilename &&
-        previousVerificationFilename &&
-        previousVerificationFilename !== newVerificationFilename
-      ) {
-        try {
-          await removePropellerVerificationFile(previousVerificationFilename);
-        } catch (cleanupErr) {
-          console.warn(
-            "Impossible de supprimer l'ancien fichier de vérification PropellerAds",
-            cleanupErr,
-          );
-        }
-      }
-      pushNotification(req, {
-        type: "success",
-        message: "Paramètres enregistrés.",
-      });
-    } catch (err) {
-      if (
-        newVerificationFilename &&
-        newVerificationFilename !== previousVerificationFilename
-      ) {
-        try {
-          await removePropellerVerificationFile(newVerificationFilename);
-        } catch (cleanupErr) {
-          console.warn(
-            "Impossible de supprimer le fichier de vérification PropellerAds fraîchement téléversé",
-            cleanupErr,
-          );
-        }
-      }
-      console.error("Impossible de mettre à jour les paramètres", err);
-      pushNotification(req, {
-        type: "error",
-        message:
-          err?.message ||
-          "Impossible d'enregistrer les paramètres. Vérifiez les informations saisies.",
-      });
-    }
-    res.redirect("/admin/settings");
+      },
+      { includeScreenshot: false },
+    );
+    pushNotification(req, {
+      type: "success",
+      message: "Paramètres enregistrés.",
+    });
+  } catch (err) {
+    console.error("Impossible de mettre à jour les paramètres", err);
+    pushNotification(req, {
+      type: "error",
+      message:
+        err?.message ||
+        "Impossible d'enregistrer les paramètres. Vérifiez les informations saisies.",
+    });
+  }
+  res.redirect("/admin/settings");
   },
 );
 
