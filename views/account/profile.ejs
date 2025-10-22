@@ -270,31 +270,6 @@
     </label>
     <button class="btn success" data-icon="💎" type="submit">Activer le premium</button>
   </form>
-  <% if (premiumCheckout && premiumCheckout.enabled) { %>
-    <hr class="mt-md mb-md" />
-    <% const checkoutDurationLabel =
-      premiumCheckout.durationLabel && premiumCheckout.durationLabel.length
-        ? premiumCheckout.durationLabel
-        : premiumCheckout.durationDays > 0
-        ? `${premiumCheckout.durationDays} jour${premiumCheckout.durationDays > 1 ? 's' : ''}`
-        : '';
-    %>
-    <form
-      method="post"
-      action="/account/premium/checkout"
-      class="flex flex-wrap gap-sm items-center"
-    >
-      <%- include('../partials/csrf_field') %>
-      <p class="mb-0 flex-basis-260 text-muted">
-        Obtenez un nouveau code premium valable <strong><%= checkoutDurationLabel %></strong> après paiement sécurisé via Stripe.
-      </p>
-      <button class="btn primary" data-icon="💳" type="submit">
-        Acheter un code premium
-      </button>
-    </form>
-  <% } else if (premiumCheckout && premiumCheckout.unavailableReason) { %>
-    <p class="text-muted mt-md"><%= premiumCheckout.unavailableReason %></p>
-  <% } %>
 </section>
 
 <section class="card mt-md">
