@@ -2058,41 +2058,6 @@ small,
   font-size: 0.82rem;
 }
 
-.form-section {
-  border: 1px solid rgba(122, 178, 255, 0.18);
-  border-radius: var(--radius-medium);
-  padding: 1rem 1.1rem;
-  margin: 1.25rem 0;
-  background: rgba(7, 18, 36, 0.6);
-}
-
-.form-section legend {
-  font-size: 1rem;
-  font-weight: 600;
-  padding: 0 0.4rem;
-  color: var(--color-text);
-}
-
-.form-section .field-hint {
-  margin: 0 0 0.75rem;
-  display: block;
-  line-height: 1.45;
-}
-
-.form-section label:first-of-type {
-  margin-top: 0.25rem;
-}
-
-.form-section label + input,
-.form-section label + select,
-.form-section label + textarea {
-  margin-top: 0.25rem;
-}
-
-.form-section input + label {
-  margin-top: 0.9rem;
-}
-
 .alert,
 .notification-banner {
   border-radius: var(--radius-small);
@@ -3001,54 +2966,6 @@ input[type="radio"] {
 :where(.markdown-preview, .prose) .mermaid-error {
   color: var(--color-text-muted);
   font-size: 0.9rem;
-}
-
-.ad-container {
-  margin: 1.25rem 0;
-  padding: 1rem;
-  border-radius: var(--radius-medium);
-  border: 1px dashed rgba(122, 178, 255, 0.28);
-  background: rgba(4, 12, 28, 0.6);
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 90px;
-}
-
-.ad-container--banner {
-  margin-top: 0;
-}
-
-.ad-container--incontent {
-  margin-top: 1.5rem;
-}
-
-.ad-container__inner {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-
-.ad-container__inner ins {
-  margin: 0 auto;
-}
-
-.ad-container--loading {
-  opacity: 0.7;
-}
-
-.ad-container--ready {
-  border-style: solid;
-  border-color: rgba(122, 178, 255, 0.45);
-  background: rgba(7, 18, 36, 0.72);
-  box-shadow: 0 0 18px rgba(30, 111, 255, 0.12);
-}
-
-.ad-container__fallback {
-  color: var(--color-text-muted);
-  font-size: 0.85rem;
-  margin: 0.35rem 0 0;
-  text-align: center;
 }
 
 
