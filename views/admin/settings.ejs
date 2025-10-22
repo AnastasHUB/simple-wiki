@@ -1,6 +1,6 @@
 <% title='Paramètres'; %>
 <h1>Paramètres</h1>
-<form method="post" class="card">
+<form method="post" class="card" enctype="multipart/form-data">
   <%- include('../partials/csrf_field') %>
   <label>Nom du wiki</label>
   <input type="text" name="wiki_name" value="<%= s.wiki_name %>" />
@@ -31,5 +31,41 @@
       Pull requests
     </option>
   </select>
+  <hr />
+  <h2>PropellerAds</h2>
+  <p class="field-hint">
+    Activez votre compte PropellerAds en insérant votre code et en téléchargeant le fichier de vérification fourni par PropellerAds.
+  </p>
+  <label class="checkbox">
+    <input
+      type="checkbox"
+      name="propeller_ads_enabled"
+      value="1"
+      <%= s.propeller_ads_enabled ? 'checked' : '' %>
+    />
+    Activer PropellerAds sur le site
+  </label>
+  <label>Code d'intégration PropellerAds</label>
+  <textarea
+    name="propeller_ads_tag"
+    rows="5"
+    placeholder="Collez ici le script fourni par PropellerAds"
+  ><%= s.propeller_ads_tag %></textarea>
+  <input
+    type="hidden"
+    name="propeller_verification_filename"
+    value="<%= s.propeller_verification_filename %>"
+  />
+  <label>Fichier de vérification PropellerAds</label>
+  <input
+    type="file"
+    name="propeller_verification_file"
+    accept=".txt,.html"
+  />
+  <% if (s.propeller_verification_filename) { %>
+    <p class="field-hint">
+      Fichier actuel disponible à l'adresse <code>/<%= s.propeller_verification_filename %></code>.
+    </p>
+  <% } %>
   <div class="actions"><button class="btn success" data-icon="💾">Enregistrer</button></div>
 </form>

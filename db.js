@@ -398,6 +398,21 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "github_changelog_mode",
     "TEXT NOT NULL DEFAULT 'commits'",
   );
+  await ensureColumn(
+    "settings",
+    "propeller_ads_enabled",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  await ensureColumn(
+    "settings",
+    "propeller_ads_tag",
+    "TEXT DEFAULT ''",
+  );
+  await ensureColumn(
+    "settings",
+    "propeller_verification_filename",
+    "TEXT DEFAULT ''",
+  );
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
   await ensureColumn("comments", "edit_token", "TEXT");
