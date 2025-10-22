@@ -26,6 +26,70 @@
     </dl>
   </section>
 
+  <section class="security__passkeys" data-passkeys-root>
+    <h2>Passkeys</h2>
+    <p class="text-muted">
+      Les passkeys vous permettent de vous connecter sans mot de passe en utilisant un appareil de confiance.
+    </p>
+    <% if (Array.isArray(passkeys) && passkeys.length) { %>
+      <ul class="security__passkeys-list">
+        <% passkeys.forEach((passkey) => { %>
+          <li class="security__passkey-item">
+            <div class="security__passkey-meta">
+              <strong><%= passkey.friendlyName %></strong>
+              <% if (passkey.createdAtFormatted) { %>
+                <div>Enregistrée le <%= passkey.createdAtFormatted %></div>
+              <% } %>
+              <% if (passkey.lastUsedFormatted) { %>
+                <div>
+                  Dernière utilisation&nbsp;:
+                  <%= passkey.lastUsedFormatted %>
+                  <% if (passkey.lastUsedRelative) { %>
+                    (<%= passkey.lastUsedRelative %>)
+                  <% } %>
+                </div>
+              <% } %>
+              <% if (passkey.deviceType) { %>
+                <div>
+                  Type&nbsp;: <%= passkey.deviceType %>
+                  <% if (passkey.backedUp) { %>
+                    — sauvegarde activée
+                  <% } %>
+                </div>
+              <% } else if (passkey.backedUp) { %>
+                <div>Sauvegarde activée</div>
+              <% } %>
+            </div>
+            <form
+              method="post"
+              action="/account/security/passkeys/<%= encodeURIComponent(passkey.id) %>/delete"
+              class="inline-form security__passkey-actions"
+            >
+              <%- include('../partials/csrf_field') %>
+              <button class="btn danger" data-icon="🗑️">Supprimer</button>
+            </form>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p class="text-muted">Aucune passkey n'est enregistrée pour le moment.</p>
+    <% } %>
+    <div class="security__passkeys-form">
+      <label class="field">
+        <span class="field__label">Nom du dispositif (optionnel)</span>
+        <input type="text" data-passkey-label placeholder="Ex. iPhone de Marie" />
+      </label>
+      <div class="form-actions">
+        <button type="button" class="btn" data-passkey-register data-icon="🔐">
+          Ajouter une passkey
+        </button>
+      </div>
+      <p class="field__hint">
+        Assurez-vous d'être sur un appareil compatible (navigateur récent, biométrie ou clé de sécurité).
+      </p>
+    </div>
+  </section>
+
   <section class="security__password">
     <h2>Modifier le mot de passe</h2>
     <form method="post" action="/account/security/password" class="security__form">

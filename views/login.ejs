@@ -22,10 +22,19 @@
   <input type="password" name="password" required />
   <div class="actions">
     <button class="btn success" data-icon="🔑">Se connecter</button>
+    <button class="btn secondary" type="button" data-passkey-login data-icon="🔐">
+      Se connecter avec une passkey
+    </button>
   </div>
 </form>
+<p class="form-help text-muted">
+  L'utilisation d'une passkey nécessite de saisir votre nom d'utilisateur pour récupérer vos clés enregistrées.
+</p>
 <% if (typeof registrationEnabled === 'undefined' || registrationEnabled) { %>
   <p class="form-help">
     Pas encore de compte&nbsp;? <a href="/register">Créer un compte</a>.
   </p>
 <% } %>
+<p class="form-help text-muted" data-passkey-helper hidden>
+  Votre navigateur ne semble pas supporter les passkeys. Utilisez un appareil compatible pour activer cette option.
+</p>
