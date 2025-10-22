@@ -87,7 +87,10 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     logo_url TEXT DEFAULT '',
     admin_webhook_url TEXT DEFAULT '',
     feed_webhook_url TEXT DEFAULT '',
-    footer_text TEXT DEFAULT ''
+    footer_text TEXT DEFAULT '',
+    stripe_publishable_key TEXT DEFAULT '',
+    premium_checkout_price_id TEXT DEFAULT '',
+    premium_checkout_duration_days INTEGER NOT NULL DEFAULT 30
   );
   INSERT OR IGNORE INTO settings(id) VALUES(1);
   CREATE TABLE IF NOT EXISTS pages(
@@ -215,6 +218,17 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     redeemed_at DATETIME,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
+  CREATE TABLE IF NOT EXISTS premium_checkout_sessions(
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    stripe_session_id TEXT UNIQUE NOT NULL,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    premium_code_id INTEGER REFERENCES premium_codes(id) ON DELETE SET NULL,
+    premium_code_value TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    completed_at DATETIME
+  );
+  CREATE INDEX IF NOT EXISTS idx_premium_checkout_sessions_user
+    ON premium_checkout_sessions(user_id);
   CREATE TABLE IF NOT EXISTS reaction_options(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     snowflake_id TEXT UNIQUE,
@@ -397,6 +411,17 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "settings",
     "github_changelog_mode",
     "TEXT NOT NULL DEFAULT 'commits'",
+  );
+  await ensureColumn("settings", "stripe_publishable_key", "TEXT DEFAULT ''");
+  await ensureColumn(
+    "settings",
+    "premium_checkout_price_id",
+    "TEXT DEFAULT ''",
+  );
+  await ensureColumn(
+    "settings",
+    "premium_checkout_duration_days",
+    "INTEGER NOT NULL DEFAULT 30",
   );
   await ensureColumn("comments", "ip", "TEXT");
   await ensureColumn("comments", "updated_at", "DATETIME");
