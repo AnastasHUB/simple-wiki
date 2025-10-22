@@ -39,7 +39,6 @@ import { reconcileUserPremiumStatus } from "./utils/premiumService.js";
 import { loadSessionUserById } from "./utils/sessionUser.js";
 import { buildPageVisibilityClause } from "./utils/pageService.js";
 import { EVERYONE_ROLE_SNOWFLAKE } from "./utils/defaultRoles.js";
-import { ensurePropellerVerificationDir } from "./utils/propellerAds.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -59,13 +58,6 @@ app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: urlencodedBodyLimit }));
 app.use(methodOverride("_method"));
 app.use(morgan("dev"));
-const propellerVerificationDir = await ensurePropellerVerificationDir();
-app.use(
-  express.static(propellerVerificationDir, {
-    index: false,
-    dotfiles: "deny",
-  }),
-);
 app.use("/public", express.static(path.join(__dirname, "public")));
 
 const globalRateLimiter = createRateLimiter({
@@ -177,10 +169,6 @@ app.use(async (req, res, next) => {
     res.locals.changelogRepo = settings.githubRepo;
     res.locals.changelogMode = settings.changelogMode;
     res.locals.hasChangelog = Boolean(settings.githubRepo);
-    res.locals.propellerAdsEnabled = settings.propellerAdsEnabled;
-    res.locals.propellerAdsTag = settings.propellerAdsTag;
-    res.locals.propellerVerificationFilename =
-      settings.propellerVerificationFilename;
     req.changelogSettings = {
       repo: settings.githubRepo,
       mode: settings.changelogMode,
