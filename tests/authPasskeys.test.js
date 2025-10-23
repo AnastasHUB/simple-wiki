@@ -274,7 +274,7 @@ test("enregistrer puis utiliser une passkey pour se connecter", async (t) => {
   const loginOptionsReq = createRequest({
     session: loginSession,
     path: "/login/passkey/options",
-    body: {},
+    body: { username },
     headers: { host: "localhost" },
   });
   const loginOptionsRes = await dispatch(loginPasskeyOptionsHandlers, loginOptionsReq);
