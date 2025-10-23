@@ -34,6 +34,25 @@
       <p>Parcourez l’ensemble des contenus disponibles sur la plateforme.</p>
     </div>
     <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
+    <% const sortParamName = typeof sortParam !== 'undefined' ? sortParam : 'sort'; %>
+    <% const sortFieldId = `${sortParamName}-order`; %>
+    <form class="page-sort" method="get" action="/">
+      <input type="hidden" name="<%= pagination.pageParam %>" value="1">
+      <input type="hidden" name="<%= pagination.perPageParam %>" value="<%= pagination.perPage %>">
+      <% if (pagination.preservedQuery && pagination.preservedQuery.length) { %>
+        <% pagination.preservedQuery.forEach(pair => { %>
+          <% if (pair.name !== sortParamName) { %>
+            <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
+          <% } %>
+        <% }) %>
+      <% } %>
+      <label for="<%= sortFieldId %>">Trier par</label>
+      <select id="<%= sortFieldId %>" name="<%= sortParamName %>" onchange="this.form.submit()">
+        <% (Array.isArray(sortOptions) ? sortOptions : []).forEach(option => { %>
+          <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>><%= option.label %></option>
+        <% }) %>
+      </select>
+    </form>
     <form class="page-size" method="get" action="/">
       <input type="hidden" name="<%= pagination.pageParam %>" value="1">
       <% if (pagination.preservedQuery && pagination.preservedQuery.length) { %>

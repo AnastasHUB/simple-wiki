@@ -60,6 +60,8 @@ import {
   setPageVisibilityRoles,
   listTagVisibilityRoles,
   setTagVisibilityRoles,
+  resolvePageSort,
+  buildPageSortOptions,
 } from "../utils/pageService.js";
 import {
   collectAccessibleRoleSnowflakes,
@@ -354,6 +356,8 @@ function collectRequestRoleSnowflakes(
   }
   return collectAccessibleRoleSnowflakes(req?.session?.user || null);
 }
+
+const PAGE_SORT_QUERY_PARAM = "sort";
 
 function filterValidRoleSelection(input, availableRoles = []) {
   const normalized = normalizeRoleSelectionInput(input);
@@ -689,6 +693,15 @@ r.get(
   asyncHandler(async (req, res) => {
     const ip = req.clientIp;
     const allowedRoleSnowflakes = collectRequestRoleSnowflakes(req);
+    const rawSortValue = req?.query?.[PAGE_SORT_QUERY_PARAM];
+    const requestedSort = Array.isArray(rawSortValue)
+      ? rawSortValue[0]
+      : rawSortValue;
+    const selectedSort = resolvePageSort(requestedSort);
+    if (req && req.query) {
+      req.query[PAGE_SORT_QUERY_PARAM] = selectedSort;
+    }
+    const sortOptions = buildPageSortOptions(selectedSort);
 
     const total = await countPages({ allowedRoleSnowflakes });
     const paginationOptions = {
@@ -710,6 +723,7 @@ r.get(
       limit: pagination.perPage,
       offset,
       allowedRoleSnowflakes,
+      sort: selectedSort,
     });
     const rows = rowsRaw.map(mapPreview);
 
@@ -717,6 +731,9 @@ r.get(
       rows,
       total,
       pagination,
+      sortOptions,
+      sortParam: PAGE_SORT_QUERY_PARAM,
+      selectedSort,
     });
   }),
 );

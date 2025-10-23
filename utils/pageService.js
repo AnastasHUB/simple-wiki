@@ -74,6 +74,46 @@ export function buildTagVisibilityClause({
 
 const COMMENT_ATTACHMENT_IMAGE_PATTERN = /^image\/[^\s]+$/i;
 
+export const PAGE_SORT_MODES = Object.freeze({
+  NEWEST: "newest",
+  MOST_VIEWED: "most_viewed",
+  MOST_LIKED: "most_liked",
+});
+
+const PAGE_SORT_CONFIG = {
+  [PAGE_SORT_MODES.NEWEST]: {
+    label: "Les plus récents",
+    orderBy: "p.created_at DESC",
+  },
+  [PAGE_SORT_MODES.MOST_VIEWED]: {
+    label: "Les plus vus",
+    orderBy: "views DESC, p.created_at DESC",
+  },
+  [PAGE_SORT_MODES.MOST_LIKED]: {
+    label: "Les plus aimés",
+    orderBy: "likes DESC, p.created_at DESC",
+  },
+};
+
+export function resolvePageSort(rawValue) {
+  if (typeof rawValue === "string") {
+    const normalized = rawValue.trim().toLowerCase();
+    if (normalized && PAGE_SORT_CONFIG[normalized]) {
+      return normalized;
+    }
+  }
+  return PAGE_SORT_MODES.NEWEST;
+}
+
+export function buildPageSortOptions(selectedSort) {
+  const normalized = resolvePageSort(selectedSort);
+  return Object.entries(PAGE_SORT_CONFIG).map(([value, config]) => ({
+    value,
+    label: config.label,
+    selected: value === normalized,
+  }));
+}
+
 const TAGS_CSV_SUBQUERY = `(
   SELECT GROUP_CONCAT(t.name, ',')
   FROM tags t
@@ -158,6 +198,7 @@ export async function fetchPaginatedPages({
   excerptLength = 1200,
   includeUnpublished = false,
   allowedRoleSnowflakes = null,
+  sort = PAGE_SORT_MODES.NEWEST,
 }) {
   const excerpt = Math.max(1, Math.trunc(excerptLength));
   const visibility = buildPublishedFilter({ includeUnpublished });
@@ -165,6 +206,9 @@ export async function fetchPaginatedPages({
     alias: "p",
     allowedRoleSnowflakes,
   });
+  const normalizedSort = resolvePageSort(sort);
+  const sortConfig =
+    PAGE_SORT_CONFIG[normalizedSort] || PAGE_SORT_CONFIG[PAGE_SORT_MODES.NEWEST];
   const clauseParts = [];
   const clauseParams = [];
   if (visibility.clause && visibility.clause !== "1=1") {
@@ -197,7 +241,7 @@ export async function fetchPaginatedPages({
            ${VIEW_COUNT_SELECT} AS views
       FROM pages p
      WHERE ${combinedClause}
-     ORDER BY p.created_at DESC
+     ORDER BY ${sortConfig.orderBy}
      LIMIT ? OFFSET ?
   `,
     params,
