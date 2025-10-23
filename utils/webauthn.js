@@ -286,10 +286,11 @@ export async function createRegistrationOptions({ req, user, existingCredentials
   }
   const config = buildWebAuthnConfig(req, { rpName });
   const adapter = getAdapter();
+  const userIDBytes = Buffer.from(String(user.id), "utf-8");
   const options = await adapter.generateRegistrationOptions({
     rpName: config.rpName,
     rpID: config.rpID,
-    userID: String(user.id),
+    userID: userIDBytes,
     userName: user.username,
     userDisplayName: user.display_name || user.username,
     attestationType: "none",
