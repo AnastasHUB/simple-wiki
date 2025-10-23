@@ -1025,16 +1025,27 @@ r.post(
       }
 
       const { registrationInfo } = verification;
-      const credentialId = toBase64Url(registrationInfo.credentialID);
-      const transports = Array.isArray(credential?.response?.transports)
+      const credentialInfo = registrationInfo.credential || {};
+      const credentialId =
+        (typeof credentialInfo.id === "string" && credentialInfo.id) ||
+        toBase64Url(registrationInfo.credentialID);
+      const publicKey =
+        credentialInfo.publicKey || registrationInfo.credentialPublicKey;
+      const counter =
+        typeof credentialInfo.counter === "number"
+          ? credentialInfo.counter
+          : registrationInfo.counter || 0;
+      const transports = Array.isArray(credentialInfo.transports)
+        ? credentialInfo.transports
+        : Array.isArray(credential?.response?.transports)
         ? credential.response.transports
         : [];
 
       await saveWebAuthnCredential({
         userId: sessionUser.id,
         credentialId,
-        publicKey: registrationInfo.credentialPublicKey,
-        counter: registrationInfo.counter || 0,
+        publicKey,
+        counter,
         deviceType: registrationInfo.credentialDeviceType || null,
         backedUp: registrationInfo.credentialBackedUp || false,
         transports,
