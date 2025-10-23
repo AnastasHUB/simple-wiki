@@ -315,7 +315,7 @@ export async function verifyRegistration({ response, expectedChallenge, expected
     expectedChallenge,
     expectedOrigin,
     expectedRPID,
-    requireUserVerification: true,
+    requireUserVerification: false,
   });
 }
 
@@ -342,7 +342,7 @@ export async function verifyAuthentication({ response, authenticator, expectedCh
     expectedChallenge,
     expectedOrigin,
     expectedRPID,
-    requireUserVerification: true,
+    requireUserVerification: false,
     authenticator: {
       credentialID: base64UrlToBuffer(authenticator.credentialId),
       credentialPublicKey: authenticator.publicKey,
