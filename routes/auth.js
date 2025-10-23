@@ -249,27 +249,25 @@ r.post("/login", loginRateLimiter, async (req, res) => {
 
 r.post("/login/passkey/options", loginRateLimiter, async (req, res) => {
   const username = typeof req.body?.username === "string" ? req.body.username.trim() : "";
-  if (!username) {
-    return res.status(400).json({
-      ok: false,
-      error: "Veuillez saisir votre nom d'utilisateur.",
-    });
-  }
 
-  const user = await fetchAuthUserByUsername(username);
-  if (!user) {
-    return res.status(404).json({
-      ok: false,
-      error: "Utilisateur introuvable.",
-    });
-  }
+  let user = null;
+  let credentials = [];
+  if (username) {
+    user = await fetchAuthUserByUsername(username);
+    if (!user) {
+      return res.status(404).json({
+        ok: false,
+        error: "Utilisateur introuvable.",
+      });
+    }
 
-  const credentials = await listUserWebAuthnCredentials(user.id);
-  if (credentials.length === 0) {
-    return res.status(404).json({
-      ok: false,
-      error: "Aucune passkey n'est associée à ce compte.",
-    });
+    credentials = await listUserWebAuthnCredentials(user.id);
+    if (credentials.length === 0) {
+      return res.status(404).json({
+        ok: false,
+        error: "Aucune passkey n'est associée à ce compte.",
+      });
+    }
   }
 
   const settings = await getSiteSettings({ forceRefresh: false });
@@ -282,15 +280,15 @@ r.post("/login/passkey/options", loginRateLimiter, async (req, res) => {
     });
     setAuthenticationChallenge(req.session, {
       challenge,
-      userId: user.id,
-      username: user.username,
+      userId: user?.id || null,
+      username: user?.username || null,
       rpID: config.rpID,
       origin: config.origin,
     });
     return res.json({
       ok: true,
       options,
-      user: { username: user.username },
+      user: user ? { username: user.username } : null,
       rp: { id: config.rpID, name: config.rpName },
     });
   } catch (error) {

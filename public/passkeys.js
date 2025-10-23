@@ -240,22 +240,22 @@
     const form = trigger.closest("form");
     const usernameField = form?.querySelector('input[name="username"]');
     const username = usernameField instanceof HTMLInputElement ? usernameField.value.trim() : "";
-    if (!username) {
-      spawn("Veuillez indiquer votre nom d'utilisateur avant d'utiliser une passkey.", "error");
-      return;
-    }
-
     trigger.disabled = true;
     trigger.classList.add("is-loading");
 
     try {
+      const payload = {};
+      if (username) {
+        payload.username = username;
+      }
+
       const options = await fetchJson("/login/passkey/options", {
         method: "POST",
         headers: applyCsrf({
           "Content-Type": "application/json",
           Accept: "application/json",
         }),
-        body: JSON.stringify({ username }),
+        body: JSON.stringify(payload),
       });
 
       if (!options?.options?.challenge) {
