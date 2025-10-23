@@ -315,7 +315,7 @@ export async function verifyRegistration({ response, expectedChallenge, expected
     expectedChallenge,
     expectedOrigin,
     expectedRPID,
-    requireUserVerification: true,
+    requireUserVerification: false,
   });
 }
 
@@ -337,19 +337,31 @@ export async function createAuthenticationOptions({ req, allowCredentials = [], 
 
 export async function verifyAuthentication({ response, authenticator, expectedChallenge, expectedOrigin, expectedRPID }) {
   const adapter = getAdapter();
+  const credentialID = base64UrlToBuffer(authenticator.credentialId);
+  const transports =
+    authenticator.transports && authenticator.transports.length
+      ? authenticator.transports
+      : undefined;
+  const counter = Number.isFinite(authenticator.counter) ? authenticator.counter : 0;
+
   return adapter.verifyAuthenticationResponse({
     response,
     expectedChallenge,
     expectedOrigin,
     expectedRPID,
-    requireUserVerification: true,
+    requireUserVerification: false,
+    credential: {
+      id: credentialID,
+      publicKey: authenticator.publicKey,
+      counter,
+      transports,
+    },
+    // Provide legacy authenticator payload for compatibility with older adapters
     authenticator: {
-      credentialID: base64UrlToBuffer(authenticator.credentialId),
+      credentialID,
       credentialPublicKey: authenticator.publicKey,
-      counter: authenticator.counter || 0,
-      transports: authenticator.transports && authenticator.transports.length
-        ? authenticator.transports
-        : undefined,
+      counter,
+      transports,
     },
   });
 }
