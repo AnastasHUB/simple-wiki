@@ -3000,29 +3000,6 @@ input[type="radio"] {
   font-size: 0.95rem;
 }
 
-.embed-preview {
-  margin-top: var(--space-sm);
-  padding: var(--space-sm);
-  border-radius: var(--radius-md);
-  background: var(--surface-secondary);
-  display: inline-flex;
-  flex-direction: column;
-  gap: var(--space-xxs);
-  max-width: 360px;
-}
-
-.embed-preview__label {
-  font-size: 0.85rem;
-  color: var(--text-muted);
-}
-
-.embed-preview img {
-  max-width: 100%;
-  height: auto;
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-sm);
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
