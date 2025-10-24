@@ -13,6 +13,7 @@ export async function createPageSubmission({
   submittedBy = null,
   targetSlugId = null,
   authorName = null,
+  embedImageUrl = null,
 }) {
   if (!type || !title || !content) {
     throw new Error("Invalid submission payload");
@@ -22,8 +23,8 @@ export async function createPageSubmission({
   const snowflake = generateSnowflake();
   await run(
     `INSERT INTO page_submissions(
-      snowflake_id, page_id, target_slug_id, type, title, content, tags, ip, submitted_by, author_name
-    ) VALUES(?,?,?,?,?,?,?,?,?,?)`,
+      snowflake_id, page_id, target_slug_id, type, title, content, tags, ip, submitted_by, author_name, embed_image_url
+    ) VALUES(?,?,?,?,?,?,?,?,?,?,?)`,
     [
       snowflake,
       pageId || null,
@@ -35,6 +36,7 @@ export async function createPageSubmission({
       ip || null,
       submittedBy || null,
       authorName || null,
+      embedImageUrl || null,
     ],
   );
   return snowflake;

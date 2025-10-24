@@ -112,6 +112,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     slug_id TEXT UNIQUE NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    embed_image_url TEXT,
     author TEXT,
     status TEXT NOT NULL DEFAULT 'published'
       CHECK(status IN ('draft','published','scheduled')),
@@ -128,6 +129,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     slug_base TEXT NOT NULL,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
+    embed_image_url TEXT,
     author TEXT,
     status TEXT NOT NULL DEFAULT 'published',
     publish_at DATETIME,
@@ -315,6 +317,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     ip TEXT,
     submitted_by TEXT,
     author_name TEXT,
+    embed_image_url TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     reviewer_id INTEGER REFERENCES users(id),
     review_note TEXT,
@@ -392,6 +395,7 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published','scheduled'))",
   );
   await ensureColumn("pages", "publish_at", "DATETIME");
+  await ensureColumn("pages", "embed_image_url", "TEXT");
   await ensureColumn("deleted_pages", "comments_json", "TEXT");
   await ensureColumn("deleted_pages", "stats_json", "TEXT");
   await ensureColumn("deleted_pages", "author", "TEXT");
@@ -401,7 +405,9 @@ ${ROLE_FLAG_COLUMN_DEFINITIONS},
     "TEXT NOT NULL DEFAULT 'published' CHECK(status IN ('draft','published','scheduled'))",
   );
   await ensureColumn("deleted_pages", "publish_at", "DATETIME");
+  await ensureColumn("deleted_pages", "embed_image_url", "TEXT");
   await ensureColumn("page_submissions", "author_name", "TEXT");
+  await ensureColumn("page_submissions", "embed_image_url", "TEXT");
   await ensureColumn("badges", "automatic_key", "TEXT");
   await db.exec(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_badges_automatic_key ON badges(automatic_key);",
