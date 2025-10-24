@@ -15,7 +15,12 @@ import { requireAdmin } from "../middleware/auth.js";
 import { slugify } from "../utils/linkify.js";
 import { renderMarkdown } from "../utils/markdownRenderer.js";
 import { sendAdminEvent, sendFeedEvent } from "../utils/webhook.js";
-import { listUploads } from "../utils/uploads.js";
+import {
+  listUploads,
+  ensureUploadDir,
+  uploadDir,
+  recordUpload,
+} from "../utils/uploads.js";
 import { getClientIp, getClientUserAgent } from "../utils/ip.js";
 import { getActiveBans } from "../utils/ipBans.js";
 import { generateSnowflake } from "../utils/snowflake.js";
@@ -237,6 +242,128 @@ function commentUploadMiddleware(req, res, next) {
     }
     next();
   });
+}
+
+const EMBED_IMAGE_ALLOWED_MIME_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/gif",
+  "image/webp",
+];
+const EMBED_IMAGE_ALLOWED_MIME_SET = new Set(
+  EMBED_IMAGE_ALLOWED_MIME_TYPES.map((type) => type.toLowerCase()),
+);
+const EMBED_IMAGE_MAX_SIZE = 5 * 1024 * 1024;
+const EMBED_IMAGE_MAX_SIZE_MB = Math.round(
+  EMBED_IMAGE_MAX_SIZE / (1024 * 1024),
+);
+
+const embedImageStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    ensureUploadDir()
+      .then(() => cb(null, uploadDir))
+      .catch((error) => cb(error));
+  },
+  filename: (req, file, cb) => {
+    const storedName = buildStoredFilename(file?.originalname || "embed");
+    cb(null, storedName);
+  },
+});
+
+const embedImageUpload = multer({
+  storage: embedImageStorage,
+  limits: {
+    fileSize: EMBED_IMAGE_MAX_SIZE,
+    files: 1,
+  },
+  fileFilter: (req, file, cb) => {
+    const mime = typeof file?.mimetype === "string" ? file.mimetype.toLowerCase() : "";
+    if (EMBED_IMAGE_ALLOWED_MIME_SET.has(mime)) {
+      cb(null, true);
+      return;
+    }
+    const error = new Error("UNSUPPORTED_EMBED_IMAGE_TYPE");
+    error.code = "UNSUPPORTED_EMBED_IMAGE_TYPE";
+    cb(error);
+  },
+});
+
+function embedImageUploadMiddleware(req, res, next) {
+  embedImageUpload.single("embed_image_file")(req, res, (err) => {
+    if (err) {
+      req.embedImageUploadError = err;
+      const uploadedFile = req.file || null;
+      if (uploadedFile) {
+        removeUploadedFiles([uploadedFile]).finally(() => {
+          req.file = undefined;
+          req.embedImageFile = null;
+          next();
+        });
+        return;
+      }
+      req.file = undefined;
+      req.embedImageFile = null;
+      next();
+      return;
+    }
+    if (req.file) {
+      req.embedImageFile = req.file;
+      req.file = undefined;
+    } else {
+      req.embedImageFile = null;
+    }
+    req.embedImageUploadError = null;
+    next();
+  });
+}
+
+function consumeEmbedImageUpload(req) {
+  const context = {
+    file: req.embedImageFile || null,
+    error: req.embedImageUploadError || null,
+  };
+  req.embedImageFile = null;
+  req.embedImageUploadError = null;
+  return context;
+}
+
+async function discardEmbedImageUpload(upload) {
+  if (!upload?.file) {
+    return;
+  }
+  await removeUploadedFiles([upload.file]);
+}
+
+function normalizeEmbedImageUrlInput(value) {
+  if (typeof value !== "string") {
+    return { provided: false, valid: true, value: "", raw: "" };
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return { provided: false, valid: true, value: "", raw: "" };
+  }
+  if (
+    trimmed.length > 2048 ||
+    /[\s<>"']/u.test(trimmed) ||
+    /^javascript:/i.test(trimmed) ||
+    /^data:/i.test(trimmed)
+  ) {
+    return { provided: true, valid: false, value: "", raw: trimmed };
+  }
+  return { provided: true, valid: true, value: trimmed, raw: trimmed };
+}
+
+function describeEmbedImageUploadError(error) {
+  if (!error) {
+    return null;
+  }
+  if (error.code === "LIMIT_FILE_SIZE") {
+    return `L'image d'aperçu dépasse ${EMBED_IMAGE_MAX_SIZE_MB}\u00a0Mo.`;
+  }
+  if (error.code === "UNSUPPORTED_EMBED_IMAGE_TYPE") {
+    return "Ce format d'image n'est pas pris en charge pour l'aperçu.";
+  }
+  return "Une erreur est survenue lors du téléversement de l'image d'aperçu.";
 }
 
 const USER_ROLE_FLAG_COLUMN_LIST = ROLE_FLAG_FIELDS.join(", ");
@@ -867,9 +994,12 @@ r.get(
 
 r.post(
   "/new",
+  embedImageUploadMiddleware,
   asyncHandler(async (req, res) => {
     const permissions = req.permissionFlags || {};
+    const embedUpload = consumeEmbedImageUpload(req);
     if (!permissions.can_submit_pages) {
+      await discardEmbedImageUpload(embedUpload);
       return res.status(403).render("error", {
         message: "Vous n'êtes pas autorisé à soumettre de contenu.",
       });
@@ -895,9 +1025,85 @@ r.post(
         action: "contribute",
       });
       if (ban) {
+        await discardEmbedImageUpload(embedUpload);
         return res.status(403).render("banned", { ban });
       }
     }
+
+    const embedImageInput = normalizeEmbedImageUrlInput(
+      req.body.embed_image_url,
+    );
+    const embedImageRawValue = embedImageInput.provided
+      ? embedImageInput.raw
+      : typeof req.body.embed_image_url === "string"
+        ? req.body.embed_image_url.trim()
+        : "";
+    const validationErrors = [];
+    if (embedImageInput.provided && !embedImageInput.valid) {
+      validationErrors.push(
+        "L'URL de l'image d'aperçu est invalide. Utilisez un lien https:// ou un chemin commençant par /.",
+      );
+    }
+    const uploadErrorMessage = describeEmbedImageUploadError(embedUpload.error);
+    if (uploadErrorMessage) {
+      validationErrors.push(uploadErrorMessage);
+    }
+    if (embedUpload.file && !permissions.is_admin) {
+      validationErrors.push(
+        "Vous n'avez pas la permission de téléverser une image d'aperçu.",
+      );
+    }
+
+    let embedImageUrlToPersist = null;
+    if (embedImageInput.provided && embedImageInput.valid) {
+      embedImageUrlToPersist = embedImageInput.value;
+    }
+    let embedImageUploadRecord = null;
+    if (embedUpload.file && !embedUpload.error && permissions.is_admin) {
+      embedImageUrlToPersist = `/public/uploads/${embedUpload.file.filename}`;
+      const extension = path.extname(embedUpload.file.filename) || "";
+      embedImageUploadRecord = {
+        id: path.basename(embedUpload.file.filename, extension),
+        originalName:
+          embedUpload.file.originalname || embedUpload.file.filename,
+        displayName: embedUpload.file.originalname || "",
+        extension,
+        size: embedUpload.file.size,
+      };
+    }
+
+    if (validationErrors.length) {
+      await discardEmbedImageUpload(embedUpload);
+      const uploads = permissions.is_admin ? await listUploads() : [];
+      const formState = {
+        title,
+        content,
+        tags,
+        author: trimmedAuthorInput,
+        status: req.body.status || "published",
+        publishAt: req.body.publish_at || "",
+        visibleRoles: selectedVisibilityRoles,
+        embedImageUrl: embedImageRawValue,
+      };
+      return res.status(400).render(
+        "edit",
+        buildEditorRenderContext({
+          page: null,
+          tags,
+          uploads,
+          submissionMode: !canPublishDirectly,
+          allowUploads: permissions.is_admin,
+          authorName: authorToPersist || "",
+          canChooseStatus: canPublishDirectly,
+          canSchedule: canPublishDirectly && canSchedulePages,
+          formState,
+          validationErrors,
+          availableVisibilityRoles: availableRoles,
+          selectedVisibilityRoles,
+        }),
+      );
+    }
+
     if (!canPublishDirectly) {
       const submissionId = await createPageSubmission({
         type: "create",
@@ -907,6 +1113,7 @@ r.post(
         ip: req.clientIp,
         submittedBy: req.session.user?.username || null,
         authorName: authorToPersist,
+        embedImageUrl: embedImageUrlToPersist || null,
       });
       await touchIpProfile(req.clientIp, {
         userAgent: req.clientUserAgent,
@@ -929,8 +1136,10 @@ r.post(
           submission: submissionId,
           status: "pending",
           author: authorToPersist,
+          embed_image_url: embedImageUrlToPersist || null,
         },
       });
+      await discardEmbedImageUpload(embedUpload);
       return res.redirect("/");
     }
 
@@ -940,6 +1149,12 @@ r.post(
       canSchedule: canSchedulePages,
     });
     if (!publication.isValid) {
+      validationErrors.push(
+        ...publication.errors.map((error) => error.message),
+      );
+    }
+    if (validationErrors.length) {
+      await discardEmbedImageUpload(embedUpload);
       const uploads = permissions.is_admin ? await listUploads() : [];
       const formState = {
         title,
@@ -949,6 +1164,7 @@ r.post(
         status: req.body.status || "published",
         publishAt: publication.rawPublishAt,
         visibleRoles: selectedVisibilityRoles,
+        embedImageUrl: embedImageRawValue,
       };
       return res.status(400).render(
         "edit",
@@ -962,7 +1178,7 @@ r.post(
           canChooseStatus: true,
           canSchedule: canPublishDirectly && canSchedulePages,
           formState,
-          validationErrors: publication.errors.map((error) => error.message),
+          validationErrors,
           availableVisibilityRoles: availableRoles,
           selectedVisibilityRoles,
         }),
@@ -972,19 +1188,21 @@ r.post(
     const base = slugify(title);
     const slug_id = randId();
     const pageSnowflake = generateSnowflake();
+    const embedImageValue = embedImageUrlToPersist || null;
     const result = await run(
-      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, author, status, publish_at) VALUES(?,?,?,?,?,?,?,?)",
+      "INSERT INTO pages(snowflake_id, slug_base, slug_id, title, content, embed_image_url, author, status, publish_at) VALUES(?,?,?,?,?,?,?,?,?)",
       [
         pageSnowflake,
         base,
         slug_id,
         title,
-      content,
-      authorToPersist,
-      publication.status,
-      publication.publishAt,
-    ],
-  );
+        content,
+        embedImageValue,
+        authorToPersist,
+        publication.status,
+        publication.publishAt,
+      ],
+    );
     if (permissions.is_admin) {
       await setPageVisibilityRoles(result.lastID, selectedVisibilityRoles);
     }
@@ -995,6 +1213,16 @@ r.post(
       content,
       req.session.user?.id || null,
     );
+    if (embedImageUploadRecord) {
+      try {
+        await recordUpload(embedImageUploadRecord);
+      } catch (error) {
+        console.warn("Impossible d'enregistrer l'image d'aperçu téléversée", {
+          filename: embedUpload?.file?.filename || null,
+          error,
+        });
+      }
+    }
     await savePageFts({
       id: result.lastID,
       title,
@@ -1002,14 +1230,37 @@ r.post(
       slug_id,
       tags: tagNames.join(" "),
     });
+    const host = req.get("host") || "localhost";
+    const baseUrl = `${req.protocol}://${host}`;
+    const metaPreview = buildPageMeta({
+      page: {
+        title,
+        content,
+        slug_id,
+        embed_image_url: embedImageValue,
+      },
+      baseUrl,
+      siteName: res.locals.wikiName,
+      logoUrl: res.locals.logoUrl,
+      tags: tagNames,
+      protocol: req.protocol,
+    });
+    const feedEmbedImageUrl = metaPreview.image || null;
     await sendAdminEvent("Page created", {
       user: req.session.user?.username,
-      page: { title, slug_id, slug_base: base, snowflake_id: pageSnowflake },
+      page: {
+        title,
+        slug_id,
+        slug_base: base,
+        snowflake_id: pageSnowflake,
+        embed_image_url: embedImageValue,
+      },
       extra: {
         tags,
         author: authorToPersist,
         status: publication.status,
         publish_at: publication.publishAt,
+        embed_image_url: embedImageValue,
       },
     });
     if (req.session.user?.id) {
@@ -1019,12 +1270,17 @@ r.post(
       await sendFeedEvent(
         "Nouvel article",
         {
-          page: { title, slug_id, snowflake_id: pageSnowflake },
+          page: {
+            title,
+            slug_id,
+            snowflake_id: pageSnowflake,
+            embed_image_url: embedImageValue,
+          },
           author: authorToPersist || "Anonyme",
           url: req.protocol + "://" + req.get("host") + "/wiki/" + slug_id,
           tags,
         },
-        { articleContent: content },
+        { articleContent: content, embedImageUrl: feedEmbedImageUrl },
       );
     }
     const scheduledLabel = publication.publishAt
@@ -2304,19 +2560,26 @@ r.get(
 
 r.post(
   "/edit/:slugid",
+  embedImageUploadMiddleware,
   asyncHandler(async (req, res) => {
     const { title, content, tags } = req.body;
     const page = await get("SELECT * FROM pages WHERE slug_id=?", [
       req.params.slugid,
     ]);
-    if (!page) return res.status(404).send("Page introuvable");
+    const embedUpload = consumeEmbedImageUpload(req);
+    if (!page) {
+      await discardEmbedImageUpload(embedUpload);
+      return res.status(404).send("Page introuvable");
+    }
 
     const permissions = req.permissionFlags || {};
     if (!permissions.can_submit_pages) {
+      await discardEmbedImageUpload(embedUpload);
       return res.status(403).render("error", {
         message: "Vous n'avez pas la permission de modifier cet article.",
       });
     }
+    const currentTags = await fetchPageTags(page.id);
     const canPublishDirectly = Boolean(
       permissions.is_admin || permissions.is_contributor,
     );
@@ -2326,14 +2589,14 @@ r.post(
       ? filterValidRoleSelection(req.body.visible_roles, availableRoles)
       : await listPageVisibilityRoles(page.id);
     if (!permissions.is_admin) {
-      const tagNames = await fetchPageTags(page.id);
       const ban = await resolveAccessBan({
         ip: req.clientIp,
         userId: getSessionUserId(req),
         action: "contribute",
-        tags: tagNames,
+        tags: currentTags,
       });
       if (ban) {
+        await discardEmbedImageUpload(embedUpload);
         return res.status(403).render("banned", { ban });
       }
     }
@@ -2343,6 +2606,93 @@ r.post(
     const sessionAuthorName = getUserDisplayName(req.session.user);
     const authorToPersist =
       trimmedAuthorInput || page.author || sessionAuthorName || null;
+
+    const embedImageFieldPresent = Object.prototype.hasOwnProperty.call(
+      req.body,
+      "embed_image_url",
+    );
+    const embedImageInput = normalizeEmbedImageUrlInput(
+      req.body.embed_image_url,
+    );
+    const embedImageRawValue = embedImageInput.provided
+      ? embedImageInput.raw
+      : embedImageFieldPresent && typeof req.body.embed_image_url === "string"
+        ? req.body.embed_image_url.trim()
+        : page.embed_image_url || "";
+    const validationErrors = [];
+    if (embedImageInput.provided && !embedImageInput.valid) {
+      validationErrors.push(
+        "L'URL de l'image d'aperçu est invalide. Utilisez un lien https:// ou un chemin commençant par /.",
+      );
+    }
+    const uploadErrorMessage = describeEmbedImageUploadError(
+      embedUpload.error,
+    );
+    if (uploadErrorMessage) {
+      validationErrors.push(uploadErrorMessage);
+    }
+    if (embedUpload.file && !permissions.is_admin) {
+      validationErrors.push(
+        "Vous n'avez pas la permission de téléverser une image d'aperçu.",
+      );
+    }
+
+    let embedImageUrlToPersist = page.embed_image_url || null;
+    if (!embedImageInput.provided && embedImageFieldPresent) {
+      embedImageUrlToPersist = null;
+    }
+    if (embedImageInput.provided && embedImageInput.valid) {
+      embedImageUrlToPersist = embedImageInput.value;
+    }
+    let embedImageUploadRecord = null;
+    if (embedUpload.file && !embedUpload.error && permissions.is_admin) {
+      embedImageUrlToPersist = `/public/uploads/${embedUpload.file.filename}`;
+      const extension = path.extname(embedUpload.file.filename) || "";
+      embedImageUploadRecord = {
+        id: path.basename(embedUpload.file.filename, extension),
+        originalName:
+          embedUpload.file.originalname || embedUpload.file.filename,
+        displayName: embedUpload.file.originalname || "",
+        extension,
+        size: embedUpload.file.size,
+      };
+    }
+
+    if (validationErrors.length) {
+      await discardEmbedImageUpload(embedUpload);
+      const uploads = permissions.is_admin ? await listUploads() : [];
+      const formState = {
+        title,
+        content,
+        tags,
+        author: trimmedAuthorInput,
+        status: req.body.status ?? page.status,
+        publishAt:
+          req.body.publish_at ?? formatPublishAtForInput(page.publish_at),
+        visibleRoles: selectedVisibilityRoles,
+        embedImageUrl: embedImageFieldPresent
+          ? embedImageRawValue
+          : page.embed_image_url || "",
+      };
+      return res.status(400).render(
+        "edit",
+        buildEditorRenderContext({
+          page,
+          tags: currentTags.join(", "),
+          uploads,
+          submissionMode: !canPublishDirectly,
+          allowUploads: permissions.is_admin,
+          authorName: authorToPersist || "",
+          canChooseStatus: canPublishDirectly,
+          canSchedule: canPublishDirectly && canSchedulePages,
+          formState,
+          validationErrors,
+          availableVisibilityRoles: availableRoles,
+          selectedVisibilityRoles,
+        }),
+      );
+    }
+
     if (!canPublishDirectly) {
       const submissionId = await createPageSubmission({
         type: "edit",
@@ -2354,6 +2704,7 @@ r.post(
         submittedBy: req.session.user?.username || null,
         targetSlugId: page.slug_id,
         authorName: authorToPersist,
+        embedImageUrl: embedImageUrlToPersist,
       });
       await touchIpProfile(req.clientIp, {
         userAgent: req.clientUserAgent,
@@ -2380,17 +2731,26 @@ r.post(
           submission: submissionId,
           status: "pending",
           author: authorToPersist,
+          embed_image_url: embedImageUrlToPersist,
         },
       });
+      await discardEmbedImageUpload(embedUpload);
       return res.redirect("/wiki/" + page.slug_id);
     }
 
     const publication = resolvePublicationState({
       statusInput: req.body.status ?? page.status,
-      publishAtInput: req.body.publish_at ?? formatPublishAtForInput(page.publish_at),
+      publishAtInput:
+        req.body.publish_at ?? formatPublishAtForInput(page.publish_at),
       canSchedule: canSchedulePages,
     });
     if (!publication.isValid) {
+      validationErrors.push(
+        ...publication.errors.map((error) => error.message),
+      );
+    }
+    if (validationErrors.length) {
+      await discardEmbedImageUpload(embedUpload);
       const uploads = permissions.is_admin ? await listUploads() : [];
       const formState = {
         title,
@@ -2398,14 +2758,19 @@ r.post(
         tags,
         author: trimmedAuthorInput,
         status: req.body.status ?? page.status,
-        publishAt: publication.rawPublishAt || formatPublishAtForInput(page.publish_at),
+        publishAt:
+          publication.rawPublishAt ||
+          formatPublishAtForInput(page.publish_at),
         visibleRoles: selectedVisibilityRoles,
+        embedImageUrl: embedImageFieldPresent
+          ? embedImageRawValue
+          : embedImageUrlToPersist || "",
       };
       return res.status(400).render(
         "edit",
         buildEditorRenderContext({
           page,
-          tags: tagNames.join(", "),
+          tags: currentTags.join(", "),
           uploads,
           submissionMode: false,
           allowUploads: permissions.is_admin,
@@ -2413,7 +2778,7 @@ r.post(
           canChooseStatus: true,
           canSchedule: canPublishDirectly && canSchedulePages,
           formState,
-          validationErrors: publication.errors.map((error) => error.message),
+          validationErrors,
           availableVisibilityRoles: availableRoles,
           selectedVisibilityRoles,
         }),
@@ -2427,17 +2792,19 @@ r.post(
       req.session.user?.id || null,
     );
     const base = slugify(title);
+    const embedImageValue = embedImageUrlToPersist || null;
     await run(
-      "UPDATE pages SET title=?, content=?, slug_base=?, author=?, status=?, publish_at=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
+      "UPDATE pages SET title=?, content=?, slug_base=?, embed_image_url=?, author=?, status=?, publish_at=?, updated_at=CURRENT_TIMESTAMP WHERE slug_id=?",
       [
         title,
         content,
         base,
+        embedImageValue,
         authorToPersist,
-      publication.status,
-      publication.publishAt,
-      req.params.slugid,
-    ],
+        publication.status,
+        publication.publishAt,
+        req.params.slugid,
+      ],
     );
     if (permissions.is_admin) {
       await setPageVisibilityRoles(page.id, selectedVisibilityRoles);
@@ -2445,6 +2812,16 @@ r.post(
     await run("DELETE FROM page_tags WHERE page_id=?", [page.id]);
     const tagNames = await upsertTags(page.id, tags);
     await recordRevision(page.id, title, content, req.session.user?.id || null);
+    if (embedImageUploadRecord) {
+      try {
+        await recordUpload(embedImageUploadRecord);
+      } catch (error) {
+        console.warn("Impossible d'enregistrer l'image d'aperçu téléversée", {
+          filename: embedUpload?.file?.filename || null,
+          error,
+        });
+      }
+    }
     await savePageFts({
       id: page.id,
       title,
@@ -2459,12 +2836,14 @@ r.post(
         slug_id: req.params.slugid,
         slug_base: base,
         snowflake_id: page.snowflake_id,
+        embed_image_url: embedImageValue,
       },
       extra: {
         tags,
         author: authorToPersist,
         status: publication.status,
         publish_at: publication.publishAt,
+        embed_image_url: embedImageValue,
       },
     });
     const scheduledLabel = publication.publishAt
@@ -2585,6 +2964,7 @@ async function handlePageDeletion(req, res) {
          slug_base,
          title,
          content,
+         embed_image_url,
          author,
          status,
          publish_at,
@@ -2594,7 +2974,7 @@ async function handlePageDeletion(req, res) {
          deleted_by,
          comments_json,
          stats_json
-        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+        ) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
       [
         trashSnowflake,
         page.id,
@@ -2603,6 +2983,7 @@ async function handlePageDeletion(req, res) {
         page.slug_base,
         page.title,
         page.content,
+        page.embed_image_url || null,
         page.author || null,
         page.status || "published",
         page.publish_at || null,
