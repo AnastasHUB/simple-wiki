@@ -12,9 +12,6 @@
 <% const contentFieldValue = typeof rawFormState.content === 'string' ? rawFormState.content : initialContentValue; %>
 <% const initialTagsValue = typeof tags === 'string' ? tags : ''; %>
 <% const tagsFieldValue = typeof rawFormState.tags === 'string' ? rawFormState.tags : initialTagsValue; %>
-<% const canUploadEmbed = typeof allowUploads !== 'undefined' ? allowUploads : false; %>
-<% const initialEmbedImageValue = page && page.embed_image_url ? page.embed_image_url : ''; %>
-<% const embedImageFieldValue = typeof rawFormState.embedImageUrl === 'string' ? rawFormState.embedImageUrl : initialEmbedImageValue; %>
 <% const statusOptionsList = Array.isArray(statusOptions) ? statusOptions : []; %>
 <% const showStatusControls = !!canChooseStatus; %>
 <% const canSchedulePublication = !!canSchedule; %>
@@ -37,7 +34,7 @@
     </ul>
   </div>
 <% } %>
-<form method="post" enctype="multipart/form-data" data-page-editor-form data-can-schedule="<%= canSchedulePublication ? 'true' : 'false' %>">
+<form method="post" data-page-editor-form data-can-schedule="<%= canSchedulePublication ? 'true' : 'false' %>">
   <%- include('partials/csrf_field') %>
   <label>Titre</label>
   <input type="text" name="title" value="<%= titleFieldValue %>" required />
@@ -177,38 +174,6 @@
   <p class="editor-hint">
     Ce nom sera affiché comme auteur de l’article. Si vous n’êtes pas connecté, choisissez le pseudo de votre choix.
   </p>
-  <label for="embed-image-url">Image d’aperçu (Discord, Twitter…)</label>
-  <input
-    id="embed-image-url"
-    type="url"
-    name="embed_image_url"
-    value="<%= embedImageFieldValue %>"
-    placeholder="https://exemple.com/image.png ou /public/uploads/mon-image.png"
-    inputmode="url"
-  />
-  <p class="editor-hint">
-    Cette image sera utilisée pour les aperçus lors du partage de l’article. Laissez vide pour utiliser la première image de
-    l’article ou le logo du wiki.
-  </p>
-  <% if (canUploadEmbed) { %>
-    <label for="embed-image-file">Téléverser une image d’aperçu</label>
-    <input
-      id="embed-image-file"
-      type="file"
-      name="embed_image_file"
-      accept="image/png,image/jpeg,image/webp,image/gif"
-    />
-    <p class="editor-hint">
-      Formats acceptés : JPG, PNG, GIF et WebP (5&nbsp;Mo maximum).
-    </p>
-    <%- include('partials/uploadHelper') %>
-  <% } %>
-  <% if (embedImageFieldValue) { %>
-    <div class="embed-preview">
-      <span class="embed-preview__label">Aperçu actuel</span>
-      <img src="<%= embedImageFieldValue %>" alt="Aperçu de l’image d’embed" loading="lazy" />
-    </div>
-  <% } %>
   <% if (showStatusControls) { %>
     <label for="status-field">Statut de publication</label>
     <select id="status-field" name="status" data-status-field>

@@ -63,15 +63,9 @@ export function buildPageMeta({
   const pageUrl = page.slug_id ? `${baseUrl}/wiki/${page.slug_id}` : baseUrl;
   const plainText = extractPlainText(page.content || "");
   const description = truncateWithEllipsis(plainText, descriptionLength);
-  const embedImageOverride = toAbsoluteUrl(
-    baseUrl,
-    page.embed_image_url,
-    protocol,
-  );
   const firstImage = findFirstImageUrl(page.content, { baseUrl, protocol });
   const fallbackImage = toAbsoluteUrl(baseUrl, logoUrl, protocol);
-  const image = embedImageOverride || firstImage || fallbackImage || null;
-  const imageAlt = image ? page.title || siteName || "Wiki" : "";
+  const image = firstImage || fallbackImage || null;
 
   const publishedTime = page.created_at
     ? new Date(page.created_at).toISOString()
@@ -86,7 +80,6 @@ export function buildPageMeta({
     url: pageUrl,
     type: "article",
     image,
-    imageAlt,
     siteName: siteName || "",
     publishedTime,
     modifiedTime,
