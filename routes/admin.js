@@ -3,6 +3,7 @@ import { Router } from "express";
 import multer from "multer";
 import path from "path";
 import { all, get, run, randId, savePageFts } from "../db.js";
+import { purgeCommentAttachments } from "../utils/commentAttachments.js";
 import {
   generateSnowflake,
   decomposeSnowflake,
@@ -646,6 +647,7 @@ async function handleCommentDeletion(req, res) {
     });
     return redirectToComments(req, res);
   }
+  await purgeCommentAttachments(comment.snowflake_id);
   comment.status = "deleted";
   pushNotification(req, {
     type: "success",
