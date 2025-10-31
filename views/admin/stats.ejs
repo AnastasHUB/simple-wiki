@@ -1,4 +1,55 @@
 <% title='Statistiques'; %>
+<%
+  const locale = 'fr-FR';
+  const numberFormatter = new Intl.NumberFormat(locale);
+  const decimalFormatter = new Intl.NumberFormat(locale, {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 1,
+  });
+  const formatNumber = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) {
+      return '0';
+    }
+    return numberFormatter.format(Math.round(numeric));
+  };
+  const formatBytes = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return '0 o';
+    }
+    const units = ['o', 'Ko', 'Mo', 'Go', 'To', 'Po'];
+    let unitIndex = 0;
+    let size = numeric;
+    while (size >= 1024 && unitIndex < units.length - 1) {
+      size /= 1024;
+      unitIndex += 1;
+    }
+    const formatted =
+      size >= 10
+        ? numberFormatter.format(Math.round(size))
+        : decimalFormatter.format(size);
+    return `${formatted} ${units[unitIndex]}`;
+  };
+  const formatPercentage = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || numeric <= 0) {
+      return '0';
+    }
+    return decimalFormatter.format(numeric);
+  };
+  const storage = storageStats || {
+    databaseFileSize: 0,
+    databaseAllocatedBytes: 0,
+    databaseUsedBytes: 0,
+    databaseFreeBytes: 0,
+    breakdown: [],
+    totalTrackedBytes: 0,
+    percentageBaseBytes: 0,
+    tableDetails: [],
+    tableDetailsError: null,
+  };
+%>
 <section class="card stats-hero">
   <div>
     <h1 class="mt-0">Tableau de bord des statistiques</h1>
@@ -95,6 +146,107 @@
       </ul>
     <% } %>
   </div>
+</section>
+
+<section class="card stats-storage-card">
+  <div class="stats-storage-header">
+    <div>
+      <h2 class="mt-0">Statistiques de stockage</h2>
+      <p class="text-muted text-sm">
+        Analyse de l'espace occupé dans la base de données SQLite et répartition des contenus lourds.
+      </p>
+    </div>
+  </div>
+  <div class="stats-storage-metrics">
+    <div class="storage-metric">
+      <span class="label">Taille du fichier</span>
+      <strong><%= formatBytes(storage.databaseFileSize) %></strong>
+      <small>Taille sur disque</small>
+    </div>
+    <div class="storage-metric">
+      <span class="label">Pages utilisées</span>
+      <strong><%= formatBytes(storage.databaseUsedBytes) %></strong>
+      <small>Espace réellement occupé</small>
+    </div>
+    <div class="storage-metric">
+      <span class="label">Espace libre</span>
+      <strong><%= formatBytes(storage.databaseFreeBytes) %></strong>
+      <small>Pages disponibles</small>
+    </div>
+    <div class="storage-metric">
+      <span class="label">Stockage suivi</span>
+      <strong><%= formatBytes(storage.totalTrackedBytes) %></strong>
+      <small>Somme des postes détaillés</small>
+    </div>
+  </div>
+  <% if (storage.breakdown && storage.breakdown.length) { %>
+    <h3>Répartition par contenu</h3>
+    <ul class="storage-breakdown-list">
+      <% storage.breakdown.forEach((entry) => { %>
+        <li>
+          <div>
+            <span class="label"><%= entry.label %></span>
+            <% if (Number.isFinite(entry.rows)) { %>
+              <span class="sub"><%= formatNumber(entry.rows) %> entrées</span>
+            <% } else { %>
+              <span class="sub text-muted">Nombre exact indisponible</span>
+            <% } %>
+          </div>
+          <div class="storage-breakdown-size">
+            <strong><%= formatBytes(entry.bytes) %></strong>
+            <% if (entry.bytesSource === 'estimate') { %>
+              <span class="storage-chip" title="Valeur estimée d'après le contenu">est.</span>
+            <% } else if (entry.bytesSource === 'derived') { %>
+              <span class="storage-chip" title="Différence entre l'espace utilisé et les postes suivis">reste</span>
+            <% } %>
+            <% if (entry.percentage > 0) { %>
+              <span class="text-muted storage-percentage"><%= formatPercentage(entry.percentage) %>%</span>
+            <% } %>
+          </div>
+        </li>
+      <% }) %>
+    </ul>
+    <p class="note-text">
+      Pourcentage calculé sur <strong><%= formatBytes(storage.percentageBaseBytes || storage.totalTrackedBytes) %></strong>
+      d'espace utilisé dans la base.
+    </p>
+  <% } else { %>
+    <p class="text-muted">Aucune donnée de stockage n'est disponible pour le moment.</p>
+  <% } %>
+  <% if (storage.tableDetailsError) { %>
+    <p class="note-text text-danger">Impossible de récupérer le détail des tables : <%= storage.tableDetailsError %></p>
+  <% } %>
+  <% const storageTables = Array.isArray(storage.tableDetails) ? storage.tableDetails.slice(0, 12) : []; %>
+  <% if (storageTables.length) { %>
+    <h3>Tables les plus volumineuses</h3>
+    <div class="table-wrap">
+      <table class="data-table compact">
+        <thead>
+          <tr>
+            <th>Table</th>
+            <th>Taille totale</th>
+            <th>Payload</th>
+            <th>Libre</th>
+            <th>Pages</th>
+            <th>Lignes (estim.)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% storageTables.forEach((row) => { %>
+            <tr>
+              <td><code><%= row.name %></code></td>
+              <td><%= formatBytes(row.sizeBytes) %></td>
+              <td><%= formatBytes(row.payloadBytes) %></td>
+              <td><%= formatBytes(row.unusedBytes) %></td>
+              <td><%= formatNumber(row.pageCount) %></td>
+              <td><%= row.rowEstimate ? formatNumber(row.rowEstimate) : '—' %></td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-muted text-sm">Affichage limité aux 12 tables principales. Les tailles incluent les index associés.</p>
+  <% } %>
 </section>
 
 <%
