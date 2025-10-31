@@ -77,6 +77,11 @@ import {
 } from "../utils/captcha.js";
 import { buildPreviewHtml } from "../utils/htmlPreview.js";
 import {
+  COMMENT_ATTACHMENT_UPLOAD_DIR,
+  ensureCommentAttachmentDir,
+  purgeCommentAttachments,
+} from "../utils/commentAttachments.js";
+import {
   DEFAULT_PAGE_SIZE,
   PAGE_SIZE_OPTIONS,
   buildPagination,
@@ -148,13 +153,6 @@ export const COMMENT_ATTACHMENT_MAX_FILES = 5;
 const COMMENT_ATTACHMENT_MAX_SIZE_MB = Math.round(
   COMMENT_ATTACHMENT_MAX_SIZE / (1024 * 1024),
 );
-const COMMENT_ATTACHMENT_UPLOAD_DIR = path.join(
-  process.cwd(),
-  "public",
-  "uploads",
-  "comments",
-);
-
 function sanitizeOriginalName(name) {
   if (typeof name !== "string") {
     return "Pièce jointe";
@@ -194,7 +192,9 @@ async function removeUploadedFiles(files) {
 
 const commentAttachmentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, COMMENT_ATTACHMENT_UPLOAD_DIR);
+    ensureCommentAttachmentDir()
+      .then(() => cb(null, COMMENT_ATTACHMENT_UPLOAD_DIR))
+      .catch((error) => cb(error));
   },
   filename: (req, file, cb) => {
     const storedName = buildStoredFilename(file?.originalname || "");
@@ -1661,7 +1661,12 @@ r.post(
         },
       });
     }
-    await run("DELETE FROM comments WHERE id=?", [comment.legacy_id]);
+    const deleteResult = await run("DELETE FROM comments WHERE id=?", [
+      comment.legacy_id,
+    ]);
+    if (deleteResult?.changes) {
+      await purgeCommentAttachments(comment.snowflake_id);
+    }
     if (req.session.commentTokens) {
       delete req.session.commentTokens[comment.snowflake_id];
     }
@@ -3305,6 +3310,18 @@ r.post(
 
 function canManageComment(req, comment) {
   if (req.session.user?.is_admin) return true;
+  if (req.session.user?.is_moderator) return true;
+  const permissions = req.permissionFlags || {};
+  if (
+    permissions.is_admin ||
+    permissions.is_moderator ||
+    permissions.can_moderate_comments ||
+    permissions.can_delete_comments ||
+    permissions.can_approve_comments ||
+    permissions.can_reject_comments
+  ) {
+    return true;
+  }
   const tokens = req.session.commentTokens || {};
   if (!comment?.edit_token) return false;
   if (comment?.snowflake_id && tokens[comment.snowflake_id]) {
