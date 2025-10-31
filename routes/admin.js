@@ -2944,8 +2944,6 @@ r.get(
   const banCount = await get(
     "SELECT COUNT(*) AS count FROM ip_bans WHERE lifted_at IS NULL",
   );
-  const eventCount = await get("SELECT COUNT(*) AS count FROM event_logs");
-
   const [
     totalPagesRow,
     newPagesRow,
@@ -2960,7 +2958,9 @@ r.get(
     recentEvents,
     viewTrendsSeries,
   ] = await Promise.all([
-    get("SELECT COUNT(*) AS total FROM pages"),
+    get(
+      "SELECT COUNT(*) AS total, SUM(LENGTH(CAST(content AS BLOB))) AS content_bytes FROM pages",
+    ),
     get(
       "SELECT COUNT(*) AS total FROM pages WHERE created_at >= datetime('now','-7 day')",
     ),
@@ -2968,7 +2968,9 @@ r.get(
     get(
       "SELECT COUNT(*) AS total FROM page_submissions WHERE status='pending'",
     ),
-    get("SELECT COUNT(*) AS total FROM uploads"),
+    get(
+      "SELECT COUNT(*) AS total, SUM(size) AS total_bytes FROM uploads",
+    ),
     get(
       "SELECT COUNT(*) AS total FROM uploads WHERE created_at >= datetime('now','-7 day')",
     ),
@@ -3008,6 +3010,240 @@ r.get(
   const newCommentsCount = Number(newCommentsRow?.total || 0);
   const newLikesCount = Number(newLikesRow?.total || 0);
   const newViewsCount = Number(newViewsRow?.total || 0);
+
+  const dbPath = path.join(process.cwd(), "data.sqlite");
+  let databaseFileSize = 0;
+  try {
+    const dbFileStat = await fs.stat(dbPath);
+    if (dbFileStat?.size) {
+      databaseFileSize = Number(dbFileStat.size);
+    }
+  } catch (err) {
+    console.warn("Impossible de déterminer la taille du fichier SQLite", err);
+  }
+
+  let pragmaPageSize = 0;
+  let pragmaPageCount = 0;
+  let pragmaFreelistCount = 0;
+  try {
+    const [pageSizeRow, pageCountRow, freelistRow] = await Promise.all([
+      get("PRAGMA page_size"),
+      get("PRAGMA page_count"),
+      get("PRAGMA freelist_count"),
+    ]);
+    pragmaPageSize = Number(pageSizeRow?.page_size || 0);
+    pragmaPageCount = Number(pageCountRow?.page_count || 0);
+    pragmaFreelistCount = Number(freelistRow?.freelist_count || 0);
+  } catch (err) {
+    console.warn("Impossible de lire les PRAGMA de stockage", err);
+  }
+
+  let tableDetailsError = null;
+  let tableDetailsRaw = [];
+  try {
+    tableDetailsRaw = await all(`
+      SELECT d.name AS name,
+             SUM(d.pgsize) AS size_bytes,
+             SUM(CASE WHEN d.pagetype = 'leaf' THEN d.payload ELSE 0 END) AS payload_bytes,
+             SUM(d.unused) AS unused_bytes,
+             SUM(CASE WHEN d.pagetype = 'leaf' THEN d.ncell ELSE 0 END) AS row_estimate,
+             COUNT(*) AS page_count
+        FROM dbstat d
+        JOIN sqlite_schema s ON s.name = d.name AND s.type = 'table'
+       GROUP BY d.name
+       ORDER BY size_bytes DESC
+    `);
+  } catch (err) {
+    tableDetailsError = err;
+    console.warn("Impossible de lire la table virtuelle dbstat", err);
+  }
+
+  const tableDetails = Array.isArray(tableDetailsRaw)
+    ? tableDetailsRaw.map((row) => ({
+        name: row.name,
+        sizeBytes: Number(row.size_bytes || 0),
+        payloadBytes: Number(row.payload_bytes || 0),
+        unusedBytes: Number(row.unused_bytes || 0),
+        pageCount: Number(row.page_count || 0),
+        rowEstimate: Number(row.row_estimate || 0),
+      }))
+    : [];
+  tableDetails.sort((a, b) => b.sizeBytes - a.sizeBytes);
+  const tableSizeMap = new Map(
+    tableDetails.map((entry) => [entry.name, Number(entry.sizeBytes || 0)]),
+  );
+
+  const [
+    revisionsStorageRow,
+    commentsStorageRow,
+    commentAttachmentsStorageRow,
+    submissionsStorageRow,
+    eventLogsStorageRow,
+    pageViewsStorageRow,
+    pageViewDailyStorageRow,
+  ] = await Promise.all([
+    get(
+      "SELECT COUNT(*) AS count, SUM(LENGTH(CAST(content AS BLOB))) AS bytes FROM page_revisions",
+    ),
+    get(
+      "SELECT COUNT(*) AS count, SUM(LENGTH(CAST(body AS BLOB))) AS bytes FROM comments",
+    ),
+    get(
+      "SELECT COUNT(*) AS count, SUM(file_size) AS bytes FROM comment_attachments",
+    ),
+    get(
+      "SELECT COUNT(*) AS count, SUM(LENGTH(CAST(content AS BLOB))) AS bytes FROM page_submissions",
+    ),
+    get(
+      "SELECT COUNT(*) AS count, SUM(LENGTH(CAST(payload AS BLOB))) AS bytes FROM event_logs",
+    ),
+    get("SELECT COUNT(*) AS count FROM page_views"),
+    get("SELECT COUNT(*) AS count FROM page_view_daily"),
+  ]);
+
+  const storageDefinitions = [
+    {
+      key: "pages",
+      label: "Pages publiées",
+      tableName: "pages",
+      rows: totalPages,
+      estimateBytes: Number(totalPagesRow?.content_bytes || 0),
+    },
+    {
+      key: "page_revisions",
+      label: "Révisions de page",
+      tableName: "page_revisions",
+      rows: Number(revisionsStorageRow?.count || 0),
+      estimateBytes: Number(revisionsStorageRow?.bytes || 0),
+    },
+    {
+      key: "comments",
+      label: "Commentaires",
+      tableName: "comments",
+      rows: Number(commentsStorageRow?.count || 0),
+      estimateBytes: Number(commentsStorageRow?.bytes || 0),
+    },
+    {
+      key: "comment_attachments",
+      label: "Pièces jointes de commentaires",
+      tableName: "comment_attachments",
+      rows: Number(commentAttachmentsStorageRow?.count || 0),
+      estimateBytes: Number(commentAttachmentsStorageRow?.bytes || 0),
+    },
+    {
+      key: "page_submissions",
+      label: "Soumissions de pages",
+      tableName: "page_submissions",
+      rows: Number(submissionsStorageRow?.count || 0),
+      estimateBytes: Number(submissionsStorageRow?.bytes || 0),
+    },
+    {
+      key: "uploads",
+      label: "Fichiers uploadés",
+      tableName: "uploads",
+      rows: totalUploadsCount,
+      estimateBytes: Number(totalUploadsRow?.total_bytes || 0),
+    },
+    {
+      key: "event_logs",
+      label: "Journal d'événements",
+      tableName: "event_logs",
+      rows: Number(eventLogsStorageRow?.count || 0),
+      estimateBytes: Number(eventLogsStorageRow?.bytes || 0),
+    },
+    {
+      key: "page_views",
+      label: "Historique des vues",
+      tableName: "page_views",
+      rows: Number(pageViewsStorageRow?.count || 0),
+      estimateBytes: 0,
+    },
+    {
+      key: "page_view_daily",
+      label: "Agrégats de vues quotidiennes",
+      tableName: "page_view_daily",
+      rows: Number(pageViewDailyStorageRow?.count || 0),
+      estimateBytes: 0,
+    },
+  ];
+
+  const storageBreakdown = storageDefinitions
+    .map((definition) => {
+      const tableBytes = tableSizeMap.get(definition.tableName);
+      const estimateBytes = Number(definition.estimateBytes || 0);
+      let bytes = Number.isFinite(tableBytes) ? Number(tableBytes) : estimateBytes;
+      if (!Number.isFinite(bytes) || bytes < 0) {
+        bytes = 0;
+      }
+      let source = Number.isFinite(tableBytes) ? "table" : estimateBytes > 0 ? "estimate" : "unknown";
+      const rows = Number.isFinite(definition.rows)
+        ? Number(definition.rows)
+        : Number.isFinite(Number(definition.rows))
+        ? Number(definition.rows)
+        : null;
+      return {
+        key: definition.key,
+        label: definition.label,
+        tableName: definition.tableName,
+        rows,
+        bytes,
+        bytesSource: source,
+        estimateBytes,
+      };
+    })
+    .filter((entry) => {
+      const hasRows = Number.isFinite(entry.rows) && Number(entry.rows) > 0;
+      return hasRows || entry.bytes > 0;
+    });
+
+  const accountedBytes = storageBreakdown.reduce(
+    (sum, entry) => sum + (Number.isFinite(entry.bytes) ? entry.bytes : 0),
+    0,
+  );
+  const databaseAllocatedBytes =
+    pragmaPageSize && pragmaPageCount ? pragmaPageSize * pragmaPageCount : databaseFileSize;
+  const databaseUsedBytes =
+    pragmaPageSize && pragmaPageCount
+      ? pragmaPageSize * Math.max(pragmaPageCount - pragmaFreelistCount, 0)
+      : databaseFileSize;
+  const databaseFreeBytes = Math.max(databaseAllocatedBytes - databaseUsedBytes, 0);
+  const percentageBase = databaseUsedBytes > 0 ? databaseUsedBytes : accountedBytes;
+  const remainingBytes = Math.max(percentageBase - accountedBytes, 0);
+  if (remainingBytes > 0) {
+    storageBreakdown.push({
+      key: "other",
+      label: "Autres tables",
+      tableName: null,
+      rows: null,
+      bytes: remainingBytes,
+      bytesSource: "derived",
+      estimateBytes: 0,
+    });
+  }
+  const totalTrackedBytes = storageBreakdown.reduce(
+    (sum, entry) => sum + (Number.isFinite(entry.bytes) ? entry.bytes : 0),
+    0,
+  );
+  for (const entry of storageBreakdown) {
+    entry.percentage = percentageBase > 0 ? (entry.bytes / percentageBase) * 100 : 0;
+  }
+
+  const storageStats = {
+    databaseFileSize,
+    databaseAllocatedBytes,
+    databaseUsedBytes,
+    databaseFreeBytes,
+    pageSize: pragmaPageSize,
+    pageCount: pragmaPageCount,
+    freelistCount: pragmaFreelistCount,
+    breakdown: storageBreakdown,
+    totalTrackedBytes,
+    percentageBaseBytes: percentageBase,
+    tableDetails,
+    tableDetailsError: tableDetailsError
+      ? tableDetailsError?.message || String(tableDetailsError)
+      : null,
+  };
 
   const statsHandleMap = await resolveHandleColors([
     ...recentEvents.map((event) => event.username),
@@ -3099,7 +3335,7 @@ r.get(
       ),
       commentByStatus,
       activeBans: banCount?.count || 0,
-      events: eventCount?.count || 0,
+      events: Number(eventLogsStorageRow?.count || 0),
       uniqueIps: uniqueIps?.total || 0,
     },
     avgViewsPerPage,
@@ -3128,6 +3364,7 @@ r.get(
     liveVisitors,
     liveVisitorsPagination,
     liveVisitorsWindowSeconds,
+    storageStats,
   });
 });
 
