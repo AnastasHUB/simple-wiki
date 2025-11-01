@@ -1,37 +1,38 @@
-<% title='Likes'; %>
-<h1>Likes par IP</h1>
+<% title = t('admin.likes.title'); %>
+<h1><%= t('admin.likes.heading') %></h1>
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.likes.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="ID, IP, article…"
+        placeholder="<%= t('admin.likes.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
     <input type="hidden" name="page" value="1" />
     <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" type="submit"><%= t('admin.likes.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/likes">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/likes"><%= t('admin.likes.search.reset') %></a>
     <% } %>
   </div>
+  
 </form>
 <div class="card">
   <% if (!rows.length) { %>
-    <p>Aucun like enregistré.</p>
+    <p><%= t('admin.likes.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table" id="likesTable">
         <thead>
           <tr>
-            <th>IP</th>
-            <th>Article</th>
-            <th>Date</th>
-            <th>Action</th>
+            <th><%= t('admin.likes.table.ip') %></th>
+            <th><%= t('admin.likes.table.page') %></th>
+            <th><%= t('admin.likes.table.date') %></th>
+            <th><%= t('admin.likes.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
@@ -39,11 +40,11 @@
             <tr>
               <td><code><%= r.ip %></code></td>
               <td><a href="/wiki/<%= r.slug_id %>"><%= r.title %></a></td>
-              <td><%= r.created_at %></td>
+              <td><%= fmt.dateTime(r.created_at) %></td>
               <td>
-                <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm('Retirer ce like ?')">
+                <form method="post" action="/admin/likes/<%= r.id %>/delete" onsubmit="return confirm(t('admin.likes.actions.removeConfirm'))">
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn unlike" data-icon="🧹">Retirer</button>
+                  <button class="btn unlike"><%= t('admin.likes.actions.remove') %></button>
                 </form>
               </td>
             </tr>
@@ -54,3 +55,4 @@
   <% } %>
   <%- include('./paginationControls', { pagination }) %>
 </div>
+

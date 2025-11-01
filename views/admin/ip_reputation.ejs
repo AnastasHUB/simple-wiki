@@ -1,4 +1,4 @@
-<% title = 'Surveillance IP'; %>
+<% title = t('admin.ipReputation.title'); %>
 <%
   const reviewPager = reviewPagination || null;
   const suspiciousTotal = reviewPager ? reviewPager.totalItems : suspicious.length;
@@ -8,10 +8,10 @@
   const historyPager = historyPagination || null;
   const historyTotal = historyPager ? historyPager.totalItems : historyEntries.length;
   function formatReputationStatusLabel(status) {
-    if (status === 'suspicious') return 'Suspecte';
-    if (status === 'safe') return 'Validée';
-    if (status === 'clean') return 'Neutre';
-    return 'Inconnue';
+    if (status === 'suspicious') return t('admin.ipReputation.status.suspicious');
+    if (status === 'safe') return t('admin.ipReputation.status.safe');
+    if (status === 'clean') return t('admin.ipReputation.status.clean');
+    return t('admin.ipReputation.status.unknown');
   }
   function getReputationStatusClass(status) {
     if (status === 'suspicious') return 'status-pill suspicious';
@@ -20,66 +20,67 @@
     return 'status-pill pending';
   }
 %>
-<h1>Surveillance des IP à risque</h1>
+<h1><%= t('admin.ipReputation.heading') %></h1>
 
 <p class="text-muted leading-snug">
-  Les adresses IP sont vérifiées automatiquement via le service <a href="https://ipapi.is" target="_blank" rel="noopener"><%= providerName %></a>
-  pour repérer les VPN, proxys, réseaux Tor ou hébergements abusifs. Les contrôles sont rejoués toutes les
-  <strong><%= refreshIntervalHours %>h</strong> ou manuellement depuis cet onglet.
+  <%= t('admin.ipReputation.intro.before') %>
+  <a href="https://ipapi.is" target="_blank" rel="noopener"><%= providerName %></a>
+  <%= t('admin.ipReputation.intro.detect') %>
+  <%= t('admin.ipReputation.intro.afterPrefix') %>
+  <strong><%= fmt.number(refreshIntervalHours) %>h</strong>
+  <%= t('admin.ipReputation.intro.afterSuffix') %>
 </p>
 
 <section class="card mb-xl">
-  <h2 class="mt-0">Analyser une adresse IP</h2>
+  <h2 class="mt-0"><%= t('admin.ipReputation.manual.title') %></h2>
   <form method="post" action="/admin/ip-reputation/manual-check" class="flex flex-wrap gap-sm items-end">
     <%- include('../partials/csrf_field') %>
     <label class="stack-form flex-basis-260">
-      <span class="text-sm text-muted">Adresse IP</span>
+      <span class="text-sm text-muted"><%= t('admin.ipReputation.fields.ip') %></span>
       <input
         type="text"
         name="ip"
-        placeholder="Ex : 203.0.113.5"
+        placeholder="<%= t('admin.ipReputation.placeholders.ip') %>"
         required
       />
     </label>
-    <button type="submit" class="btn success" data-icon="🔍">Analyser</button>
+    <button type="submit" class="btn success"><%= t('admin.ipReputation.actions.analyze') %></button>
   </form>
-  <p class="help-text mt-sm">
-    L'adresse sera ajoutée au suivi et analysée immédiatement via le fournisseur externe.
-  </p>
+  <p class="help-text mt-sm"><%= t('admin.ipReputation.manual.help') %></p>
 </section>
 
 <% if (suspiciousTotal) { %>
   <div class="alert alert-error mb-md">
-    ⚠️ <strong><%= suspiciousTotal %> IP</strong> nécessitent une action de modération. Vous pouvez les bannir ou les marquer comme sûres après vérification.
+    <%- t('admin.ipReputation.alerts.pendingModeration', { count: fmt.number(suspiciousTotal) }) %>
   </div>
 <% } else { %>
   <div class="alert alert-success mb-md">
-    ✅ Aucune nouvelle adresse IP suspecte n'a été détectée lors de la dernière analyse automatique.
+    <%= t('admin.ipReputation.alerts.noneNew') %>
   </div>
 <% } %>
 
 <section class="card card-highlight mb-xl">
-  <h2 class="mt-0">Résumé</h2>
+  <h2 class="mt-0"><%= t('admin.ipReputation.summary.title') %></h2>
   <div class="grid grid-auto">
     <div>
-      <p class="stat-sub">IP en attente de revue</p>
-      <p class="stat-number"><%= suspiciousTotal %></p>
+      <p class="stat-sub"><%= t('admin.ipReputation.summary.toReview') %></p>
+      <p class="stat-number"><%= fmt.number(suspiciousTotal) %></p>
     </div>
     <div>
-      <p class="stat-sub">Fournisseur de détection</p>
+      <p class="stat-sub"><%= t('admin.ipReputation.summary.provider') %></p>
       <p class="stat-number"><%= providerName %></p>
     </div>
     <div>
-      <p class="stat-sub">Fréquence automatique</p>
-      <p class="stat-number"><%= refreshIntervalHours %>h</p>
+      <p class="stat-sub"><%= t('admin.ipReputation.summary.autoFrequency') %></p>
+      <p class="stat-number"><%= fmt.number(refreshIntervalHours) %>h</p>
     </div>
   </div>
 </section>
 
 <section class="card mb-xl">
-  <h2 class="mt-0">IP à examiner (<%= suspiciousTotal %>)</h2>
+  <h2 class="mt-0"><%- t('admin.ipReputation.review.title', { count: fmt.number(suspiciousTotal) }) %></h2>
   <% if (!suspiciousTotal) { %>
-    <p class="text-muted">Aucune adresse IP suspecte n'est en file d'attente.</p>
+    <p class="text-muted"><%= t('admin.ipReputation.review.empty') %></p>
   <% } else { %>
     <ul class="admin-risk-list">
       <% suspicious.forEach((profile) => { %>
@@ -87,59 +88,59 @@
           <header class="admin-risk-header">
             <div>
               <code class="admin-risk-ip"><%= profile.ip %></code>
-              <span class="status-pill suspicious">Suspecte</span>
+              <span class="status-pill suspicious"><%= t('admin.ipReputation.status.suspicious') %></span>
               <span class="text-muted">
-                Profil #<%= profile.shortHash %>
+                <%= t('admin.ipReputation.profileN', { n: profile.shortHash }) %>
                 <% if (profile.id) { %>
-                  · ID : <code><%= profile.id %></code>
+                  — ID: <code><%= profile.id %></code>
                 <% } %>
               </span>
               <% if (profile.bot?.isBot) { %>
-                <span class="status-pill suspicious">Bot suspecté</span>
+                <span class="status-pill suspicious"><%= t('admin.ipReputation.flags.bot') %></span>
               <% } %>
             </div>
             <div class="admin-risk-links">
-              <a class="btn secondary" href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">Profil public</a>
-              <a class="btn secondary" href="/admin/ip-profiles?search=<%= profile.hash %>">Voir dans la liste</a>
+              <a class="btn secondary" href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener"><%= t('admin.ipReputation.links.publicProfile') %></a>
+              <a class="btn secondary" href="/admin/ip-profiles?search=<%= profile.hash %>"><%= t('admin.ipReputation.links.viewInList') %></a>
             </div>
           </header>
-          <p class="admin-risk-summary"><%= profile.summary || 'Signaux d\'activité suspects détectés.' %></p>
+          <p class="admin-risk-summary"><%= profile.summary || t('admin.ipReputation.defaultSummary') %></p>
           <% if (profile.bot?.reason) { %>
-            <p class="text-muted text-sm">Détection bot : <%= profile.bot.reason %></p>
+            <p class="text-muted text-sm"><%= t('admin.ipReputation.bot.detected') %> <%= profile.bot.reason %></p>
           <% } %>
           <% if (profile.bot?.userAgent) { %>
-            <p class="text-muted text-sm"><small>Agent : <%= profile.bot.userAgent %></small></p>
+            <p class="text-muted text-sm"><small><%= t('admin.ipReputation.bot.agent') %> <%= profile.bot.userAgent %></small></p>
           <% } %>
           <div class="admin-risk-flags">
-            <% if (profile.flags.isVpn) { %><span class="tag tag-danger">VPN détecté</span><% } %>
-            <% if (profile.flags.isProxy) { %><span class="tag tag-warning">Proxy</span><% } %>
-            <% if (profile.flags.isTor) { %><span class="tag tag-warning">Noeud Tor</span><% } %>
-            <% if (profile.flags.isDatacenter) { %><span class="tag tag-info">Hébergement</span><% } %>
-            <% if (profile.flags.isAbuser) { %><span class="tag tag-danger">Risque d'abus</span><% } %>
-            <% if (profile.bot?.isBot) { %><span class="tag tag-danger">Bot</span><% } %>
+            <% if (profile.flags.isVpn) { %><span class="tag tag-danger"><%= t('admin.ipReputation.flags.vpn') %></span><% } %>
+            <% if (profile.flags.isProxy) { %><span class="tag tag-warning"><%= t('admin.ipReputation.flags.proxy') %></span><% } %>
+            <% if (profile.flags.isTor) { %><span class="tag tag-warning"><%= t('admin.ipReputation.flags.tor') %></span><% } %>
+            <% if (profile.flags.isDatacenter) { %><span class="tag tag-info"><%= t('admin.ipReputation.flags.datacenter') %></span><% } %>
+            <% if (profile.flags.isAbuser) { %><span class="tag tag-danger"><%= t('admin.ipReputation.flags.abuser') %></span><% } %>
+            <% if (profile.bot?.isBot) { %><span class="tag tag-danger"><%= t('admin.ipReputation.flags.bot') %></span><% } %>
           </div>
           <div class="admin-risk-meta text-muted">
             <% if (profile.checkedAt) { %>
-              Dernière vérification : <%= new Date(profile.checkedAt).toLocaleString('fr-FR') %>
+              <%= t('admin.ipReputation.meta.lastCheck') %> <%= fmt.dateTime(profile.checkedAt) %>
             <% } else { %>
-              Dernière vérification : inconnue
+              <%= t('admin.ipReputation.meta.lastCheck') %> <%= t('common.unknown') %>
             <% } %>
             <% if (profile.lastSeenAt) { %>
-              · Dernière activité : <%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %>
+              — <%= t('admin.ipReputation.meta.lastActivity') %> <%= fmt.dateTime(profile.lastSeenAt) %>
             <% } %>
           </div>
           <div class="admin-risk-actions">
-            <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/ban" onsubmit="return confirm('Bannir définitivement cette adresse IP ?');">
+            <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/ban" onsubmit="return confirm(t('admin.ipReputation.actions.banConfirm'))">
               <%- include('../partials/csrf_field') %>
-              <button type="submit" class="btn danger" data-icon="🚫">Bannir</button>
+              <button type="submit" class="btn danger"><%= t('admin.ipReputation.actions.ban') %></button>
             </form>
             <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/mark-safe">
               <%- include('../partials/csrf_field') %>
-              <button type="submit" class="btn success" data-icon="✅">Marquer comme sûr</button>
+              <button type="submit" class="btn success"><%= t('admin.ipReputation.actions.markSafe') %></button>
             </form>
             <form method="post" action="/admin/ip-reputation/<%= profile.hash %>/recheck">
               <%- include('../partials/csrf_field') %>
-              <button type="submit" class="btn secondary" data-icon="🔄">Revérifier</button>
+              <button type="submit" class="btn secondary"><%= t('admin.ipReputation.actions.recheck') %></button>
             </form>
           </div>
         </li>
@@ -150,50 +151,50 @@
 </section>
 
 <section class="card">
-  <h2 class="mt-0">IP récemment validées</h2>
+  <h2 class="mt-0"><%= t('admin.ipReputation.cleared.title') %></h2>
   <% if (!clearedTotal) { %>
-    <p class="text-muted">Aucune validation manuelle récente.</p>
+    <p class="text-muted"><%= t('admin.ipReputation.cleared.empty') %></p>
   <% } else { %>
     <ul class="admin-cleared-list">
       <% cleared.forEach((profile) => { %>
         <li>
           <div class="admin-cleared-header">
             <code><%= profile.ip %></code>
-            <span class="status-pill safe">Sûre</span>
+            <span class="status-pill safe"><%= t('admin.ipReputation.status.safe') %></span>
             <span class="text-muted">
-              Profil #<%= profile.shortHash %>
+              <%= t('admin.ipReputation.profileN', { n: profile.shortHash }) %>
               <% if (profile.id) { %>
-                · ID : <code><%= profile.id %></code>
+                — ID: <code><%= profile.id %></code>
               <% } %>
             </span>
             <% if (profile.bot?.isBot) { %>
-              <span class="status-pill suspicious">Bot suspecté</span>
+              <span class="status-pill suspicious"><%= t('admin.ipReputation.flags.bot') %></span>
             <% } %>
           </div>
           <% if (profile.summary) { %>
             <p class="text-muted"><%= profile.summary %></p>
           <% } %>
           <% if (profile.bot?.reason) { %>
-            <p class="text-muted text-sm">Détection bot : <%= profile.bot.reason %></p>
+            <p class="text-muted text-sm"><%= t('admin.ipReputation.bot.detected') %> <%= profile.bot.reason %></p>
           <% } %>
           <% if (profile.bot?.userAgent) { %>
-            <p class="text-muted text-sm"><small>Agent : <%= profile.bot.userAgent %></small></p>
+            <p class="text-muted text-sm"><small><%= t('admin.ipReputation.bot.agent') %> <%= profile.bot.userAgent %></small></p>
           <% } %>
           <div class="admin-cleared-actions">
             <form
               method="post"
               action="/admin/ip-reputation/<%= profile.hash %>/clear-safe"
-              onsubmit="return confirm('Retirer cette IP des validations récentes ?');"
+              onsubmit="return confirm(t('admin.ipReputation.cleared.removeConfirm'))"
             >
               <%- include('../partials/csrf_field') %>
-              <button type="submit" class="btn danger" data-icon="🗑️">Retirer</button>
+              <button type="submit" class="btn danger"><%= t('admin.ipReputation.actions.remove') %></button>
             </form>
           </div>
           <p class="admin-cleared-meta text-muted">
             <% if (profile.checkedAt) { %>
-              Vérifié le <%= new Date(profile.checkedAt).toLocaleString('fr-FR') %>
+              <%= t('admin.ipReputation.meta.verifiedOn') %> <%= fmt.dateTime(profile.checkedAt) %>
             <% } else if (profile.lastSeenAt) { %>
-              Dernière activité : <%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %>
+              <%= t('admin.ipReputation.meta.lastActivity') %> <%= fmt.dateTime(profile.lastSeenAt) %>
             <% } %>
           </p>
         </li>
@@ -204,19 +205,19 @@
 </section>
 
 <section class="card">
-  <h2 class="mt-0">Historique des analyses</h2>
+  <h2 class="mt-0"><%= t('admin.ipReputation.history.title') %></h2>
   <% if (!historyTotal) { %>
-    <p class="text-muted">Aucune analyse d'adresse IP n'a encore été enregistrée.</p>
+    <p class="text-muted"><%= t('admin.ipReputation.history.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Adresse IP</th>
-            <th>Statut</th>
-            <th>Résumé</th>
-            <th>Dernière vérification</th>
-            <th>Actions</th>
+            <th><%= t('admin.ipReputation.history.table.ip') %></th>
+            <th><%= t('admin.ipReputation.history.table.status') %></th>
+            <th><%= t('admin.ipReputation.history.table.summary') %></th>
+            <th><%= t('admin.ipReputation.history.table.lastCheck') %></th>
+            <th><%= t('admin.ipReputation.history.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
@@ -226,9 +227,9 @@
                 <code><%= entry.ip %></code>
                 <br />
                 <small class="text-muted">
-                  Profil #<%= entry.shortHash %>
+                  <%= t('admin.ipReputation.profileN', { n: entry.shortHash }) %>
                   <% if (entry.id) { %>
-                    <br />ID : <code><%= entry.id %></code>
+                    <br />ID: <code><%= entry.id %></code>
                   <% } %>
                 </small>
               </td>
@@ -238,14 +239,14 @@
                 </span>
                 <% if (entry.override) { %>
                   <br />
-                  <small class="text-muted">Forçage : <%= entry.override %></small>
+                  <small class="text-muted"><%= t('admin.ipReputation.history.override') %> <%= entry.override %></small>
                 <% } %>
               </td>
               <td>
-                <%= entry.summary || "Aucun signal particulier détecté." %>
+                <%= entry.summary || t('admin.ipReputation.history.noSignals') %>
                 <% if (entry.bot?.isBot) { %>
                   <br />
-                  <small class="text-muted">Bot détecté : <%= entry.bot.reason || 'Motifs automatiques' %></small>
+                  <small class="text-muted"><%= t('admin.ipReputation.bot.detected') %> <%= entry.bot.reason || t('admin.ipReputation.bot.automaticReasons') %></small>
                 <% } %>
                 <% if (entry.bot?.userAgent) { %>
                   <br />
@@ -254,11 +255,9 @@
               </td>
               <td>
                 <% if (entry.checkedAt) { %>
-                  <time datetime="<%= entry.checkedAt %>">
-                    <%= new Date(entry.checkedAt).toLocaleString('fr-FR') %>
-                  </time>
+                  <time datetime="<%= entry.checkedAt %>"><%= fmt.dateTime(entry.checkedAt) %></time>
                 <% } else { %>
-                  <span class="text-muted">Jamais</span>
+                  <span class="text-muted"><%= t('common.never') %></span>
                 <% } %>
               </td>
               <td>
@@ -268,7 +267,7 @@
                   target="_blank"
                   rel="noopener"
                 >
-                  Voir le profil
+                  <%= t('admin.ipReputation.history.viewProfile') %>
                 </a>
               </td>
             </tr>
@@ -279,3 +278,4 @@
     <%- include('./paginationControls', { pagination: historyPager }) %>
   <% } %>
 </section>
+

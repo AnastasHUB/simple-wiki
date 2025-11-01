@@ -1,8 +1,8 @@
-<% const displayTitle = `Profil IP #${profile.shortHash}`; %>
+<% const displayTitle = t('ipProfile.title', { n: profile.shortHash }); %>
 <% title = displayTitle; %>
 <% const rep = profile.reputation || {}; %>
 <% const repStatus = rep.status || 'unknown'; %>
-<% const repLabel = repStatus === 'suspicious' ? 'IP suspecte' : repStatus === 'safe' ? 'IP validée' : repStatus === 'clean' ? 'IP neutre' : 'Statut inconnu'; %>
+<% const repLabel = repStatus === 'suspicious' ? t('ipProfile.rep.suspicious') : repStatus === 'safe' ? t('ipProfile.rep.safe') : repStatus === 'clean' ? t('ipProfile.rep.clean') : t('ipProfile.rep.unknown'); %>
 <% let repClasses = 'ip-profile-reputation card-subtle notice'; %>
 <% if (repStatus === 'suspicious') { repClasses += ' error'; } else if (repStatus === 'safe' || repStatus === 'clean') { repClasses += ' success'; } %>
 <% const pillClass = repStatus === 'suspicious' ? 'status-pill suspicious' : repStatus === 'safe' ? 'status-pill safe' : repStatus === 'clean' ? 'status-pill clean' : 'status-pill pending'; %>
@@ -23,11 +23,9 @@
 <section class="card ip-profile-card">
   <header class="ip-profile-header">
     <div>
-      <span class="ip-profile-chip">Profil IP public</span>
+      <span class="ip-profile-chip"><%= t('ipProfile.publicChip') %></span>
       <h1 class="mt-0"><%= displayTitle %></h1>
-      <p class="text-muted">
-        Ce profil regroupe les activités publiques associées à une adresse IP. L'adresse IP réelle est hachée afin de protéger l'anonymat des contributeurs non connectés.
-      </p>
+      <p class="text-muted"><%= t('ipProfile.intro') %></p>
     </div>
     <% if (isOwner) { %>
       <div class="ip-profile-owner-box">
@@ -36,22 +34,19 @@
         </p>
         <% if (profile.isClaimed) { %>
           <p class="ip-profile-owner-note success">
-            Ce profil IP a été converti en compte utilisateur<% if (claimedAtDate) { %> le <%= claimedAtDate.toLocaleString('fr-FR') %><% } %>.
+            <%= t('ipProfile.convertedBase') %>
+            <% if (claimedAtDate) { %> <%= t('ipProfile.onDate', { date: claimedAtDate.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') }) %><% } %>
           </p>
         <% } else if (canShowClaimCta) { %>
           <div class="ip-profile-claim-actions">
-            <p class="ip-profile-owner-note">
-              Convertissez ce profil en compte utilisateur pour conserver vos contributions et vos permissions.
-            </p>
-            <a class="btn success" href="/profiles/ip/<%= profile.hash %>/claim" data-icon="✨">Convertir en compte</a>
+            <p class="ip-profile-owner-note"><%= t('ipProfile.cta.convertExplain') %></p>
+            <a class="btn success" href="/profiles/ip/<%= profile.hash %>/claim" data-icon="✨"><%= t('ipProfile.cta.convert') %></a>
           </div>
         <% } %>
       </div>
     <% } else if (profile.isClaimed) { %>
       <div class="ip-profile-owner-box success">
-        <p class="ip-profile-owner-note">
-          Ce profil IP a été converti en compte utilisateur<% if (claimedAtDate) { %> le <%= claimedAtDate.toLocaleString('fr-FR') %><% } %>.
-        </p>
+        <p class="ip-profile-owner-note"><%= t('ipProfile.convertedBase') %> <% if (claimedAtDate) { %><%= t('ipProfile.onDate', { date: claimedAtDate.toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') }) %><% } %></p>
       </div>
     <% } %>
   </header>
@@ -61,49 +56,49 @@
       <div class="ip-profile-reputation-header">
         <span class="<%= pillClass %>"><%= repLabel %></span>
         <% if (rep.lastCheckedAt) { %>
-          <span class="ip-profile-reputation-meta">Dernière vérification : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></span>
+          <span class="ip-profile-reputation-meta"><%= t('ipProfile.rep.lastCheck') %> <%= new Date(rep.lastCheckedAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
         <% } %>
       </div>
       <p class="ip-profile-reputation-text">
-        <%= rep.summary || "Aucun signal particulier n'a été relevé pour cette adresse IP." %>
+        <%= rep.summary || t('ipProfile.rep.noSignal') %>
       </p>
     </div>
     <div class="ip-profile-meta-card card-subtle">
       <dl class="ip-profile-details">
         <div>
-          <dt>Profil créé</dt>
-          <dd><%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %></dd>
+          <dt><%= t('ipProfile.meta.created') %></dt>
+          <dd><%= profile.createdAt ? new Date(profile.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') : t('ipProfile.meta.unknown') %></dd>
         </div>
         <div>
-          <dt>Dernière activité</dt>
-          <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString('fr-FR') : 'Inconnue' %></dd>
+          <dt><%= t('ipProfile.meta.lastActivity') %></dt>
+          <dd><%= profile.lastSeenAt ? new Date(profile.lastSeenAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') : t('ipProfile.meta.unknown') %></dd>
         </div>
         <div>
-          <dt>Détection automatique</dt>
+          <dt><%= t('ipProfile.meta.autodetect') %></dt>
           <dd>
             <% if (profile.bot?.isBot) { %>
-              <span class="status-pill suspicious">Bot suspecté</span>
+              <span class="status-pill suspicious"><%= t('ipProfile.bot.suspected') %></span>
               <% if (profile.bot?.reason) { %>
                 <br /><small class="text-muted"><%= profile.bot.reason %></small>
               <% } %>
             <% } else { %>
-              <span class="status-pill clean">Activité humaine</span>
+              <span class="status-pill clean"><%= t('ipProfile.bot.human') %></span>
             <% } %>
           </dd>
         </div>
         <% if (profile.bot?.userAgent) { %>
           <div>
-            <dt>Dernier agent utilisateur</dt>
+            <dt><%= t('ipProfile.meta.userAgent') %></dt>
             <dd><small><%= profile.bot.userAgent %></small></dd>
           </div>
         <% } %>
         <div>
-          <dt>Identifiant</dt>
+          <dt><%= t('ipProfile.meta.identifier') %></dt>
           <dd>
             <code>#<%= profile.shortHash %></code>
             <% if (profile.id) { %>
               <br />
-              <small>ID : <code><%= profile.id %></code></small>
+              <small><%= t('ipProfile.meta.idLabel') %> <code><%= profile.id %></code></small>
             <% } %>
           </dd>
         </div>
@@ -113,15 +108,13 @@
 
   <% if (showLinkForm) { %>
     <section class="ip-profile-claim card-subtle">
-      <h2>Associer ce profil à votre compte</h2>
+      <h2><%= t('ipProfile.link.title') %></h2>
       <p>
-        Vous êtes connecté en tant que
-        <strong><%= linkUserLabel || 'votre compte' %></strong>. Associez ce profil IP
-        pour regrouper vos activités publiques sous le même compte utilisateur.
+        <%- t('ipProfile.link.intro', { user: (linkUserLabel || t('ipProfile.link.yourAccount')) }) %>
       </p>
       <% if (claimErrors.length) { %>
         <div class="card error">
-          <h3>Association impossible</h3>
+          <h3><%= t('ipProfile.link.errorTitle') %></h3>
           <ul>
             <% claimErrors.forEach(function (message) { %>
               <li><%= message %></li>
@@ -130,9 +123,7 @@
         </div>
       <% } %>
       <% if (claimDisabled) { %>
-        <p class="text-muted">
-          L'association de profils IP est temporairement indisponible. Merci de réessayer plus tard.
-        </p>
+        <p class="text-muted"><%= t('ipProfile.link.unavailable') %></p>
       <% } else { %>
         <form
           method="post"
@@ -143,12 +134,11 @@
           <%- include('partials/csrf_field') %>
           <input type="hidden" name="mode" value="link" />
           <p>
-            L'adresse IP actuelle sera marquée comme appartenant à votre compte.
-            Vous conserverez les contributions passées associées à cette IP.
+            <%= t('ipProfile.link.explain') %>
           </p>
           <div class="actions">
             <button class="btn success" type="submit" data-icon="🔗" id="ipLinkSubmit">
-              Associer le profil
+              <%= t('ipProfile.link.submit') %>
             </button>
           </div>
         </form>
@@ -158,13 +148,13 @@
 
   <% if (showClaimForm) { %>
     <section class="ip-profile-claim card-subtle">
-      <h2>Convertir ce profil en compte utilisateur</h2>
+      <h2><%= t('ipProfile.claim.title') %></h2>
       <p>
-        Créez un compte personnel pour conserver vos permissions, suivre vos contributions et accéder aux fonctionnalités réservées aux utilisateurs connectés.
+        <%= t('ipProfile.claim.intro') %>
       </p>
       <% if (claimErrors.length) { %>
         <div class="card error">
-          <h3>Impossible de créer le compte</h3>
+          <h3><%= t('ipProfile.claim.errorTitle') %></h3>
           <ul>
             <% claimErrors.forEach(function (message) { %>
               <li><%= message %></li>
@@ -173,9 +163,7 @@
         </div>
       <% } %>
       <% if (claimDisabled) { %>
-        <p class="text-muted">
-          La conversion est temporairement indisponible. Merci de réessayer plus tard ou de contacter un administrateur.
-        </p>
+        <p class="text-muted"><%= t('ipProfile.claim.unavailable') %></p>
       <% } else { %>
         <form
           method="post"
@@ -184,7 +172,7 @@
           id="ipClaimForm"
         >
           <%- include('partials/csrf_field') %>
-          <label for="ip-claim-username">Nom d'utilisateur</label>
+          <label for="ip-claim-username"><%= t('ipProfile.claim.fields.username') %></label>
           <input
             id="ip-claim-username"
             type="text"
@@ -196,9 +184,9 @@
             autocomplete="username"
             value="<%= claimValues.username ? claimValues.username : '' %>"
           />
-          <p class="form-help">Autorisé&nbsp;: lettres, chiffres, points, tirets et underscores.</p>
+          <p class="form-help"><%= t('ipProfile.claim.fields.usernameHelp') %></p>
 
-          <label for="ip-claim-password">Mot de passe</label>
+          <label for="ip-claim-password"><%= t('ipProfile.claim.fields.password') %></label>
           <input
             id="ip-claim-password"
             type="password"
@@ -207,20 +195,16 @@
             minlength="8"
             autocomplete="new-password"
           />
-          <p class="form-help">Utilisez un mot de passe robuste d'au moins 8 caractères.</p>
+          <p class="form-help"><%= t('ipProfile.claim.fields.passwordHelp') %></p>
 
           <% if (claimCaptchaConfig) { %>
             <fieldset class="captcha-selector">
-              <legend>Vérification anti-robot</legend>
-              <p class="form-help">
-                Répondez correctement pour confirmer la création du compte.
-              </p>
+              <legend><%= t('ipProfile.claim.captcha.legend') %></legend>
+              <p class="form-help"><%= t('ipProfile.claim.captcha.help') %></p>
               <p class="captcha-question">
                 <strong><%= claimCaptchaConfig.question %> = ?</strong>
               </p>
-              <label for="ip-claim-captcha-answer">
-                Votre réponse <span class="text-required">*</span>
-              </label>
+              <label for="ip-claim-captcha-answer"><%= t('ipProfile.claim.captcha.answer') %> <span class="text-required">*</span></label>
               <input
                 id="ip-claim-captcha-answer"
                 type="text"
@@ -242,7 +226,7 @@
 
           <div class="actions">
             <button class="btn success" type="submit" data-icon="✨" id="ipClaimSubmit">
-              Convertir le profil
+              <%= t('ipProfile.claim.submit') %>
             </button>
           </div>
         </form>
@@ -294,7 +278,7 @@
       <strong class="stat-value"><%= profile.stats.views.total %></strong>
       <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.views.uniquePages %></strong></span>
       <% if (profile.stats.views.lastAt) { %>
-        <span class="stat-sub">Dernière vue : <%= new Date(profile.stats.views.lastAt).toLocaleString('fr-FR') %></span>
+        <span class="stat-sub">Dernière vue : <%= new Date(profile.stats.views.lastAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
       <% } %>
       <% if (actionSanctions.view?.reason) { %>
         <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.view.reason %></span>
@@ -311,7 +295,7 @@
       <strong class="stat-value"><%= profile.stats.likes.total %></strong>
       <span class="stat-sub">Pages distinctes : <strong><%= profile.stats.likes.uniquePages %></strong></span>
       <% if (profile.stats.likes.lastAt) { %>
-        <span class="stat-sub">Dernier like : <%= new Date(profile.stats.likes.lastAt).toLocaleString('fr-FR') %></span>
+        <span class="stat-sub">Dernier like : <%= new Date(profile.stats.likes.lastAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
       <% } %>
       <% if (actionSanctions.like?.reason) { %>
         <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.like.reason %></span>
@@ -327,7 +311,7 @@
       </span>
       <strong class="stat-value"><%= profile.stats.comments.total %></strong>
       <% if (profile.stats.comments.lastAt) { %>
-        <span class="stat-sub">Dernier commentaire : <%= new Date(profile.stats.comments.lastAt).toLocaleString('fr-FR') %></span>
+        <span class="stat-sub">Dernier commentaire : <%= new Date(profile.stats.comments.lastAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
       <% } else { %>
         <span class="stat-sub">Aucun commentaire approuvé pour le moment.</span>
       <% } %>
@@ -355,7 +339,7 @@
         <span class="stat-sub">Aucune proposition enregistrée.</span>
       <% } %>
       <% if (profile.stats.submissions.lastAt) { %>
-        <span class="stat-sub">Dernière proposition : <%= new Date(profile.stats.submissions.lastAt).toLocaleString('fr-FR') %></span>
+        <span class="stat-sub">Dernière proposition : <%= new Date(profile.stats.submissions.lastAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
       <% } %>
       <% if (actionSanctions.contribute?.reason) { %>
         <span class="stat-sub sanction-reason">Motif : <%= actionSanctions.contribute.reason %></span>
@@ -365,17 +349,17 @@
 
   <% if (profile.bans && profile.bans.length) { %>
     <section class="ip-profile-section card-subtle ip-profile-bans">
-      <h2>Sanctions actives</h2>
+      <h2><%= t('ipProfile.sanctions.title') %></h2>
       <ul class="ip-profile-ban-list">
         <% profile.bans.forEach((ban) => { %>
           <li>
             <div class="ip-profile-ban-header">
-              <span class="status-pill rejected"><%= ban.scope === 'global' ? 'Globale' : ban.scope %></span>
+              <span class="status-pill rejected"><%= ban.scope === 'global' ? t('ipProfile.sanctions.global') : ban.scope %></span>
               <% if (ban.value) { %>
                 <code><%= ban.value %></code>
               <% } %>
             </div>
-            <p class="text-sm text-muted">Depuis le <%= new Date(ban.createdAt).toLocaleString('fr-FR') %></p>
+            <p class="text-sm text-muted"><%= t('ipProfile.sanctions.since') %> <%= new Date(ban.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></p>
             <% if (ban.reason) { %>
               <p class="text-muted"><%= ban.reason %></p>
             <% } %>
@@ -387,14 +371,14 @@
 
   <div class="ip-profile-activity-grid">
     <section class="ip-profile-section card-subtle">
-      <h2>Commentaires récents</h2>
+      <h2><%= t('ipProfile.recent.comments') %></h2>
       <% if (profile.recent.comments.length) { %>
         <ul class="<%= activityClassName %>">
           <% profile.recent.comments.forEach((item) => { %>
             <li>
               <div class="ip-profile-activity-meta">
                 <a href="/wiki/<%= item.slug %>#comments"><%= item.pageTitle %></a>
-                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></time>
               </div>
               <% if (item.excerpt) { %>
                 <p class="ip-profile-activity-text"><%= item.excerpt %></p>
@@ -403,48 +387,48 @@
           <% }) %>
         </ul>
       <% } else { %>
-        <p class="text-muted">Aucun commentaire approuvé n'est encore visible.</p>
+        <p class="text-muted"><%= t('ipProfile.recent.noComments') %></p>
       <% } %>
     </section>
     <section class="ip-profile-section card-subtle">
-      <h2>Likes récents</h2>
+      <h2><%= t('ipProfile.recent.likes') %></h2>
       <% if (profile.recent.likes.length) { %>
         <ul class="<%= activityClassName %>">
           <% profile.recent.likes.forEach((item) => { %>
             <li>
               <div class="ip-profile-activity-meta">
                 <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
-                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></time>
               </div>
             </li>
           <% }) %>
         </ul>
       <% } else { %>
-        <p class="text-muted">Aucun like enregistré pour l'instant.</p>
+        <p class="text-muted"><%= t('ipProfile.recent.noLikes') %></p>
       <% } %>
     </section>
   </div>
 
   <div class="ip-profile-activity-grid">
     <section class="ip-profile-section card-subtle">
-      <h2>Pages consultées récemment</h2>
+      <h2><%= t('ipProfile.recent.views') %></h2>
       <% if (profile.recent.views.length) { %>
         <ul class="<%= activityClassName %>">
           <% profile.recent.views.forEach((item) => { %>
             <li>
               <div class="ip-profile-activity-meta">
                 <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
-                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></time>
               </div>
             </li>
           <% }) %>
         </ul>
       <% } else { %>
-        <p class="text-muted">Aucune vue enregistrée avec cette IP.</p>
+        <p class="text-muted"><%= t('ipProfile.recent.noViews') %></p>
       <% } %>
     </section>
     <section class="ip-profile-section card-subtle">
-      <h2>Propositions récentes</h2>
+      <h2><%= t('ipProfile.recent.submissions') %></h2>
       <% if (profile.recent.submissions.length) { %>
         <ul class="<%= activityClassName %>">
           <% profile.recent.submissions.forEach((item) => { %>
@@ -453,18 +437,18 @@
                 <% if (item.slug) { %>
                   <a href="/wiki/<%= item.slug %>"><%= item.pageTitle %></a>
                 <% } else { %>
-                  <span><%= item.pageTitle || 'Proposition' %></span>
+                  <span><%= item.pageTitle || t('ipProfile.recent.submissionLabel') %></span>
                 <% } %>
-                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString('fr-FR') %></time>
+                <time datetime="<%= item.createdAt %>"><%= new Date(item.createdAt).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></time>
               </div>
               <p class="ip-profile-activity-text text-muted">
-                Type : <strong><%= item.type %></strong> · Statut : <strong><%= item.status %></strong>
+                <%= t('ipProfile.recent.type') %> <strong><%= item.type %></strong> · <%= t('ipProfile.recent.status') %> <strong><%= item.status %></strong>
               </p>
             </li>
           <% }) %>
         </ul>
       <% } else { %>
-        <p class="text-muted">Aucune proposition n'a encore été envoyée avec cette IP.</p>
+        <p class="text-muted"><%= t('ipProfile.recent.noSubmissions') %></p>
       <% } %>
     </section>
   </div>

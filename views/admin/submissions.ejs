@@ -1,15 +1,15 @@
-<% title = 'Contributions'; %>
-<h1>Contributions des visiteurs</h1>
+<% title = t('admin.submissions.title'); %>
+<h1><%= t('admin.submissions.heading') %></h1>
 
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.submissions.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="ID, IP, titre, page…"
+        placeholder="<%= t('admin.submissions.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
@@ -17,38 +17,38 @@
     <input type="hidden" name="recentPage" value="1" />
     <input type="hidden" name="pendingPerPage" value="<%= pendingPagination.perPage %>" />
     <input type="hidden" name="recentPerPage" value="<%= recentPagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" type="submit"><%= t('admin.submissions.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/submissions">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/submissions"><%= t('admin.submissions.search.reset') %></a>
     <% } %>
   </div>
 </form>
 
 <section class="card mb-xl">
-  <h2>En attente (<%= pendingPagination.totalItems %>)</h2>
+  <h2><%- t('admin.submissions.pending.title', { count: fmt.number(pendingPagination.totalItems) }) %></h2>
   <% if (!pending.length) { %>
-    <p>Aucune contribution en attente de validation.</p>
+    <p><%= t('admin.submissions.pending.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Type</th>
-            <th>Titre</th>
-            <th>Auteur proposé</th>
-            <th>Page liée</th>
-            <th>Tags</th>
+            <th><%= t('admin.submissions.table.type') %></th>
+            <th><%= t('admin.submissions.table.title') %></th>
+            <th><%= t('admin.submissions.table.proposedAuthor') %></th>
+            <th><%= t('admin.submissions.table.linkedPage') %></th>
+            <th><%= t('admin.submissions.table.tags') %></th>
             <th>IP</th>
-            <th>Créé</th>
-            <th>Actions</th>
+            <th><%= t('admin.submissions.table.created') %></th>
+            <th><%= t('admin.submissions.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
           <% pending.forEach(item => { %>
             <tr>
               <td><code><%= item.snowflake_id %></code></td>
-              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><%= item.type === 'edit' ? t('admin.submissions.types.edit') : t('admin.submissions.types.create') %></td>
               <td><strong><%= item.title %></strong></td>
               <% const pendingAuthorHandle = item.author_name || item.submitted_by; %>
               <% const pendingAuthorRole = item.author_name ? item.authorNameRole : item.submittedByRole; %>
@@ -69,38 +69,38 @@
                       itemClass: 'user-handle-badge-item',
                       iconClass: 'user-handle-badge-icon',
                       srOnlyClass: 'sr-only',
-                      ariaLabel: "Badges de l'auteur",
+                      ariaLabel: t('common.authorBadgesAria'),
                     }) %>
                   </span>
                 <% } else { %>
-                  –
+                  —
                 <% } %>
               </td>
               <td>
                 <% if (item.current_slug) { %>
                   <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
                 <% } else { %>
-                  –
+                  —
                 <% } %>
               </td>
               <td>
                 <% if (item.tag_list && item.tag_list.length) { %>
                   <%= item.tag_list.join(', ') %>
                 <% } else { %>
-                  –
+                  —
                 <% } %>
               </td>
-              <td><%= item.ip || '–' %></td>
-              <td><%= new Date(item.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= item.ip || '—' %></td>
+              <td><%= fmt.dateTime(item.created_at) %></td>
               <td>
-                <a class="btn" data-icon="🔍" href="/admin/submissions/<%= item.snowflake_id %>">Voir</a>
+                <a class="btn" href="/admin/submissions/<%= item.snowflake_id %>"><%= t('admin.submissions.actions.view') %></a>
                 <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/approve">
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn success" data-icon="✅" type="submit">Approuver</button>
+                  <button class="btn success" type="submit"><%= t('admin.submissions.actions.approve') %></button>
                 </form>
-                <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/reject" onsubmit="return confirm('Rejeter cette contribution ?');">
+                <form method="post" action="/admin/submissions/<%= item.snowflake_id %>/reject">
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn danger" data-icon="✖️" type="submit">Rejeter</button>
+                  <button class="btn danger" type="submit"><%= t('admin.submissions.actions.reject') %></button>
                 </form>
               </td>
             </tr>
@@ -113,38 +113,37 @@
 </section>
 
 <section class="card">
-  <h2>Historique des décisions (<%= recentPagination.totalItems %>)</h2>
+  <h2><%- t('admin.submissions.recent.title', { count: fmt.number(recentPagination.totalItems) }) %></h2>
   <% if (!recent.length) { %>
-    <p>Aucune décision enregistrée.</p>
+    <p><%= t('admin.submissions.recent.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Type</th>
-            <th>Titre</th>
-            <th>Auteur proposé</th>
-            <th>Statut</th>
-            <th>Validé par</th>
-            <th>Revue</th>
-            <th>Note</th>
+            <th><%= t('admin.submissions.table.type') %></th>
+            <th><%= t('admin.submissions.table.title') %></th>
+            <th><%= t('admin.submissions.table.proposedAuthor') %></th>
+            <th><%= t('admin.submissions.table.linkedPage') %></th>
+            <th><%= t('admin.submissions.table.tags') %></th>
+            <th>IP</th>
+            <th><%= t('admin.submissions.table.created') %></th>
+            <th><%= t('admin.submissions.table.status') %></th>
+            <th><%= t('admin.submissions.table.reviewed') %></th>
+            <th><%= t('admin.submissions.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
           <% recent.forEach(item => { %>
             <tr>
               <td><code><%= item.snowflake_id %></code></td>
-              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
-              <td>
-                <strong><%= item.title %></strong>
-                <% if (item.result_slug_id) { %>
-                  <div><a href="/wiki/<%= item.result_slug_id %>"><code><%= item.result_slug_id %></code></a></div>
-                <% } %>
-              </td>
+              <td><%= item.type === 'edit' ? t('admin.submissions.types.edit') : t('admin.submissions.types.create') %></td>
+              <td><strong><%= item.title %></strong></td>
               <% const recentAuthorHandle = item.author_name || item.submitted_by; %>
               <% const recentAuthorRole = item.author_name ? item.authorNameRole : item.submittedByRole; %>
-              <% const recentAuthorBadges = Array.isArray(recentAuthorRole?.badges) ? recentAuthorRole.badges : []; %>
+              <% const recentAuthorBadges = Array.isArray(recentAuthorRole?.badges) ? recentAuthorRole.badges : [];
+              %>
               <td>
                 <% if (recentAuthorHandle) { %>
                   <% const recentAuthorColor = recentAuthorRole && recentAuthorRole.color ? recentAuthorRole.color : null; %>
@@ -161,46 +160,48 @@
                       itemClass: 'user-handle-badge-item',
                       iconClass: 'user-handle-badge-icon',
                       srOnlyClass: 'sr-only',
-                      ariaLabel: "Badges de l'auteur",
+                      ariaLabel: t('common.authorBadgesAria'),
                     }) %>
                   </span>
                 <% } else { %>
-                  –
+                  —
                 <% } %>
               </td>
-              <td class="status <%= item.status %>"><%= item.status === 'approved' ? 'Approuvée' : 'Rejetée' %></td>
-              <% const reviewerColor = item.reviewerRole && item.reviewerRole.color ? item.reviewerRole.color : null; %>
-              <% const reviewerClasses = ['user-handle', 'submission-reviewer']; %>
-              <% const reviewerStyle = reviewerColor && reviewerColor.hasColor ? reviewerColor.style : ''; %>
-              <% if (reviewerColor && reviewerColor.hasColor) { reviewerClasses.push('role-colored-text'); reviewerClasses.push(reviewerColor.className); } %>
-              <% const reviewerBadges = Array.isArray(item?.reviewerRole?.badges) ? item.reviewerRole.badges : []; %>
               <td>
-                <% if (item.reviewer_username) { %>
-                  <span class="user-handle-decorated">
-                    <strong class="<%= reviewerClasses.join(' ') %>" style="<%= reviewerStyle %>">
-                      <%= item.reviewer_username %>
-                    </strong>
-                    <%- include('../partials/userBadges', {
-                      badges: reviewerBadges,
-                      listClass: ['user-handle-badges', 'user-handle-badges--inline'],
-                      itemClass: 'user-handle-badge-item',
-                      iconClass: 'user-handle-badge-icon',
-                      srOnlyClass: 'sr-only',
-                      ariaLabel: 'Badges du modérateur',
-                    }) %>
-                  </span>
+                <% if (item.current_slug) { %>
+                  <a href="/wiki/<%= item.current_slug %>"><code><%= item.current_slug %></code></a>
                 <% } else { %>
-                  –
+                  —
+                <% } %>
+              </td>
+              <td>
+                <% if (item.tag_list && item.tag_list.length) { %>
+                  <%= item.tag_list.join(', ') %>
+                <% } else { %>
+                  —
+                <% } %>
+              </td>
+              <td><%= item.ip || '—' %></td>
+              <td><%= fmt.dateTime(item.created_at) %></td>
+              <td>
+                <% if (item.status === 'pending') { %>
+                  <span class="status status-pill pending"><%= t('admin.submissions.status.pending') %></span>
+                <% } else if (item.status === 'approved') { %>
+                  <span class="status status-pill approved"><%= t('admin.submissions.status.approved') %></span>
+                <% } else { %>
+                  <span class="status status-pill rejected"><%= t('admin.submissions.status.rejected') %></span>
                 <% } %>
               </td>
               <td>
                 <% if (item.reviewed_at) { %>
-                  <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
+                  <time datetime="<%= item.reviewed_at %>"><%= fmt.dateTime(item.reviewed_at) %></time>
                 <% } else { %>
-                  –
+                  —
                 <% } %>
               </td>
-              <td><%= item.review_note ? item.review_note : '–' %></td>
+              <td>
+                <a class="btn" href="/admin/submissions/<%= item.snowflake_id %>"><%= t('admin.submissions.actions.view') %></a>
+              </td>
             </tr>
           <% }) %>
         </tbody>

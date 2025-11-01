@@ -497,7 +497,7 @@ r.get(
     if (!profile) {
       pushNotification(req, {
         type: "error",
-        message: "Utilisateur introuvable. Merci de vous reconnecter.",
+        message: req.t("account.errors.userNotFound"),
       });
       req.session.user = null;
       return res.redirect("/login");
@@ -510,7 +510,7 @@ r.get(
       buildProfileLinks(origin, profile.username, linkedIpProfiles, currentIpHash);
     const premiumStatus = await getPremiumStatusForUser(profile.id);
     const premiumExpiresAtFormatted = premiumStatus.expiresAt
-      ? formatDateTimeLocalized(premiumStatus.expiresAt)
+      ? formatDateTimeLocalized(premiumStatus.expiresAt, req.lang)
       : null;
     const premiumRelative = premiumStatus.expiresAt
       ? formatRelativeDurationMs(Date.now() - premiumStatus.expiresAt.getTime())
@@ -575,10 +575,10 @@ r.get(
         id: record.credentialId,
         friendlyName: record.friendlyName || fallbackName,
         createdAtFormatted: createdAtDate
-          ? formatDateTimeLocalized(createdAtDate)
+          ? formatDateTimeLocalized(createdAtDate, req.lang)
           : null,
         lastUsedFormatted: lastUsedDate
-          ? formatDateTimeLocalized(lastUsedDate)
+          ? formatDateTimeLocalized(lastUsedDate, req.lang)
           : null,
         lastUsedRelative: lastUsedDate
           ? formatRelativeDurationMs(Date.now() - lastUsedDate.getTime())
@@ -622,17 +622,17 @@ r.post(
 
     const errors = [];
     if (!currentPassword) {
-      errors.push("Veuillez saisir votre mot de passe actuel.");
+      errors.push(req.t("account.security.errors.currentRequired"));
     }
     if (!newPassword) {
-      errors.push("Veuillez saisir un nouveau mot de passe.");
+      errors.push(req.t("account.security.errors.newRequired"));
     } else if (newPassword.length < 8) {
-      errors.push("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      errors.push(req.t("account.security.errors.newTooShort"));
     }
     if (!confirmPassword) {
-      errors.push("Veuillez confirmer votre nouveau mot de passe.");
+      errors.push(req.t("account.security.errors.confirmRequired"));
     } else if (newPassword && confirmPassword !== newPassword) {
-      errors.push("La confirmation ne correspond pas au nouveau mot de passe.");
+      errors.push(req.t("account.security.errors.mismatch"));
     }
 
     if (errors.length) {
@@ -650,7 +650,7 @@ r.post(
     if (!account) {
       pushNotification(req, {
         type: "error",
-        message: "Utilisateur introuvable. Merci de vous reconnecter.",
+        message: req.t("account.errors.userNotFound"),
       });
       req.session.user = null;
       return res.redirect("/login");
@@ -660,7 +660,7 @@ r.post(
     if (!passwordMatches) {
       pushNotification(req, {
         type: "error",
-        message: "Le mot de passe actuel est incorrect.",
+        message: req.t("account.security.errors.currentInvalid"),
       });
       return res.redirect("/account/security");
     }
@@ -668,7 +668,7 @@ r.post(
     if (currentPassword === newPassword) {
       pushNotification(req, {
         type: "error",
-        message: "Le nouveau mot de passe doit être différent de l'actuel.",
+        message: req.t("account.security.errors.newSameAsCurrent"),
       });
       return res.redirect("/account/security");
     }
@@ -689,7 +689,7 @@ r.post(
 
     pushNotification(req, {
       type: "success",
-      message: "Votre mot de passe a été mis à jour.",
+      message: req.t("account.security.success.passwordUpdated"),
     });
 
     return res.redirect("/account/security");
@@ -1426,7 +1426,7 @@ r.post(
       } else {
         req.session.user = null;
       }
-      const expiresAtFormatted = formatDateTimeLocalized(redemption.expiresAt);
+      const expiresAtFormatted = formatDateTimeLocalized(redemption.expiresAt, req.lang);
       pushNotification(req, {
         type: "success",
         message: `Votre accès premium est actif jusqu'au ${expiresAtFormatted}.`,

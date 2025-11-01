@@ -2,7 +2,7 @@
   <div class="table-footer">
     <form method="get">
       <% const fieldId = `${pagination.pageParam}-per-page`; %>
-      <label for="<%= fieldId %>" class="nowrap">Éléments par page</label>
+      <label for="<%= fieldId %>" class="nowrap"><%= t('common.perPage') %></label>
       <select id="<%= fieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
         <% pagination.perPageOptions.forEach(option => { %>
           <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -15,17 +15,17 @@
         <% }) %>
       <% } %>
     </form>
-    <span>Page <%= pagination.page %> sur <%= pagination.totalPages %></span>
+    <span><%- t('common.pageXofY', { page: pagination.page, total: pagination.totalPages }) %></span>
     <div class="pager">
       <% if (pagination.hasPrevious) { %>
-        <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+        <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>"><%= t('common.prev') %></a>
       <% } else { %>
-        <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+        <span class="btn" data-icon="⬅️" aria-disabled="true"><%= t('common.prev') %></span>
       <% } %>
       <% if (pagination.hasNext) { %>
-        <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+        <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>"><%= t('common.next') %></a>
       <% } else { %>
-        <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+        <span class="btn" data-icon="➡️" aria-disabled="true"><%= t('common.next') %></span>
       <% } %>
     </div>
   </div>

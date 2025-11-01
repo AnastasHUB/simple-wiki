@@ -1,45 +1,46 @@
-<% title = 'Profils IP'; %>
-<h1>Profils IP</h1>
+<% title = t('admin.ipProfiles.title'); %>
+<h1><%= t('admin.ipProfiles.heading') %></h1>
 
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.ipProfiles.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="Hash, IP…"
+        placeholder="<%= t('admin.ipProfiles.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
     <input type="hidden" name="page" value="1" />
     <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" type="submit"><%= t('admin.ipProfiles.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/ip-profiles">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/ip-profiles"><%= t('admin.ipProfiles.search.reset') %></a>
     <% } %>
   </div>
+  
 </form>
 
 <section class="card">
-  <h2 class="mt-0">Profils enregistrés (<%= pagination.totalItems %>)</h2>
+  <h2 class="mt-0"><%- t('admin.ipProfiles.list.title', { count: fmt.number(pagination.totalItems) }) %></h2>
   <% if (!profiles.length) { %>
-    <p class="text-muted">Aucun profil IP n'a encore été généré.</p>
+    <p class="text-muted"><%= t('admin.ipProfiles.list.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
-            <th>Profil</th>
-            <th>Adresse IP</th>
-            <th>Surveillance</th>
-            <th>Dernière activité</th>
-            <th>Commentaires</th>
-            <th>Propositions</th>
-            <th>Likes</th>
-            <th>Vues</th>
-            <th>Actions</th>
+            <th><%= t('admin.ipProfiles.table.profile') %></th>
+            <th><%= t('admin.ipProfiles.table.ip') %></th>
+            <th><%= t('admin.ipProfiles.table.reputation') %></th>
+            <th><%= t('admin.ipProfiles.table.lastActivity') %></th>
+            <th><%= t('admin.ipProfiles.table.comments') %></th>
+            <th><%= t('admin.ipProfiles.table.submissions') %></th>
+            <th><%= t('admin.ipProfiles.table.likes') %></th>
+            <th><%= t('admin.ipProfiles.table.views') %></th>
+            <th><%= t('admin.ipProfiles.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
@@ -48,75 +49,75 @@
             <td>
               <strong>
                 <a href="/profiles/ip/<%= profile.hash %>" target="_blank" rel="noopener">
-                  Profil #<%= profile.shortHash %>
+                  <%= t('admin.ipProfiles.profileN', { n: profile.shortHash }) %>
                 </a>
               </strong>
               <br />
               <small class="text-muted">
-                Créé : <%= profile.createdAt ? new Date(profile.createdAt).toLocaleString('fr-FR') : 'Inconnu' %>
+                <%= t('admin.ipProfiles.createdAt') %> <%= profile.createdAt ? fmt.dateTime(profile.createdAt) : t('common.unknown') %>
               </small>
               <% if (profile.id) { %>
                 <br />
-                <small class="text-muted">ID : <code><%= profile.id %></code></small>
+                <small class="text-muted">ID: <code><%= profile.id %></code></small>
               <% } %>
             </td>
             <td><code><%= profile.ip %></code></td>
             <td>
               <% const rep = profile.reputation || {}; %>
               <% if (rep.status === 'suspicious') { %>
-                <span class="status-pill suspicious">Suspect</span>
+                <span class="status-pill suspicious"><%= t('admin.ipReputation.status.suspicious') %></span>
               <% } else if (rep.status === 'safe') { %>
-                <span class="status-pill safe">Validée</span>
+                <span class="status-pill safe"><%= t('admin.ipReputation.status.safe') %></span>
               <% } else if (rep.status === 'clean') { %>
-                <span class="status-pill clean">Neutre</span>
+                <span class="status-pill clean"><%= t('admin.ipReputation.status.clean') %></span>
               <% } else { %>
-                <span class="status-pill pending">Inconnu</span>
+                <span class="status-pill pending"><%= t('admin.ipReputation.status.unknown') %></span>
               <% } %>
               <% if (rep.summary) { %>
                 <br /><small class="text-muted"><%= rep.summary %></small>
               <% } %>
               <% if (rep.lastCheckedAt) { %>
-                <br /><small class="text-muted">Vérif : <%= new Date(rep.lastCheckedAt).toLocaleString('fr-FR') %></small>
+                <br /><small class="text-muted"><%= t('admin.ipReputation.meta.lastCheck') %> <%= fmt.dateTime(rep.lastCheckedAt) %></small>
               <% } %>
               <% if (profile.bot?.isBot) { %>
-                <br /><span class="status-pill suspicious">Bot suspecté</span>
+                <br /><span class="status-pill suspicious"><%= t('admin.ipReputation.flags.bot') %></span>
               <% } %>
               <% if (profile.bot?.reason) { %>
                 <br /><small class="text-muted"><%= profile.bot.reason %></small>
               <% } %>
               <% if (profile.bot?.userAgent) { %>
-                <br /><small class="text-muted">UA : <%= profile.bot.userAgent %></small>
+                <br /><small class="text-muted">UA: <%= profile.bot.userAgent %></small>
               <% } %>
             </td>
             <td>
               <% if (profile.lastSeenAt) { %>
-                <time datetime="<%= profile.lastSeenAt %>"><%= new Date(profile.lastSeenAt).toLocaleString('fr-FR') %></time>
+                <time datetime="<%= profile.lastSeenAt %>"><%= fmt.dateTime(profile.lastSeenAt) %></time>
               <% } else { %>
-                <span class="text-muted">Jamais</span>
+                <span class="text-muted"><%= t('common.never') %></span>
                 <% } %>
               </td>
               <td>
-                <strong><%= profile.stats.approvedComments %></strong>
+                <strong><%= fmt.number(profile.stats.approvedComments) %></strong>
                 <br />
-                <small class="text-muted">approuvés</small>
+                <small class="text-muted"><%= t('admin.ipProfiles.commentsApproved') %></small>
               </td>
               <td>
-                <strong><%= profile.stats.submissions %></strong>
+                <strong><%= fmt.number(profile.stats.submissions) %></strong>
               </td>
               <td>
-                <strong><%= profile.stats.likes %></strong>
+                <strong><%= fmt.number(profile.stats.likes) %></strong>
               </td>
               <td>
-                <strong><%= profile.stats.views %></strong>
+                <strong><%= fmt.number(profile.stats.views) %></strong>
               </td>
               <td>
                 <form
                   method="post"
                   action="/admin/ip-profiles/<%= profile.hash %>/delete"
-                  onsubmit="return confirm('Supprimer ce profil IP ?');"
+                  onsubmit="return confirm(t('admin.ipProfiles.deleteConfirm'))"
                 >
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                  <button class="btn danger" type="submit"><%= t('admin.ipProfiles.actions.delete') %></button>
                 </form>
               </td>
             </tr>
@@ -127,3 +128,4 @@
     <%- include('./paginationControls', { pagination }) %>
   <% } %>
 </section>
+

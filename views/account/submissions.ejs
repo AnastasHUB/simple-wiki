@@ -1,18 +1,12 @@
-<% title = 'Mes contributions'; %>
-<h1>Mes contributions</h1>
-<p class="text-muted mb-lg">
-  Retrouvez ici l’ensemble de vos propositions de pages ou de modifications. Vous pouvez suivre
-  leur traitement par l’équipe de modération.
-</p>
+<% title = t('account.submissions.title'); %>
+<h1><%= t('account.submissions.heading') %></h1>
+<p class="text-muted mb-lg"><%= t('account.submissions.intro') %></p>
 <% if (!user) { %>
-  <p class="alert alert-info">
-    Vous n’êtes pas connecté. Nous affichons ici les contributions envoyées depuis cette adresse
-    IP. Connectez-vous ou créez un compte pour associer vos futures contributions à votre profil.
-  </p>
+  <p class="alert alert-info"><%= t('account.submissions.anonymousNotice') %></p>
 <% } %>
 
 <section class="card mb-xl">
-  <h2>En attente (<%= pendingPagination.totalItems %>)</h2>
+  <h2><%= t('account.submissions.pending') %> (<%= pendingPagination.totalItems %>)</h2>
   <% if (!pending.length) { %>
     <p>Aucune contribution en attente de validation pour le moment.</p>
   <% } else { %>
@@ -21,18 +15,18 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Type</th>
-            <th>Titre proposé</th>
-            <th>Page liée</th>
-            <th>Tags</th>
-            <th>Soumise le</th>
+            <th><%= t('account.submissions.table.type') %></th>
+            <th><%= t('account.submissions.table.proposedTitle') %></th>
+            <th><%= t('account.submissions.table.linkedPage') %></th>
+            <th><%= t('account.submissions.table.tags') %></th>
+            <th><%= t('account.submissions.table.submittedAt') %></th>
           </tr>
         </thead>
         <tbody>
           <% pending.forEach(item => { %>
             <tr>
               <td><code><%= item.snowflake_id %></code></td>
-              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><%= item.type === 'edit' ? t('account.submissions.type.edit') : t('account.submissions.type.create') %></td>
               <td><strong><%= item.title %></strong></td>
               <td>
                 <% if (item.current_slug) { %>
@@ -48,7 +42,7 @@
                   –
                 <% } %>
               </td>
-              <td><%= new Date(item.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= new Date(item.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></td>
             </tr>
           <% }) %>
         </tbody>
@@ -59,7 +53,7 @@
 </section>
 
 <section class="card mb-xl">
-  <h2>Approuvées (<%= approvedPagination.totalItems %>)</h2>
+  <h2><%= t('account.submissions.approved') %> (<%= approvedPagination.totalItems %>)</h2>
   <% if (!approved.length) { %>
     <p>Vous n’avez pas encore de contribution approuvée.</p>
   <% } else { %>
@@ -68,22 +62,22 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Type</th>
-            <th>Titre proposé</th>
-            <th>Publié le</th>
-            <th>Page finale</th>
-            <th>Note du modérateur</th>
+            <th><%= t('account.submissions.table.type') %></th>
+            <th><%= t('account.submissions.table.proposedTitle') %></th>
+            <th><%= t('account.submissions.table.publishedAt') %></th>
+            <th><%= t('account.submissions.table.finalPage') %></th>
+            <th><%= t('account.submissions.table.moderatorNote') %></th>
           </tr>
         </thead>
         <tbody>
           <% approved.forEach(item => { %>
             <tr>
               <td><code><%= item.snowflake_id %></code></td>
-              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><%= item.type === 'edit' ? t('account.submissions.type.edit') : t('account.submissions.type.create') %></td>
               <td><strong><%= item.title %></strong></td>
               <td>
                 <% if (item.reviewed_at) { %>
-                  <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
+                  <%= new Date(item.reviewed_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %>
                 <% } else { %>
                   –
                 <% } %>
@@ -110,7 +104,7 @@
 </section>
 
 <section class="card">
-  <h2>Rejetées (<%= rejectedPagination.totalItems %>)</h2>
+  <h2><%= t('account.submissions.rejected') %> (<%= rejectedPagination.totalItems %>)</h2>
   <% if (!rejected.length) { %>
     <p>Aucune contribution rejetée n’a été trouvée.</p>
   <% } else { %>
@@ -119,21 +113,21 @@
         <thead>
           <tr>
             <th>#</th>
-            <th>Type</th>
-            <th>Titre proposé</th>
-            <th>Décision</th>
-            <th>Raison</th>
+            <th><%= t('account.submissions.table.type') %></th>
+            <th><%= t('account.submissions.table.proposedTitle') %></th>
+            <th><%= t('account.submissions.table.decisionAt') %></th>
+            <th><%= t('account.submissions.table.reason') %></th>
           </tr>
         </thead>
         <tbody>
           <% rejected.forEach(item => { %>
             <tr>
               <td><code><%= item.snowflake_id %></code></td>
-              <td><%= item.type === 'edit' ? 'Modification' : 'Création' %></td>
+              <td><%= item.type === 'edit' ? t('account.submissions.type.edit') : t('account.submissions.type.create') %></td>
               <td><strong><%= item.title %></strong></td>
               <td>
                 <% if (item.reviewed_at) { %>
-                  <%= new Date(item.reviewed_at).toLocaleString('fr-FR') %>
+                  <%= new Date(item.reviewed_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %>
                 <% } else { %>
                   –
                 <% } %>

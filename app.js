@@ -39,6 +39,8 @@ import { reconcileUserPremiumStatus } from "./utils/premiumService.js";
 import { loadSessionUserById } from "./utils/sessionUser.js";
 import { buildPageVisibilityClause } from "./utils/pageService.js";
 import { EVERYONE_ROLE_SNOWFLAKE } from "./utils/defaultRoles.js";
+import { i18nMiddleware } from "./utils/i18n.js";
+import { formatDate, formatDateTime } from "./utils/time.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -60,11 +62,13 @@ app.use(methodOverride("_method"));
 app.use(morgan("dev"));
 app.use("/public", express.static(path.join(__dirname, "public")));
 
+// Internationalization middleware (EN/FR)
+app.use(i18nMiddleware);
+
 const globalRateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
   limit: 300,
-  message:
-    "Trop de requêtes ont été détectées depuis votre adresse IP. Veuillez patienter avant de réessayer.",
+  message: (req) => req.t("rateLimit.tooMany"),
 });
 app.use(globalRateLimiter);
 
@@ -81,8 +85,8 @@ app.use((req, res, next) => {
   const currentUser = req.session?.user;
   if (currentUser?.is_banned) {
     const reasonText = currentUser.ban_reason
-      ? `Votre compte est suspendu : ${currentUser.ban_reason}`
-      : "Votre compte a été suspendu.";
+      ? req.t("ban.suspendedWithReason", { reason: currentUser.ban_reason })
+      : req.t("ban.suspended");
     pushNotification(req, {
       type: "error",
       message: reasonText,
@@ -148,6 +152,7 @@ app.use((req, res, next) => {
 app.use(async (req, res, next) => {
   try {
     const currentUser = req.session.user || null;
+    res.locals.currentPath = req.originalUrl || req.url || '/';
     const everyoneRole = await getEveryoneRole();
     const basePermissions = everyoneRole
       ? mergeRoleFlags(DEFAULT_ROLE_FLAGS, everyoneRole)
@@ -190,7 +195,7 @@ app.use(async (req, res, next) => {
       res.locals.customReactionEmoji = emoji;
     } catch (reactionErr) {
       console.error("Unable to load reaction emoji", reactionErr);
-      res.locals.customReactionEmoji = [];
+    res.locals.customReactionEmoji = [];
     }
     const hasAdminActionPermission = currentUser
       ? ADMIN_ACTION_FLAGS.some((flag) => currentUser[flag])
@@ -222,6 +227,21 @@ app.use(async (req, res, next) => {
         };
       }
     }
+    // Localization helpers available in all views
+    res.locals.fmt = {
+      date: (d, opts) =>
+        d ? formatDate(d instanceof Date ? d : new Date(d), req.lang, opts) : "",
+      dateTime: (d, opts) =>
+        d ? formatDateTime(d instanceof Date ? d : new Date(d), req.lang, opts) : "",
+      number: (n) => {
+        try {
+          const locale = req.lang === "en" ? "en-US" : "fr-FR";
+          return Number(n).toLocaleString(locale);
+        } catch (_err) {
+          return String(n);
+        }
+      },
+    };
     next();
   } catch (err) {
     next(err);
@@ -264,8 +284,8 @@ app.get("/rss.xml", async (req, res) => {
 
   const baseUrl = `${req.protocol}://${req.get("host")}`;
   const wikiName = res.locals.wikiName || "Wiki";
-  const siteTitle = `${wikiName} · RSS`;
-  const siteDescription = `${wikiName} — Dernières publications`;
+  const siteTitle = `${wikiName} · ${req.t("rss.titleSuffix")}`;
+  const siteDescription = `${wikiName} ${req.t("rss.descriptionSuffix")}`;
 
   const items = rows.map((row) => {
     const pageUrl = `${baseUrl}/wiki/${row.slug_id}`;
@@ -299,7 +319,7 @@ app.get("/rss.xml", async (req, res) => {
     siteTitle,
     siteLink: `${baseUrl}/`,
     siteDescription,
-    language: "fr-FR",
+    language: req.t("rss.locale"),
     atomLink: `${baseUrl}/rss.xml`,
     items,
   });
@@ -320,7 +340,7 @@ app.use((err, req, res, next) => {
     return next(err);
   }
   res.status(500).render("error", {
-    message: "Une erreur inattendue est survenue.",
+    message: req.t("errors.unexpected"),
   });
 });
 

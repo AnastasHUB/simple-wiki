@@ -1,27 +1,24 @@
-<% title='Images'; %>
+<% title = t('admin.uploads.title'); %>
 <%
   const csrfQuerySuffix =
     typeof csrfToken === 'string' && csrfToken.length
       ? `?_csrf=${encodeURIComponent(csrfToken)}`
       : '';
 %>
-<h1>Gestion des images</h1>
+<h1><%= t('admin.uploads.heading') %></h1>
 <div class="card mb-md">
-  <h2>Ajouter une image</h2>
-  <p class="mt-xs">
-    Chaque image reçoit un identifiant unique (snowflake). Les fichiers volumineux sont automatiquement redimensionnés et optimisés.
-    Vous pouvez définir un nom personnalisé sans changer le snowflake. Laissez le champ vide pour effacer le nom personnalisé.
-  </p>
+  <h2><%= t('admin.uploads.add.title') %></h2>
+  <p class="mt-xs"><%= t('admin.uploads.add.intro') %></p>
   <form id="uploadForm" action="/admin/uploads<%= csrfQuerySuffix %>" method="post" enctype="multipart/form-data" class="flex flex-wrap gap-sm mt-sm">
     <%- include('../partials/csrf_field') %>
     <div class="flex-basis-220">
-      <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="Image" />
+      <input type="file" id="imageInput" name="image" accept="image/*" required aria-label="<%= t('admin.uploads.fields.image') %>" />
     </div>
     <div class="flex-basis-220">
-      <input type="text" id="displayNameInput" name="displayName" placeholder="Nom personnalisé (optionnel)" maxlength="120" aria-label="Nom personnalisé (optionnel)" />
+      <input type="text" id="displayNameInput" name="displayName" placeholder="<%= t('admin.uploads.fields.displayNamePlaceholder') %>" maxlength="120" aria-label="<%= t('admin.uploads.fields.displayNamePlaceholder') %>" />
     </div>
     <div class="self-end">
-      <button class="btn success" data-icon="🚀" type="submit">Uploader</button>
+      <button class="btn success" data-icon="🚀" type="submit"><%= t('admin.uploads.actions.upload') %></button>
     </div>
   </form>
   <div id="uploadMessage" class="mt-sm"></div>
@@ -30,20 +27,20 @@
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.uploads.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="Snowflake, nom de fichier…"
+        placeholder="<%= t('admin.uploads.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
     <input type="hidden" name="page" value="1" />
     <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" data-icon="🔍" type="submit"><%= t('admin.uploads.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/uploads">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/uploads"><%= t('admin.uploads.search.reset') %></a>
     <% } %>
   </div>
 </form>
@@ -55,42 +52,42 @@
     <table class="data-table" id="uploadsTable">
       <thead>
         <tr>
-          <th>Aperçu</th>
-          <th>Détails</th>
-          <th>Nom personnalisé</th>
-          <th>Actions</th>
+          <th><%= t('admin.uploads.table.preview') %></th>
+          <th><%= t('admin.uploads.table.details') %></th>
+          <th><%= t('admin.uploads.table.customName') %></th>
+          <th><%= t('admin.uploads.table.actions') %></th>
         </tr>
       </thead>
       <tbody>
         <% uploads.forEach(upload => { %>
           <% const displayName = upload.displayName || ''; %>
-          <% const createdAt = upload.createdAt ? new Date(upload.createdAt).toLocaleString('fr-FR') : '—'; %>
-          <% const sizeLabel = upload.size ? Math.max(1, Math.round(upload.size / 1024)) + ' Ko' : '—'; %>
+          <% const createdAt = upload.createdAt ? fmt.dateTime(upload.createdAt) : '—'; %>
+          <% const sizeLabel = upload.size ? fmt.number(Math.max(1, Math.round(upload.size / 1024))) + ' ' + t('common.size.kb') : '—'; %>
           <tr>
             <td>
               <img src="<%= upload.url %>" alt="" class="upload-thumb" />
             </td>
           <td class="leading-snug">
-            <div><strong>Snowflake :</strong> <code><%= upload.id %></code></div>
-            <div><strong>Nom original :</strong> <%= upload.originalName %></div>
-            <div><strong>Nom affiché :</strong> <%= displayName || '—' %></div>
-            <div><strong>Taille :</strong> <%= sizeLabel %></div>
-            <div><strong>Ajouté :</strong> <%= createdAt %></div>
+            <div><strong><%= t('admin.uploads.details.snowflake') %></strong> <code><%= upload.id %></code></div>
+            <div><strong><%= t('admin.uploads.details.originalName') %></strong> <%= upload.originalName %></div>
+            <div><strong><%= t('admin.uploads.details.displayName') %></strong> <%= displayName || '—' %></div>
+            <div><strong><%= t('admin.uploads.details.size') %></strong> <%= sizeLabel %></div>
+            <div><strong><%= t('admin.uploads.details.added') %></strong> <%= createdAt %></div>
           </td>
           <td>
             <form method="post" action="/admin/uploads/<%= upload.id %>/name" class="stack-form">
               <%- include('../partials/csrf_field') %>
-              <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="Nom personnalisé" />
-              <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+              <input type="text" name="displayName" value="<%= displayName %>" maxlength="120" placeholder="<%= t('admin.uploads.fields.displayName') %>" />
+              <button class="btn success" data-icon="💾" type="submit"><%= t('admin.uploads.actions.save') %></button>
             </form>
           </td>
           <td>
             <% const altText = displayName || upload.originalName || ''; %>
             <div class="upload-actions" data-url="<%= upload.url %>" data-alt="<%= altText %>">
-              <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
-              <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm('Supprimer cette image ?')">
+              <button class="btn copy-upload" data-icon="📋" type="button"><%= t('admin.uploads.actions.copyLink') %></button>
+              <form method="post" action="/admin/uploads/<%= upload.id %>/delete" onsubmit="return confirm(<%= JSON.stringify(t('admin.uploads.actions.deleteConfirm')) %>)">
                 <%- include('../partials/csrf_field') %>
-                <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
+                <button class="btn unlike" data-icon="🗑️" type="submit"><%= t('admin.uploads.actions.delete') %></button>
               </form>
             </div>
           </td>
@@ -101,39 +98,39 @@
   </div>
   <%- include('./paginationControls', { pagination }) %>
 <% } else { %>
-  <p class="card text-muted">Aucune image disponible pour le moment.</p>
+  <p class="card text-muted"><%= t('admin.uploads.empty') %></p>
 <% } %>
 
 <% if (avatarUploads.length) { %>
   <div class="card mb-md">
-    <h2>Avatars de profil</h2>
-    <p class="mt-xs text-muted">Fichiers stockés dans <code>/public/uploads/profiles</code>.</p>
+    <h2><%= t('admin.uploads.avatars.title') %></h2>
+    <p class="mt-xs text-muted"><%= t('admin.uploads.avatars.storedIn') %> <code>/public/uploads/profiles</code>.</p>
     <div class="table-wrap">
       <table class="data-table" id="profileUploadsTable">
         <thead>
           <tr>
-            <th>Aperçu</th>
-            <th>Détails</th>
-            <th>Actions</th>
+            <th><%= t('admin.uploads.table.preview') %></th>
+            <th><%= t('admin.uploads.table.details') %></th>
+            <th><%= t('admin.uploads.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
           <% avatarUploads.forEach((avatar) => { %>
-            <% const createdAt = avatar.createdAt ? new Date(avatar.createdAt).toLocaleString('fr-FR') : '—'; %>
-            <% const sizeLabel = avatar.size ? Math.max(1, Math.round(avatar.size / 1024)) + ' Ko' : '—'; %>
+            <% const createdAt = avatar.createdAt ? fmt.dateTime(avatar.createdAt) : '—'; %>
+            <% const sizeLabel = avatar.size ? fmt.number(Math.max(1, Math.round(avatar.size / 1024))) + ' ' + t('common.size.kb') : '—'; %>
             <tr>
               <td>
                 <img src="<%= avatar.url %>" alt="" class="upload-thumb" />
               </td>
               <td class="leading-snug">
-                <div><strong>Chemin relatif :</strong> <code><%= avatar.relativePath %></code></div>
-                <div><strong>Nom de fichier :</strong> <%= avatar.filename %></div>
-                <div><strong>Taille :</strong> <%= sizeLabel %></div>
-                <div><strong>Modifié :</strong> <%= createdAt %></div>
+                <div><strong><%= t('admin.uploads.details.relativePath') %></strong> <code><%= avatar.relativePath %></code></div>
+                <div><strong><%= t('admin.uploads.details.filename') %></strong> <%= avatar.filename %></div>
+                <div><strong><%= t('admin.uploads.details.size') %></strong> <%= sizeLabel %></div>
+                <div><strong><%= t('admin.uploads.details.modified') %></strong> <%= createdAt %></div>
               </td>
               <td>
                 <div class="upload-actions" data-url="<%= avatar.url %>" data-alt="<%= avatar.filename %>">
-                  <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
+                  <button class="btn copy-upload" data-icon="📋" type="button"><%= t('admin.uploads.actions.copyLink') %></button>
                 </div>
               </td>
             </tr>
@@ -145,12 +142,23 @@
 <% } %>
 
 <script>
+  const i18n = {
+    copyDefaultLabel: <%- JSON.stringify(t('admin.uploads.actions.copyLink')) %>,
+    copySuccessLabel: <%- JSON.stringify(t('admin.uploads.copySuccess')) %>,
+    chooseFile: <%- JSON.stringify(t('admin.uploads.errors.chooseFile')) %>,
+    optimizing: <%- JSON.stringify(t('admin.uploads.optimizing')) %>,
+    serverError: (status) => <%- JSON.stringify(t('admin.uploads.errors.server', { status: '{status}' })) %>.replace('{status}', String(status || '')),
+    unexpectedResponse: <%- JSON.stringify(t('admin.uploads.errors.unexpected')) %>,
+    uploadError: <%- JSON.stringify(t('admin.uploads.errors.upload')) %>,
+    uploadSuccess: <%- JSON.stringify(t('admin.uploads.success')) %>,
+    deleteConfirm: <%- JSON.stringify(t('admin.uploads.actions.deleteConfirm')) %>,
+  };
   const uploadForm = document.getElementById('uploadForm');
   const uploadMessage = document.getElementById('uploadMessage');
   const uploadsTable = document.getElementById('uploadsTable');
   const uploadActionsSelector = '.upload-actions';
-  const copyDefaultLabel = 'Copier le lien';
-  const copySuccessLabel = 'Lien copié !';
+  const copyDefaultLabel = i18n.copyDefaultLabel;
+  const copySuccessLabel = i18n.copySuccessLabel;
   const csrfTokenInput = document.querySelector('input[name="_csrf"]');
   const csrfToken = csrfTokenInput?.value || '';
 
@@ -229,25 +237,25 @@
         <img src="${safeUrl}" alt="" class="upload-thumb" />
       </td>
       <td class="leading-snug">
-        <div><strong>Snowflake :</strong> <code>${safeId}</code></div>
-        <div><strong>Nom original :</strong> ${escapeHtml(originalName)}</div>
-        <div><strong>Nom affiché :</strong> ${displayName ? escapeHtml(displayName) : '—'}</div>
-        <div><strong>Taille :</strong> ${Math.max(1, Math.round((data.size || 0) / 1024))} Ko</div>
-        <div><strong>Ajouté :</strong> ${new Date().toLocaleString('fr-FR')}</div>
+        <div><strong><%= t('admin.uploads.details.snowflake') %></strong> <code>${safeId}</code></div>
+        <div><strong><%= t('admin.uploads.details.originalName') %></strong> ${escapeHtml(originalName)}</div>
+        <div><strong><%= t('admin.uploads.details.displayName') %></strong> ${displayName ? escapeHtml(displayName) : '—'}</div>
+        <div><strong><%= t('admin.uploads.details.size') %></strong> ${Math.max(1, Math.round((data.size || 0) / 1024))} <%= t('common.size.kb') %></div>
+        <div><strong><%= t('admin.uploads.details.added') %></strong> ${new Date().toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR')}
       </td>
       <td>
         <form method="post" action="/admin/uploads/${safeId}/name" class="stack-form">
           ${csrfField}
-          <input type="text" name="displayName" value="${escapeHtml(displayName)}" maxlength="120" placeholder="Nom personnalisé" />
-          <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+          <input type="text" name="displayName" value="${escapeHtml(displayName)}" maxlength="120" placeholder="<%- t('admin.uploads.fields.displayName') %>" />
+          <button class="btn success" data-icon="💾" type="submit"><%- t('admin.uploads.actions.save') %></button>
         </form>
       </td>
       <td>
         <div class="upload-actions" data-url="${safeUrl}" data-alt="${escapeHtml(displayName || originalName || '')}">
-          <button class="btn copy-upload" data-icon="📋" type="button">Copier le lien</button>
-          <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm('Supprimer cette image ?')">
+          <button class="btn copy-upload" data-icon="📋" type="button"><%- t('admin.uploads.actions.copyLink') %></button>
+          <form method="post" action="/admin/uploads/${safeId}/delete" onsubmit="return confirm(<%- JSON.stringify(t('admin.uploads.actions.deleteConfirm')) %>)">
             ${csrfField}
-            <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
+            <button class="btn unlike" data-icon="🗑️" type="submit"><%- t('admin.uploads.actions.delete') %></button>
           </form>
         </div>
       </td>

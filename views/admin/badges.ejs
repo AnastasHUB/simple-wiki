@@ -172,7 +172,7 @@
                         <span class="text-muted">(<%= assignment.displayName %>)</span>
                       <% } %>
                       <% if (assignment.assignedAt) { %>
-                        <span class="text-muted">· <%= new Date(assignment.assignedAt).toLocaleDateString('fr-FR') %></span>
+                        <span class="text-muted">· <%= new Date(assignment.assignedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
                       <% } %>
                     </div>
                   </li>
@@ -342,7 +342,7 @@
                       <span class="text-muted">(<%= assignment.displayName %>)</span>
                     <% } %>
                     <% if (assignment.assignedAt) { %>
-                      <span class="text-muted">· <%= new Date(assignment.assignedAt).toLocaleDateString('fr-FR') %></span>
+                      <span class="text-muted">· <%= new Date(assignment.assignedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') %></span>
                     <% } %>
                   </div>
                   <% if (canRevokeBadges && !badge.isAutomatic) { %>

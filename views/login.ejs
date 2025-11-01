@@ -1,13 +1,14 @@
-<% title = 'Connexion'; %>
-<h1>Connexion</h1>
+<% title = t('login.title'); %>
+<h1><%= t('login.heading') %></h1>
 <% if (typeof bannedAccountInfo !== 'undefined' && bannedAccountInfo) { %>
   <div class="card alert alert-error">
-    <p><strong>Votre compte est suspendu.</strong></p>
+    <p><strong><%= t('login.banned.heading') %></strong></p>
     <% if (bannedAccountInfo.reason) { %>
-      <p>Motif&nbsp;: <%= bannedAccountInfo.reason %></p>
+      <p><%= t('login.banned.reason', { reason: bannedAccountInfo.reason }) %></p>
     <% } %>
     <% if (bannedAccountInfo.bannedAt) { %>
-      <p>Depuis le <%= new Date(bannedAccountInfo.bannedAt).toLocaleString('fr-FR') %>.</p>
+      <% const locale = (lang === 'en') ? 'en-US' : 'fr-FR'; %>
+      <p><%= t('login.banned.since', { date: new Date(bannedAccountInfo.bannedAt).toLocaleString(locale) }) %></p>
     <% } %>
   </div>
 <% } %>
@@ -16,25 +17,25 @@
 <% } %>
 <form method="post" action="/login">
   <%- include('partials/csrf_field') %>
-  <label>Utilisateur</label>
+  <label><%= t('login.fields.username') %></label>
   <input type="text" name="username" required />
-  <label>Mot de passe</label>
+  <label><%= t('login.fields.password') %></label>
   <input type="password" name="password" required />
   <div class="actions">
-    <button class="btn success" data-icon="🔑">Se connecter</button>
+    <button class="btn success" data-icon="🔑"><%= t('login.actions.submit') %></button>
     <button class="btn secondary" type="button" data-passkey-login data-icon="🔐">
-      Se connecter avec une passkey
+      <%= t('login.actions.passkey') %>
     </button>
   </div>
 </form>
 <p class="form-help text-muted">
-  L'utilisation d'une passkey nécessite de saisir votre nom d'utilisateur pour récupérer vos clés enregistrées.
+  <%= t('login.help.passkeyRequirement') %>
 </p>
 <% if (typeof registrationEnabled === 'undefined' || registrationEnabled) { %>
   <p class="form-help">
-    Pas encore de compte&nbsp;? <a href="/register">Créer un compte</a>.
+    <%= t('login.help.noAccount') %> <a href="/register"><%= t('login.help.createAccountLink') %></a>.
   </p>
 <% } %>
 <p class="form-help text-muted" data-passkey-helper hidden>
-  Votre navigateur ne semble pas supporter les passkeys. Utilisez un appareil compatible pour activer cette option.
+  <%= t('login.help.passkeyUnsupported') %>
 </p>

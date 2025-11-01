@@ -1,69 +1,68 @@
-<% title='Émojis & Réactions'; %>
-<h1>Émojis & Réactions</h1>
+<% title = t('admin.reactions.title'); %>
+<h1><%= t('admin.reactions.heading') %></h1>
 <p class="text-muted mb-md">
-  Personnalisez la palette de réactions affichée sur les articles et les commentaires. Chaque réaction
-  doit posséder un identifiant unique ainsi qu'un emoji ou une image personnalisée.
-</p>
+  <%= t('admin.reactions.intro') %>
+  </p>
 
 <div class="card mb-md">
-  <h2>Ajouter une réaction</h2>
+  <h2><%= t('admin.reactions.add.title') %></h2>
   <form method="post" action="/admin/reactions" class="flex flex-wrap gap-sm mt-sm">
     <%- include('../partials/csrf_field') %>
     <label class="stack-form flex-basis-200">
-      <span class="text-sm text-muted">Identifiant</span>
+      <span class="text-sm text-muted"><%= t('admin.reactions.fields.id') %></span>
       <input
         type="text"
         name="id"
         maxlength="48"
         required
-        placeholder="ex. bravo-plus"
-        aria-label="Identifiant unique"
+        placeholder="<%= t('admin.reactions.placeholders.id') %>"
+        aria-label="<%= t('admin.reactions.aria.id') %>"
       />
     </label>
     <label class="stack-form flex-basis-220">
-      <span class="text-sm text-muted">Libellé</span>
+      <span class="text-sm text-muted"><%= t('admin.reactions.fields.label') %></span>
       <input
         type="text"
         name="label"
         maxlength="120"
-        placeholder="Texte affiché"
-        aria-label="Libellé de la réaction"
+        placeholder="<%= t('admin.reactions.placeholders.label') %>"
+        aria-label="<%= t('admin.reactions.aria.label') %>"
       />
     </label>
     <label class="stack-form flex-basis-120">
-      <span class="text-sm text-muted">Emoji</span>
+      <span class="text-sm text-muted"><%= t('admin.reactions.fields.emoji') %></span>
       <input
         type="text"
         name="emoji"
         maxlength="16"
-        placeholder="😀"
-        aria-label="Emoji"
+        placeholder="<%= t('admin.reactions.placeholders.emoji') %>"
+        aria-label="<%= t('admin.reactions.aria.emoji') %>"
       />
     </label>
     <label class="stack-form flex-basis-260">
-      <span class="text-sm text-muted">URL d'image</span>
+      <span class="text-sm text-muted"><%= t('admin.reactions.fields.imageUrl') %></span>
       <input
         type="url"
         name="imageUrl"
         maxlength="500"
-        placeholder="https://…"
-        aria-label="URL de l'image personnalisée"
+        placeholder="<%= t('admin.reactions.placeholders.imageUrl') %>"
+        aria-label="<%= t('admin.reactions.aria.imageUrl') %>"
       />
     </label>
     <div class="stack-form flex-basis-200">
       <span class="text-sm text-muted">&nbsp;</span>
-      <button class="btn" data-icon="➕" type="submit">Ajouter</button>
+      <button class="btn" type="submit"><%= t('admin.reactions.actions.add') %></button>
     </div>
     <%- include('../partials/uploadHelper') %>
     <p class="text-sm text-muted" style="flex-basis: 100%;">
-      Fournissez au moins un emoji ou une image. Si les deux sont renseignés, l'image sera affichée.
+      <%= t('admin.reactions.hints.provideOne') %>
     </p>
   </form>
-</div>
+  </div>
 
 <% if (!reactions || !reactions.length) { %>
   <div class="card">
-    <p>Aucune réaction n'est configurée pour le moment.</p>
+    <p><%= t('admin.reactions.empty') %></p>
   </div>
 <% } else { %>
   <div class="stack-lg">
@@ -82,19 +81,19 @@
             </span>
             <div class="admin-reaction-meta">
               <h2 class="admin-reaction-title"><%= reaction.label %></h2>
-              <p class="text-sm text-muted">Identifiant : <code><%= reaction.id %></code></p>
+              <p class="text-sm text-muted"><%= t('admin.reactions.item.identifier') %> <code><%= reaction.id %></code></p>
             </div>
           </div>
           <div class="admin-reaction-order">
             <form method="post" action="/admin/reactions/<%= reaction.id %>/move">
               <%- include('../partials/csrf_field') %>
               <input type="hidden" name="direction" value="up" />
-              <button class="btn secondary" data-icon="⬆️" type="submit" <%= isFirst ? 'disabled' : '' %>>Monter</button>
+              <button class="btn secondary" type="submit" <%= isFirst ? 'disabled' : '' %>><%= t('admin.reactions.item.moveUp') %></button>
             </form>
             <form method="post" action="/admin/reactions/<%= reaction.id %>/move">
               <%- include('../partials/csrf_field') %>
               <input type="hidden" name="direction" value="down" />
-              <button class="btn secondary" data-icon="⬇️" type="submit" <%= isLast ? 'disabled' : '' %>>Descendre</button>
+              <button class="btn secondary" type="submit" <%= isLast ? 'disabled' : '' %>><%= t('admin.reactions.item.moveDown') %></button>
             </form>
           </div>
         </div>
@@ -106,56 +105,57 @@
           <%- include('../partials/csrf_field') %>
           <div class="flex flex-wrap gap-sm">
             <label class="stack-form flex-basis-220">
-              <span class="text-sm text-muted">Libellé</span>
+              <span class="text-sm text-muted"><%= t('admin.reactions.fields.label') %></span>
               <input
                 type="text"
                 name="label"
                 maxlength="120"
                 value="<%= reaction.label %>"
-                aria-label="Libellé"
+                aria-label="<%= t('admin.reactions.aria.label') %>"
               />
             </label>
             <label class="stack-form flex-basis-120">
-              <span class="text-sm text-muted">Emoji</span>
+              <span class="text-sm text-muted"><%= t('admin.reactions.fields.emoji') %></span>
               <input
                 type="text"
                 name="emoji"
                 maxlength="16"
                 value="<%= reaction.emoji %>"
-                placeholder="😀"
-                aria-label="Emoji"
+                placeholder="<%= t('admin.reactions.placeholders.emoji') %>"
+                aria-label="<%= t('admin.reactions.aria.emoji') %>"
               />
             </label>
             <label class="stack-form flex-basis-260">
-              <span class="text-sm text-muted">URL d'image</span>
+              <span class="text-sm text-muted"><%= t('admin.reactions.fields.imageUrl') %></span>
               <input
                 type="url"
                 name="imageUrl"
                 maxlength="500"
                 value="<%= reaction.imageUrl || '' %>"
-                placeholder="https://…"
-                aria-label="URL de l'image"
+                placeholder="<%= t('admin.reactions.placeholders.imageUrl') %>"
+                aria-label="<%= t('admin.reactions.aria.imageUrl') %>"
               />
             </label>
           </div>
           <%- include('../partials/uploadHelper') %>
           <p class="text-sm text-muted mt-sm">
-            Laissez l'emoji ou l'URL vide pour conserver la valeur actuelle. Au moins l'un des deux doit être renseigné.
+            <%= t('admin.reactions.hints.keepOrBlank') %>
           </p>
           <div class="flex flex-wrap gap-sm mt-sm">
-            <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+            <button class="btn success" type="submit"><%= t('admin.reactions.actions.save') %></button>
           </div>
         </form>
         <form
           method="post"
           action="/admin/reactions/<%= reaction.id %>/delete"
           class="admin-reaction-delete"
-          onsubmit="return confirm('Supprimer cette réaction et toutes les réponses associées ?');"
+          onsubmit="return confirm(t('admin.reactions.actions.deleteConfirm'))"
         >
           <%- include('../partials/csrf_field') %>
-          <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+          <button class="btn danger" type="submit"><%= t('admin.reactions.actions.delete') %></button>
         </form>
       </article>
     <% }) %>
   </div>
 <% } %>
+

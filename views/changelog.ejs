@@ -47,7 +47,8 @@
   <ul class="changelog-list">
     <% entries.forEach(entry => { %>
       <% const isoDate = entry.timestamp || entry.updatedAt || entry.createdAt || entry.closedAt || entry.mergedAt; %>
-      <% const formattedDate = isoDate ? new Date(isoDate).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : null; %>
+      <% const locale = (lang === 'en') ? 'en-US' : 'fr-FR'; %>
+      <% const formattedDate = isoDate ? new Date(isoDate).toLocaleString(locale, { dateStyle: 'medium', timeStyle: 'short' }) : null; %>
       <% const typeLabel = entry.type === 'pull' ? 'Pull request' : 'Commit'; %>
       <li class="changelog-item">
         <div class="changelog-item-header">

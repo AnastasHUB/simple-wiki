@@ -68,7 +68,7 @@
                 <% } %>
               </td>
               <td><%= ev.ip || '-' %></td>
-              <td><%= new Date(ev.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= new Date(ev.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></td>
             </tr>
           <% }) %>
         </tbody>

@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="fr">
+<html lang="<%= lang || 'fr' %>">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -84,18 +84,19 @@
       data-cookie-banner
       role="region"
       aria-live="polite"
-      aria-label="Consentement aux cookies"
+      aria-label="<%= t('layout.cookie.aria') %>"
     >
       <div class="cookie-banner__content">
-        <h2>Gestion des cookies</h2>
+        <h2><%= t('layout.cookie.title') %></h2>
         <p>
-          Nous utilisons uniquement des cookies essentiels pour faire fonctionner ce wiki et sécuriser vos sessions.
-          Consultez la <a href="<%= policyUrl %>">politique de cookies</a> pour en savoir plus.
+          <%= t('layout.cookie.text.beforeLink') %>
+          <a href="<%= policyUrl %>"><%= t('layout.cookie.text.link') %></a>
+          <%= t('layout.cookie.text.afterLink') %>
         </p>
       </div>
       <div class="cookie-banner__actions">
-        <button class="btn primary" type="button" data-cookie-accept>Accepter</button>
-        <a class="btn secondary" href="<%= policyUrl %>" data-cookie-customize>Personnaliser</a>
+        <button class="btn primary" type="button" data-cookie-accept><%= t('layout.cookie.accept') %></button>
+        <a class="btn secondary" href="<%= policyUrl %>" data-cookie-customize><%= t('layout.cookie.customize') %></a>
       </div>
     </section>
   <% } %>
@@ -105,11 +106,11 @@
         id="sidebarToggle"
         class="nav-trigger icon-button"
         type="button"
-        aria-label="Ouvrir le menu"
+        aria-label="<%= t('layout.nav.open') %>"
         aria-expanded="false"
       >
         <span class="icon" aria-hidden="true">☰</span>
-        <span class="sr-only">Afficher la navigation</span>
+        <span class="sr-only"><%= t('layout.nav.showNav') %></span>
       </button>
       <a class="brand-link" href="/">
         <% if (hasBrandLogo) { %>
@@ -119,9 +120,9 @@
       </a>
     </div>
     <form method="get" action="/search" class="search-form" role="search">
-      <label class="sr-only" for="wikiSearch">Rechercher</label>
-      <input id="wikiSearch" type="text" name="q" placeholder="Rechercher…" aria-label="Rechercher sur le wiki" />
-      <button class="btn primary" type="submit">Rechercher</button>
+      <label class="sr-only" for="wikiSearch"><%= t('layout.search.label') %></label>
+      <input id="wikiSearch" type="text" name="q" placeholder="<%= t('layout.search.placeholder') %>" aria-label="<%= t('layout.search.aria') %>" />
+      <button class="btn primary" type="submit"><%= t('layout.search.button') %></button>
     </form>
     <div class="auth-links">
       <% if (currentUser) { %>
@@ -143,7 +144,7 @@
         <% const headerChipStyle = headerChipStyleParts.join('; '); %>
         <% const headerBadges = Array.isArray(currentUserBadges) ? currentUserBadges : []; %>
         <span class="<%= headerChipClasses.join(' ') %>" style="<%= headerChipStyle %>">
-          <span class="chip-label">Connecté·e</span>
+          <span class="chip-label"><%= t('layout.auth.loggedIn') %></span>
           <span class="user-chip__identity user-handle-decorated">
             <strong class="<%= headerClasses.join(' ') %>" style="<%= headerStyle %>"><%= headerDisplayName %></strong>
             <%- include('partials/userBadges', {
@@ -152,52 +153,59 @@
               itemClass: 'user-handle-badge-item',
               iconClass: 'user-handle-badge-icon',
               srOnlyClass: 'sr-only',
-              ariaLabel: 'Vos badges',
+              ariaLabel: t('common.authorBadgesAria'),
             }) %>
           </span>
         </span>
         <form action="/logout" method="post">
           <%- include('partials/csrf_field') %>
-          <button class="btn" type="submit">Déconnexion</button>
+          <button class="btn" type="submit"><%= t('layout.auth.logout') %></button>
         </form>
       <% } else { %>
         <% if (typeof registrationEnabled !== "undefined" && registrationEnabled) { %>
-          <a class="btn primary" href="/register">Inscription</a>
+          <a class="btn primary" href="/register"><%= t('layout.auth.register') %></a>
         <% } %>
-        <a class="btn" href="/login">Connexion</a>
+        <a class="btn" href="/login"><%= t('layout.auth.login') %></a>
       <% } %>
     </div>
+      <div class="lang-switch" style="margin-left: 12px; display: flex; gap: 6px; align-items: center;">
+        <span class="sr-only"><%= t('layout.lang.label') %></span>
+        <% const hrefEn = '/lang/en'; %>
+        <% const hrefFr = '/lang/fr'; %>
+        <a class="btn <%= lang === 'fr' ? 'primary' : 'secondary' %>" href="<%= hrefFr %>" aria-current="<%= lang === 'fr' ? 'true' : 'false' %>">FR</a>
+        <a class="btn <%= lang === 'en' ? 'primary' : 'secondary' %>" href="<%= hrefEn %>" aria-current="<%= lang === 'en' ? 'true' : 'false' %>">EN</a>
+      </div>
   </header>
   <div class="app-main">
-    <nav id="vnav" class="site-nav nav-drawer glass-panel" aria-label="Navigation principale">
+    <nav id="vnav" class="site-nav nav-drawer glass-panel" aria-label="<%= t('layout.nav.ariaMain') %>">
       <div class="nav-drawer-header">
         <span class="nav-drawer-icon" aria-hidden="true">☰</span>
-        <span class="nav-title">Explorer</span>
-        <button class="nav-close icon-button" type="button" data-close-nav aria-label="Fermer la navigation">
+        <span class="nav-title"><%= t('layout.nav.explore') %></span>
+        <button class="nav-close icon-button" type="button" data-close-nav aria-label="<%= t('layout.nav.close') %>">
           <span class="icon" aria-hidden="true">✕</span>
         </button>
       </div>
       <div class="nav-content">
         <section class="nav-section">
-          <h2 class="nav-section-title">Général</h2>
+          <h2 class="nav-section-title"><%= t('layout.nav.general') %></h2>
           <ul class="nav-list">
             <li>
               <a href="/">
                 <span class="nav-item-icon" aria-hidden="true">🏠</span>
-                <span class="nav-item-label">Accueil</span>
+                <span class="nav-item-label"><%= t('layout.nav.home') %></span>
               </a>
             </li>
             <li>
               <a href="/rss.xml" target="_blank" rel="noopener">
                 <span class="nav-item-icon" aria-hidden="true">📡</span>
-                <span class="nav-item-label">Flux RSS</span>
+                <span class="nav-item-label"><%= t('layout.nav.rss') %></span>
               </a>
             </li>
             <% if (typeof hasChangelog !== 'undefined' && hasChangelog) { %>
               <li>
                 <a href="/changelog">
                   <span class="nav-item-icon" aria-hidden="true">📝</span>
-                  <span class="nav-item-label">Changelog</span>
+                  <span class="nav-item-label"><%= t('layout.nav.changelog') %></span>
                 </a>
               </li>
             <% } %>
@@ -205,7 +213,7 @@
               <li>
                 <a href="/profiles/ip/me">
                   <span class="nav-item-icon" aria-hidden="true">🛡️</span>
-                  <span class="nav-item-label">Mon profil IP</span>
+                  <span class="nav-item-label"><%= t('layout.nav.myIpProfile') %></span>
                 </a>
               </li>
             <% } %>
@@ -220,14 +228,14 @@
               <li>
                 <a href="/new">
                   <span class="nav-item-icon" aria-hidden="true">✍️</span>
-                  <span class="nav-item-label">Contribuer</span>
+                  <span class="nav-item-label"><%= t('layout.nav.contribute') %></span>
                 </a>
               </li>
             <% } else if (canPublishDirectly) { %>
               <li>
                 <a href="/new">
                   <span class="nav-item-icon" aria-hidden="true">➕</span>
-                  <span class="nav-item-label">Nouvelle page</span>
+                  <span class="nav-item-label"><%= t('layout.nav.newPage') %></span>
                 </a>
               </li>
             <% } %>
@@ -235,33 +243,33 @@
               <li>
                 <a href="/register">
                   <span class="nav-item-icon" aria-hidden="true">🆕</span>
-                  <span class="nav-item-label">Créer un compte</span>
+                  <span class="nav-item-label"><%= t('layout.auth.register') %></span>
                 </a>
               </li>
             <% } %>
             <li>
-              <a href="/account/submissions">
-                <span class="nav-item-icon" aria-hidden="true">📚</span>
-                <span class="nav-item-label">Mes contributions</span>
-              </a>
-            </li>
+                <a href="/account/submissions">
+                  <span class="nav-item-icon" aria-hidden="true">📚</span>
+                  <span class="nav-item-label"><%= t('layout.nav.mySubmissions') %></span>
+                </a>
+              </li>
             <% if (currentUser) { %>
               <li>
                 <a href="/members/<%= encodeURIComponent(currentUser.username) %>">
                   <span class="nav-item-icon" aria-hidden="true">🧑‍🚀</span>
-                  <span class="nav-item-label">Mon profil public</span>
+                  <span class="nav-item-label"><%= t('layout.nav.myPublicProfile') %></span>
                 </a>
               </li>
               <li>
                 <a href="/account/profile">
                   <span class="nav-item-icon" aria-hidden="true">🎨</span>
-                  <span class="nav-item-label">Personnaliser mon profil</span>
+                  <span class="nav-item-label"><%= t('layout.nav.customizeProfile') %></span>
                 </a>
               </li>
               <li>
                 <a href="/account/security">
                   <span class="nav-item-icon" aria-hidden="true">🔒</span>
-                  <span class="nav-item-label">Sécurité du compte</span>
+                  <span class="nav-item-label"><%= t('layout.nav.accountSecurity') %></span>
                 </a>
               </li>
             <% } %>
@@ -402,13 +410,13 @@
           canViewSnowflakes; %>
         <% if (hasAdminMenu) { %>
           <section class="nav-section">
-            <h2 class="nav-section-title">Administration</h2>
+            <h2 class="nav-section-title"><%= t('layout.admin.title') %></h2>
             <ul class="nav-list">
               <% if (isAdminUser) { %>
                 <li>
                   <a href="/new">
                     <span class="nav-item-icon" aria-hidden="true">🆕</span>
-                    <span class="nav-item-label">Nouvelle page</span>
+                    <span class="nav-item-label"><%= t('layout.admin.newPage') %></span>
                   </a>
                 </li>
               <% } %>
@@ -417,7 +425,7 @@
                   <a href="/admin/submissions">
                     <span class="nav-item-icon" aria-hidden="true">🗳️</span>
                     <span class="nav-item-label">
-                      Contributions<% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
+                      <%= t('layout.admin.submissions') %><% if (adminCounts.pendingSubmissions) { %> (<%= adminCounts.pendingSubmissions %>)<% } %>
                     </span>
                   </a>
                 </li>
@@ -427,7 +435,7 @@
                   <a href="/admin/schedule">
                     <span class="nav-item-icon" aria-hidden="true">🕒</span>
                     <span class="nav-item-label">
-                      Programmations<% if (adminCounts.scheduledPages) { %> (<%= adminCounts.scheduledPages %>)<% } %>
+                      <%= t('layout.admin.schedule') %><% if (adminCounts.scheduledPages) { %> (<%= adminCounts.scheduledPages %>)<% } %>
                     </span>
                   </a>
                 </li>
@@ -436,7 +444,7 @@
                 <li>
                   <a href="/admin/trash">
                     <span class="nav-item-icon" aria-hidden="true">🗑️</span>
-                    <span class="nav-item-label">Corbeille</span>
+                    <span class="nav-item-label"><%= t('layout.admin.trash') %></span>
                   </a>
                 </li>
               <% } %>
@@ -444,7 +452,7 @@
                 <li>
                   <a href="/admin/stats">
                     <span class="nav-item-icon" aria-hidden="true">📊</span>
-                    <span class="nav-item-label">Statistiques</span>
+                    <span class="nav-item-label"><%= t('layout.admin.stats') %></span>
                   </a>
                 </li>
               <% } %>
@@ -452,7 +460,7 @@
                 <li>
                   <a href="/admin/users">
                     <span class="nav-item-icon" aria-hidden="true">👥</span>
-                    <span class="nav-item-label">Utilisateurs</span>
+                    <span class="nav-item-label"><%= t('layout.admin.users') %></span>
                   </a>
                 </li>
               <% } %>
@@ -460,7 +468,7 @@
                 <li>
                   <a href="/admin/badges">
                     <span class="nav-item-icon" aria-hidden="true">🏅</span>
-                    <span class="nav-item-label">Badges</span>
+                    <span class="nav-item-label"><%= t('layout.admin.badges') %></span>
                   </a>
                 </li>
               <% } %>
@@ -468,13 +476,13 @@
                 <li>
                   <a href="/admin/roles">
                     <span class="nav-item-icon" aria-hidden="true">🛡️</span>
-                    <span class="nav-item-label">Rôles</span>
+                    <span class="nav-item-label"><%= t('layout.admin.roles') %></span>
                   </a>
                 </li>
                 <li>
                   <a href="/admin/premium-codes">
                     <span class="nav-item-icon" aria-hidden="true">💎</span>
-                    <span class="nav-item-label">Codes premium</span>
+                    <span class="nav-item-label"><%= t('layout.admin.premiumCodes') %></span>
                   </a>
                 </li>
               <% } %>
@@ -483,7 +491,7 @@
                   <a href="/admin/comments">
                     <span class="nav-item-icon" aria-hidden="true">💬</span>
                     <span class="nav-item-label">
-                      Commentaires<% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
+                      <%= t('layout.admin.comments') %><% if (adminCounts.pendingComments) { %> (<%= adminCounts.pendingComments %>)<% } %>
                     </span>
                   </a>
                 </li>
@@ -492,7 +500,7 @@
                 <li>
                   <a href="/admin/likes">
                     <span class="nav-item-icon" aria-hidden="true">💖</span>
-                    <span class="nav-item-label">Likes</span>
+                    <span class="nav-item-label"><%= t('layout.admin.likes') %></span>
                   </a>
                 </li>
               <% } %>
@@ -500,7 +508,7 @@
                 <li>
                   <a href="/admin/ip-bans">
                     <span class="nav-item-icon" aria-hidden="true">🚫</span>
-                    <span class="nav-item-label">Blocages IP</span>
+                    <span class="nav-item-label"><%= t('layout.admin.ipBans') %></span>
                   </a>
                 </li>
               <% } %>
@@ -509,7 +517,7 @@
                   <a href="/admin/ip-reputation">
                     <span class="nav-item-icon" aria-hidden="true">🕵️</span>
                     <span class="nav-item-label">
-                      Surveillance IP<% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
+                      <%= t('layout.admin.ipReputation') %><% if (adminCounts.suspiciousIps) { %> (<%= adminCounts.suspiciousIps %>)<% } %>
                     </span>
                   </a>
                 </li>
@@ -518,7 +526,7 @@
                 <li>
                   <a href="/admin/ip-profiles">
                     <span class="nav-item-icon" aria-hidden="true">🔍</span>
-                    <span class="nav-item-label">Profils IP</span>
+                    <span class="nav-item-label"><%= t('layout.admin.ipProfiles') %></span>
                   </a>
                 </li>
               <% } %>
@@ -527,7 +535,7 @@
                   <a href="/admin/ban-appeals">
                     <span class="nav-item-icon" aria-hidden="true">🙏</span>
                     <span class="nav-item-label">
-                      Demandes de déban<% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
+                      <%= t('layout.admin.banAppeals') %><% if (adminCounts.pendingBanAppeals) { %> (<%= adminCounts.pendingBanAppeals %>)<% } %>
                     </span>
                   </a>
                 </li>
@@ -536,7 +544,7 @@
                 <li>
                   <a href="/admin/snowflakes">
                     <span class="nav-item-icon" aria-hidden="true">❄️</span>
-                    <span class="nav-item-label">Snowflakes</span>
+                    <span class="nav-item-label"><%= t('layout.admin.snowflakes') %></span>
                   </a>
                 </li>
               <% } %>
@@ -544,7 +552,7 @@
                 <li>
                   <a href="/admin/events">
                     <span class="nav-item-icon" aria-hidden="true">🧾</span>
-                    <span class="nav-item-label">Événements</span>
+                    <span class="nav-item-label"><%= t('layout.admin.events') %></span>
                   </a>
                 </li>
               <% } %>
@@ -552,7 +560,7 @@
                 <li>
                   <a href="/admin/uploads">
                     <span class="nav-item-icon" aria-hidden="true">🖼️</span>
-                    <span class="nav-item-label">Images</span>
+                    <span class="nav-item-label"><%= t('layout.admin.uploads') %></span>
                   </a>
                 </li>
               <% } %>
@@ -560,7 +568,7 @@
                 <li>
                   <a href="/admin/reactions">
                     <span class="nav-item-icon" aria-hidden="true">😀</span>
-                    <span class="nav-item-label">Réactions</span>
+                    <span class="nav-item-label"><%= t('layout.admin.reactions') %></span>
                   </a>
                 </li>
               <% } %>
@@ -568,7 +576,7 @@
                 <li>
                   <a href="/admin/settings">
                     <span class="nav-item-icon" aria-hidden="true">⚙️</span>
-                    <span class="nav-item-label">Paramètres</span>
+                    <span class="nav-item-label"><%= t('layout.admin.settings') %></span>
                   </a>
                 </li>
               <% } %>
@@ -585,8 +593,8 @@
       <small><%- footerText %></small>
     <% } %>
     <% const policyUrl = typeof cookiePolicyUrl !== 'undefined' ? cookiePolicyUrl : '/cookies/politique'; %>
-    <nav class="footer-links" aria-label="Liens de bas de page">
-      <a href="<%= policyUrl %>">Politique de cookies</a>
+    <nav class="footer-links" aria-label="<%= t('layout.footer.aria') %>">
+      <a href="<%= policyUrl %>"><%= t('cookiePolicy.title') %></a>
     </nav>
   </footer>
 </div>

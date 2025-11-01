@@ -1,22 +1,22 @@
-<% title='Utilisateurs'; %>
-<h1>Utilisateurs (admins uniquement)</h1>
+<% title = t('admin.users.title'); %>
+<h1><%= t('admin.users.heading') %></h1>
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.users.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="ID, nom, pseudo…"
+        placeholder="<%= t('admin.users.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
     <input type="hidden" name="page" value="1" />
     <input type="hidden" name="perPage" value="<%= pagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" type="submit"><%= t('admin.users.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/users">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/users"><%= t('admin.users.search.reset') %></a>
     <% } %>
   </div>
 </form>
@@ -24,36 +24,45 @@
   <%- include('../partials/csrf_field') %>
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Nom d'utilisateur</span>
-      <input type="text" name="username" placeholder="nouvel utilisateur" required />
+      <span class="text-sm text-muted"><%= t('admin.users.fields.username') %></span>
+      <input type="text" name="username" placeholder="<%= t('admin.users.placeholders.newUsername') %>" required />
     </label>
     <label class="stack-form">
-      <span class="text-sm text-muted">Mot de passe</span>
-      <input type="password" name="password" placeholder="mot de passe" required />
+      <span class="text-sm text-muted"><%= t('admin.users.fields.password') %></span>
+      <input type="password" name="password" placeholder="<%= t('admin.users.placeholders.password') %>" required />
     </label>
     <label class="stack-form">
-      <span class="text-sm text-muted">Rôles</span>
+      <span class="text-sm text-muted"><%= t('admin.users.fields.roles') %></span>
       <% if (Array.isArray(roles) && roles.length) { %>
         <select name="roleIds" multiple size="<%= Math.min(roles.length, 5) %>">
           <% roles.forEach(role => { %>
             <option value="<%= role.id %>" <%= defaultRoleId && role.id === defaultRoleId ? 'selected' : '' %>><%= role.name %></option>
           <% }) %>
         </select>
-        <small class="text-xs text-muted">Maintenez Ctrl ou Cmd pour sélectionner plusieurs rôles.</small>
+        <small class="text-xs text-muted"><%= t('admin.users.hints.multiSelect') %></small>
       <% } else { %>
-        <span class="text-danger">Aucun rôle disponible</span>
+        <span class="text-danger"><%= t('admin.users.hints.noRoles') %></span>
       <% } %>
     </label>
-    <button class="btn success" data-icon="➕" type="submit">Ajouter</button>
+    <button class="btn success" type="submit"><%= t('admin.users.actions.add') %></button>
   </div>
+  
 </form>
 <% if (!users.length) { %>
-  <p class="card mt-md">Aucun utilisateur trouvé.</p>
+  <p class="card mt-md"><%= t('admin.users.empty') %></p>
 <% } else { %>
   <div class="table-wrap mt-md">
     <table class="data-table">
       <thead>
-        <tr><th>ID</th><th>Nom</th><th>Pseudo commentaire</th><th>Rôle</th><th>Statut</th><th>Profils IP</th><th>Actions</th></tr>
+        <tr>
+          <th><%= t('admin.users.table.id') %></th>
+          <th><%= t('admin.users.table.name') %></th>
+          <th><%= t('admin.users.table.commentAlias') %></th>
+          <th><%= t('admin.users.table.role') %></th>
+          <th><%= t('admin.users.table.status') %></th>
+          <th><%= t('admin.users.table.ipProfiles') %></th>
+          <th><%= t('admin.users.table.actions') %></th>
+        </tr>
       </thead>
       <tbody>
       <% users.forEach(u=>{ %>
@@ -73,7 +82,7 @@
                 itemClass: 'user-handle-badge-item',
                 iconClass: 'user-handle-badge-icon',
                 srOnlyClass: 'sr-only',
-                ariaLabel: "Badges de l'utilisateur",
+                ariaLabel: t('common.authorBadgesAria'),
               }) %>
             </span>
           </td>
@@ -85,11 +94,11 @@
                 name="displayName"
                 maxlength="80"
                 value="<%= u.display_name || '' %>"
-                placeholder="Nom affiché"
-                aria-label="Pseudo pour <%= u.username %>"
+                placeholder="<%= t('admin.users.fields.displayName') %>"
+                aria-label="<%= t('admin.users.aria.displayNameFor', { user: u.username }) %>"
                 class="flex-basis-220"
               />
-              <button class="btn secondary" data-icon="💾" type="submit">Enregistrer</button>
+              <button class="btn secondary" type="submit"><%= t('admin.users.actions.save') %></button>
             </form>
           </td>
           <td>
@@ -105,15 +114,15 @@
           </td>
           <td>
             <% if (u.is_banned) { %>
-              <span class="text-danger">Banni</span>
+              <span class="text-danger"><%= t('admin.users.status.banned') %></span>
               <% if (u.ban_reason) { %>
-                <br /><small>Motif&nbsp;: <%= u.ban_reason %></small>
+                <br /><small><%= t('admin.users.status.reasonPrefix') %> <%= u.ban_reason %></small>
               <% } %>
               <% if (u.banned_at) { %>
-                <br /><small>Depuis le <%= new Date(u.banned_at).toLocaleString('fr-FR') %></small>
+                <br /><small><%= t('admin.users.status.since') %> <%= fmt.dateTime(u.banned_at) %></small>
               <% } %>
             <% } else { %>
-              <span>Actif</span>
+              <span><%= t('admin.users.status.active') %></span>
             <% } %>
           </td>
           <td>
@@ -121,25 +130,25 @@
               <ul>
                 <% u.ipProfiles.forEach(function (ipProfile) { %>
                   <li>
-                    <a href="/profiles/ip/<%= encodeURIComponent(ipProfile.hash) %>">Profil #<%= ipProfile.shortHash || '?' %></a>
+                    <a href="/profiles/ip/<%= encodeURIComponent(ipProfile.hash) %>"><%= t('admin.users.ipProfiles.profileN', { n: ipProfile.shortHash || '?' }) %></a>
                     <% if (ipProfile.claimedAt) { %>
-                      <span class="text-muted">– <%= new Date(ipProfile.claimedAt).toLocaleDateString('fr-FR') %></span>
+                      <span class="text-muted">— <%= fmt.date(ipProfile.claimedAt) %></span>
                     <% } %>
                     <% if (permissions.can_manage_ip_profiles) { %>
                       <form
                         method="post"
                         action="/admin/users/<%= u.id %>/ip-profiles/<%= encodeURIComponent(ipProfile.hash) %>/unlink"
-                        onsubmit="return confirm('Retirer ce profil IP de <%= u.username %> ?');"
+                        onsubmit="return confirm(t('admin.users.ipProfiles.unlinkConfirm', { user: u.username }))"
                       >
                         <%- include('../partials/csrf_field') %>
-                        <button class="btn danger" data-icon="🗑️" type="submit">Retirer</button>
+                        <button class="btn danger" type="submit"><%= t('admin.users.actions.remove') %></button>
                       </form>
                     <% } %>
                   </li>
                 <% }) %>
               </ul>
             <% } else { %>
-              <span class="text-muted">Aucun</span>
+              <span class="text-muted"><%= t('admin.users.ipProfiles.none') %></span>
             <% } %>
             <% if (permissions.can_manage_ip_profiles) { %>
               <form
@@ -151,14 +160,14 @@
                 <input
                   type="text"
                   name="hash"
-                  placeholder="hash du profil"
+                  placeholder="<%= t('admin.users.ipProfiles.hashPlaceholder') %>"
                   class="flex-basis-200"
                   required
                 />
                 <label class="text-sm">
-                  <input type="checkbox" name="force" value="1" /> Forcer
+                  <input type="checkbox" name="force" value="1" /> <%= t('admin.users.ipProfiles.force') %>
                 </label>
-                <button class="btn secondary" data-icon="🔗" type="submit">Associer</button>
+                <button class="btn secondary" type="submit"><%= t('admin.users.ipProfiles.link') %></button>
               </form>
             <% } %>
           </td>
@@ -166,7 +175,7 @@
             <div class="flex flex-wrap gap-sm items-center">
               <form method="post" action="/admin/users/<%= u.id %>/role" class="flex gap-sm items-center">
                 <%- include('../partials/csrf_field') %>
-                <label class="sr-only" for="role-<%= u.id %>">Rôle</label>
+                <label class="sr-only" for="role-<%= u.id %>"><%= t('admin.users.fields.role') %></label>
                 <% if (Array.isArray(roles) && roles.length) { %>
                   <select id="role-<%= u.id %>" name="roleIds" multiple size="<%= Math.min(roles.length, 5) %>">
                     <% roles.forEach(role => { %>
@@ -174,21 +183,21 @@
                       <option value="<%= role.id %>" <%= hasRole ? 'selected' : '' %>><%= role.name %></option>
                     <% }) %>
                   </select>
-                  <small class="text-xs text-muted">Ctrl/Cmd + clic pour ajouter ou retirer des rôles.</small>
+                  <small class="text-xs text-muted"><%= t('admin.users.hints.multiToggle') %></small>
                 <% } else { %>
-                  <span class="text-danger">Aucun rôle</span>
+                  <span class="text-danger"><%= t('admin.users.hints.noRoleSingle') %></span>
                 <% } %>
-                <button class="btn secondary" data-icon="⭐" type="submit">Mettre à jour les rôles</button>
+                <button class="btn secondary" type="submit"><%= t('admin.users.actions.updateRoles') %></button>
               </form>
               <% if (permissions.can_suspend_users && u.is_banned) { %>
                 <form method="post" action="/admin/users/<%= u.id %>/unban" class="flex gap-sm items-center">
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn success" data-icon="✅" type="submit">Débannir</button>
+                  <button class="btn success" type="submit"><%= t('admin.users.actions.unban') %></button>
                 </form>
               <% } %>
-              <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm('Supprimer cet utilisateur ?')">
+              <form method="post" action="/admin/users/<%= u.id %>/delete" onsubmit="return confirm(t('admin.users.actions.deleteConfirm'))">
                 <%- include('../partials/csrf_field') %>
-                <button class="btn danger" data-icon="🗑️">Supprimer</button>
+                <button class="btn danger"><%= t('admin.users.actions.delete') %></button>
               </form>
             </div>
           </td>
@@ -199,3 +208,4 @@
   </div>
   <%- include('./paginationControls', { pagination }) %>
 <% } %>
+

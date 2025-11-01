@@ -1,24 +1,24 @@
-<% title = 'Modifier commentaire'; %>
+<% title = t('comment.edit.title'); %>
 <section class="card">
-  <h1>Modifier votre commentaire</h1>
+  <h1><%= t('comment.edit.heading') %></h1>
   <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/edit" class="comment-form">
     <%- include('partials/csrf_field') %>
     <input type="hidden" name="parentId" value="<%= comment.parent_snowflake_id || '' %>">
     <div class="field">
-      <label for="comment-author">Nom ou pseudo</label>
+      <label for="comment-author"><%= t('comment.edit.fields.author') %></label>
       <input id="comment-author" type="text" name="author" maxlength="80" value="<%= comment.author || '' %>">
     </div>
     <div class="field">
-      <label for="comment-body">Message</label>
+      <label for="comment-body"><%= t('comment.edit.fields.message') %></label>
       <textarea id="comment-body" name="body" rows="6" maxlength="2000" required><%= comment.body || '' %></textarea>
     </div>
     <div class="actions">
-      <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
-      <a class="btn secondary" data-icon="↩️" href="/wiki/<%= pageSlug %>#comments">Annuler</a>
+      <button class="btn success" data-icon="💾" type="submit"><%= t('comment.edit.actions.save') %></button>
+      <a class="btn secondary" data-icon="↩️" href="/wiki/<%= pageSlug %>#comments"><%= t('comment.edit.actions.cancel') %></a>
     </div>
   </form>
-  <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/delete" onsubmit="return confirm('Supprimer ce commentaire ? Cette action est définitive.');">
+  <form method="post" action="/wiki/<%= pageSlug %>/comments/<%= comment.snowflake_id %>/delete" onsubmit="return confirm('<%= t('comment.edit.deleteConfirm') %>');">
     <%- include('partials/csrf_field') %>
-    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer ce commentaire</button>
+    <button class="btn danger" data-icon="🗑️" type="submit"><%= t('comment.edit.actions.delete') %></button>
   </form>
 </section>

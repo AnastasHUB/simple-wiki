@@ -1,23 +1,23 @@
-<% title = 'Contribution'; %>
-<h1>Contribution <code><%= submission.snowflake_id %></code></h1>
+<% title = t('admin.submissionDetail.title'); %>
+<h1><%= t('admin.submissionDetail.heading') %> <code><%= submission.snowflake_id %></code></h1>
 
 <section class="card mb-xl">
-  <h2>Informations</h2>
+  <h2><%= t('admin.submissionDetail.info.title') %></h2>
   <div class="grid grid-auto">
     <div>
-      <strong>Type</strong>
-      <p><%= submission.type === 'edit' ? 'Modification' : 'Création' %></p>
+      <strong><%= t('admin.submissionDetail.info.type') %></strong>
+      <p><%= submission.type === 'edit' ? t('admin.submissions.types.edit') : t('admin.submissions.types.create') %></p>
     </div>
     <div>
-      <strong>Titre proposé</strong>
+      <strong><%= t('admin.submissionDetail.info.proposedTitle') %></strong>
       <p><strong><%= submission.title %></strong></p>
     </div>
     <div>
       <strong>IP</strong>
-      <p><%= submission.ip || '–' %></p>
+      <p><%= submission.ip || '—' %></p>
     </div>
     <div>
-      <strong>Auteur proposé</strong>
+      <strong><%= t('admin.submissionDetail.info.proposedAuthor') %></strong>
       <% const submissionAuthorHandle = submission.author_name || submission.submitted_by; %>
       <% const submissionAuthorRole = submission.author_name ? submission.authorNameRole : submission.submittedByRole; %>
       <% const submissionAuthorBadges = Array.isArray(submissionAuthorRole?.badges) ? submissionAuthorRole.badges : []; %>
@@ -37,42 +37,42 @@
               itemClass: 'user-handle-badge-item',
               iconClass: 'user-handle-badge-icon',
               srOnlyClass: 'sr-only',
-              ariaLabel: "Badges de l'auteur",
+              ariaLabel: t('common.authorBadgesAria'),
             }) %>
           </span>
         </p>
       <% } else { %>
-        <p>–</p>
+        <p>—</p>
       <% } %>
     </div>
     <div>
-      <strong>Proposé le</strong>
-      <p><%= new Date(submission.created_at).toLocaleString('fr-FR') %></p>
+      <strong><%= t('admin.submissionDetail.info.submittedAt') %></strong>
+      <p><%= fmt.dateTime(submission.created_at) %></p>
     </div>
     <div>
-      <strong>Statut</strong>
+      <strong><%= t('admin.submissionDetail.info.status') %></strong>
       <p>
         <% if (submission.status === 'pending') { %>
-          <span class="status status-pill pending">En attente</span>
+          <span class="status status-pill pending"><%= t('admin.submissions.status.pending') %></span>
         <% } else if (submission.status === 'approved') { %>
-          <span class="status status-pill approved">Approuvée</span>
+          <span class="status status-pill approved"><%= t('admin.submissions.status.approved') %></span>
         <% } else { %>
-          <span class="status status-pill rejected">Rejetée</span>
+          <span class="status status-pill rejected"><%= t('admin.submissions.status.rejected') %></span>
         <% } %>
       </p>
     </div>
     <% if (submission.reviewed_at) { %>
       <div>
-        <strong>Décision</strong>
+        <strong><%= t('admin.submissionDetail.info.decision') %></strong>
         <p>
-          <%= new Date(submission.reviewed_at).toLocaleString('fr-FR') %>
+          <%= fmt.dateTime(submission.reviewed_at) %>
           <% if (submission.reviewer_username) { %>
           <% const reviewerColor = submission.reviewerRole && submission.reviewerRole.color ? submission.reviewerRole.color : null; %>
           <% const reviewerClasses = ['user-handle', 'submission-reviewer']; %>
           <% const reviewerStyle = reviewerColor && reviewerColor.hasColor ? reviewerColor.style : ''; %>
           <% if (reviewerColor && reviewerColor.hasColor) { reviewerClasses.push('role-colored-text'); reviewerClasses.push(reviewerColor.className); } %>
           <% const reviewerBadges = Array.isArray(submission?.reviewerRole?.badges) ? submission.reviewerRole.badges : []; %>
-            · par
+            — <%= t('admin.submissionDetail.info.by') %>
             <span class="user-handle-decorated">
               <strong class="<%= reviewerClasses.join(' ') %>" style="<%= reviewerStyle %>"><%= submission.reviewer_username %></strong>
               <%- include('../partials/userBadges', {
@@ -81,7 +81,7 @@
                 itemClass: 'user-handle-badge-item',
                 iconClass: 'user-handle-badge-icon',
                 srOnlyClass: 'sr-only',
-                ariaLabel: 'Badges du modérateur',
+                ariaLabel: t('admin.submissionDetail.aria.moderatorBadges'),
               }) %>
             </span>
           <% } %>
@@ -90,29 +90,29 @@
     <% } %>
     <% if (submission.review_note) { %>
       <div>
-        <strong>Note</strong>
+        <strong><%= t('admin.submissionDetail.info.note') %></strong>
         <p><%= submission.review_note %></p>
       </div>
     <% } %>
     <div>
-      <strong>Tags proposés</strong>
+      <strong><%= t('admin.submissionDetail.info.proposedTags') %></strong>
       <p>
         <% if (proposedTags.length) { %>
           <%= proposedTags.join(', ') %>
         <% } else { %>
-          –
+          —
         <% } %>
       </p>
     </div>
     <% if (currentTags && currentTags.length) { %>
       <div>
-        <strong>Tags actuels</strong>
+        <strong><%= t('admin.submissionDetail.info.currentTags') %></strong>
         <p><%= currentTags.join(', ') %></p>
       </div>
     <% } %>
     <% if (submission.current_slug) { %>
       <div>
-        <strong>Page actuelle</strong>
+        <strong><%= t('admin.submissionDetail.info.currentPage') %></strong>
         <p><a href="/wiki/<%= submission.current_slug %>"><code><%= submission.current_slug %></code></a></p>
       </div>
     <% } %>
@@ -121,32 +121,32 @@
 
 <% if (submission.status === 'pending') { %>
   <section class="card mb-xl">
-    <h2>Prendre une décision</h2>
+    <h2><%= t('admin.submissionDetail.decide.title') %></h2>
     <div class="grid grid-auto">
       <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/approve" class="flex flex-col gap-sm">
         <%- include('../partials/csrf_field') %>
-        <label for="approve-note">Note (optionnelle)</label>
-        <textarea id="approve-note" name="note" rows="3" placeholder="Commentaire interne"></textarea>
-        <button class="btn success" data-icon="✅" type="submit">Approuver la contribution</button>
+        <label for="approve-note"><%= t('admin.submissionDetail.decide.noteOptional') %></label>
+        <textarea id="approve-note" name="note" rows="3" placeholder="<%= t('admin.submissionDetail.decide.notePlaceholder') %>"></textarea>
+        <button class="btn success" type="submit"><%= t('admin.submissionDetail.decide.approve') %></button>
       </form>
-      <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/reject" class="flex flex-col gap-sm" onsubmit="return confirm('Rejeter cette contribution ?');">
+      <form method="post" action="/admin/submissions/<%= submission.snowflake_id %>/reject" class="flex flex-col gap-sm" onsubmit="return confirm(t('admin.submissionDetail.decide.rejectConfirm'))">
         <%- include('../partials/csrf_field') %>
-        <label for="reject-note">Motif (optionnel)</label>
-        <textarea id="reject-note" name="note" rows="3" placeholder="Motif du rejet"></textarea>
-        <button class="btn danger" data-icon="✖️" type="submit">Rejeter la contribution</button>
+        <label for="reject-note"><%= t('admin.submissionDetail.decide.reasonOptional') %></label>
+        <textarea id="reject-note" name="note" rows="3" placeholder="<%= t('admin.submissionDetail.decide.reasonPlaceholder') %>"></textarea>
+        <button class="btn danger" type="submit"><%= t('admin.submissionDetail.decide.reject') %></button>
       </form>
     </div>
   </section>
 <% } %>
 
 <section class="card mb-xl">
-  <h2>Contenu proposé</h2>
+  <h2><%= t('admin.submissionDetail.content.proposedTitle') %></h2>
   <div class="prose"><div><%- proposedHtml %></div></div>
 </section>
 
 <% if (currentHtml) { %>
   <section class="card">
-    <h2>Contenu actuel</h2>
+    <h2><%= t('admin.submissionDetail.content.currentTitle') %></h2>
     <div class="prose"><div><%- currentHtml %></div></div>
   </section>
 <% } %>

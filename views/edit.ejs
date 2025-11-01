@@ -1,4 +1,4 @@
-<% title = page ? 'Éditer' : 'Nouvelle page'; %>
+<% title = page ? t('edit.title.edit') : t('edit.title.new'); %>
 <h1><%= title %></h1>
 <% const isSubmission = typeof submissionMode !== 'undefined' ? submissionMode : false; %>
 <% const rawFormState = formState && typeof formState === 'object' ? formState : {}; %>
@@ -20,9 +20,7 @@
 <% const errorMessages = Array.isArray(validationErrors) ? validationErrors : []; %>
 <% if (isSubmission) { %>
   <div class="card card-highlight mb-md">
-    <p class="mt-0 mb-0">
-      Votre proposition sera enregistrée avec votre adresse IP et un administrateur devra la valider avant publication.
-    </p>
+    <p class="mt-0 mb-0"><%= t('edit.submission.notice') %></p>
   </div>
 <% } %>
 <% if (errorMessages.length) { %>
@@ -36,9 +34,9 @@
 <% } %>
 <form method="post" data-page-editor-form data-can-schedule="<%= canSchedulePublication ? 'true' : 'false' %>">
   <%- include('partials/csrf_field') %>
-  <label>Titre</label>
+  <label><%= t('edit.fields.title') %></label>
   <input type="text" name="title" value="<%= titleFieldValue %>" required />
-  <label>Contenu (liens [[internes]])</label>
+  <label><%= t('edit.fields.content') %></label>
   <textarea name="content" id="contentField" rows="18" required hidden><%- contentFieldValue %></textarea>
   <div class="editor-mode-switch" data-editor-mode-switch>
     <button
@@ -47,7 +45,7 @@
       data-editor-mode="markdown"
       aria-pressed="true"
     >
-      Markdown avancé
+      <%= t('edit.modes.markdown') %>
     </button>
     <button
       type="button"
@@ -55,7 +53,7 @@
       data-editor-mode="visual"
       aria-pressed="false"
     >
-      Mode visuel (drag &amp; drop)
+      <%= t('edit.modes.visual') %>
     </button>
   </div>
   <div class="editor-shell" data-editor-shell>
@@ -67,31 +65,31 @@
     <div
       class="markdown-toolbar"
       role="toolbar"
-      aria-label="Outils de mise en forme"
+      aria-label="<%= t('edit.toolbar.aria') %>"
     >
-      <button type="button" class="toolbar-btn" data-md-action="heading-2" aria-label="Titre niveau 2" title="Titre niveau 2">H2</button>
-      <button type="button" class="toolbar-btn" data-md-action="heading-3" aria-label="Titre niveau 3" title="Titre niveau 3">H3</button>
-      <button type="button" class="toolbar-btn" data-md-action="bold" aria-label="Gras" title="Gras"><span aria-hidden="true">𝐆</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="italic" aria-label="Italique" title="Italique"><span aria-hidden="true"><em>I</em></span></button>
-      <button type="button" class="toolbar-btn" data-md-action="highlight" aria-label="Surligner" title="Surligner"><span aria-hidden="true">🖍️</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="strike" aria-label="Barré" title="Barré"><span aria-hidden="true">S̶</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="code" aria-label="Code inline" title="Code inline"><span aria-hidden="true">`</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="quote" aria-label="Citation" title="Citation"><span aria-hidden="true">❝</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="link" aria-label="Lien" title="Lien"><span aria-hidden="true">🔗</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="image" aria-label="Image" title="Image"><span aria-hidden="true">🖼️</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="code-block" aria-label="Bloc de code" title="Bloc de code"><span aria-hidden="true">&lt;/&gt;</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="spoiler" aria-label="Bloc spoiler" title="Bloc spoiler"><span aria-hidden="true">🕵️</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="details" aria-label="Bloc détaillé" title="Bloc détaillé"><span aria-hidden="true">📂</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="callout-info" aria-label="Bloc informatif" title="Bloc informatif"><span aria-hidden="true">ℹ️</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="callout-warning" aria-label="Bloc d'avertissement" title="Bloc d'avertissement"><span aria-hidden="true">⚠️</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="callout-success" aria-label="Bloc de réussite" title="Bloc de réussite"><span aria-hidden="true">✅</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="katex" aria-label="Formule mathématique" title="Formule mathématique"><span aria-hidden="true">∑</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="mermaid" aria-label="Diagramme Mermaid" title="Diagramme Mermaid"><span aria-hidden="true">🗺️</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="unordered-list" aria-label="Liste à puces" title="Liste à puces"><span aria-hidden="true">•</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="ordered-list" aria-label="Liste numérotée" title="Liste numérotée"><span aria-hidden="true">1.</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="task-list" aria-label="Liste de tâches" title="Liste de tâches"><span aria-hidden="true">☐</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="horizontal-rule" aria-label="Règle horizontale" title="Règle horizontale"><span aria-hidden="true">―</span></button>
-      <button type="button" class="toolbar-btn" data-md-action="table" aria-label="Tableau" title="Tableau"><span aria-hidden="true">▦</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="heading-2" aria-label="<%= t('edit.toolbar.h2') %>" title="<%= t('edit.toolbar.h2') %>">H2</button>
+      <button type="button" class="toolbar-btn" data-md-action="heading-3" aria-label="<%= t('edit.toolbar.h3') %>" title="<%= t('edit.toolbar.h3') %>">H3</button>
+      <button type="button" class="toolbar-btn" data-md-action="bold" aria-label="<%= t('edit.toolbar.bold') %>" title="<%= t('edit.toolbar.bold') %>"><span aria-hidden="true">𝐆</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="italic" aria-label="<%= t('edit.toolbar.italic') %>" title="<%= t('edit.toolbar.italic') %>"><span aria-hidden="true"><em>I</em></span></button>
+      <button type="button" class="toolbar-btn" data-md-action="highlight" aria-label="<%= t('edit.toolbar.highlight') %>" title="<%= t('edit.toolbar.highlight') %>"><span aria-hidden="true">🖍️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="strike" aria-label="<%= t('edit.toolbar.strike') %>" title="<%= t('edit.toolbar.strike') %>"><span aria-hidden="true">S̶</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="code" aria-label="<%= t('edit.toolbar.code') %>" title="<%= t('edit.toolbar.code') %>"><span aria-hidden="true">`</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="quote" aria-label="<%= t('edit.toolbar.quote') %>" title="<%= t('edit.toolbar.quote') %>"><span aria-hidden="true">❝</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="link" aria-label="<%= t('edit.toolbar.link') %>" title="<%= t('edit.toolbar.link') %>"><span aria-hidden="true">🔗</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="image" aria-label="<%= t('edit.toolbar.image') %>" title="<%= t('edit.toolbar.image') %>"><span aria-hidden="true">🖼️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="code-block" aria-label="<%= t('edit.toolbar.codeBlock') %>" title="<%= t('edit.toolbar.codeBlock') %>"><span aria-hidden="true">&lt;/&gt;</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="spoiler" aria-label="<%= t('edit.toolbar.spoiler') %>" title="<%= t('edit.toolbar.spoiler') %>"><span aria-hidden="true">🕵️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="details" aria-label="<%= t('edit.toolbar.details') %>" title="<%= t('edit.toolbar.details') %>"><span aria-hidden="true">📂</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="callout-info" aria-label="<%= t('edit.toolbar.calloutInfo') %>" title="<%= t('edit.toolbar.calloutInfo') %>"><span aria-hidden="true">ℹ️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="callout-warning" aria-label="<%= t('edit.toolbar.calloutWarning') %>" title="<%= t('edit.toolbar.calloutWarning') %>"><span aria-hidden="true">⚠️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="callout-success" aria-label="<%= t('edit.toolbar.calloutSuccess') %>" title="<%= t('edit.toolbar.calloutSuccess') %>"><span aria-hidden="true">✅</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="katex" aria-label="<%= t('edit.toolbar.math') %>" title="<%= t('edit.toolbar.math') %>"><span aria-hidden="true">∑</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="mermaid" aria-label="<%= t('edit.toolbar.mermaid') %>" title="<%= t('edit.toolbar.mermaid') %>"><span aria-hidden="true">🗺️</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="unordered-list" aria-label="<%= t('edit.toolbar.ul') %>" title="<%= t('edit.toolbar.ul') %>"><span aria-hidden="true">•</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="ordered-list" aria-label="<%= t('edit.toolbar.ol') %>" title="<%= t('edit.toolbar.ol') %>"><span aria-hidden="true">1.</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="task-list" aria-label="<%= t('edit.toolbar.task') %>" title="<%= t('edit.toolbar.task') %>"><span aria-hidden="true">☐</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="horizontal-rule" aria-label="<%= t('edit.toolbar.hr') %>" title="<%= t('edit.toolbar.hr') %>"><span aria-hidden="true">―</span></button>
+      <button type="button" class="toolbar-btn" data-md-action="table" aria-label="<%= t('edit.toolbar.table') %>" title="<%= t('edit.toolbar.table') %>"><span aria-hidden="true">▦</span></button>
       <button
         type="button"
         class="toolbar-btn emoji-trigger"
@@ -107,17 +105,17 @@
           class="markdown-input"
           rows="18"
           data-editor-input
-          aria-label="Éditeur Markdown"
+          aria-label="<%= t('edit.aria.markdownEditor') %>"
         ></textarea>
         <div
           class="link-suggestions"
           data-link-suggestions
           hidden
-          aria-label="Suggestions de liens internes"
+          aria-label="<%= t('edit.aria.linkSuggestions') %>"
         ></div>
       </div>
       <div class="markdown-preview-pane">
-        <div class="markdown-preview-heading">Prévisualisation</div>
+        <div class="markdown-preview-heading"><%= t('edit.preview') %></div>
         <div class="markdown-preview" data-editor-preview aria-live="polite"></div>
       </div>
     </div>
@@ -125,57 +123,51 @@
     </div>
     <div class="visual-editor-shell" data-visual-editor hidden>
       <div class="visual-editor-header">
-        <p>
-          Composez votre article bloc par bloc, puis réorganisez-les librement en les
-          faisant glisser. Les blocs sont convertis automatiquement en Markdown
-          compatible avec l’aperçu et la publication.
-        </p>
+        <p><%= t('edit.visual.intro') %></p>
       </div>
       <div class="visual-editor-body" data-block-editor>
         <div class="visual-blocks" data-block-list aria-live="polite"></div>
         <div class="visual-empty" data-block-empty hidden>
-          <p>Aucun bloc pour le moment. Ajoutez un premier bloc à l’aide des boutons ci-dessous.</p>
+          <p><%= t('edit.visual.empty') %></p>
         </div>
       </div>
       <div class="visual-editor-footer">
-        <div class="block-add-menu" role="toolbar" aria-label="Ajouter un bloc">
-          <button type="button" class="block-add-btn" data-add-block="paragraph">Paragraphe</button>
-          <button type="button" class="block-add-btn" data-add-block="heading-1">Titre (niveau 1)</button>
-          <button type="button" class="block-add-btn" data-add-block="heading-2">Titre (niveau 2)</button>
-          <button type="button" class="block-add-btn" data-add-block="heading-3">Sous-titre (niveau 3)</button>
-          <button type="button" class="block-add-btn" data-add-block="heading-4">Sous-titre (niveau 4)</button>
-          <button type="button" class="block-add-btn" data-add-block="quote">Citation</button>
-          <button type="button" class="block-add-btn" data-add-block="list">Liste</button>
-          <button type="button" class="block-add-btn" data-add-block="task-list">Liste de tâches</button>
-          <button type="button" class="block-add-btn" data-add-block="image">Image</button>
-          <button type="button" class="block-add-btn" data-add-block="code">Bloc de code</button>
-          <button type="button" class="block-add-btn" data-add-block="math">Formule (KaTeX)</button>
-          <button type="button" class="block-add-btn" data-add-block="mermaid">Diagramme Mermaid</button>
-          <button type="button" class="block-add-btn" data-add-block="separator">Séparateur</button>
-          <button type="button" class="block-add-btn" data-add-block="callout-info">Bloc informatif</button>
-          <button type="button" class="block-add-btn" data-add-block="callout-warning">Bloc d'avertissement</button>
-          <button type="button" class="block-add-btn" data-add-block="callout-success">Bloc de réussite</button>
-          <button type="button" class="block-add-btn" data-add-block="details">Bloc détaillé</button>
-          <button type="button" class="block-add-btn" data-add-block="spoiler">Bloc spoiler</button>
-          <button type="button" class="block-add-btn" data-add-block="table">Tableau</button>
+        <div class="block-add-menu" role="toolbar" aria-label="<%= t('edit.visual.add.aria') %>">
+          <button type="button" class="block-add-btn" data-add-block="paragraph"><%= t('edit.visual.add.paragraph') %></button>
+          <button type="button" class="block-add-btn" data-add-block="heading-1"><%= t('edit.visual.add.h1') %></button>
+          <button type="button" class="block-add-btn" data-add-block="heading-2"><%= t('edit.visual.add.h2') %></button>
+          <button type="button" class="block-add-btn" data-add-block="heading-3"><%= t('edit.visual.add.h3') %></button>
+          <button type="button" class="block-add-btn" data-add-block="heading-4"><%= t('edit.visual.add.h4') %></button>
+          <button type="button" class="block-add-btn" data-add-block="quote"><%= t('edit.visual.add.quote') %></button>
+          <button type="button" class="block-add-btn" data-add-block="list"><%= t('edit.visual.add.list') %></button>
+          <button type="button" class="block-add-btn" data-add-block="task-list"><%= t('edit.visual.add.task') %></button>
+          <button type="button" class="block-add-btn" data-add-block="image"><%= t('edit.visual.add.image') %></button>
+          <button type="button" class="block-add-btn" data-add-block="code"><%= t('edit.visual.add.code') %></button>
+          <button type="button" class="block-add-btn" data-add-block="math"><%= t('edit.visual.add.math') %></button>
+          <button type="button" class="block-add-btn" data-add-block="mermaid"><%= t('edit.visual.add.mermaid') %></button>
+          <button type="button" class="block-add-btn" data-add-block="separator"><%= t('edit.visual.add.separator') %></button>
+          <button type="button" class="block-add-btn" data-add-block="callout-info"><%= t('edit.visual.add.calloutInfo') %></button>
+          <button type="button" class="block-add-btn" data-add-block="callout-warning"><%= t('edit.visual.add.calloutWarning') %></button>
+          <button type="button" class="block-add-btn" data-add-block="callout-success"><%= t('edit.visual.add.calloutSuccess') %></button>
+          <button type="button" class="block-add-btn" data-add-block="details"><%= t('edit.visual.add.details') %></button>
+          <button type="button" class="block-add-btn" data-add-block="spoiler"><%= t('edit.visual.add.spoiler') %></button>
+          <button type="button" class="block-add-btn" data-add-block="table"><%= t('edit.visual.add.table') %></button>
         </div>
       </div>
     </div>
   </div>
-  <label for="author-field">Auteur affiché</label>
+  <label for="author-field"><%= t('edit.fields.author.label') %></label>
   <input
     id="author-field"
     type="text"
     name="author"
     maxlength="80"
     value="<%= authorFieldValue %>"
-    placeholder="Votre nom ou pseudo"
+    placeholder="<%= t('edit.fields.author.placeholder') %>"
   />
-  <p class="editor-hint">
-    Ce nom sera affiché comme auteur de l’article. Si vous n’êtes pas connecté, choisissez le pseudo de votre choix.
-  </p>
+  <p class="editor-hint"><%= t('edit.fields.author.hint') %></p>
   <% if (showStatusControls) { %>
-    <label for="status-field">Statut de publication</label>
+    <label for="status-field"><%= t('edit.status.label') %></label>
     <select id="status-field" name="status" data-status-field>
       <% statusOptionsList.forEach((option) => { %>
         <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
@@ -183,15 +175,13 @@
         </option>
       <% }) %>
     </select>
-    <p class="editor-hint">
-      Choisissez «&nbsp;Brouillon&nbsp;» pour enregistrer sans publier immédiatement.
-    </p>
+    <p class="editor-hint"><%= t('edit.status.hint') %></p>
     <div
       class="schedule-controls"
       data-schedule-controls
       <%= scheduleSelected ? '' : 'hidden' %>
     >
-      <label for="publish-at-field">Publication programmée</label>
+      <label for="publish-at-field"><%= t('edit.schedule.label') %></label>
       <input
         id="publish-at-field"
         type="datetime-local"
@@ -200,14 +190,12 @@
         data-publish-at-field
         <%= canSchedulePublication ? '' : 'disabled' %>
       />
-      <p class="editor-hint">
-        Sélectionnez la date et l’heure auxquelles l’article sera automatiquement publié.
-      </p>
+      <p class="editor-hint"><%= t('edit.schedule.help') %></p>
       <p class="form-error" data-schedule-error hidden></p>
     </div>
   <% } %>
   <% if (roleVisibility && roleVisibility.enabled) { %>
-    <label for="page-visible-roles">Rôles autorisés à consulter l’article</label>
+    <label for="page-visible-roles"><%= t('edit.visibility.rolesLabel') %></label>
     <select id="page-visible-roles" name="visible_roles" multiple size="6">
       <% roleVisibility.options.forEach(function(option) { %>
         <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
@@ -216,18 +204,18 @@
       <% }); %>
     </select>
     <% if (roleVisibility.hasSelection) { %>
-      <p class="editor-hint">Accessible uniquement par&nbsp;: <strong><%= roleVisibility.selectedLabels.join(', ') %></strong>.</p>
+      <p class="editor-hint"><%= t('edit.visibility.onlyBy') %> <strong><%= roleVisibility.selectedLabels.join(', ') %></strong>.</p>
     <% } else { %>
-      <p class="editor-hint">Laissez vide pour rendre l’article public pour tous les rôles.</p>
+      <p class="editor-hint"><%= t('edit.visibility.emptyHint') %></p>
     <% } %>
   <% } %>
-  <label>Tags (séparés par des virgules)</label>
+  <label><%= t('edit.fields.tags') %></label>
   <input type="text" name="tags" value="<%= tagsFieldValue %>" />
   <div class="actions">
     <% if (isSubmission) { %>
-      <button class="btn success" data-icon="📨" type="submit">Envoyer ma proposition</button>
+      <button class="btn success" data-icon="📨" type="submit"><%= t('edit.actions.submitProposal') %></button>
     <% } else { %>
-      <button class="btn success" data-icon="💾" type="submit">Enregistrer</button>
+      <button class="btn success" data-icon="💾" type="submit"><%= t('edit.actions.save') %></button>
     <% } %>
   </div>
 </form>
@@ -282,26 +270,24 @@
         }
         if (!canSchedule) {
           event.preventDefault();
-          showScheduleError(
-            "Vous n'avez pas la permission de programmer la publication de cette page.",
-          );
+          showScheduleError("<%= t('edit.schedule.noPermission') %>");
           return;
         }
         const rawValue = publishInput ? publishInput.value.trim() : "";
         if (!rawValue) {
           event.preventDefault();
-          showScheduleError("Veuillez indiquer la date de publication planifiée.");
+          showScheduleError("<%= t('edit.schedule.required') %>");
           return;
         }
         const parsed = new Date(rawValue);
         if (Number.isNaN(parsed.getTime())) {
           event.preventDefault();
-          showScheduleError("La date de publication est invalide.");
+          showScheduleError("<%= t('edit.schedule.invalid') %>");
           return;
         }
         if (parsed.getTime() <= Date.now()) {
           event.preventDefault();
-          showScheduleError("La date de publication doit être ultérieure.");
+          showScheduleError("<%= t('edit.schedule.future') %>");
           return;
         }
         clearScheduleError();
@@ -309,4 +295,3 @@
     });
   </script>
 <% } %>
-

@@ -1,14 +1,15 @@
-<h1>Modération des commentaires</h1>
+<% title = t('admin.comments.title'); %>
+<h1><%= t('admin.comments.title') %></h1>
 
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.comments.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="ID, IP, auteur, page…"
+        placeholder="<%= t('admin.comments.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
@@ -16,46 +17,46 @@
     <input type="hidden" name="recentPage" value="1" />
     <input type="hidden" name="pendingPerPage" value="<%= pendingPagination.perPage %>" />
     <input type="hidden" name="recentPerPage" value="<%= recentPagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" data-icon="🔍" type="submit"><%= t('admin.comments.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/comments">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/comments"><%= t('admin.comments.search.reset') %></a>
     <% } %>
   </div>
 </form>
 
 <section class="card mb-xl">
-  <h2 class="mt-0">En attente de validation (<%= pendingPagination.totalItems %>)</h2>
+  <h2 class="mt-0"><%= t('admin.comments.pending.title') %> (<%= pendingPagination.totalItems %>)</h2>
   <% if (!pending.length) { %>
-    <p>Aucun commentaire en attente.</p>
+    <p><%= t('admin.comments.pending.empty') %></p>
   <% } else { %>
     <ul class="admin-comment-list">
       <% pending.forEach(c => { const commentIdentifier = c.snowflake_id ? c.snowflake_id : `legacy-${c.id}`; %>
         <li>
           <header>
             <div>
-              <strong><%= c.author || 'Anonyme' %></strong>
-              <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %></span>
+              <strong><%= c.author || t('admin.common.anonymous') %></strong>
+              <span>· <%= fmt.dateTime(c.created_at) %></span>
             </div>
-            <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener">Voir la page</a>
+            <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener"><%= t('admin.comments.viewPage') %></a>
           </header>
           <p><%= c.body %></p>
-          <p class="meta">ID : <code><%= commentIdentifier %></code></p>
-          <p class="meta">IP: <code><%= c.ip || 'n/a' %></code></p>
+          <p class="meta"><%= t('admin.common.id') %> <code><%= commentIdentifier %></code></p>
+          <p class="meta"><%= t('admin.common.ip') %> <code><%= c.ip || 'n/a' %></code></p>
           <% if (c.updated_at) { %>
-            <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
+            <p class="meta"><%= t('admin.common.lastUpdated') %> <%= fmt.dateTime(c.updated_at) %></p>
           <% } %>
           <div class="actions">
             <form method="post" action="/admin/comments/<%= commentIdentifier %>/approve">
               <%- include('../partials/csrf_field') %>
-              <button class="btn success" data-icon="✅" type="submit">Approuver</button>
+              <button class="btn success" data-icon="✅" type="submit"><%= t('admin.comments.actions.approve') %></button>
             </form>
             <form method="post" action="/admin/comments/<%= commentIdentifier %>/reject">
               <%- include('../partials/csrf_field') %>
-              <button class="btn" data-icon="🚫" type="submit">Rejeter</button>
+              <button class="btn" data-icon="🚫" type="submit"><%= t('admin.comments.actions.reject') %></button>
             </form>
-            <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+            <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm(<%= JSON.stringify(t('admin.comments.actions.deleteConfirm')) %>);">
               <%- include('../partials/csrf_field') %>
-              <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
+              <button class="btn unlike" data-icon="🗑️" type="submit"><%= t('admin.comments.actions.delete') %></button>
             </form>
           </div>
         </li>
@@ -66,30 +67,30 @@
 </section>
 
 <section class="card">
-  <h2 class="mt-0">Historique récent</h2>
+  <h2 class="mt-0"><%= t('admin.comments.recent.title') %></h2>
   <% if (!recent.length) { %>
-    <p>Aucun commentaire modéré pour le moment.</p>
+    <p><%= t('admin.comments.recent.empty') %></p>
   <% } else { %>
     <ul class="admin-comment-list compact">
       <% recent.forEach(c => { const commentIdentifier = c.snowflake_id ? c.snowflake_id : `legacy-${c.id}`; %>
         <li>
           <header>
             <div>
-              <strong><%= c.author || 'Anonyme' %></strong>
-              <span>· <%= new Date(c.created_at).toLocaleString('fr-FR') %> · <span class="status <%= c.status %>"><%= c.status %></span></span>
+              <strong><%= c.author || t('admin.common.anonymous') %></strong>
+              <span>· <%= fmt.dateTime(c.created_at) %> · <span class="status <%= c.status %>"><%= c.status %></span></span>
             </div>
-            <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener">Voir la page</a>
+            <a class="tag" href="/wiki/<%= c.page_slug %>" target="_blank" rel="noopener"><%= t('admin.comments.viewPage') %></a>
           </header>
           <p><%= c.body %></p>
-          <p class="meta">ID : <code><%= commentIdentifier %></code></p>
-          <p class="meta">IP: <code><%= c.ip || 'n/a' %></code></p>
+          <p class="meta"><%= t('admin.common.id') %> <code><%= commentIdentifier %></code></p>
+          <p class="meta"><%= t('admin.common.ip') %> <code><%= c.ip || 'n/a' %></code></p>
           <% if (c.updated_at) { %>
-            <p class="meta">Dernière modification : <%= new Date(c.updated_at).toLocaleString('fr-FR') %></p>
+            <p class="meta"><%= t('admin.common.lastUpdated') %> <%= fmt.dateTime(c.updated_at) %></p>
           <% } %>
           <div class="actions">
-            <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm('Supprimer ce commentaire ?');">
+            <form method="post" action="/admin/comments/<%= commentIdentifier %>/delete" onsubmit="return confirm(<%= JSON.stringify(t('admin.comments.actions.deleteConfirm')) %>);">
               <%- include('../partials/csrf_field') %>
-              <button class="btn unlike" data-icon="🗑️" type="submit">Supprimer</button>
+              <button class="btn unlike" data-icon="🗑️" type="submit"><%= t('admin.comments.actions.delete') %></button>
             </form>
           </div>
         </li>

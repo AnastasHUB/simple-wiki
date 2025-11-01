@@ -1,5 +1,5 @@
 <%
-  title = (profile.displayName || profile.username) + ' · Profil';
+  title = (profile.displayName || profile.username) + ' · ' + t('member.titleSuffix');
   const bannerStyle = profile.bannerUrl
     ? `background-image: url('${encodeURI(profile.bannerUrl).replace(/'/g, '%27').replace(/\(/g, '%28').replace(/\)/g, '%29')}')`
     : '';
@@ -17,11 +17,11 @@
     <div class="profile-public__header">
       <div class="profile-public__avatar">
         <% if (profile.avatarUrl) { %>
-          <img src="<%= profile.avatarUrl %>" alt="Avatar de <%= profile.displayName || profile.username %>" loading="lazy" />
+          <img src="<%= profile.avatarUrl %>" alt="<%= t('member.avatarAlt', { user: (profile.displayName || profile.username) }) %>" loading="lazy" />
         <% } else { %>
           <span aria-hidden="true"><%= avatarInitial %></span>
         <% } %>
-        <span class="sr-only">Avatar de <%= profile.displayName || profile.username %></span>
+        <span class="sr-only"><%= t('member.avatarAlt', { user: (profile.displayName || profile.username) }) %></span>
       </div>
       <div class="profile-public__identity">
         <% const heroName = profile.displayName || profile.username; %>
@@ -43,15 +43,15 @@
               itemClass: 'user-handle-badge-item',
               iconClass: 'user-handle-badge-icon',
               srOnlyClass: 'sr-only',
-              ariaLabel: 'Badges du profil',
+              ariaLabel: t('member.badges.aria'),
             }) %>
           </span>
         </p>
         <% const hasRoles = Array.isArray(profile.roles) && profile.roles.length; %>
         <% if (hasRoles) { %>
-          <div class="profile-public__roles" aria-label="Rôles">
+          <div class="profile-public__roles" aria-label="<%= t('member.roles.aria') %>">
             <span class="profile-public__roles-label">
-              <%= profile.roles.length > 1 ? 'Rôles :' : 'Rôle :' %>
+              <%= profile.roles.length > 1 ? t('member.roles.many') : t('member.roles.one') %>
             </span>
             <ul class="profile-public__roles-list">
               <% profile.roles.forEach(function (role) { %>
@@ -92,12 +92,13 @@
 
     <% if (profile.isBanned) { %>
       <div class="alert alert-error mt-sm">
-        <p><strong>Ce compte est suspendu.</strong></p>
+        <p><strong><%= t('member.banned.title') %></strong></p>
         <% if (profile.banReason) { %>
-          <p>Motif&nbsp;: <%= profile.banReason %></p>
+          <p><%= t('member.banned.reason', { reason: profile.banReason }) %></p>
         <% } %>
         <% if (profile.bannedAt) { %>
-          <p>Depuis le <%= new Date(profile.bannedAt).toLocaleString('fr-FR') %>.</p>
+          <% const locale = (lang === 'en') ? 'en-US' : 'fr-FR'; %>
+          <p><%= t('member.banned.since', { date: new Date(profile.bannedAt).toLocaleString(locale) }) %></p>
         <% } %>
       </div>
     <% } %>
@@ -106,65 +107,62 @@
       <% if (profile.bio) { %>
         <p class="profile-public__bio"><%= profile.bio %></p>
       <% } else { %>
-        <p class="profile-public__bio profile-public__bio--empty text-muted">
-          Aucun texte de présentation pour le moment.
-        </p>
+        <p class="profile-public__bio profile-public__bio--empty text-muted"><%= t('member.bio.empty') %></p>
       <% } %>
     <% } else { %>
-      <p class="profile-public__bio profile-public__bio--empty text-muted">
-        Cet utilisateur préfère garder sa biographie privée.
-      </p>
+      <p class="profile-public__bio profile-public__bio--empty text-muted"><%= t('member.bio.private') %></p>
     <% } %>
 
     <% if (profile.showStats) { %>
       <div class="profile-public__stats">
         <div>
           <span class="profile-public__stat-value"><%= profile.totalPages %></span>
-          <span class="profile-public__stat-label">Pages publiées</span>
+          <span class="profile-public__stat-label"><%= t('member.stats.published') %></span>
         </div>
       </div>
     <% } %>
 
     <% if (profile.showRecentPages) { %>
       <div class="profile-public__recent">
-        <h2>Publications récentes</h2>
+        <h2><%= t('member.recent.title') %></h2>
         <% if (profile.recentPages && profile.recentPages.length) { %>
           <ul>
             <% profile.recentPages.forEach(function(page) { %>
               <li>
                 <a href="/wiki/<%= page.slug_id %>"><%= page.title %></a>
                 <span class="profile-public__recent-date">
-                  <%= page.created_at ? new Date(page.created_at).toLocaleDateString('fr-FR') : '' %>
+                  <% const locale = (lang === 'en') ? 'en-US' : 'fr-FR'; %>
+                  <%= page.created_at ? new Date(page.created_at).toLocaleDateString(locale) : '' %>
                 </span>
               </li>
             <% }) %>
           </ul>
         <% } else { %>
-          <p class="text-muted">Aucune page publiée à afficher.</p>
+          <p class="text-muted"><%= t('member.recent.empty') %></p>
         <% } %>
       </div>
     <% } %>
 
     <% if (profile.showIpProfiles) { %>
       <div class="profile-public__recent">
-        <h2>Profils IP associés</h2>
+        <h2><%= t('member.ip.title') %></h2>
         <% if (Array.isArray(profile.ipProfiles) && profile.ipProfiles.length) { %>
           <ul>
             <% profile.ipProfiles.forEach(function(ipProfile) { %>
               <li>
                 <a href="/profiles/ip/<%= encodeURIComponent(ipProfile.hash) %>">
-                  Profil #<%= ipProfile.shortHash || '?' %>
+                  <%= t('member.ip.profileLabel', { n: ipProfile.shortHash || '?' }) %>
                 </a>
                 <% if (ipProfile.claimedAt) { %>
                   <span class="profile-public__recent-date">
-                    Associé le <%= new Date(ipProfile.claimedAt).toLocaleDateString('fr-FR') %>
+                    <%= t('member.ip.linkedAt', { date: new Date(ipProfile.claimedAt).toLocaleDateString(lang === 'en' ? 'en-US' : 'fr-FR') }) %>
                   </span>
                 <% } %>
               </li>
             <% }) %>
           </ul>
         <% } else { %>
-          <p class="text-muted">Aucun profil IP public n'est lié à ce compte.</p>
+          <p class="text-muted"><%= t('member.ip.empty') %></p>
         <% } %>
       </div>
     <% } %>

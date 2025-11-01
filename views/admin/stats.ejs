@@ -1,6 +1,6 @@
-<% title='Statistiques'; %>
+<% title = t('admin.stats.title'); %>
 <%
-  const locale = 'fr-FR';
+  const locale = (lang === 'en') ? 'en-US' : 'fr-FR';
   const numberFormatter = new Intl.NumberFormat(locale);
   const decimalFormatter = new Intl.NumberFormat(locale, {
     minimumFractionDigits: 0,
@@ -16,9 +16,9 @@
   const formatBytes = (value) => {
     const numeric = Number(value);
     if (!Number.isFinite(numeric) || numeric <= 0) {
-      return '0 o';
+      return lang === 'en' ? '0 B' : '0 o';
     }
-    const units = ['o', 'Ko', 'Mo', 'Go', 'To', 'Po'];
+    const units = lang === 'en' ? ['B','KB','MB','GB','TB','PB'] : ['o','Ko','Mo','Go','To','Po'];
     let unitIndex = 0;
     let size = numeric;
     while (size >= 1024 && unitIndex < units.length - 1) {
@@ -52,20 +52,20 @@
 %>
 <section class="card stats-hero">
   <div>
-    <h1 class="mt-0">Tableau de bord des statistiques</h1>
-    <p class="text-muted">Suivez en un clin d'œil la popularité du wiki et la charge de modération.</p>
+    <h1 class="mt-0"><%= t('admin.stats.hero.title') %></h1>
+    <p class="text-muted"><%= t('admin.stats.hero.subtitle') %></p>
   </div>
   <div class="stats-hero-metrics">
     <div>
-      <span class="stats-hero-label">Vues cumulées</span>
+      <span class="stats-hero-label"><%= t('admin.stats.hero.labels.totalViews') %></span>
       <strong><%= totalViews %></strong>
     </div>
     <div>
-      <span class="stats-hero-label">Moyenne par page</span>
+      <span class="stats-hero-label"><%= t('admin.stats.hero.labels.avgPerPage') %></span>
       <strong><%= avgViewsPerPage %></strong>
     </div>
     <div>
-      <span class="stats-hero-label">Visiteurs uniques</span>
+      <span class="stats-hero-label"><%= t('admin.stats.hero.labels.uniqueVisitors') %></span>
       <strong><%= totalsBreakdown.uniqueIps %></strong>
     </div>
   </div>
@@ -73,41 +73,41 @@
 
 <section class="stats-overview-grid">
   <div class="card">
-    <h2>Résumé global</h2>
+    <h2><%= t('admin.stats.overview.title') %></h2>
     <ul class="stat-grid">
       <li>
-        <span class="label">Vues cumulées</span>
+        <span class="label"><%= t('admin.stats.overview.labels.totalViews') %></span>
         <strong><%= totalViews %></strong>
       </li>
       <li>
-        <span class="label">Likes</span>
+        <span class="label"><%= t('admin.stats.overview.labels.likes') %></span>
         <strong><%= totalsBreakdown.likes %></strong>
       </li>
       <li>
-        <span class="label">Commentaires</span>
+        <span class="label"><%= t('admin.stats.overview.labels.comments') %></span>
         <strong><%= totalsBreakdown.comments %></strong>
       </li>
       <li>
-        <span class="label">Blocages actifs</span>
+        <span class="label"><%= t('admin.stats.overview.labels.activeBans') %></span>
         <strong><%= totalsBreakdown.activeBans %></strong>
       </li>
       <li>
-        <span class="label">Événements loggés</span>
+        <span class="label"><%= t('admin.stats.overview.labels.events') %></span>
         <strong><%= totalsBreakdown.events %></strong>
       </li>
       <li>
-        <span class="label">Visiteurs uniques (IP)</span>
+        <span class="label"><%= t('admin.stats.overview.labels.uniqueIps') %></span>
         <strong><%= totalsBreakdown.uniqueIps %></strong>
       </li>
     </ul>
     <% if (totalsBreakdown.commentByStatus && totalsBreakdown.commentByStatus.length) { %>
-      <h3>Commentaires par statut</h3>
+      <h3><%= t('admin.stats.overview.comments.title') %></h3>
       <div class="table-wrap">
         <table class="data-table compact">
           <thead>
             <tr>
-              <th>Statut</th>
-              <th>Total</th>
+              <th><%= t('admin.stats.overview.comments.headers.status') %></th>
+              <th><%= t('admin.stats.overview.comments.headers.total') %></th>
             </tr>
           </thead>
           <tbody>
@@ -121,14 +121,12 @@
         </table>
       </div>
     <% } %>
-    <p class="note-text">
-      Les totaux combinent les événements récents et les agrégats quotidiens. Utilisez les sections ci-dessous pour analyser les périodes spécifiques.
-    </p>
+    <p class="note-text"><%= t('admin.stats.overview.note') %></p>
   </div>
   <div class="card stats-highlight-card">
-    <h2>Indicateurs clés</h2>
+    <h2><%= t('admin.stats.highlights.title') %></h2>
     <% if (!engagementHighlights.length) { %>
-      <p>Aucun indicateur disponible pour le moment.</p>
+      <p><%= t('admin.stats.highlights.empty') %></p>
     <% } else { %>
       <ul class="stats-highlight-grid">
         <% engagementHighlights.forEach(item => { %>
@@ -151,53 +149,51 @@
 <section class="card stats-storage-card">
   <div class="stats-storage-header">
     <div>
-      <h2 class="mt-0">Statistiques de stockage</h2>
-      <p class="text-muted text-sm">
-        Analyse de l'espace occupé dans la base de données SQLite et répartition des contenus lourds.
-      </p>
+      <h2 class="mt-0"><%= t('admin.stats.storage.title') %></h2>
+      <p class="text-muted text-sm"><%= t('admin.stats.storage.description') %></p>
     </div>
   </div>
   <div class="stats-storage-metrics">
     <div class="storage-metric">
-      <span class="label">Taille du fichier</span>
+      <span class="label"><%= t('admin.stats.storage.metrics.fileSize') %></span>
       <strong><%= formatBytes(storage.databaseFileSize) %></strong>
-      <small>Taille sur disque</small>
+      <small><%= t('admin.stats.storage.metrics.fileSizeHelp') %></small>
     </div>
     <div class="storage-metric">
-      <span class="label">Pages utilisées</span>
+      <span class="label"><%= t('admin.stats.storage.metrics.usedPages') %></span>
       <strong><%= formatBytes(storage.databaseUsedBytes) %></strong>
-      <small>Espace réellement occupé</small>
+      <small><%= t('admin.stats.storage.metrics.usedHelp') %></small>
     </div>
     <div class="storage-metric">
-      <span class="label">Espace libre</span>
+      <span class="label"><%= t('admin.stats.storage.metrics.freeSpace') %></span>
       <strong><%= formatBytes(storage.databaseFreeBytes) %></strong>
-      <small>Pages disponibles</small>
+      <small><%= t('admin.stats.storage.metrics.freeHelp') %></small>
     </div>
     <div class="storage-metric">
-      <span class="label">Stockage suivi</span>
+      <span class="label"><%= t('admin.stats.storage.metrics.tracked') %></span>
       <strong><%= formatBytes(storage.totalTrackedBytes) %></strong>
-      <small>Somme des postes détaillés</small>
+      <small><%= t('admin.stats.storage.metrics.trackedHelp') %></small>
     </div>
   </div>
   <% if (storage.breakdown && storage.breakdown.length) { %>
-    <h3>Répartition par contenu</h3>
+    <h3><%= t('admin.stats.storage.breakdown.title') %></h3>
     <ul class="storage-breakdown-list">
       <% storage.breakdown.forEach((entry) => { %>
         <li>
           <div>
             <span class="label"><%= entry.label %></span>
             <% if (Number.isFinite(entry.rows)) { %>
-              <span class="sub"><%= formatNumber(entry.rows) %> entrées</span>
+              <span class="sub"><%= t('admin.stats.storage.breakdown.entries', { n: formatNumber(entry.rows) }) %></span>
             <% } else { %>
-              <span class="sub text-muted">Nombre exact indisponible</span>
+              <span class="sub text-muted"><%= t('admin.stats.storage.breakdown.entriesUnknown') %></span>
             <% } %>
           </div>
           <div class="storage-breakdown-size">
             <strong><%= formatBytes(entry.bytes) %></strong>
             <% if (entry.bytesSource === 'estimate') { %>
-              <span class="storage-chip" title="Valeur estimée d'après le contenu">est.</span>
+              <span class="storage-chip" title="<%= t('admin.stats.storage.breakdown.estimateTitle') %>">est.</span>
             <% } else if (entry.bytesSource === 'derived') { %>
-              <span class="storage-chip" title="Différence entre l'espace utilisé et les postes suivis">reste</span>
+              <span class="storage-chip" title="<%= t('admin.stats.storage.breakdown.otherTitle') %>">reste</span>
             <% } %>
             <% if (entry.percentage > 0) { %>
               <span class="text-muted storage-percentage"><%= formatPercentage(entry.percentage) %>%</span>
@@ -207,28 +203,27 @@
       <% }) %>
     </ul>
     <p class="note-text">
-      Pourcentage calculé sur <strong><%= formatBytes(storage.percentageBaseBytes || storage.totalTrackedBytes) %></strong>
-      d'espace utilisé dans la base.
+      <%- t('admin.stats.storage.breakdown.percentageNote', { base: formatBytes(storage.percentageBaseBytes || storage.totalTrackedBytes) }) %>
     </p>
   <% } else { %>
-    <p class="text-muted">Aucune donnée de stockage n'est disponible pour le moment.</p>
+    <p class="text-muted"><%= t('admin.stats.storage.noData') %></p>
   <% } %>
   <% if (storage.tableDetailsError) { %>
-    <p class="note-text text-danger">Impossible de récupérer le détail des tables : <%= storage.tableDetailsError %></p>
+    <p class="note-text text-danger"><%= t('admin.stats.storage.tableError') %> <%= storage.tableDetailsError %></p>
   <% } %>
   <% const storageTables = Array.isArray(storage.tableDetails) ? storage.tableDetails.slice(0, 12) : []; %>
   <% if (storageTables.length) { %>
-    <h3>Tables les plus volumineuses</h3>
+    <h3><%= t('admin.stats.storage.tables.title') %></h3>
     <div class="table-wrap">
       <table class="data-table compact">
         <thead>
           <tr>
-            <th>Table</th>
-            <th>Taille totale</th>
-            <th>Payload</th>
-            <th>Libre</th>
-            <th>Pages</th>
-            <th>Lignes (estim.)</th>
+            <th><%= t('admin.stats.storage.tables.headers.table') %></th>
+            <th><%= t('admin.stats.storage.tables.headers.total') %></th>
+            <th><%= t('admin.stats.storage.tables.headers.payload') %></th>
+            <th><%= t('admin.stats.storage.tables.headers.free') %></th>
+            <th><%= t('admin.stats.storage.tables.headers.pages') %></th>
+            <th><%= t('admin.stats.storage.tables.headers.rowsEst') %></th>
           </tr>
         </thead>
         <tbody>
@@ -245,7 +240,7 @@
         </tbody>
       </table>
     </div>
-    <p class="text-muted text-sm">Affichage limité aux 12 tables principales. Les tailles incluent les index associés.</p>
+    <p class="text-muted text-sm"><%= t('admin.stats.storage.tables.note') %></p>
   <% } %>
 </section>
 
@@ -254,12 +249,9 @@
     1,
     Math.round((liveVisitorsWindowSeconds || 0) / 60),
   );
-  const liveWindowLabel =
-    (liveVisitorsWindowSeconds || 0) >= 60
-      ? `${liveWindowMinutes} minute${liveWindowMinutes > 1 ? 's' : ''}`
-      : `${liveVisitorsWindowSeconds || 0} seconde${
-          (liveVisitorsWindowSeconds || 0) > 1 ? 's' : ''
-        }`;
+  const liveWindowValue = (liveVisitorsWindowSeconds || 0) >= 60
+    ? t('admin.stats.live.minutes', { n: liveWindowMinutes })
+    : t('admin.stats.live.seconds', { n: (liveVisitorsWindowSeconds || 0) });
 %>
 <section
   class="card stats-live-card"
@@ -275,22 +267,22 @@
 >
   <div class="card-header live-stats-header">
     <div>
-      <h2 class="mt-0">Live stats</h2>
+      <h2 class="mt-0"><%= t('admin.stats.live.title') %></h2>
       <p class="text-muted text-sm" data-live-window-label>
-        Basé sur l'activité des <%= liveWindowLabel %> précédentes.
+        <%= t('admin.stats.live.window', { window: liveWindowValue }) %>
       </p>
-      <p class="text-muted text-sm" data-live-status>Dernière mise à jour : --</p>
+      <p class="text-muted text-sm" data-live-status><%= t('admin.stats.live.lastUpdate') %> --</p>
     </div>
     <div class="live-stats-refresh">
-      <label for="liveStatsInterval">Rafraîchir toutes les</label>
+      <label for="liveStatsInterval"><%= t('admin.stats.live.refreshEvery') %></label>
       <select id="liveStatsInterval" data-live-refresh>
-        <option value="1000">1 seconde</option>
-        <option value="5000" selected>5 secondes</option>
-        <option value="10000">10 secondes</option>
-        <option value="30000">30 secondes</option>
-        <option value="60000">1 minute</option>
-        <option value="120000">2 minutes</option>
-        <option value="300000">5 minutes</option>
+        <option value="1000"><%= t('admin.stats.live.seconds', { n: 1 }) %></option>
+        <option value="5000" selected><%= t('admin.stats.live.seconds', { n: 5 }) %></option>
+        <option value="10000"><%= t('admin.stats.live.seconds', { n: 10 }) %></option>
+        <option value="30000"><%= t('admin.stats.live.seconds', { n: 30 }) %></option>
+        <option value="60000"><%= t('admin.stats.live.minutes', { n: 1 }) %></option>
+        <option value="120000"><%= t('admin.stats.live.minutes', { n: 2 }) %></option>
+        <option value="300000"><%= t('admin.stats.live.minutes', { n: 5 }) %></option>
       </select>
     </div>
   </div>
@@ -299,7 +291,7 @@
     data-live-empty
     <%= liveVisitors.length ? 'hidden' : '' %>
   >
-    Aucun visiteur actif détecté pour le moment.
+    <%= t('admin.stats.live.empty') %>
   </p>
   <div
     class="table-wrap"
@@ -309,10 +301,10 @@
     <table class="data-table compact">
       <thead>
         <tr>
-          <th>Adresse IP</th>
-          <th>Type</th>
-          <th>Page actuelle</th>
-          <th>Dernière activité</th>
+          <th><%= t('admin.stats.live.headers.ip') %></th>
+          <th><%= t('admin.stats.live.headers.type') %></th>
+          <th><%= t('admin.stats.live.headers.path') %></th>
+          <th><%= t('admin.stats.live.headers.lastActivity') %></th>
         </tr>
       </thead>
       <tbody data-live-table-body>
@@ -321,12 +313,12 @@
             <td><code><%= visitor.ip %></code></td>
             <td>
               <% if (visitor.isBot) { %>
-                <span class="status-pill suspicious">Bot</span>
+                <span class="status-pill suspicious"><%= t('admin.stats.live.type.bot') %></span>
                 <% if (visitor.botReason) { %>
                   <br /><small class="text-muted"><%= visitor.botReason %></small>
                 <% } %>
               <% } else { %>
-                <span class="status-pill clean">Visiteur</span>
+                <span class="status-pill clean"><%= t('admin.stats.live.type.visitor') %></span>
               <% } %>
               <% if (visitor.userAgent) { %>
                 <br /><small class="text-muted"><%= visitor.userAgent %></small>
@@ -334,9 +326,7 @@
             </td>
             <td><a href="<%= visitor.path %>"><%= visitor.path %></a></td>
             <td>
-              <time datetime="<%= visitor.lastSeenIso %>">
-                il y a <%= visitor.lastSeenRelative %>
-              </time>
+              <time datetime="<%= visitor.lastSeenIso %>"><%= t('admin.stats.live.ago', { ago: visitor.lastSeenRelative }) %></time>
             </td>
           </tr>
         <% }) %>
@@ -349,7 +339,7 @@
     <%= liveVisitors.length ? '' : 'hidden' %>
   >
     <div class="live-stats-per-page">
-      <label for="liveStatsPerPage" class="nowrap">Éléments par page</label>
+      <label for="liveStatsPerPage" class="nowrap"><%= t('common.perPage') %></label>
       <select id="liveStatsPerPage" data-live-per-page>
         <% (liveVisitorsPagination?.perPageOptions || []).forEach(option => { %>
           <option value="<%= option %>" <%= option === liveVisitorsPagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -385,13 +375,13 @@
 <%
   const trendsRangeLabel =
     viewTrendsRange?.from && viewTrendsRange?.to
-      ? `${new Date(viewTrendsRange.from).toLocaleDateString('fr-FR')} – ${new Date(viewTrendsRange.to).toLocaleDateString('fr-FR')}`
+      ? `${new Date(viewTrendsRange.from).toLocaleDateString(locale)} – ${new Date(viewTrendsRange.to).toLocaleDateString(locale)}`
       : "Période indisponible";
   const trendsTotalLabel = typeof viewTrendsTotal === 'number'
-    ? viewTrendsTotal.toLocaleString('fr-FR')
+    ? viewTrendsTotal.toLocaleString(locale)
     : '0';
   const trendsUpdatedLabel = viewTrendsGeneratedAt
-    ? new Date(viewTrendsGeneratedAt).toLocaleString('fr-FR')
+    ? new Date(viewTrendsGeneratedAt).toLocaleString(locale)
     : '—';
 %>
 <section
@@ -502,7 +492,7 @@
           <li>
             <div>
               <a href="/wiki/<%= page.slug_id %>"><%= page.title %></a>
-              <span class="text-muted text-sm">Créée le <%= page.created_at ? new Date(page.created_at).toLocaleString('fr-FR') : 'n/a' %></span>
+              <span class="text-muted text-sm">Créée le <%= page.created_at ? new Date(page.created_at).toLocaleString(locale) : 'n/a' %></span>
             </div>
           </li>
         <% }) %>
@@ -525,7 +515,7 @@
               <% } %>
             </div>
             <div class="text-muted text-sm">
-              <time datetime="<%= event.created_at %>"><%= new Date(event.created_at).toLocaleString('fr-FR') %></time>
+              <time datetime="<%= event.created_at %>"><%= new Date(event.created_at).toLocaleString(locale) %></time>
               <% if (event.username) { %>
                 <% const eventUserColor = event.userRole && event.userRole.color ? event.userRole.color : null; %>
                 <% const eventUserClasses = ['user-handle', 'event-user']; %>
@@ -557,17 +547,17 @@
 
 <section class="card stats-panels">
   <div>
-    <h2>Pages les plus aimées</h2>
+    <h2><%= t('admin.stats.panels.topLiked.title') %></h2>
     <% if (!topLikedPages.length) { %>
-      <p>Aucun like enregistré.</p>
+      <p><%= t('admin.stats.panels.topLiked.empty') %></p>
     <% } else { %>
       <div class="table-wrap">
         <table class="data-table compact">
           <thead>
             <tr>
               <th>#</th>
-              <th>Article</th>
-              <th>Likes</th>
+              <th><%= t('admin.stats.panels.headers.page') %></th>
+              <th><%= t('admin.stats.panels.headers.likes') %></th>
             </tr>
           </thead>
           <tbody>
@@ -585,16 +575,16 @@
     <% } %>
   </div>
   <div>
-    <h2>Auteurs de commentaires</h2>
+    <h2><%= t('admin.stats.panels.topCommenters.title') %></h2>
     <% if (!topCommenters.length) { %>
-      <p>Aucun commentaire enregistré.</p>
+      <p><%= t('admin.stats.panels.topCommenters.empty') %></p>
     <% } else { %>
       <div class="table-wrap">
         <table class="data-table compact">
           <thead>
             <tr>
-              <th>Auteur</th>
-              <th>Commentaires</th>
+              <th><%= t('admin.stats.panels.headers.author') %></th>
+              <th><%= t('admin.stats.panels.headers.comments') %></th>
             </tr>
           </thead>
           <tbody>
@@ -606,7 +596,8 @@
               <% const commenterBadges = Array.isArray(row?.authorRole?.badges) ? row.authorRole.badges : []; %>
               <tr>
                 <td>
-                  <% if (row.author && row.author !== 'Anonyme') { %>
+                  <% const anonLabel = t('admin.common.anonymous'); %>
+                  <% if (row.author && row.author !== anonLabel) { %>
                     <span class="user-handle-decorated">
                       <strong class="<%= commenterClasses.join(' ') %>" style="<%= commenterStyle %>"><%= row.author %></strong>
                       <%- include('../partials/userBadges', {
@@ -615,7 +606,7 @@
                         itemClass: 'user-handle-badge-item',
                         iconClass: 'user-handle-badge-icon',
                         srOnlyClass: 'sr-only',
-                        ariaLabel: "Badges de l'utilisateur",
+                        ariaLabel: t('common.authorBadgesAria'),
                       }) %>
                     </span>
                   <% } else { %>
@@ -632,17 +623,17 @@
     <% } %>
   </div>
   <div>
-    <h2>Articles les plus commentés</h2>
+    <h2><%= t('admin.stats.panels.topCommented.title') %></h2>
     <% if (!topCommentedPages.length) { %>
-      <p>Aucun commentaire approuvé.</p>
+      <p><%= t('admin.stats.panels.topCommented.empty') %></p>
     <% } else { %>
       <div class="table-wrap">
         <table class="data-table compact">
           <thead>
             <tr>
               <th>#</th>
-              <th>Article</th>
-              <th>Commentaires</th>
+              <th><%= t('admin.stats.panels.headers.page') %></th>
+              <th><%= t('admin.stats.panels.headers.comments') %></th>
             </tr>
           </thead>
           <tbody>
@@ -662,17 +653,17 @@
 </section>
 
 <section class="card mb-xl">
-  <h2>IPs les plus actives</h2>
+  <h2><%= t('admin.stats.activeIps.title') %></h2>
   <% if (!activeIps.length) { %>
-    <p>Aucune IP enregistrée.</p>
+    <p><%= t('admin.stats.activeIps.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table compact">
         <thead>
           <tr>
             <th>#</th>
-            <th>IP</th>
-            <th>Vues</th>
+            <th><%= t('admin.stats.activeIps.headers.ip') %></th>
+            <th><%= t('admin.stats.activeIps.headers.views') %></th>
           </tr>
         </thead>
         <tbody>
@@ -692,17 +683,17 @@
 
 <section class="card mb-xl stats-panels">
   <div>
-    <h2>Tags les plus utilisés</h2>
+    <h2><%= t('admin.stats.tags.title') %></h2>
     <% if (!tagUsage.length) { %>
-      <p>Aucun tag enregistré.</p>
+      <p><%= t('admin.stats.tags.empty') %></p>
     <% } else { %>
       <div class="table-wrap">
         <table class="data-table compact">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Tag</th>
-              <th>Pages</th>
+            <th>#</th>
+            <th><%= t('admin.stats.tags.headers.tag') %></th>
+            <th><%= t('admin.stats.tags.headers.pages') %></th>
             </tr>
           </thead>
           <tbody>
@@ -720,16 +711,16 @@
     <% } %>
   </div>
   <div>
-    <h2>Chronologie des commentaires (30 derniers jours)</h2>
+    <h2><%= t('admin.stats.timeline.title') %></h2>
     <% if (!commentTimeline.length) { %>
-      <p>Aucune activité récente.</p>
+      <p><%= t('admin.stats.timeline.empty') %></p>
     <% } else { %>
       <div class="table-wrap">
         <table class="data-table compact">
           <thead>
             <tr>
-              <th>Jour</th>
-              <th>Commentaires</th>
+            <th><%= t('admin.stats.timeline.headers.day') %></th>
+            <th><%= t('admin.stats.timeline.headers.comments') %></th>
             </tr>
           </thead>
           <tbody>
@@ -748,18 +739,18 @@
 </section>
 
 <section class="card mb-xl">
-  <h2>Vues par IP et article</h2>
+  <h2><%= t('admin.stats.ipViews.title') %></h2>
   <% if (!ipViewsByPage.length) { %>
-    <p>Aucune donnée disponible.</p>
+    <p><%= t('admin.stats.ipViews.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table compact">
         <thead>
           <tr>
-            <th>IP</th>
-            <th>Article</th>
-            <th>Slug</th>
-            <th>Vues</th>
+            <th><%= t('admin.stats.ipViews.headers.ip') %></th>
+            <th><%= t('admin.stats.ipViews.headers.page') %></th>
+            <th><%= t('admin.stats.ipViews.headers.slug') %></th>
+            <th><%= t('admin.stats.ipViews.headers.views') %></th>
           </tr>
         </thead>
         <tbody>
@@ -782,16 +773,16 @@
   <section class="card mb-xl">
     <h2><%= period.label %></h2>
     <% if (!rows.length) { %>
-      <p>Aucune donnée disponible pour cette période.</p>
+      <p><%= t('admin.stats.period.noData') %></p>
     <% } else { %>
       <div class="table-wrap">
         <table class="data-table">
           <thead>
             <tr>
               <th>#</th>
-              <th>Article</th>
-              <th>Slug</th>
-              <th>Vues</th>
+              <th><%= t('admin.stats.period.headers.page') %></th>
+              <th><%= t('admin.stats.period.headers.slug') %></th>
+              <th><%= t('admin.stats.period.headers.views') %></th>
             </tr>
           </thead>
           <tbody>

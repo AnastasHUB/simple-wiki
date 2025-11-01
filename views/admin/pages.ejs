@@ -1,12 +1,13 @@
-<h1>Gestion des articles</h1>
+<h1><%= t('admin.pages.heading') %></h1>
 
 <section class="card">
-  <h2>Statistiques générales</h2>
+  <h2><%= t('admin.pages.stats.title') %></h2>
   <p>
-    Le wiki compte actuellement <strong><%= stats.count %></strong> article(s) publié(s).
+    <%- t('admin.pages.stats.count', { count: fmt.number(stats.count) }) %>
     <% if (stats.latest) { %>
-      Dernière mise à jour : <strong><%= stats.latest.title %></strong> (<code><%= stats.latest.slug_id %></code>) le <%= stats.latest.ts ? new Date(stats.latest.ts).toLocaleString('fr-FR') : '' %>.
+      <%- t('admin.pages.stats.latest', { title: stats.latest.title, slug: stats.latest.slug_id, date: fmt.dateTime(stats.latest.ts) }) %>
     <% } %>
   </p>
-  <p class="mb-0">Utilisez les autres sections de l'interface d'administration pour créer, modifier ou supprimer des contenus.</p>
+  <p class="mb-0"><%= t('admin.pages.stats.hint') %></p>
 </section>
+

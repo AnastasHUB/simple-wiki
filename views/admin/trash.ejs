@@ -61,15 +61,15 @@
               <td>
                 <div class="table-title"><strong><%= page.title || 'Sans titre' %></strong></div>
                 <div class="table-meta text-muted">
-                  Créée le <%= page.created_at ? new Date(page.created_at).toLocaleString('fr-FR') : '—' %>
+                  Créée le <%= page.created_at ? new Date(page.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') : '—' %>
                   <% if (page.updated_at) { %>
-                    · Dernière mise à jour le <%= new Date(page.updated_at).toLocaleString('fr-FR') %>
+                    · Dernière mise à jour le <%= new Date(page.updated_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %>
                   <% } %>
                   · Auteur : <%= page.author || 'Anonyme' %>
                 </div>
               </td>
               <td><code><%= page.slug_id %></code></td>
-              <td><%= page.deleted_at ? new Date(page.deleted_at).toLocaleString('fr-FR') : '—' %></td>
+              <td><%= page.deleted_at ? new Date(page.deleted_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') : '—' %></td>
               <td><%= page.deleted_by || '—' %></td>
               <td>
                 <% if (page.tags && page.tags.length) { %>

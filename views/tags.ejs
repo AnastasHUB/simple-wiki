@@ -1,17 +1,15 @@
-<% title = 'Tag · ' + tag; %>
-<h1>Tag: <%= tag %></h1>
+<% title = t('tags.title', { tag }); %>
+<h1><%= t('tags.heading', { tag }) %></h1>
 
 <% if (tagVisibility && tagVisibility.enabled) { %>
   <form class="card mb-md" method="post" action="/tags/<%= encodeURIComponent(tag) %>/visibility">
     <%- include('partials/csrf_field') %>
     <header class="card-header">
-      <h2 class="card-title">Visibilité du tag</h2>
+      <h2 class="card-title"><%= t('tags.visibility.title') %></h2>
     </header>
     <div class="card-body">
-      <p class="mb-sm">
-        Sélectionnez les rôles autorisés à consulter ce tag. Laissez vide pour le rendre accessible à tout le monde.
-      </p>
-      <label class="mb-xs" for="tag-visible-roles">Rôles autorisés</label>
+      <p class="mb-sm"><%= t('tags.visibility.help') %></p>
+      <label class="mb-xs" for="tag-visible-roles"><%= t('tags.visibility.roles') %></label>
       <select id="tag-visible-roles" name="visible_roles" multiple size="6">
         <% (tagVisibility.options || []).forEach(function(option) { %>
           <option value="<%= option.value %>" <%= option.selected ? 'selected' : '' %>>
@@ -20,21 +18,19 @@
         <% }); %>
       </select>
       <% if (tagVisibility.hasSelection) { %>
-        <p class="editor-hint mt-xs">
-          Actuellement limité à&nbsp;: <strong><%= tagVisibility.selectedLabels.join(', ') %></strong>
-        </p>
+        <p class="editor-hint mt-xs"><%= t('tags.visibility.limitedTo') %> <strong><%= tagVisibility.selectedLabels.join(', ') %></strong></p>
       <% } else { %>
-        <p class="editor-hint mt-xs">Accessible à tous les rôles.</p>
+        <p class="editor-hint mt-xs"><%= t('tags.visibility.openToAll') %></p>
       <% } %>
     </div>
     <footer class="card-footer">
-      <button class="btn primary" data-icon="💾" type="submit">Mettre à jour la visibilité</button>
+      <button class="btn primary" data-icon="💾" type="submit"><%= t('tags.visibility.update') %></button>
     </footer>
   </form>
 <% } %>
 
 <div class="search-meta">
-  <p><strong><%= total %></strong> article<%= total > 1 ? 's' : '' %> trouvé<%= total > 1 ? 's' : '' %> pour ce tag.</p>
+  <p><%= t('tags.meta.total', { count: total, s: total > 1 ? 's' : '' }) %></p>
   <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
   <form class="page-size" method="get">
     <input type="hidden" name="<%= pagination.pageParam %>" value="1">
@@ -43,7 +39,7 @@
         <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
       <% }) %>
     <% } %>
-    <label for="<%= perPageFieldId %>">Articles par page</label>
+    <label for="<%= perPageFieldId %>"><%= t('tags.meta.perPage') %></label>
     <select id="<%= perPageFieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
       <% pagination.perPageOptions.forEach(option => { %>
         <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -53,7 +49,7 @@
 </div>
 
 <div class="article-grid">
-  <% if (!pages.length) { %><div class="card">Aucun article.</div><% } %>
+  <% if (!pages.length) { %><div class="card"><%= t('tags.none') %></div><% } %>
   <% pages.forEach(p => { const tags = (p.tagsCsv||'').split(',').filter(Boolean); %>
     <div class="card">
       <h3><strong><%= p.title %></strong></h3>
@@ -67,26 +63,26 @@
           <% tags.forEach(t => { %><a class="tag" href="/tags/<%= t %>"><%= t %></a><% }) %>
         </div>
       <% } %>
-      <div class="page-stats" aria-label="Statistiques de l’article">
-        <span title="Likes">💖 <strong data-like-count-for="<%= p.slug_id %>"><%= p.likes %></strong></span>
-        <span title="Commentaires">💬 <strong><%= p.comment_count %></strong></span>
-        <span title="Vues">👁️ <strong><%= p.views %></strong></span>
+      <div class="page-stats" aria-label="<%= t('home.card.statsAria') %>">
+        <span title="<%= t('home.card.likes') %>">💖 <strong data-like-count-for="<%= p.slug_id %>"><%= p.likes %></strong></span>
+        <span title="<%= t('home.card.comments') %>">💬 <strong><%= p.comment_count %></strong></span>
+        <span title="<%= t('home.card.views') %>">👁️ <strong><%= p.views %></strong></span>
       </div>
       <div class="actions">
-        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>"><%= t('common.openArticle') %></a>
         <form action="/wiki/<%= p.slug_id %>/like" method="post" data-like-form-for="<%= p.slug_id %>">
           <%- include('partials/csrf_field') %>
           <button
             class="btn <%= p.userLiked ? 'unlike' : 'like' %>"
             data-icon="<%= p.userLiked ? '💔' : '💖' %>"
-            data-label-liked="Retirer"
-            data-label-unliked="Like"
+            data-label-liked="<%= t('home.card.unlike') %>"
+            data-label-unliked="<%= t('home.card.like') %>"
             type="submit"
           >
-            <%= p.userLiked ? 'Retirer' : 'Like' %> (<%= p.likes %>)
+            <%= p.userLiked ? t('home.card.unlike') : t('home.card.like') %> (<%= p.likes %>)
           </button>
         </form>
-        <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">Copier le lien</button>
+        <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')"><%= t('common.copyLink') %></button>
       </div>
     </div>
   <% }) %>
@@ -94,18 +90,18 @@
 
 <div class="actions pagination">
   <span class="pagination-status">
-    Page <strong><%= pagination.page %></strong> / <%= pagination.totalPages %>
+    <%- t('common.pageXofY', { page: pagination.page, total: pagination.totalPages }) %>
   </span>
   <div class="pager">
     <% if (pagination.hasPrevious) { %>
-      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>"><%= t('common.prev') %></a>
     <% } else { %>
-      <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+      <span class="btn" data-icon="⬅️" aria-disabled="true"><%= t('common.prev') %></span>
     <% } %>
     <% if (pagination.hasNext) { %>
-      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>"><%= t('common.next') %></a>
     <% } else { %>
-      <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+      <span class="btn" data-icon="➡️" aria-disabled="true"><%= t('common.next') %></span>
     <% } %>
   </div>
 </div>

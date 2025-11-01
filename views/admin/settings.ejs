@@ -1,35 +1,29 @@
-<% title='Paramètres'; %>
-<h1>Paramètres</h1>
+<% title = t('admin.settings.title'); %>
+<h1><%= t('admin.settings.heading') %></h1>
 <form method="post" class="card">
   <%- include('../partials/csrf_field') %>
-  <label>Nom du wiki</label>
+  <label><%= t('admin.settings.fields.wikiName') %></label>
   <input type="text" name="wiki_name" value="<%= s.wiki_name %>" />
-  <label>Logo URL</label>
+  <label><%= t('admin.settings.fields.logoUrl') %></label>
   <input type="url" name="logo_url" value="<%= s.logo_url %>" />
-  <label>Discord Webhook Admin</label>
+  <label><%= t('admin.settings.fields.adminWebhook') %></label>
   <input type="url" name="admin_webhook_url" value="<%= s.admin_webhook_url %>" />
-  <label>Discord Webhook Feed</label>
+  <label><%= t('admin.settings.fields.feedWebhook') %></label>
   <input type="url" name="feed_webhook_url" value="<%= s.feed_webhook_url %>" />
-  <label>Pied de page</label>
+  <label><%= t('admin.settings.fields.footerText') %></label>
   <input type="text" name="footer_text" value="<%= s.footer_text %>" />
-  <label>Dépôt GitHub pour le changelog</label>
+  <label><%= t('admin.settings.fields.githubRepo') %></label>
   <input
     type="text"
     name="github_repo"
-    placeholder="owner/repo ou URL https://github.com/…"
+    placeholder="<%= t('admin.settings.placeholders.repo') %>"
     value="<%= s.github_repo %>"
   />
-  <small class="field-hint"
-    >Laissez vide pour désactiver l'onglet Changelog. Le dépôt doit être public.</small
-  >
-  <label>Source du changelog</label>
+  <small class="field-hint"><%= t('admin.settings.help.repoHint') %></small>
+  <label><%= t('admin.settings.fields.changelogSource') %></label>
   <select name="github_changelog_mode">
-    <option value="commits" <%= s.github_changelog_mode === 'commits' ? 'selected' : '' %>>
-      Commits
-    </option>
-    <option value="pulls" <%= s.github_changelog_mode === 'pulls' ? 'selected' : '' %>>
-      Pull requests
-    </option>
+    <option value="commits" <%= s.github_changelog_mode === 'commits' ? 'selected' : '' %>><%= t('admin.settings.mode.commits') %></option>
+    <option value="pulls" <%= s.github_changelog_mode === 'pulls' ? 'selected' : '' %>><%= t('admin.settings.mode.pulls') %></option>
   </select>
-  <div class="actions"><button class="btn success" data-icon="💾">Enregistrer</button></div>
+  <div class="actions"><button class="btn success" data-icon="💾"><%= t('admin.settings.actions.save') %></button></div>
 </form>

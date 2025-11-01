@@ -73,6 +73,7 @@ Environment variables customize behavior. Only `SESSION_SECRET` is strongly reco
 | `SESSION_SECRET`, `SESSION_SECRETS` | One or more secrets for signing sessions. Multiple values can be comma-separated. |
 | `SESSION_SECRET_FILE` | File path containing newline-delimited session secrets; watched for hot reloads. |
 | `SESSION_COOKIE_*` | Fine-grained cookie flags (`SECURE`, `HTTP_ONLY`, `SAMESITE`, `MAX_AGE`, `NAME`, `ROLLING`). |
+| `DEFAULT_LANG` | Default language for new visitors: `fr` (default) or `en`. |
 | `BOT_DETECTION_ENDPOINT`, `BOT_DETECTION_TIMEOUT_MS` | External bot detection service and timeout used when tracking visitors. |
 | `IP_REPUTATION_*` | Configure IP reputation API endpoints and timeouts for ban and profile workflows. |
 | `IP_PROFILE_SALT` | Secret salt for hashing IP profile identifiers. |
@@ -136,3 +137,12 @@ tests/                # Node test suites covering routes, UI, and services
 ## License
 
 This project is licensed under the [MIT License](./LICENSE).
+## Internationalization (i18n)
+
+- Languages: French (`fr`) and English (`en`). The middleware detects language from `?lang=`, `lang` cookie, or `Accept-Language` header, and exposes `req.t`/`res.locals.t`.
+- Views: Use `t('namespace.key')` for all user-facing strings. Avoid hard-coded FR/EN.
+- Dates/numbers: In EJS, prefer `fmt.dateTime(date)` / `fmt.date(date)` and `fmt.number(n)`. When using `toLocaleString`, select locale with `lang === 'en' ? 'en-US' : 'fr-FR'`.
+- Backend messages: Use `req.t('...')` for notifications, JSON errors, and redirects.
+- Adding keys: Update both `i18n/fr.js` and `i18n/en.js` under the appropriate section (page/component namespaces). Keep naming consistent, e.g. `account.security.errors.mismatch`.
+- Language switch: The header includes a language selector and the route `GET /lang/:code` sets the `lang` cookie and redirects to the referrer.
+- Cookie policy: Content lives under `cookiePolicy.*` keys. The policy page routes are `/cookies/politique` (FR) and `/cookies/policy` (EN).

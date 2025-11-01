@@ -1,14 +1,14 @@
-<% title = `Révision ${revision.revision} · ${page.title}`; %>
+<% title = t('revision.title', { rev: revision.revision, page: page.title }); %>
 <div class="card">
-  <h1>Révision #<%= revision.revision %> de « <%= page.title %> »</h1>
-  <p><strong>Titre enregistré :</strong> <%= revision.title %></p>
+  <h1><%= t('revision.heading', { rev: revision.revision, page: page.title }) %></h1>
+  <p><strong><%= t('revision.savedTitle') %></strong> <%= revision.title %></p>
   <% const revisionAuthorColor = revision.authorRole && revision.authorRole.color ? revision.authorRole.color : null; %>
   <% const revisionAuthorClasses = ['user-handle', 'revision-author']; %>
   <% const revisionAuthorStyle = revisionAuthorColor && revisionAuthorColor.hasColor ? revisionAuthorColor.style : ''; %>
   <% if (revisionAuthorColor && revisionAuthorColor.hasColor) { revisionAuthorClasses.push('role-colored-text'); revisionAuthorClasses.push(revisionAuthorColor.className); } %>
   <% const revisionAuthorBadges = Array.isArray(revision?.authorRole?.badges) ? revision.authorRole.badges : []; %>
   <p>
-    <strong>Auteur :</strong>
+    <strong><%= t('revision.author') %></strong>
     <span class="user-handle-decorated">
       <strong class="<%= revisionAuthorClasses.join(' ') %>" style="<%= revisionAuthorStyle %>">
         <%= revision.author || 'Inconnu' %>
@@ -19,55 +19,55 @@
         itemClass: 'user-handle-badge-item',
         iconClass: 'user-handle-badge-icon',
         srOnlyClass: 'sr-only',
-        ariaLabel: "Badges de l'auteur",
+        ariaLabel: t('common.authorBadgesAria'),
       }) %>
     </span>
   </p>
-  <p><strong>Horodatage :</strong> <%= revision.created_at %></p>
+  <p><strong><%= t('revision.timestamp') %></strong> <%= revision.created_at %></p>
 </div>
 
 <% if (compareOptions && compareOptions.length) { %>
   <div class="card">
     <form method="get" class="form-grid">
       <div>
-        <label for="compare"><strong>Comparer avec une autre révision :</strong></label>
+        <label for="compare"><strong><%= t('revision.compareWith') %></strong></label>
         <select id="compare" name="compare">
           <% compareOptions.forEach(function(option) { %>
             <option value="<%= option.revision %>" <%= option.isSelected ? 'selected' : '' %>>
-              Révision #<%= option.revision %> — <%= option.created_at %>
+              <%= t('revision.option', { rev: option.revision, at: option.created_at }) %>
             </option>
           <% }); %>
         </select>
       </div>
       <div>
-        <button class="btn" type="submit" data-icon="🔄">Mettre à jour la comparaison</button>
+        <button class="btn" type="submit" data-icon="🔄"><%= t('revision.updateCompare') %></button>
       </div>
     </form>
   </div>
 <% } %>
 
 <div class="card">
-  <h2>Contenu brut</h2>
+  <h2><%= t('revision.rawContent') %></h2>
   <pre class="revision-raw"><code><%= rawContent %></code></pre>
 </div>
 
 <div class="card prose">
-  <h2>Rendu HTML</h2>
+  <h2><%= t('revision.htmlRender') %></h2>
   <div><%- html %></div>
 </div>
 
 <% if (diffHtml) { %>
   <div class="card">
-    <h2>Diff avec la révision #<%= compareRevision.revision %></h2>
+    <h2><%= t('revision.diffWith', { rev: compareRevision.revision }) %></h2>
     <div class="diff-view"><%- diffHtml %></div>
   </div>
 <% } else if (compareOptions && compareOptions.length) { %>
   <div class="card">
-    <p>Aucune différence textuelle détectée avec la révision sélectionnée.</p>
+    <p><%= t('revision.noDiff') %></p>
   </div>
 <% } %>
 
 <div class="card">
-  <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history">Retour à l'historique</a>
-  <a class="btn" data-icon="👁️" href="/wiki/<%= page.slug_id %>">Voir la page actuelle</a>
+  <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history"><%= t('revision.backToHistory') %></a>
+  <a class="btn" data-icon="👁️" href="/wiki/<%= page.slug_id %>"><%= t('revision.viewCurrent') %></a>
 </div>

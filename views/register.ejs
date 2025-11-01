@@ -1,20 +1,20 @@
-<% title = "Inscription"; %>
-<h1>Créer un compte</h1>
+<% title = t('register.title'); %>
+<h1><%= t('register.heading') %></h1>
 
 <% const captchaConfig = typeof captcha !== 'undefined' ? captcha : null; %>
 <% if (typeof registrationDisabled !== 'undefined' && registrationDisabled && !captchaConfig) { %>
   <div class="card warning">
-    Les inscriptions sont momentanément indisponibles car aucun captcha n'est configuré.
+    <%= t('register.closed.noCaptcha') %>
   </div>
   <p>
-    Merci de réessayer plus tard ou de contacter un administrateur si le problème persiste.
+    <%= t('register.closed.tryLater') %>
   </p>
 <% } else { %>
   <% const formErrors = typeof errors !== 'undefined' && Array.isArray(errors) ? errors : []; %>
   <% const formValues = typeof values !== 'undefined' && values && typeof values === 'object' ? values : {}; %>
   <% if (formErrors.length) { %>
     <div class="card error">
-      <h2>Impossible de créer le compte</h2>
+      <h2><%= t('register.errors.title') %></h2>
       <ul>
         <% formErrors.forEach(function(message) { %>
           <li><%= message %></li>
@@ -24,7 +24,7 @@
   <% } %>
   <form method="post" action="/register" class="stacked-form" id="registerForm">
     <%- include('partials/csrf_field') %>
-    <label for="register-username">Nom d'utilisateur</label>
+    <label for="register-username"><%= t('register.fields.username.label') %></label>
     <input
       id="register-username"
       type="text"
@@ -36,9 +36,9 @@
       autocomplete="username"
       value="<%= formValues.username ? formValues.username : '' %>"
     />
-    <p class="form-help">Autorisé&nbsp;: lettres, chiffres, points, tirets et underscores.</p>
+    <p class="form-help"><%= t('register.fields.username.help') %></p>
 
-    <label for="register-password">Mot de passe</label>
+    <label for="register-password"><%= t('register.fields.password.label') %></label>
     <input
       id="register-password"
       type="password"
@@ -47,17 +47,17 @@
       minlength="8"
       autocomplete="new-password"
     />
-    <p class="form-help">Utilisez un mot de passe robuste d'au moins 8 caractères.</p>
+    <p class="form-help"><%= t('register.fields.password.help') %></p>
 
     <fieldset class="captcha-selector">
-      <legend>Vérification anti-robot</legend>
+      <legend><%= t('register.captcha.legend') %></legend>
       <p class="form-help">
-        Résolvez l'opération ci-dessous pour confirmer que vous n'êtes pas un robot.
+        <%= t('register.captcha.help') %>
       </p>
       <p class="captcha-question">
         <strong><%= captchaConfig.question %> = ?</strong>
       </p>
-      <label for="captcha-answer">Votre réponse <span class="text-required">*</span></label>
+      <label for="captcha-answer"><%= t('register.captcha.answer') %> <span class="text-required">*</span></label>
       <input
         id="captcha-answer"
         type="text"
@@ -71,11 +71,11 @@
     </fieldset>
 
     <div class="actions">
-      <button class="btn success" type="submit" data-icon="✨">Créer mon compte</button>
+      <button class="btn success" type="submit" data-icon="✨"><%= t('register.actions.submit') %></button>
     </div>
   </form>
   <p class="form-help">
-    Vous avez déjà un compte&nbsp;?<a href="/login">Connectez-vous ici</a>.
+    <%= t('register.help.haveAccount') %><a href="/login"> <%= t('register.help.loginHere') %></a>.
   </p>
 
 <% } %>

@@ -1,13 +1,13 @@
-<% title = `Historique · ${page.title}`; %>
+<% title = t('history.title', { page: page.title }); %>
 <% const permissionFlags =
   typeof permissions !== 'undefined' && permissions && typeof permissions === 'object'
     ? permissions
     : {}; %>
 <% const canRevertHistory = !!permissionFlags.can_revert_page_history; %>
 <div class="card">
-  <h1>Historique de « <%= page.title %> »</h1>
-  <p>Slug : <code><%= page.slug_id %></code></p>
-  <p><strong><%= total %></strong> révision<%= total > 1 ? 's' : '' %> enregistrée<%= total > 1 ? 's' : '' %>.</p>
+  <h1><%= t('history.heading', { page: page.title }) %></h1>
+  <p><%= t('history.slug') %> <code><%= page.slug_id %></code></p>
+  <p><%= t('history.total', { count: total, s: total > 1 ? 's' : '' }) %></p>
 </div>
 
 <div class="card">
@@ -18,9 +18,9 @@
       <thead>
         <tr>
           <th>#</th>
-          <th>Titre</th>
-          <th>Auteur</th>
-          <th>Créée le</th>
+          <th><%= t('history.table.title') %></th>
+          <th><%= t('history.table.author') %></th>
+          <th><%= t('history.table.created') %></th>
           <th></th>
         </tr>
       </thead>
@@ -45,22 +45,22 @@
                   itemClass: 'user-handle-badge-item',
                   iconClass: 'user-handle-badge-icon',
                   srOnlyClass: 'sr-only',
-                  ariaLabel: "Badges de l'auteur",
+                  ariaLabel: t('common.authorBadgesAria'),
                 }) %>
               </span>
             </td>
             <td><%= rev.created_at %></td>
             <td>
               <div class="table-actions">
-                <a class="btn" data-icon="📝" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>">Consulter</a>
+                <a class="btn" data-icon="📝" href="/wiki/<%= page.slug_id %>/revisions/<%= rev.revision %>"><%= t('history.view') %></a>
                 <% if (canRevertHistory) { %>
                   <form
                     method="post"
                     action="/admin/pages/<%= page.slug_id %>/revisions/<%= rev.revision %>/revert"
-                    onsubmit="return confirm('Restaurer la page à cette révision ?');"
+                    onsubmit="return confirm('<%= t('history.revertConfirm') %>');"
                   >
                     <%- include('partials/csrf_field') %>
-                    <button class="btn danger" data-icon="⏪" type="submit">Restaurer</button>
+                    <button class="btn danger" data-icon="⏪" type="submit"><%= t('history.revert') %></button>
                   </form>
                 <% } %>
               </div>
@@ -74,5 +74,5 @@
 </div>
 
 <div class="card">
-  <a class="btn" data-icon="↩️" href="/wiki/<%= page.slug_id %>">Retour à la page</a>
+  <a class="btn" data-icon="↩️" href="/wiki/<%= page.slug_id %>"><%= t('history.backToPage') %></a>
 </div>

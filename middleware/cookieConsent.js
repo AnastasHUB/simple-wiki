@@ -92,7 +92,8 @@ export function cookieConsentMiddleware(req, res, next) {
   res.locals.showCookieBanner = !hasAccepted;
   res.locals.cookieConsent = consentValue || null;
   if (typeof res.locals.cookiePolicyUrl === "undefined") {
-    res.locals.cookiePolicyUrl = "/cookies/politique";
+    const lang = res.locals.lang === "en" ? "en" : "fr";
+    res.locals.cookiePolicyUrl = lang === "en" ? "/cookies/policy" : "/cookies/politique";
   }
 
   next();

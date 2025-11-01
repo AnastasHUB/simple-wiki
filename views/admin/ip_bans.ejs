@@ -1,5 +1,5 @@
-<% title = 'Blocages IP'; %>
-<h1>Blocages IP</h1>
+<% title = t('admin.ipBans.title'); %>
+<h1><%= t('admin.ipBans.heading') %></h1>
 <% const permissionFlags =
   typeof permissions !== 'undefined' && permissions && typeof permissions === 'object'
     ? permissions
@@ -12,12 +12,12 @@
 <form method="get" class="card mb-md">
   <div class="flex flex-wrap gap-sm items-end">
     <label class="stack-form">
-      <span class="text-sm text-muted">Rechercher</span>
+      <span class="text-sm text-muted"><%= t('admin.ipBans.search.label') %></span>
       <input
         type="text"
         name="search"
         value="<%= typeof searchTerm === 'string' ? searchTerm : '' %>"
-        placeholder="ID, IP, nom, motif…"
+        placeholder="<%= t('admin.ipBans.search.placeholder') %>"
         class="flex-basis-260"
       />
     </label>
@@ -29,180 +29,142 @@
     <input type="hidden" name="userPerPage" value="<%= bannedUsersPagination.perPage %>" />
     <input type="hidden" name="userActionPage" value="1" />
     <input type="hidden" name="userActionPerPage" value="<%= userActionPagination.perPage %>" />
-    <button class="btn" data-icon="🔍" type="submit">Rechercher</button>
+    <button class="btn" type="submit"><%= t('admin.ipBans.search.button') %></button>
     <% if (searchTerm) { %>
-      <a class="btn secondary" href="/admin/ip-bans">Réinitialiser</a>
+      <a class="btn secondary" href="/admin/ip-bans"><%= t('admin.ipBans.search.reset') %></a>
     <% } %>
   </div>
 </form>
 
 <section class="card mb-xl">
-  <h2>Restreindre des actions utilisateur</h2>
+  <h2><%= t('admin.ipBans.userActions.title') %></h2>
   <% if (canManageUserBansLocal) { %>
     <form method="post" action="/admin/ip-bans/users/actions" class="grid grid-auto">
       <%- include('../partials/csrf_field') %>
       <div>
-        <label for="user-action-target">Utilisateur</label>
+        <label for="user-action-target"><%= t('admin.ipBans.userActions.user') %></label>
         <input
           id="user-action-target"
           type="text"
           name="user"
-          placeholder="ID ou nom d'utilisateur"
+          placeholder="<%= t('admin.ipBans.userActions.userPlaceholder') %>"
           required
         >
       </div>
       <fieldset class="grid-span-full stack-form">
-        <legend>Actions à restreindre</legend>
+        <legend><%= t('admin.ipBans.userActions.legend') %></legend>
         <div class="flex flex-wrap gap-sm">
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="global">
-            <span>Wiki entier</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="view">
-            <span>Consulter les pages</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="comment">
-            <span>Publier des commentaires</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="like">
-            <span>Ajouter aux favoris</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="react">
-            <span>Réagir aux contenus</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="contribute">
-            <span>Soumettre du contenu</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="tag">
-            <span>Accéder à un tag</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="edit">
-            <span>Modifier des pages</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="delete">
-            <span>Supprimer des pages</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="manual_publish">
-            <span>Publier manuellement</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="cancel_schedule">
-            <span>Annuler les programmations</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="revert_revision">
-            <span>Restaurer des versions</span>
-          </label>
-          <label class="checkbox">
-            <input type="checkbox" name="actions" value="permanent_delete">
-            <span>Supprimer définitivement</span>
-          </label>
+          <% const actionLabels = {
+            global: t('admin.ipBans.actions.global'),
+            view: t('admin.ipBans.actions.view'),
+            comment: t('admin.ipBans.actions.comment'),
+            like: t('admin.ipBans.actions.like'),
+            react: t('admin.ipBans.actions.react'),
+            contribute: t('admin.ipBans.actions.contribute'),
+            tag: t('admin.ipBans.actions.tag'),
+            edit: t('admin.ipBans.actions.edit'),
+            delete: t('admin.ipBans.actions.delete'),
+            manual_publish: t('admin.ipBans.actions.manual_publish'),
+            cancel_schedule: t('admin.ipBans.actions.cancel_schedule'),
+            revert_revision: t('admin.ipBans.actions.revert_revision'),
+            permanent_delete: t('admin.ipBans.actions.permanent_delete'),
+          }; %>
+          <% Object.keys(actionLabels).forEach(key => { %>
+            <label class="checkbox">
+              <input type="checkbox" name="actions" value="<%= key %>">
+              <span><%= actionLabels[key] %></span>
+            </label>
+          <% }) %>
         </div>
       </fieldset>
       <div>
-        <label for="user-action-tag">Tag (si applicable)</label>
+        <label for="user-action-tag"><%= t('admin.ipBans.userActions.tagLabel') %></label>
         <input
           id="user-action-tag"
           type="text"
           name="tag"
-          placeholder="ex&nbsp;: spoiler"
+          placeholder="<%= t('admin.ipBans.userActions.tagPlaceholder') %>"
         >
-        <p class="help-text">Indiquez un tag uniquement si l'option correspondante est cochée.</p>
+        <p class="help-text"><%= t('admin.ipBans.userActions.tagHelp') %></p>
       </div>
       <div class="grid-span-full">
-        <label for="user-action-reason">Motif</label>
+        <label for="user-action-reason"><%= t('admin.ipBans.userActions.reason') %></label>
         <input
           id="user-action-reason"
           type="text"
           name="reason"
-          placeholder="Optionnel"
+          placeholder="<%= t('admin.ipBans.userActions.reasonPlaceholder') %>"
         >
       </div>
       <div class="grid-span-full">
-        <button class="btn warning" data-icon="🛑" type="submit">Appliquer les restrictions</button>
+        <button class="btn warning" type="submit"><%= t('admin.ipBans.userActions.apply') %></button>
       </div>
     </form>
-    <p class="help-text">
-      Les restrictions ciblées permettent d'empêcher un compte d'effectuer certaines actions ou d'accéder au wiki en
-      entier.
-    </p>
+    <p class="help-text"><%= t('admin.ipBans.userActions.help') %></p>
   <% } else { %>
-    <p>Vous n'avez pas la permission de restreindre des actions utilisateur.</p>
+    <p><%= t('admin.ipBans.userActions.noPermission') %></p>
   <% } %>
 </section>
 
 <section class="card mb-xl">
-  <h2>Ajouter un blocage</h2>
+  <h2><%= t('admin.ipBans.add.title') %></h2>
   <form method="post" action="/admin/ip-bans" class="grid grid-auto">
     <%- include('../partials/csrf_field') %>
     <div>
-      <label for="ip">Adresse IP</label>
+      <label for="ip"><%= t('admin.ipBans.add.ip') %></label>
       <input id="ip" type="text" name="ip" required>
     </div>
     <div>
-      <label for="scope">Portée</label>
+      <label for="scope"><%= t('admin.ipBans.add.scope') %></label>
       <select id="scope" name="scope" required>
-        <option value="global">Wiki entier</option>
-        <option value="view">Blocage des vues</option>
-        <option value="comment">Commentaires</option>
-        <option value="like">Likes</option>
-        <option value="react">Réactions</option>
-        <option value="contribute">Contributions</option>
-        <option value="tag">Tag spécifique</option>
-        <option value="edit">Modifications</option>
-        <option value="delete">Suppressions</option>
-        <option value="manual_publish">Publications manuelles</option>
-        <option value="cancel_schedule">Annulation de programmation</option>
-        <option value="revert_revision">Restauration de version</option>
-        <option value="permanent_delete">Suppression définitive</option>
+        <option value="global"><%= t('admin.ipBans.actions.global') %></option>
+        <option value="view"><%= t('admin.ipBans.add.scopeView') %></option>
+        <option value="comment"><%= t('admin.ipBans.actions.comment') %></option>
+        <option value="like"><%= t('admin.ipBans.actions.like') %></option>
+        <option value="react"><%= t('admin.ipBans.actions.react') %></option>
+        <option value="contribute"><%= t('admin.ipBans.actions.contribute') %></option>
+        <option value="tag"><%= t('admin.ipBans.add.scopeTagSpecific') %></option>
+        <option value="edit"><%= t('admin.ipBans.actions.edit') %></option>
+        <option value="delete"><%= t('admin.ipBans.actions.delete') %></option>
+        <option value="manual_publish"><%= t('admin.ipBans.actions.manual_publish') %></option>
+        <option value="cancel_schedule"><%= t('admin.ipBans.actions.cancel_schedule') %></option>
+        <option value="revert_revision"><%= t('admin.ipBans.actions.revert_revision') %></option>
+        <option value="permanent_delete"><%= t('admin.ipBans.actions.permanent_delete') %></option>
       </select>
     </div>
     <div>
-      <label for="tag">Tag (si applicable)</label>
-      <input id="tag" type="text" name="tag" placeholder="ex: spoiler">
+      <label for="tag"><%= t('admin.ipBans.add.tagLabel') %></label>
+      <input id="tag" type="text" name="tag" placeholder="<%= t('admin.ipBans.add.tagPlaceholder') %>">
     </div>
     <div class="grid-span-full">
-      <label for="reason">Motif</label>
-      <input id="reason" type="text" name="reason" placeholder="Optionnel">
+      <label for="reason"><%= t('admin.ipBans.add.reason') %></label>
+      <input id="reason" type="text" name="reason" placeholder="<%= t('admin.ipBans.add.reasonPlaceholder') %>">
     </div>
     <div class="grid-span-full">
-      <button class="btn success" data-icon="🛡️" type="submit">Enregistrer</button>
+      <button class="btn success" type="submit"><%= t('admin.ipBans.add.save') %></button>
     </div>
   </form>
-  <p class="help-text">
-    Pour un blocage limité à une action, choisissez la portée correspondante (vues, commentaires, likes, réactions,
-    contributions, modifications, suppressions, publications manuelles, annulation de programmation, restauration de
-    version ou suppression définitive). Pour interdire l'accès à un tag, indiquez "tag" puis le nom du tag.
-  </p>
+  <p class="help-text"><%= t('admin.ipBans.add.help') %></p>
 </section>
 
 <section class="card mb-xl">
-  <h2>Utilisateurs bannis (<%= bannedUsersPagination.totalItems %>)</h2>
+  <h2><%- t('admin.ipBans.bannedUsers.title', { count: fmt.number(bannedUsersPagination.totalItems) }) %></h2>
   <% if (!canManageUserBansLocal) { %>
-    <p>Vous n'avez pas la permission de consulter les bannissements utilisateurs.</p>
+    <p><%= t('admin.ipBans.bannedUsers.noPermission') %></p>
   <% } else if (!bannedUsers.length) { %>
-    <p>Aucun utilisateur actuellement banni.</p>
+    <p><%= t('admin.ipBans.bannedUsers.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
             <th>ID</th>
-            <th>Nom</th>
-            <th>Pseudo</th>
-            <th>Motif</th>
-            <th>Banni le</th>
-            <th>Par</th>
-            <th>Actions</th>
+            <th><%= t('admin.ipBans.bannedUsers.table.name') %></th>
+            <th><%= t('admin.ipBans.bannedUsers.table.display') %></th>
+            <th><%= t('admin.ipBans.bannedUsers.table.reason') %></th>
+            <th><%= t('admin.ipBans.bannedUsers.table.bannedAt') %></th>
+            <th><%= t('admin.ipBans.bannedUsers.table.by') %></th>
+            <th><%= t('admin.ipBans.bannedUsers.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
@@ -224,22 +186,22 @@
                     itemClass: 'user-handle-badge-item',
                     iconClass: 'user-handle-badge-icon',
                     srOnlyClass: 'sr-only',
-                    ariaLabel: "Badges de l'utilisateur",
+                    ariaLabel: t('common.authorBadgesAria'),
                   }) %>
                 </span>
               </td>
               <td><%= user.display_name || '-' %></td>
               <td><%= user.ban_reason || '-' %></td>
-              <td><%= user.banned_at ? new Date(user.banned_at).toLocaleString('fr-FR') : '-' %></td>
+              <td><%= user.banned_at ? fmt.dateTime(user.banned_at) : '-' %></td>
               <td><%= user.banned_by || '-' %></td>
               <td>
                 <form
                   method="post"
                   action="/admin/users/<%= user.id %>/unban"
-                  onsubmit="return confirm('Débannir <%= user.username %> ?');"
+                  onsubmit="return confirm(t('admin.ipBans.bannedUsers.unbanConfirm', { user: user.username }))"
                 >
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn success" data-icon="🗝️" type="submit">Débannir</button>
+                  <button class="btn success" type="submit"><%= t('admin.ipBans.bannedUsers.unban') %></button>
                 </form>
               </td>
             </tr>
@@ -252,29 +214,29 @@
 </section>
 
 <section class="card mb-xl">
-  <h2>Restrictions ciblées (<%= userActionPagination.totalItems %>)</h2>
+  <h2><%- t('admin.ipBans.userRestrictions.title', { count: fmt.number(userActionPagination.totalItems) }) %></h2>
   <% if (!canManageUserBansLocal) { %>
-    <p>Vous n'avez pas la permission de consulter ces restrictions.</p>
+    <p><%= t('admin.ipBans.userRestrictions.noPermission') %></p>
   <% } else if (!userActionBans.length) { %>
-    <p>Aucune restriction utilisateur active.</p>
+    <p><%= t('admin.ipBans.userRestrictions.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
         <thead>
           <tr>
             <th>#</th>
-            <th>Utilisateur</th>
-            <th>Type</th>
-            <th>Valeur</th>
-            <th>Motif</th>
-            <th>Créée</th>
-            <th>Actions</th>
+            <th><%= t('admin.ipBans.userRestrictions.table.user') %></th>
+            <th><%= t('admin.ipBans.userRestrictions.table.type') %></th>
+            <th><%= t('admin.ipBans.userRestrictions.table.value') %></th>
+            <th><%= t('admin.ipBans.userRestrictions.table.reason') %></th>
+            <th><%= t('admin.ipBans.userRestrictions.table.created') %></th>
+            <th><%= t('admin.ipBans.userRestrictions.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
           <% userActionBans.forEach(ban => { %>
-            <% const userLabel = ban.username ? ban.username : (ban.user_id ? `Utilisateur #${ban.user_id}` : 'Compte supprimé'); %>
-            <% const typeLabel = ban.scope === 'global' ? 'Wiki entier' : (ban.scope === 'tag' ? 'Tag' : 'Action'); %>
+            <% const userLabel = ban.username ? ban.username : (ban.user_id ? t('admin.ipBans.userRestrictions.userN', { n: ban.user_id }) : t('admin.ipBans.userRestrictions.deletedAccount')); %>
+            <% const typeLabel = ban.scope === 'global' ? t('admin.ipBans.actions.global') : (ban.scope === 'tag' ? t('admin.ipBans.actions.tag') : t('admin.ipBans.userRestrictions.action')); %>
             <% const valueLabel = ban.scope === 'global' ? '—' : (ban.value || (ban.scope === 'tag' ? '-' : '—')); %>
             <tr>
               <td><%= ban.snowflake_id %></td>
@@ -282,26 +244,26 @@
               <td><%= typeLabel %></td>
               <td><%= valueLabel %></td>
               <td><%= ban.reason || '-' %></td>
-              <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= fmt.dateTime(ban.created_at) %></td>
               <td>
                 <div class="flex flex-col gap-xs">
                   <% if (!ban.lifted_at) { %>
                     <form
                       method="post"
                       action="/admin/ip-bans/users/actions/<%= ban.snowflake_id %>/lift"
-                      onsubmit="return confirm('Lever cette restriction ?');"
+                      onsubmit="return confirm(t('admin.ipBans.userRestrictions.liftConfirm'))"
                     >
                       <%- include('../partials/csrf_field') %>
-                      <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
+                      <button class="btn secondary" type="submit"><%= t('admin.ipBans.userRestrictions.lift') %></button>
                     </form>
                   <% } %>
                   <form
                     method="post"
                     action="/admin/ip-bans/users/actions/<%= ban.snowflake_id %>/delete"
-                    onsubmit="return confirm('Supprimer définitivement cette restriction ?');"
+                    onsubmit="return confirm(t('admin.ipBans.userRestrictions.deleteConfirm'))"
                   >
                     <%- include('../partials/csrf_field') %>
-                    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                    <button class="btn danger" type="submit"><%= t('admin.ipBans.userRestrictions.delete') %></button>
                   </form>
                 </div>
               </td>
@@ -315,9 +277,9 @@
 </section>
 
 <section class="card">
-  <h2>Blocages actifs (<%= activePagination.totalItems %>)</h2>
+  <h2><%- t('admin.ipBans.active.title', { count: fmt.number(activePagination.totalItems) }) %></h2>
   <% if (!activeBans.length) { %>
-    <p>Aucun blocage actif.</p>
+    <p><%= t('admin.ipBans.active.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
@@ -325,11 +287,11 @@
           <tr>
             <th>#</th>
             <th>IP</th>
-            <th>Type</th>
-            <th>Valeur</th>
-            <th>Motif</th>
-            <th>Créé</th>
-            <th>Actions</th>
+            <th><%= t('admin.ipBans.active.table.type') %></th>
+            <th><%= t('admin.ipBans.active.table.value') %></th>
+            <th><%= t('admin.ipBans.active.table.reason') %></th>
+            <th><%= t('admin.ipBans.active.table.created') %></th>
+            <th><%= t('admin.ipBans.active.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
@@ -340,24 +302,24 @@
               <td><%= ban.scope %></td>
               <td><%= ban.value || '-' %></td>
               <td><%= ban.reason || '-' %></td>
-              <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= fmt.dateTime(ban.created_at) %></td>
               <td>
                 <div class="flex flex-col gap-xs">
                   <form
                     method="post"
                     action="/admin/ip-bans/<%= ban.snowflake_id %>/lift"
-                    onsubmit="return confirm('Lever ce blocage ?');"
+                    onsubmit="return confirm(t('admin.ipBans.active.liftConfirm'))"
                   >
                     <%- include('../partials/csrf_field') %>
-                    <button class="btn secondary" data-icon="🗝️" type="submit">Lever</button>
+                    <button class="btn secondary" type="submit"><%= t('admin.ipBans.active.lift') %></button>
                   </form>
                   <form
                     method="post"
                     action="/admin/ip-bans/<%= ban.snowflake_id %>/delete"
-                    onsubmit="return confirm('Supprimer définitivement ce blocage ?');"
+                    onsubmit="return confirm(t('admin.ipBans.active.deleteConfirm'))"
                   >
                     <%- include('../partials/csrf_field') %>
-                    <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                    <button class="btn danger" type="submit"><%= t('admin.ipBans.active.delete') %></button>
                   </form>
                 </div>
               </td>
@@ -371,9 +333,9 @@
 </section>
 
 <section class="card">
-  <h2>Blocages levés (<%= liftedPagination.totalItems %>)</h2>
+  <h2><%- t('admin.ipBans.lifted.title', { count: fmt.number(liftedPagination.totalItems) }) %></h2>
   <% if (!liftedBans.length) { %>
-    <p>Aucun blocage levé enregistré.</p>
+    <p><%= t('admin.ipBans.lifted.empty') %></p>
   <% } else { %>
     <div class="table-wrap">
       <table class="data-table">
@@ -381,12 +343,12 @@
           <tr>
             <th>#</th>
             <th>IP</th>
-            <th>Type</th>
-            <th>Valeur</th>
-            <th>Motif</th>
-            <th>Créé</th>
-            <th>Levée</th>
-            <th>Actions</th>
+            <th><%= t('admin.ipBans.lifted.table.type') %></th>
+            <th><%= t('admin.ipBans.lifted.table.value') %></th>
+            <th><%= t('admin.ipBans.lifted.table.reason') %></th>
+            <th><%= t('admin.ipBans.lifted.table.created') %></th>
+            <th><%= t('admin.ipBans.lifted.table.lifted') %></th>
+            <th><%= t('admin.ipBans.lifted.table.actions') %></th>
           </tr>
         </thead>
         <tbody>
@@ -397,16 +359,16 @@
               <td><%= ban.scope %></td>
               <td><%= ban.value || '-' %></td>
               <td><%= ban.reason || '-' %></td>
-              <td><%= new Date(ban.created_at).toLocaleString('fr-FR') %></td>
-              <td><%= new Date(ban.lifted_at).toLocaleString('fr-FR') %></td>
+              <td><%= fmt.dateTime(ban.created_at) %></td>
+              <td><%= fmt.dateTime(ban.lifted_at) %></td>
               <td>
                 <form
                   method="post"
                   action="/admin/ip-bans/<%= ban.snowflake_id %>/delete"
-                  onsubmit="return confirm('Supprimer définitivement ce blocage ?');"
+                  onsubmit="return confirm(t('admin.ipBans.lifted.deleteConfirm'))"
                 >
                   <%- include('../partials/csrf_field') %>
-                  <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+                  <button class="btn danger" type="submit"><%= t('admin.ipBans.lifted.delete') %></button>
                 </form>
               </td>
             </tr>
@@ -417,3 +379,4 @@
     <%- include('./paginationControls', { pagination: liftedPagination }) %>
   <% } %>
 </section>
+

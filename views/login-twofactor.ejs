@@ -1,7 +1,7 @@
-<% title = 'Vérification en deux étapes'; %>
-<h1>Vérification en deux étapes</h1>
+<% title = t('twofactor.title'); %>
+<h1><%= t('twofactor.heading') %></h1>
 <p>
-  Saisissez le code TOTP généré par votre application d'authentification pour finaliser votre connexion, <strong><%= username %></strong>.
+  <%- t('twofactor.totpPrompt', { user: username }) %>
 </p>
 <% if (error) { %>
   <div class="card alert error"><%= error %></div>
@@ -10,7 +10,7 @@
   <%- include('partials/csrf_field') %>
   <input type="hidden" name="mode" value="totp" />
   <div class="field">
-    <label for="twofactor-token">Code TOTP</label>
+    <label for="twofactor-token"><%= t('twofactor.fields.code') %></label>
     <input
       id="twofactor-token"
       name="token"
@@ -20,25 +20,25 @@
       maxlength="6"
       required
       placeholder="123456"
-      title="Le code doit contenir 6 chiffres"
+      title="<%= t('twofactor.fields.codeTitle') %>"
     />
   </div>
   <div class="actions">
-    <button class="btn success" data-icon="✅">Valider</button>
+    <button class="btn success" data-icon="✅"><%= t('twofactor.actions.validate') %></button>
   </div>
 </form>
 
 <% if (remainingRecoveryCodes > 0) { %>
   <section class="card">
-    <h2>Vous n'avez pas accès à votre application ?</h2>
+    <h2><%= t('twofactor.recovery.title') %></h2>
     <p>
-      Utilisez l'un de vos codes de récupération. Il vous restera ensuite <strong><%= remainingRecoveryCodes %></strong> code(s).
+      <%- t('twofactor.recovery.prompt', { left: remainingRecoveryCodes }) %>
     </p>
     <form method="post" action="/login/two-factor" class="form recovery-form">
       <%- include('partials/csrf_field') %>
       <input type="hidden" name="mode" value="recovery" />
       <div class="field">
-        <label for="recovery-code">Code de récupération</label>
+        <label for="recovery-code"><%= t('twofactor.recovery.field') %></label>
         <input
           id="recovery-code"
           name="recoveryCode"
@@ -48,12 +48,12 @@
         />
       </div>
       <div class="actions">
-        <button class="btn" data-icon="🔁">Valider avec un code de récupération</button>
+        <button class="btn" data-icon="🔁"><%= t('twofactor.recovery.submit') %></button>
       </div>
     </form>
   </section>
 <% } else { %>
   <p class="text-muted">
-    Tous vos codes de récupération ont déjà été utilisés. Contactez un administrateur si vous ne pouvez pas accéder à votre application.
+    <%= t('twofactor.recovery.noneLeft') %>
   </p>
 <% } %>

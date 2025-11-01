@@ -56,7 +56,7 @@
           <% appeals.forEach(appeal => { %>
             <tr>
               <td><code><%= appeal.snowflake_id %></code></td>
-              <td><%= new Date(appeal.created_at).toLocaleString('fr-FR') %></td>
+              <td><%= new Date(appeal.created_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></td>
               <td>
                 <% if (appeal.ip) { %>
                   <code><%= appeal.ip %></code>
@@ -79,7 +79,7 @@
                   <span class="status-pill rejected">Refusée</span>
                 <% } %>
                 <% if (appeal.resolved_at) { %>
-                  <div class="text-sm text-muted">le <%= new Date(appeal.resolved_at).toLocaleString('fr-FR') %></div>
+                  <div class="text-sm text-muted">le <%= new Date(appeal.resolved_at).toLocaleString(lang === 'en' ? 'en-US' : 'fr-FR') %></div>
                 <% } %>
                 <% if (appeal.resolved_by) { %>
                   <div class="text-sm text-muted">par <%= appeal.resolved_by %></div>

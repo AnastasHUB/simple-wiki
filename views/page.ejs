@@ -3,15 +3,15 @@
   <div class="heading">
     <h1 class="page-title"><%= page.title %></h1>
     <div class="meta">
-      <span>Créé: <%= page.created_at %></span>
-      <% if (page.updated_at) { %><span>• Modifié: <%= page.updated_at %></span><% } %>
+      <span><%= t('page.meta.created') %> <%= page.created_at %></span>
+      <% if (page.updated_at) { %><span>• <%= t('page.meta.updated') %> <%= page.updated_at %></span><% } %>
       <% const pageAuthorColor = page.authorRole && page.authorRole.color ? page.authorRole.color : null; %>
       <% const pageAuthorClasses = ['user-handle', 'page-author']; %>
       <% const pageAuthorStyle = pageAuthorColor && pageAuthorColor.hasColor ? pageAuthorColor.style : ''; %>
       <% if (pageAuthorColor && pageAuthorColor.hasColor) { pageAuthorClasses.push('role-colored-text'); pageAuthorClasses.push(pageAuthorColor.className); } %>
       <% const pageAuthorBadges = Array.isArray(page?.authorRole?.badges) ? page.authorRole.badges : []; %>
       <span>
-        • Auteur :
+        • <%= t('page.meta.author') %>
         <span class="user-handle-decorated">
           <strong class="<%= pageAuthorClasses.join(' ') %>" style="<%= pageAuthorStyle %>"><%= page.author || 'Anonyme' %></strong>
           <%- include('partials/userBadges', {
@@ -20,13 +20,13 @@
             itemClass: 'user-handle-badge-item',
             iconClass: 'user-handle-badge-icon',
             srOnlyClass: 'sr-only',
-            ariaLabel: "Badges de l'auteur",
+            ariaLabel: t('common.authorBadgesAria'),
           }) %>
         </span>
       </span>
-      <span>• Likes: <strong data-like-count-for="<%= page.slug_id %>"><%= page.likes %></strong></span>
-      <span>• Commentaires: <strong><%= commentPagination.totalItems %></strong></span>
-      <span>• Vues: <strong><%= page.views %></strong></span>
+      <span>• <%= t('page.meta.likes') %> <strong data-like-count-for="<%= page.slug_id %>"><%= page.likes %></strong></span>
+      <span>• <%= t('page.meta.comments') %> <strong><%= commentPagination.totalItems %></strong></span>
+      <span>• <%= t('page.meta.views') %> <strong><%= page.views %></strong></span>
     </div>
   </div>
   <div class="actions">
@@ -35,14 +35,14 @@
       <button
         class="btn <%= page.userLiked ? 'unlike' : 'like' %>"
         data-icon="<%= page.userLiked ? '💔' : '💖' %>"
-        data-label-liked="Retirer le like"
-        data-label-unliked="Like"
+        data-label-liked="<%= t('page.actions.unlike') %>"
+        data-label-unliked="<%= t('page.actions.like') %>"
         type="submit"
       >
-        <%= page.userLiked ? 'Retirer le like' : 'Like' %> (<%= page.likes %>)
+        <%= page.userLiked ? t('page.actions.unlike') : t('page.actions.like') %> (<%= page.likes %>)
       </button>
     </form>
-    <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')">Copier le lien</button>
+    <button class="btn copy" data-icon="🔗" onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= page.slug_id %>')"><%= t('common.copyLink') %></button>
     <% const permissionFlags =
       typeof permissions !== 'undefined' && permissions && typeof permissions === 'object'
         ? permissions
@@ -52,17 +52,17 @@
     <% const canPublishDirectly = !!(permissionFlags.is_admin || permissionFlags.is_contributor); %>
     <% const canSubmitEdits = !!permissionFlags.can_submit_pages; %>
     <% if (isAdmin) { %>
-      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Éditer</a>
-      <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history">Historique</a>
-      <form action="/delete/<%= page.slug_id %>" method="post" onsubmit="return confirm('Supprimer ?')">
+      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>"><%= t('page.actions.edit') %></a>
+      <a class="btn" data-icon="📜" href="/wiki/<%= page.slug_id %>/history"><%= t('page.actions.history') %></a>
+      <form action="/delete/<%= page.slug_id %>" method="post" onsubmit="return confirm('<%= t('page.actions.deleteConfirm') %>')">
         <%- include('partials/csrf_field') %>
         <input type="hidden" name="_method" value="DELETE" />
-        <button class="btn danger" data-icon="🗑️">Supprimer</button>
+        <button class="btn danger" data-icon="🗑️"><%= t('page.actions.delete') %></button>
       </form>
     <% } else if (canPublishDirectly) { %>
-      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Éditer</a>
+      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>"><%= t('page.actions.edit') %></a>
     <% } else if (canSubmitEdits) { %>
-      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>">Suggérer une modification</a>
+      <a class="btn" data-icon="✏️" href="/edit/<%= page.slug_id %>"><%= t('page.actions.suggestEdit') %></a>
     <% } %>
   </div>
   <% if (Array.isArray(pageReactions) && pageReactions.length) { %>
@@ -84,7 +84,7 @@
 
 <% if (tags && tags.length) { %>
   <div class="card">
-    <strong>Tags</strong>
+    <strong><%= t('page.tags.title') %></strong>
     <div class="tags-row mt-xs">
       <% tags.forEach(t => { %>
         <a class="tag" href="/tags/<%= t %>"><%= t %></a>

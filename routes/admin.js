@@ -257,11 +257,11 @@ function requirePermission(...flags) {
     if (preferredType === "json") {
       return res.status(403).json({
         error: "forbidden",
-        message: "Vous n'avez pas la permission d'effectuer cette action.",
+        message: req.t('errors.forbiddenAction'),
       });
     }
     return res.status(403).render("error", {
-      message: "Vous n'avez pas la permission d'accéder à cette page.",
+      message: req.t('errors.forbiddenPage'),
     });
   };
 }
@@ -550,14 +550,14 @@ r.post(
   if (!comment) {
     pushNotification(req, {
       type: "error",
-      message: "Commentaire introuvable.",
+      message: req.t('admin.comments.notFound'),
     });
     return redirectToComments(req, res);
   }
   if (comment.status === "approved") {
     pushNotification(req, {
       type: "info",
-      message: "Ce commentaire est déjà approuvé.",
+      message: req.t('admin.comments.alreadyApproved'),
     });
     return redirectToComments(req, res);
   }
@@ -568,16 +568,16 @@ r.post(
   if (!result?.changes) {
     pushNotification(req, {
       type: "error",
-      message: "Impossible d'approuver ce commentaire.",
+      message: req.t('admin.comments.errors.approveFailed'),
     });
     return redirectToComments(req, res);
   }
   comment.status = "approved";
   pushNotification(req, {
     type: "success",
-    message: "Commentaire approuvé.",
+    message: req.t('admin.comments.approved'),
   });
-  await sendAdminEvent("Commentaire approuvé", {
+  await sendAdminEvent(req.t('admin.comments.eventApproved'), {
     page: buildCommentPageSummary(comment),
     comment: buildCommentSummary(comment),
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
@@ -594,14 +594,14 @@ r.post(
   if (!comment) {
     pushNotification(req, {
       type: "error",
-      message: "Commentaire introuvable.",
+      message: req.t('admin.comments.notFound'),
     });
     return redirectToComments(req, res);
   }
   if (comment.status === "rejected") {
     pushNotification(req, {
       type: "info",
-      message: "Ce commentaire est déjà rejeté.",
+      message: req.t('admin.comments.alreadyRejected'),
     });
     return redirectToComments(req, res);
   }
@@ -612,16 +612,16 @@ r.post(
   if (!result?.changes) {
     pushNotification(req, {
       type: "error",
-      message: "Impossible de rejeter ce commentaire.",
+      message: req.t('admin.comments.errors.rejectFailed'),
     });
     return redirectToComments(req, res);
   }
   comment.status = "rejected";
   pushNotification(req, {
     type: "info",
-    message: "Commentaire rejeté.",
+    message: req.t('admin.comments.rejected'),
   });
-  await sendAdminEvent("Commentaire rejeté", {
+  await sendAdminEvent(req.t('admin.comments.eventRejected'), {
     page: buildCommentPageSummary(comment),
     comment: buildCommentSummary(comment),
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
@@ -635,7 +635,7 @@ async function handleCommentDeletion(req, res) {
   if (!comment) {
     pushNotification(req, {
       type: "error",
-      message: "Commentaire introuvable.",
+      message: req.t('admin.comments.notFound'),
     });
     return redirectToComments(req, res);
   }
@@ -643,7 +643,7 @@ async function handleCommentDeletion(req, res) {
   if (!result?.changes) {
     pushNotification(req, {
       type: "error",
-      message: "Impossible de supprimer ce commentaire.",
+      message: req.t('admin.comments.errors.deleteFailed'),
     });
     return redirectToComments(req, res);
   }
@@ -651,9 +651,9 @@ async function handleCommentDeletion(req, res) {
   comment.status = "deleted";
   pushNotification(req, {
     type: "success",
-    message: "Commentaire supprimé.",
+    message: req.t('admin.comments.deleted'),
   });
-  await sendAdminEvent("Commentaire supprimé", {
+  await sendAdminEvent(req.t('admin.comments.eventDeleted'), {
     page: buildCommentPageSummary(comment),
     comment: buildCommentSummary(comment),
     extra: { ip: comment.ip, commentId: comment.snowflake_id },
@@ -2631,23 +2631,23 @@ r.get(
   const periods = [
     {
       key: "day",
-      label: "24 dernières heures",
+      label: req.t("admin.stats.periods.day"),
       durationMs: 24 * 60 * 60 * 1000,
       limit: 10,
     },
     {
       key: "week",
-      label: "7 derniers jours",
+      label: req.t("admin.stats.periods.week"),
       durationMs: 7 * 24 * 60 * 60 * 1000,
       limit: 15,
     },
     {
       key: "month",
-      label: "30 derniers jours",
+      label: req.t("admin.stats.periods.month"),
       durationMs: 30 * 24 * 60 * 60 * 1000,
       limit: 15,
     },
-    { key: "all", label: "Depuis toujours", durationMs: null, limit: 20 },
+    { key: "all", label: req.t("admin.stats.periods.all"), durationMs: null, limit: 20 },
   ];
 
   const stats = {};
@@ -3272,39 +3272,39 @@ r.get(
   const engagementHighlights = [
     {
       icon: "📄",
-      label: "Articles publiés",
+      label: req.t("admin.stats.highlights.labels.publishedPages"),
       value: totalPages,
-      secondary: `${newPagesCount} cette semaine`,
+      secondary: req.t("admin.stats.highlights.secondary.newPagesThisWeek", { count: newPagesCount }),
     },
     {
       icon: "🗑️",
-      label: "Pages dans la corbeille",
+      label: req.t("admin.stats.highlights.labels.trashPages"),
       value: deletedPagesCount,
-      secondary: "Prêtes à être purgées",
+      secondary: req.t("admin.stats.highlights.secondary.readyToPurge"),
     },
     {
       icon: "⏳",
-      label: "Soumissions en attente",
+      label: req.t("admin.stats.highlights.labels.pendingSubmissions"),
       value: pendingSubmissionsCount,
-      secondary: "À modérer",
+      secondary: req.t("admin.stats.highlights.secondary.toModerate"),
     },
     {
       icon: "📦",
-      label: "Fichiers envoyés",
+      label: req.t("admin.stats.highlights.labels.uploadedFiles"),
       value: totalUploadsCount,
-      secondary: `${newUploadsCount} cette semaine`,
+      secondary: req.t("admin.stats.highlights.secondary.uploadsThisWeek", { count: newUploadsCount }),
     },
     {
       icon: "👀",
-      label: "Vues (7 j)",
+      label: req.t("admin.stats.highlights.labels.views7d"),
       value: newViewsCount,
-      secondary: `${avgViewsPerPage} vues moy./page`,
+      secondary: req.t("admin.stats.highlights.secondary.avgViewsPerPage", { avg: avgViewsPerPage }),
     },
     {
       icon: "💬",
-      label: "Commentaires (7 j)",
+      label: req.t("admin.stats.highlights.labels.comments7d"),
       value: newCommentsCount,
-      secondary: `${newLikesCount} likes (7 j)`,
+      secondary: req.t("admin.stats.highlights.secondary.likes7d", { count: newLikesCount }),
     },
   ];
 

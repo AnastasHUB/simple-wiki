@@ -1,5 +1,5 @@
-<% title = 'Recherche'; %>
-<h1>Résultats pour « <%= q %> »</h1>
+<% title = t('search.title'); %>
+<h1><%= t('search.resultsFor', { q }) %></h1>
 
 <div class="search-filters">
   <form class="filters-form" method="get" data-search-filters>
@@ -7,15 +7,15 @@
     <% const selectedTagSet = new Set((filters.selectedTagKeys || []).map(t => t.toLowerCase())); %>
     <div class="filters-grid">
       <div class="filter-field">
-        <label for="filter-author">Auteur</label>
+        <label for="filter-author"><%= t('search.filters.author') %></label>
         <input id="filter-author" name="author" type="text" value="<%= filters.author || '' %>" maxlength="120" data-filter-field>
       </div>
 
       <div class="filter-field">
-        <label for="filter-tags">Tags</label>
+        <label for="filter-tags"><%= t('search.filters.tags') %></label>
         <select id="filter-tags" name="tag" multiple size="5" data-filter-tags data-filter-field>
           <% if (!availableTags.length) { %>
-            <option disabled>(Aucun tag disponible)</option>
+            <option disabled>(<%= t('search.filters.noTags') %>)</option>
           <% } %>
           <% availableTags.forEach(tagName => { %>
             <% const isSelected = selectedTagSet.has(tagName.toLowerCase()); %>
@@ -27,7 +27,7 @@
             <% filters.displayTags.forEach(tag => { %>
               <li>
                 <span class="tag-chip"><%= tag.label %></span>
-                <button type="button" class="btn ghost" data-remove-tag="<%= tag.value %>" aria-label="Retirer le tag <%= tag.label %>">✕</button>
+                <button type="button" class="btn ghost" data-remove-tag="<%= tag.value %>" aria-label="<%= t('search.filters.removeTag', { label: tag.label }) %>">✕</button>
               </li>
             <% }) %>
           </ul>
@@ -35,17 +35,17 @@
       </div>
 
       <div class="filter-field">
-        <label for="filter-start">Publication (début)</label>
+        <label for="filter-start"><%= t('search.filters.start') %></label>
         <input id="filter-start" name="start" type="date" value="<%= filters.startDate || '' %>" data-filter-field>
       </div>
 
       <div class="filter-field">
-        <label for="filter-end">Publication (fin)</label>
+        <label for="filter-end"><%= t('search.filters.end') %></label>
         <input id="filter-end" name="end" type="date" value="<%= filters.endDate || '' %>" data-filter-field>
       </div>
 
       <div class="filter-field">
-        <label for="filter-sort">Tri</label>
+        <label for="filter-sort"><%= t('search.filters.sort') %></label>
         <select id="filter-sort" name="sort" data-auto-submit data-filter-field>
           <% sortOptions.forEach(option => { %>
             <option value="<%= option.value %>" <%= option.value === filters.sortKey ? 'selected' : '' %>><%= option.label %></option>
@@ -55,17 +55,17 @@
     </div>
 
     <div class="filter-actions">
-      <button type="submit" class="btn primary" data-icon="🔎">Appliquer</button>
-      <button type="button" class="btn" data-clear-filters data-reset-url="<%= filters.resetUrl %>">Réinitialiser</button>
+      <button type="submit" class="btn primary" data-icon="🔎"><%= t('search.filters.apply') %></button>
+      <button type="button" class="btn" data-clear-filters data-reset-url="<%= filters.resetUrl %>"><%= t('search.filters.reset') %></button>
     </div>
   </form>
   <% if (filters.hasActiveFilters) { %>
-    <p class="active-filter-hint">Filtres actifs appliqués à cette recherche.</p>
+    <p class="active-filter-hint"><%= t('search.filters.activeHint') %></p>
   <% } %>
 </div>
 
 <div class="search-meta">
-  <p><strong><%= total %></strong> résultat<%= total > 1 ? 's' : '' %> trouvé<%= total > 1 ? 's' : '' %>.</p>
+  <p><%= t('search.meta.results', { count: total, suffix: total > 1 ? 's' : '' }) %></p>
   <% const perPageFieldId = `${pagination.pageParam}-per-page`; %>
   <form class="page-size" method="get">
     <input type="hidden" name="<%= pagination.pageParam %>" value="1">
@@ -74,7 +74,7 @@
         <input type="hidden" name="<%= pair.name %>" value="<%= pair.value %>">
       <% }) %>
     <% } %>
-    <label for="<%= perPageFieldId %>">Résultats par page</label>
+    <label for="<%= perPageFieldId %>"><%= t('search.meta.perPage') %></label>
     <select id="<%= perPageFieldId %>" name="<%= pagination.perPageParam %>" onchange="this.form.submit()">
       <% pagination.perPageOptions.forEach(option => { %>
         <option value="<%= option %>" <%= option === pagination.perPage ? 'selected' : '' %>><%= option %></option>
@@ -84,12 +84,12 @@
 </div>
 
 <% if (mode !== 'fts') { %>
-  <p><em>Recherche basique utilisée car l’index plein texte <% if (!ftsAvailable) { %>n’est pas disponible<% } else { %>n’a pas pu être utilisé pour cette requête<% } %>.</em></p>
+  <p><em><%= t('search.mode.basic') %> <% if (!ftsAvailable) { %><%= t('search.mode.ftsUnavailable') %><% } else { %><%= t('search.mode.ftsSkipped') %><% } %>.</em></p>
 <% } %>
 
 <div class="article-grid">
   <% if (!rows.length) { %>
-    <div class="card">Aucun résultat.</div>
+    <div class="card"><%= t('search.noResults') %></div>
   <% } %>
 
   <% rows.forEach(p => {
@@ -109,7 +109,7 @@
       <% } %>
 
       <% if (showScore) { %>
-        <div class="meta">Score BM25 : <%= p.score.toFixed(2) %></div>
+        <div class="meta"><%= t('search.meta.bm25') %> <%= p.score.toFixed(2) %></div>
       <% } %>
 
       <% if (tags.length) { %>
@@ -121,10 +121,10 @@
       <% } %>
 
       <div class="actions">
-        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>">Ouvrir l’article</a>
+        <a class="btn success" data-icon="📖" href="/wiki/<%= p.slug_id %>"><%= t('common.openArticle') %></a>
         <button class="btn copy" data-icon="🔗"
           onclick="navigator.clipboard.writeText(location.origin + '/wiki/<%= p.slug_id %>')">
-          Copier le lien
+          <%= t('common.copyLink') %>
         </button>
       </div>
     </div>
@@ -133,18 +133,18 @@
 
 <div class="actions pagination">
   <span class="pagination-status">
-    Page <strong><%= pagination.page %></strong> / <%= pagination.totalPages %>
+    <%- t('common.pageXofY', { page: pagination.page, total: pagination.totalPages }) %>
   </span>
   <div class="pager">
     <% if (pagination.hasPrevious) { %>
-      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>">Précédent</a>
+      <a class="btn" data-icon="⬅️" href="<%= pagination.previousUrl %>"><%= t('common.prev') %></a>
     <% } else { %>
-      <span class="btn" data-icon="⬅️" aria-disabled="true">Précédent</span>
+      <span class="btn" data-icon="⬅️" aria-disabled="true"><%= t('common.prev') %></span>
     <% } %>
     <% if (pagination.hasNext) { %>
-      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>">Suivant</a>
+      <a class="btn" data-icon="➡️" href="<%= pagination.nextUrl %>"><%= t('common.next') %></a>
     <% } else { %>
-      <span class="btn" data-icon="➡️" aria-disabled="true">Suivant</span>
+      <span class="btn" data-icon="➡️" aria-disabled="true"><%= t('common.next') %></span>
     <% } %>
   </div>
 </div>

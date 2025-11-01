@@ -3,7 +3,7 @@
   const commentId = comment?.snowflake_id || '';
   const parentId = comment?.parentId || null;
   const canReply = canComment && depth + 1 < maxCommentDepth;
-  const authorName = comment?.author || 'Anonyme';
+  const authorName = comment?.author || t('admin.common.anonymous');
   const commentAuthorColor =
     comment?.authorRole && comment.authorRole.color ? comment.authorRole.color : null;
   const authorAttr = authorName.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -42,7 +42,7 @@
       <% } else { %>
         <span class="comment-avatar-initial"><%= avatarInitial %></span>
       <% } %>
-      <span class="sr-only">Avatar de <%= authorName %></span>
+      <span class="sr-only"><%= t('common.avatarOf', { user: authorName }) %></span>
     </div>
     <div class="comment-meta">
       <span class="comment-author-header user-handle-decorated">
@@ -55,15 +55,15 @@
           itemClass: ['comment-author-badge-item', 'user-handle-badge-item'],
           iconClass: ['comment-author-badge-icon', 'user-handle-badge-icon'],
           srOnlyClass: 'sr-only',
-          ariaLabel: "Badges de l'auteur",
+          ariaLabel: t('common.authorBadgesAria'),
         }) %>
         <% if (hasAttachments) { %>
-          <span class="comment-attachment-flag" title="Ce commentaire contient des pièces jointes">
-            📎<span class="sr-only">Pièces jointes disponibles</span>
+          <span class="comment-attachment-flag" title="<%= t('comment.attachments.availableTitle') %>">
+            📎<span class="sr-only"><%= t('comment.attachments.availableSr') %></span>
           </span>
         <% } %>
       </span>
-      <span>· <%= new Date(comment.created_at).toLocaleString('fr-FR') %></span>
+      <span>· <%= fmt.dateTime(comment.created_at) %></span>
       <% if (comment?.ipProfile) { %>
         <span>
           ·
@@ -82,7 +82,7 @@
           <% const attachmentLabel =
             typeof attachment?.originalName === 'string' && attachment.originalName
               ? attachment.originalName
-              : 'Pièce jointe'; %>
+            : t('comment.attachments.item'); %>
           <% const attachmentUrl = typeof attachment?.url === 'string' ? attachment.url : ''; %>
           <% const rawSize = Number.isFinite(attachment?.size)
             ? Number(attachment.size)
@@ -100,7 +100,7 @@
                 <img
                   class="comment-attachment-thumb"
                   src="<%= attachmentUrl %>"
-                  alt="Aperçu de <%= attachmentLabel %>"
+                  alt="<%= t('comment.attachments.previewAlt', { name: attachmentLabel }) %>"
                   loading="lazy"
                 />
                 <span class="comment-attachment-label"><%= attachmentLabel %></span>
@@ -118,7 +118,7 @@
               <span class="comment-attachment-label"><%= attachmentLabel %></span>
             <% } %>
             <% if (formattedSize) { %>
-              <span class="comment-attachment-size"><%= formattedSize %>&nbsp;Ko</span>
+              <span class="comment-attachment-size"><%= formattedSize %>&nbsp;<%= t('common.size.kb') %></span>
             <% } %>
           </li>
         <% }); %>
@@ -146,20 +146,20 @@
           data-reply-to="<%= commentId %>"
           data-reply-author="<%= authorAttr %>"
         >
-          Répondre
+          <%= t('common.actions.reply') %>
         </button>
       <% } %>
       <% if (canEditOwn) { %>
         <a class="btn secondary" data-icon="✏️" href="/wiki/<%= page.slug_id %>/comments/<%= commentId %>/edit">
-          Modifier
+          <%= t('common.actions.edit') %>
         </a>
         <form
           method="post"
           action="/wiki/<%= page.slug_id %>/comments/<%= commentId %>/delete"
-          onsubmit="return confirm('Supprimer ce commentaire ?');"
+          onsubmit="return confirm(<%= JSON.stringify(t('comment.edit.deleteConfirm')) %>);"
         >
           <%- include('csrf_field') %>
-          <button class="btn danger" data-icon="🗑️" type="submit">Supprimer</button>
+          <button class="btn danger" data-icon="🗑️" type="submit"><%= t('common.actions.delete') %></button>
         </form>
       <% } %>
     </div>

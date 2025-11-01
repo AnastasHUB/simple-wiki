@@ -17,43 +17,63 @@ export function formatSecondsAgo(seconds) {
   return days === 1 ? "1 j" : `${days} j`;
 }
 
-export function formatRelativeDurationMs(milliseconds) {
+export function formatRelativeDurationMs(milliseconds, lang = "fr") {
   const safeMs = Number.isFinite(milliseconds) ? milliseconds : 0;
   const isFuture = safeMs < 0;
   const absSeconds = Math.floor(Math.abs(safeMs) / 1000);
-  const prefix = isFuture ? "dans" : "il y a";
+  const isEn = lang === "en";
+  const prefix = isEn ? (isFuture ? "in" : "") : isFuture ? "dans" : "il y a";
+  const join = (n, unit) => (isEn ? `${prefix ? prefix + " " : ""}${n} ${unit}${n === 1 ? "" : "s"}${isFuture || !prefix ? "" : ""}` : `${prefix} ${n} ${unit}`);
   if (absSeconds <= 0) {
-    return isFuture ? "dans moins d’une seconde" : "il y a moins d’une seconde";
+    return isEn ? (isFuture ? "in less than a second" : "less than a second ago") : (isFuture ? "dans moins d’une seconde" : "il y a moins d’une seconde");
   }
   if (absSeconds < 60) {
-    const unit = absSeconds === 1 ? "seconde" : "secondes";
-    return `${prefix} ${absSeconds} ${unit}`;
+    return join(absSeconds, isEn ? "second" : absSeconds === 1 ? "seconde" : "secondes");
   }
   if (absSeconds < 3600) {
     const minutes = Math.round(absSeconds / 60);
-    const unit = minutes === 1 ? "minute" : "minutes";
-    return `${prefix} ${minutes} ${unit}`;
+    return join(minutes, isEn ? "minute" : minutes === 1 ? "minute" : "minutes");
   }
   if (absSeconds < 86400) {
     const hours = Math.round(absSeconds / 3600);
-    const unit = hours === 1 ? "heure" : "heures";
-    return `${prefix} ${hours} ${unit}`;
+    return join(hours, isEn ? "hour" : hours === 1 ? "heure" : "heures");
   }
   const days = Math.round(absSeconds / 86400);
-  const unit = days === 1 ? "jour" : "jours";
-  return `${prefix} ${days} ${unit}`;
+  return join(days, isEn ? "day" : days === 1 ? "jour" : "jours");
 }
 
-export function formatDateTimeLocalized(date) {
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    return "";
-  }
+// Formats a date using the provided language ("en" | "fr").
+// Falls back to ISO string on failure.
+export function formatDate(date, lang = "fr", options = {}) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const locale = lang === "en" ? "en-US" : "fr-FR";
+  const fmtOptions = {
+    dateStyle: "medium",
+    ...(options || {}),
+  };
   try {
-    return new Intl.DateTimeFormat("fr-FR", {
-      dateStyle: "full",
-      timeStyle: "long",
-    }).format(date);
-  } catch (error) {
+    return new Intl.DateTimeFormat(locale, fmtOptions).format(date);
+  } catch (_err) {
     return date.toISOString();
   }
+}
+
+export function formatDateTime(date, lang = "fr", options = {}) {
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) return "";
+  const locale = lang === "en" ? "en-US" : "fr-FR";
+  const fmtOptions = {
+    dateStyle: "medium",
+    timeStyle: "short",
+    ...(options || {}),
+  };
+  try {
+    return new Intl.DateTimeFormat(locale, fmtOptions).format(date);
+  } catch (_err) {
+    return date.toISOString();
+  }
+}
+
+// Backward-compatible helper (default FR). Prefer formatDate/formatDateTime with lang.
+export function formatDateTimeLocalized(date, lang = "fr") {
+  return formatDateTime(date, lang, { dateStyle: "full", timeStyle: "long" });
 }

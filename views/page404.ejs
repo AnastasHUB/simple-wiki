@@ -1,15 +1,13 @@
-<% title = 'Page introuvable'; %>
+<% title = t('page404.title'); %>
 <section class="card not-found-card">
   <div class="not-found-hero">
     <span class="not-found-code">404</span>
-    <h1>Page introuvable</h1>
-    <p class="text-muted">
-      Désolé, nous n'avons trouvé aucun contenu à cette adresse. La page a peut-être été renommée ou supprimée.
-    </p>
+    <h1><%= t('page404.heading') %></h1>
+    <p class="text-muted"><%= t('page404.message') %></p>
   </div>
   <div class="not-found-actions">
-    <a class="btn" data-icon="🏠" href="/">Retour à l'accueil</a>
-    <a class="btn secondary" data-icon="🔍" href="/search">Rechercher une page</a>
-    <a class="btn" data-icon="✍️" href="/new">Créer un article</a>
+    <a class="btn" data-icon="🏠" href="/"><%= t('page404.actions.home') %></a>
+    <a class="btn secondary" data-icon="🔍" href="/search"><%= t('page404.actions.search') %></a>
+    <a class="btn" data-icon="✍️" href="/new"><%= t('page404.actions.create') %></a>
   </div>
 </section>

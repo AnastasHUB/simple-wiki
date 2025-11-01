@@ -111,7 +111,9 @@ export function createRateLimiter({
       if (retryAfterMs > 0) {
         res.set("Retry-After", Math.ceil(retryAfterMs / 1000));
       }
-      return sendRateLimitResponse(req, res, message, statusCode);
+      const bodyMessage =
+        typeof message === "function" ? message(req) : message;
+      return sendRateLimitResponse(req, res, bodyMessage, statusCode);
     }
 
     next();
